@@ -10,6 +10,21 @@ async def test_health_check(client):
 
 
 @pytest.mark.asyncio
+async def test_cors_preflight_allows_frontend_origin(client):
+    response = await client.options(
+        "/api/runs",
+        headers={
+            "Origin": "http://127.0.0.1:33100",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:33100"
+
+
+@pytest.mark.asyncio
 async def test_create_run_returns_draft_run(client):
     response = await client.post("/api/runs", json={"name": "test-run"})
 

@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     anthropic_model: str | None = None
     log_level: str = "INFO"
     project_root: Path = PROJECT_ROOT
+    cors_allowed_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://127.0.0.1:33100",
+            "http://localhost:33100",
+            "http://127.0.0.1:3000",
+            "http://localhost:3000",
+        ]
+    )
 
     @model_validator(mode="after")
     def normalize_agent_settings(self) -> "Settings":
