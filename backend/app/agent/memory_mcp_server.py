@@ -29,8 +29,9 @@ def _format_memory_result(memories: list[dict[str, Any]]) -> str:
     lines = ["找到以下记忆："]
     for i, mem in enumerate(memories, 1):
         tick_info = f"Tick {mem.get('tick_no', '?')}"
+        category_info = mem.get("memory_category", "unknown")
         summary = mem.get("summary") or mem.get("content", "")[:50]
-        lines.append(f"{i}. [{tick_info}] {summary}")
+        lines.append(f"{i}. [{tick_info}] [{category_info}] {summary}")
         if mem.get("related_agent_name"):
             lines.append(f"   相关人物: {mem['related_agent_name']}")
     return "\n".join(lines)
@@ -41,8 +42,17 @@ async def _search_memories(
     agent_id: str,
     query: str,
     limit: int = 5,
+    category: str = "long_term",
 ) -> list[dict[str, Any]]:
-    """Search agent's memories by keyword."""
+    """Search agent's memories by keyword.
+
+    Args:
+        engine: Database engine
+        agent_id: Agent ID
+        query: Search keyword
+        limit: Max results
+        category: Memory category to search ("short_term", "long_term", or "all")
+    """
     from sqlalchemy import select, or_
     from sqlalchemy.ext.asyncio import AsyncSession
     from app.store.models import Memory, Agent
@@ -52,18 +62,20 @@ async def _search_memories(
         agent_names = {row.id: row.name for row in agents_result}
 
         pattern = f"%{query}%"
-        result = await session.execute(
-            select(Memory)
-            .where(
-                Memory.agent_id == agent_id,
-                or_(
-                    Memory.content.ilike(pattern),
-                    Memory.summary.ilike(pattern),
-                ),
-            )
-            .order_by(Memory.created_at.desc())
-            .limit(limit)
+        stmt = select(Memory).where(
+            Memory.agent_id == agent_id,
+            or_(
+                Memory.content.ilike(pattern),
+                Memory.summary.ilike(pattern),
+            ),
         )
+
+        # Filter by category unless searching all
+        if category != "all":
+            stmt = stmt.where(Memory.memory_category == category)
+
+        stmt = stmt.order_by(Memory.created_at.desc()).limit(limit)
+        result = await session.execute(stmt)
         memories = result.scalars().all()
 
         return [
@@ -73,6 +85,7 @@ async def _search_memories(
                 "summary": m.summary,
                 "tick_no": m.tick_no,
                 "memory_type": m.memory_type,
+                "memory_category": m.memory_category,
                 "importance": m.importance,
                 "related_agent_id": m.related_agent_id,
                 "related_agent_name": agent_names.get(m.related_agent_id),
@@ -85,8 +98,16 @@ async def _get_recent_memories(
     engine: "AsyncEngine",
     agent_id: str,
     limit: int = 5,
+    category: str = "all",
 ) -> list[dict[str, Any]]:
-    """Get agent's most recent memories."""
+    """Get agent's most recent memories.
+
+    Args:
+        engine: Database engine
+        agent_id: Agent ID
+        limit: Max results
+        category: Memory category filter (long_term, short_term, all)
+    """
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession
     from app.store.models import Memory, Agent
@@ -95,12 +116,11 @@ async def _get_recent_memories(
         agents_result = await session.execute(select(Agent.id, Agent.name))
         agent_names = {row.id: row.name for row in agents_result}
 
-        result = await session.execute(
-            select(Memory)
-            .where(Memory.agent_id == agent_id)
-            .order_by(Memory.created_at.desc())
-            .limit(limit)
-        )
+        stmt = select(Memory).where(Memory.agent_id == agent_id)
+        if category != "all":
+            stmt = stmt.where(Memory.memory_category == category)
+        stmt = stmt.order_by(Memory.created_at.desc()).limit(limit)
+        result = await session.execute(stmt)
         memories = result.scalars().all()
 
         return [
@@ -110,6 +130,7 @@ async def _get_recent_memories(
                 "summary": m.summary,
                 "tick_no": m.tick_no,
                 "memory_type": m.memory_type,
+                "memory_category": m.memory_category,
                 "importance": m.importance,
                 "related_agent_id": m.related_agent_id,
                 "related_agent_name": agent_names.get(m.related_agent_id),
@@ -236,12 +257,19 @@ MEMORY_TOOLS_DEFS = [
 
 参数：
 - query: 搜索关键词（如人名、地点、事件类型）
-- limit: 返回条数，默认5""",
+- limit: 返回条数，默认5
+- category: 记忆类别，默认 long_term（长期记忆), short_term(临时记忆), all(所有)""",
         inputSchema={
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "搜索关键词"},
                 "limit": {"type": "integer", "description": "返回条数，默认5", "default": 5},
+                "category": {
+                    "type": "string",
+                    "description": "记忆类别: long_term(长期记忆,搜索)、 short_term(临时记忆,最近发生), all(所有)",
+                    "enum": ["long_term", "short_term", "all"],
+                    "default": "long_term",
+                },
             },
             "required": ["query"],
         },
@@ -340,7 +368,11 @@ def create_memory_mcp_server(
         try:
             if name == "search_memories":
                 memories = await _search_memories(
-                    engine, agent_id, arguments["query"], arguments.get("limit", 5)
+                    engine,
+                    agent_id,
+                    arguments["query"],
+                    arguments.get("limit", 5),
+                    arguments.get("category", "long_term"),
                 )
                 return [TextContent(type="text", text=_format_memory_result(memories))]
 

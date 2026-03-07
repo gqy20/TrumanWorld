@@ -114,6 +114,7 @@ class Memory(Base):
     __table_args__ = (
         Index("ix_memories_agent_id_created_at", "agent_id", "created_at"),
         Index("ix_memories_run_id_memory_type", "run_id", "memory_type"),
+        Index("ix_memories_agent_id_category", "agent_id", "memory_category"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -121,6 +122,7 @@ class Memory(Base):
     agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
     tick_no: Mapped[int] = mapped_column(Integer, default=0)
     memory_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    memory_category: Mapped[str] = mapped_column(String(20), default="short_term")
     content: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str | None] = mapped_column(String(500))
     importance: Mapped[float] = mapped_column(Float, default=0.0)
@@ -128,5 +130,6 @@ class Memory(Base):
     related_agent_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id"))
     location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"))
     source_event_id: Mapped[str | None] = mapped_column(ForeignKey("events.id"))
+    consolidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

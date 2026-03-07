@@ -108,6 +108,7 @@ def upgrade() -> None:
         sa.Column("agent_id", sa.String(length=64), sa.ForeignKey("agents.id"), nullable=False),
         sa.Column("tick_no", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("memory_type", sa.String(length=30), nullable=False),
+        sa.Column("memory_category", sa.String(length=20), nullable=False, server_default="short_term"),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("summary", sa.String(length=500), nullable=True),
         sa.Column("importance", sa.Float(), nullable=False, server_default="0"),
@@ -115,14 +116,17 @@ def upgrade() -> None:
         sa.Column("related_agent_id", sa.String(length=64), sa.ForeignKey("agents.id"), nullable=True),
         sa.Column("location_id", sa.String(length=64), sa.ForeignKey("locations.id"), nullable=True),
         sa.Column("source_event_id", sa.String(length=64), sa.ForeignKey("events.id"), nullable=True),
+        sa.Column("consolidated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("metadata", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
     op.create_index("ix_memories_agent_id_created_at", "memories", ["agent_id", "created_at"])
     op.create_index("ix_memories_run_id_memory_type", "memories", ["run_id", "memory_type"])
+    op.create_index("ix_memories_agent_id_category", "memories", ["agent_id", "memory_category"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_memories_agent_id_category", table_name="memories")
     op.drop_index("ix_memories_run_id_memory_type", table_name="memories")
     op.drop_index("ix_memories_agent_id_created_at", table_name="memories")
     op.drop_table("memories")
