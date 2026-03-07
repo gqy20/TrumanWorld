@@ -19,6 +19,22 @@ async def test_create_run_returns_draft_run(client):
     assert body["status"] == "draft"
     assert body["id"]
 
+    agents_response = await client.get(f"/api/runs/{body['id']}/agents")
+    assert agents_response.status_code == 200
+    assert len(agents_response.json()["agents"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_list_runs_returns_created_runs(client):
+    await client.post("/api/runs", json={"name": "run-a"})
+    await client.post("/api/runs", json={"name": "run-b", "seed_demo": False})
+
+    response = await client.get("/api/runs")
+
+    assert response.status_code == 200
+    names = {item["name"] for item in response.json()}
+    assert {"run-a", "run-b"} <= names
+
 
 @pytest.mark.asyncio
 async def test_run_status_transitions(client):
@@ -40,8 +56,25 @@ async def test_run_status_transitions(client):
 
 
 @pytest.mark.asyncio
+async def test_advance_run_tick_updates_tick_counter(client):
+    create_response = await client.post("/api/runs", json={"name": "tick-run", "seed_demo": False})
+    run_id = create_response.json()["id"]
+
+    tick_response = await client.post(f"/api/runs/{run_id}/tick")
+    run_response = await client.get(f"/api/runs/{run_id}")
+
+    assert tick_response.status_code == 200
+    assert tick_response.json()["tick_no"] == 1
+    assert tick_response.json()["accepted_count"] == 0
+    assert tick_response.json()["rejected_count"] == 0
+
+    assert run_response.status_code == 200
+    assert run_response.json()["current_tick"] == 1
+
+
+@pytest.mark.asyncio
 async def test_get_timeline_for_empty_run(client):
-    create_response = await client.post("/api/runs", json={"name": "timeline-run"})
+    create_response = await client.post("/api/runs", json={"name": "timeline-run", "seed_demo": False})
     run_id = create_response.json()["id"]
 
     timeline_response = await client.get(f"/api/runs/{run_id}/timeline")

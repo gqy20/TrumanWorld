@@ -23,7 +23,8 @@ def test_prompt_loader_reads_and_renders_prompt():
 
     assert "角色定义" in prompt
     assert "# 运行上下文" in rendered
-    assert "- location: cafe" in rendered
+    assert '"location": "cafe"' in rendered
+    assert '"goal": "work"' in rendered
 
 
 def test_agent_registry_lists_configs_and_renders_prompt(tmp_path: Path):
@@ -58,4 +59,4 @@ def test_agent_registry_lists_configs_and_renders_prompt(tmp_path: Path):
     assert len(configs) == 1
     assert configs[0].id == "alice"
     assert prompt is not None
-    assert "- tick: 3" in prompt
+    assert '"tick": 3' in prompt

@@ -14,6 +14,7 @@ router = APIRouter()
 
 class RunCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    seed_demo: bool = True
 
 
 class RunResponse(BaseModel):
@@ -29,6 +30,13 @@ class DirectorEventRequest(BaseModel):
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
+class TickResponse(BaseModel):
+    run_id: UUID
+    tick_no: int
+    accepted_count: int
+    rejected_count: int
+
+
 @router.post("", response_model=RunResponse)
 async def create_run(
     payload: RunCreateRequest,
@@ -37,7 +45,19 @@ async def create_run(
     repo = RunRepository(session)
     run = SimulationRun(id=str(uuid4()), name=payload.name, status="draft")
     created = await repo.create(run)
+    if payload.seed_demo:
+        service = SimulationService(session)
+        await service.seed_demo_run(created.id)
     return RunResponse(id=UUID(created.id), name=created.name, status=created.status)
+
+
+@router.get("", response_model=list[RunResponse])
+async def list_runs(
+    session: AsyncSession = Depends(get_db_session),
+) -> list[RunResponse]:
+    repo = RunRepository(session)
+    runs = await repo.list()
+    return [RunResponse(id=UUID(run.id), name=run.name, status=run.status) for run in runs]
 
 
 @router.post("/{run_id}/start", response_model=RunResponse)
@@ -77,6 +97,26 @@ async def resume_run(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     updated = await repo.update_status(run, "running")
     return RunResponse(id=run_id, name=updated.name, status=updated.status)
+
+
+@router.post("/{run_id}/tick", response_model=TickResponse)
+async def advance_run_tick(
+    run_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+) -> TickResponse:
+    repo = RunRepository(session)
+    run = await repo.get(str(run_id))
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+
+    service = SimulationService(session)
+    result = await service.run_tick(str(run_id))
+    return TickResponse(
+        run_id=run_id,
+        tick_no=result.tick_no,
+        accepted_count=len(result.accepted),
+        rejected_count=len(result.rejected),
+    )
 
 
 @router.get("/{run_id}")

@@ -1,7 +1,7 @@
 import pytest
 
 from app.store.models import Event, SimulationRun
-from app.store.repositories import EventRepository, RunRepository
+from app.store.repositories import EventRepository, RelationshipRepository, RunRepository
 
 
 @pytest.mark.asyncio
@@ -34,3 +34,33 @@ async def test_event_repository_orders_events_by_tick_desc(db_session):
     events = await repo.list_for_run("run-repo-2")
 
     assert [event.id for event in events] == ["event-b", "event-c", "event-a"]
+
+
+@pytest.mark.asyncio
+async def test_relationship_repository_upserts_and_clamps_values(db_session):
+    run = SimulationRun(id="run-repo-3", name="relations", status="running")
+    db_session.add(run)
+    await db_session.commit()
+
+    repo = RelationshipRepository(db_session)
+    relation = await repo.upsert_interaction(
+        run_id="run-repo-3",
+        agent_id="alice",
+        other_agent_id="bob",
+        familiarity_delta=0.7,
+        trust_delta=0.6,
+        affinity_delta=0.4,
+    )
+    updated = await repo.upsert_interaction(
+        run_id="run-repo-3",
+        agent_id="alice",
+        other_agent_id="bob",
+        familiarity_delta=0.7,
+        trust_delta=0.7,
+        affinity_delta=0.8,
+    )
+
+    assert relation.other_agent_id == "bob"
+    assert updated.familiarity == 1.0
+    assert updated.trust == 1.0
+    assert updated.affinity == 1.0

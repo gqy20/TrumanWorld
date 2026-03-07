@@ -26,11 +26,12 @@ export default async function AgentPage({ params }: AgentPageProps) {
         {agent ? (
           <>
             <SectionCard title="Current State" description="当前 agent 基本状态。">
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-5">
                 <MetricChip label="Name" value={agent.name} />
                 <MetricChip label="Occupation" value={agent.occupation ?? "-"} />
                 <MetricChip label="Goal" value={agent.current_goal ?? "-"} />
                 <MetricChip label="Events" value={agent.recent_events.length} />
+                <MetricChip label="Relationships" value={agent.relationships.length} />
               </div>
             </SectionCard>
 
@@ -59,8 +60,16 @@ export default async function AgentPage({ params }: AgentPageProps) {
                   ) : (
                     agent.memories.map((memory) => (
                       <div key={memory.id} className="rounded-2xl bg-mist px-4 py-3 text-sm">
-                        <div className="font-medium text-ink">{memory.summary ?? memory.memory_type}</div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="font-medium text-ink">{memory.summary ?? memory.memory_type}</div>
+                          <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            {memory.memory_type}
+                          </span>
+                        </div>
                         <p className="mt-2 text-slate-700">{memory.content}</p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          importance {memory.importance ?? 0}
+                        </p>
                       </div>
                     ))
                   )}
@@ -75,11 +84,26 @@ export default async function AgentPage({ params }: AgentPageProps) {
                 ) : (
                   agent.relationships.map((relationship) => (
                     <div key={relationship.other_agent_id} className="rounded-2xl bg-mist px-4 py-3 text-sm">
-                      <div className="font-medium text-ink">{relationship.other_agent_id}</div>
-                      <p className="mt-1 text-slate-700">
-                        {relationship.relation_type} · familiarity {relationship.familiarity} · trust{" "}
-                        {relationship.trust} · affinity {relationship.affinity}
-                      </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-medium text-ink">{relationship.other_agent_id}</div>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+                          {relationship.relation_type}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-3">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Familiarity</div>
+                          <div className="mt-1 text-base font-medium text-ink">{relationship.familiarity.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Trust</div>
+                          <div className="mt-1 text-base font-medium text-ink">{relationship.trust.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Affinity</div>
+                          <div className="mt-1 text-base font-medium text-ink">{relationship.affinity.toFixed(2)}</div>
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -95,4 +119,3 @@ export default async function AgentPage({ params }: AgentPageProps) {
     </main>
   );
 }
-

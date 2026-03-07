@@ -9,6 +9,8 @@ AI Truman World 是一个基于 `Claude Agent SDK` 的 AI 社会模拟系统。
 - `agents/`：配置驱动的 agent 注册表
 - `docs/`：PRD、架构和规模估算
 
+当前默认使用 `heuristic` agent provider 跑通仿真闭环；当配置 `Claude Agent SDK` 所需环境后，可以切换到真实的 `claude` provider。
+
 ## 目录结构
 
 ```text
@@ -34,6 +36,14 @@ docs/        产品与架构文档
 ```bash
 cp .env.example .env
 make install
+```
+
+如果要启用真实 Claude 决策层，在 `.env` 中至少配置：
+
+```bash
+TRUMANWORLD_AGENT_PROVIDER=claude
+TRUMANWORLD_ANTHROPIC_API_KEY=your_key
+TRUMANWORLD_AGENT_MODEL=claude-sonnet-4-20250514
 ```
 
 ### 启动后端
@@ -92,10 +102,13 @@ make pre-commit      # 运行 pre-commit hooks
 - 基础项目骨架
 - 数据层基础结构
 - Alembic 初始化
+- Agent registry / runtime
+- Simulation service 与 director console 闭环
+- run 生命周期控制与单步 tick 推进
 
 下一步：
 
-- SimulationRunner
-- Claude Agent SDK runtime
-- Timeline API
-- AgentRegistry / ConfigLoader / PromptLoader
+- Claude provider 的真实 prompt/输出约束细化
+- 记忆写入与检索
+- relationship 更新
+- timeline 自动刷新与更完整导演操作

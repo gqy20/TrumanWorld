@@ -9,6 +9,34 @@ from app.store.repositories import AgentRepository, RunRepository
 router = APIRouter()
 
 
+@router.get("")
+async def list_agents(
+    run_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, object]:
+    run_repo = RunRepository(session)
+    run = await run_repo.get(str(run_id))
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+
+    repo = AgentRepository(session)
+    agents = await repo.list_for_run(str(run_id))
+
+    return {
+        "run_id": str(run_id),
+        "agents": [
+            {
+                "id": agent.id,
+                "name": agent.name,
+                "occupation": agent.occupation,
+                "current_goal": agent.current_goal,
+                "current_location_id": agent.current_location_id,
+            }
+            for agent in agents
+        ],
+    }
+
+
 @router.get("/{agent_id}")
 async def get_agent(
     run_id: UUID,

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.agent.context_builder import ContextBuilder
+from app.agent.providers import AgentDecisionProvider, RuntimeDecision
 from app.agent.planner import Planner
 from app.agent.reactor import Reactor
 from app.agent.reflector import Reflector
@@ -39,6 +40,15 @@ def runtime(tmp_path: Path) -> AgentRuntime:
     return AgentRuntime(registry=registry, context_builder=ContextBuilder())
 
 
+class StubDecisionProvider(AgentDecisionProvider):
+    async def decide(self, invocation):
+        return RuntimeDecision(
+            action_type="talk",
+            target_agent_id="bob",
+            payload={"intent_source": invocation.task},
+        )
+
+
 def test_runtime_prepare_planner(runtime: AgentRuntime):
     invocation = runtime.prepare_planner(
         "demo_agent",
@@ -51,6 +61,7 @@ def test_runtime_prepare_planner(runtime: AgentRuntime):
     assert invocation.context["task"] == "planner"
     assert invocation.context["world"]["location"] == "cafe"
     assert "运行上下文" in invocation.prompt
+    assert '"location": "cafe"' in invocation.prompt
 
 
 def test_runtime_prepare_reactor(runtime: AgentRuntime):
@@ -61,6 +72,9 @@ def test_runtime_prepare_reactor(runtime: AgentRuntime):
 
     assert invocation.task == "reactor"
     assert invocation.context["event"]["target"] == "bob"
+    assert invocation.allowed_actions == ["move", "talk", "work", "rest"]
+    assert "只能返回一个 JSON 对象" in invocation.prompt
+    assert '"task": "reactor"' in invocation.prompt
 
 
 def test_runtime_prepare_reflector(runtime: AgentRuntime):
@@ -102,3 +116,34 @@ def test_planner_reactor_reflector_wrap_runtime(runtime: AgentRuntime):
     assert planner_call.task == "planner"
     assert reactor_call.task == "reactor"
     assert reflector_call.task == "reflector"
+
+
+@pytest.mark.asyncio
+async def test_runtime_decide_intent_uses_provider(tmp_path: Path):
+    agent_dir = tmp_path / "demo_agent"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: demo_agent",
+                "name: Demo Agent",
+                "occupation: resident",
+                "home: demo_home",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
+
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        context_builder=ContextBuilder(),
+        decision_provider=StubDecisionProvider(),
+    )
+
+    invocation = runtime.prepare_reactor("demo_agent", world={"current_goal": "talk"})
+    intent = await runtime.decide_intent(invocation)
+
+    assert intent.action_type == "talk"
+    assert intent.target_agent_id == "bob"
+    assert intent.payload["intent_source"] == "reactor"

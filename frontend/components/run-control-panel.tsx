@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { pauseRun, resumeRun, startRun } from "@/lib/api";
+import { advanceRunTick, pauseRun, resumeRun, startRun } from "@/lib/api";
 
 type RunControlPanelProps = {
   runId: string;
@@ -34,6 +34,21 @@ export function RunControlPanel({ runId, status }: RunControlPanelProps) {
     });
   };
 
+  const handleTick = () => {
+    startTransition(async () => {
+      const result = await advanceRunTick(runId);
+      if (!result) {
+        setMessage("推进 tick 失败，可能是后端未启动。");
+        return;
+      }
+
+      setMessage(
+        `Tick ${result.tick_no} 完成，accepted=${result.accepted_count}，rejected=${result.rejected_count}。`
+      );
+      router.refresh();
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3">
@@ -60,6 +75,14 @@ export function RunControlPanel({ runId, status }: RunControlPanelProps) {
           className="inline-flex rounded-full bg-moss px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           Resume Run
+        </button>
+        <button
+          type="button"
+          disabled={isPending || status === "draft"}
+          onClick={handleTick}
+          className="inline-flex rounded-full bg-ember px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+        >
+          Step Tick
         </button>
       </div>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}

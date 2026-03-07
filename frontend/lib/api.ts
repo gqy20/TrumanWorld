@@ -12,6 +12,13 @@ export type CreateRunResponse = {
   status: string;
 };
 
+export type TickResponse = {
+  run_id: string;
+  tick_no: number;
+  accepted_count: number;
+  rejected_count: number;
+};
+
 export type TimelineEvent = {
   id: string;
   tick_no: number;
@@ -42,6 +49,14 @@ export type AgentDetails = {
     affinity: number;
     relation_type: string;
   }>;
+};
+
+export type AgentSummary = {
+  id: string;
+  name: string;
+  occupation?: string;
+  current_goal?: string;
+  current_location_id?: string;
 };
 
 const API_BASE_URL =
@@ -91,6 +106,10 @@ export async function getRun(runId: string): Promise<RunSummary | null> {
   return safeFetch<RunSummary | null>(`/runs/${runId}`, null);
 }
 
+export async function listRuns(): Promise<RunSummary[]> {
+  return safeFetch<RunSummary[]>("/runs", []);
+}
+
 export async function getTimeline(runId: string): Promise<{ run_id: string; events: TimelineEvent[] }> {
   return safeFetch(`/runs/${runId}/timeline`, { run_id: runId, events: [] });
 }
@@ -99,8 +118,12 @@ export async function getAgent(runId: string, agentId: string): Promise<AgentDet
   return safeFetch<AgentDetails | null>(`/runs/${runId}/agents/${agentId}`, null);
 }
 
-export async function createRun(name: string): Promise<CreateRunResponse | null> {
-  return safePost<CreateRunResponse | null>("/runs", { name }, null);
+export async function listAgents(runId: string): Promise<{ run_id: string; agents: AgentSummary[] }> {
+  return safeFetch(`/runs/${runId}/agents`, { run_id: runId, agents: [] });
+}
+
+export async function createRun(name: string, seedDemo = true): Promise<CreateRunResponse | null> {
+  return safePost<CreateRunResponse | null>("/runs", { name, seed_demo: seedDemo }, null);
 }
 
 export async function startRun(runId: string): Promise<RunSummary | null> {
@@ -113,6 +136,10 @@ export async function pauseRun(runId: string): Promise<RunSummary | null> {
 
 export async function resumeRun(runId: string): Promise<RunSummary | null> {
   return safePost<RunSummary | null>(`/runs/${runId}/resume`, {}, null);
+}
+
+export async function advanceRunTick(runId: string): Promise<TickResponse | null> {
+  return safePost<TickResponse | null>(`/runs/${runId}/tick`, {}, null);
 }
 
 export async function injectDirectorEvent(

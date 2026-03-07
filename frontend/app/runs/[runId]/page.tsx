@@ -4,7 +4,7 @@ import { DirectorEventForm } from "@/components/director-event-form";
 import { MetricChip } from "@/components/metric-chip";
 import { RunControlPanel } from "@/components/run-control-panel";
 import { SectionCard } from "@/components/section-card";
-import { getRun } from "@/lib/api";
+import { getRun, listAgents } from "@/lib/api";
 
 type RunPageProps = {
   params: Promise<{ runId: string }>;
@@ -12,7 +12,7 @@ type RunPageProps = {
 
 export default async function RunPage({ params }: RunPageProps) {
   const { runId } = await params;
-  const run = await getRun(runId);
+  const [run, agentList] = await Promise.all([getRun(runId), listAgents(runId)]);
 
   return (
     <main className="min-h-screen px-6 py-12">
@@ -53,13 +53,25 @@ export default async function RunPage({ params }: RunPageProps) {
             </Link>
           </SectionCard>
 
-          <SectionCard title="Agent Inspector" description="输入你要检查的 agent 标识。">
-            <Link
-              href={`/runs/${runId}/agents/demo_agent`}
-              className="inline-flex rounded-full bg-ember px-4 py-2 text-sm font-medium text-white"
-            >
-              打开 Demo Agent
-            </Link>
+          <SectionCard title="Agent Inspector" description="该 run 下已登记的 agents。">
+            <div className="space-y-3">
+              {agentList.agents.length === 0 ? (
+                <p className="text-sm text-slate-600">当前 run 还没有 agents。</p>
+              ) : (
+                agentList.agents.map((agent) => (
+                  <Link
+                    key={agent.id}
+                    href={`/runs/${runId}/agents/${agent.id}`}
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm transition hover:border-moss"
+                  >
+                    <span className="font-medium text-ink">{agent.name}</span>
+                    <span className="text-slate-500">
+                      {agent.occupation ?? "-"} · {agent.current_goal ?? "no-goal"}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
           </SectionCard>
         </div>
 

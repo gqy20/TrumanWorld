@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import uuid4
 
+from datetime import UTC, datetime
+
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +25,15 @@ class RunRepository:
 
     async def get(self, run_id: str) -> SimulationRun | None:
         return await self.session.get(SimulationRun, run_id)
+
+    async def list(self, limit: int = 20) -> Sequence[SimulationRun]:
+        stmt: Select[tuple[SimulationRun]] = (
+            select(SimulationRun)
+            .order_by(SimulationRun.updated_at.desc(), SimulationRun.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
 
     async def update_status(self, run: SimulationRun, status: str) -> SimulationRun:
         run.status = status
@@ -111,6 +122,70 @@ class AgentRepository:
         return result.scalars().all()
 
 
+class MemoryRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create_many(self, memories: Sequence[Memory]) -> Sequence[Memory]:
+        self.session.add_all(list(memories))
+        await self.session.commit()
+        for memory in memories:
+            await self.session.refresh(memory)
+        return memories
+
+
+class RelationshipRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_pair(self, run_id: str, agent_id: str, other_agent_id: str) -> Relationship | None:
+        stmt: Select[tuple[Relationship]] = select(Relationship).where(
+            Relationship.run_id == run_id,
+            Relationship.agent_id == agent_id,
+            Relationship.other_agent_id == other_agent_id,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def upsert_interaction(
+        self,
+        run_id: str,
+        agent_id: str,
+        other_agent_id: str,
+        *,
+        familiarity_delta: float,
+        trust_delta: float,
+        affinity_delta: float,
+        relation_type: str = "acquaintance",
+    ) -> Relationship:
+        relation = await self.get_pair(run_id, agent_id, other_agent_id)
+        now = datetime.now(UTC)
+
+        if relation is None:
+            relation = Relationship(
+                id=str(uuid4()),
+                run_id=run_id,
+                agent_id=agent_id,
+                other_agent_id=other_agent_id,
+                familiarity=0.0,
+                trust=0.0,
+                affinity=0.0,
+                relation_type=relation_type,
+                last_interaction_at=now,
+            )
+            self.session.add(relation)
+
+        relation.familiarity = min(1.0, max(0.0, relation.familiarity + familiarity_delta))
+        relation.trust = min(1.0, max(-1.0, relation.trust + trust_delta))
+        relation.affinity = min(1.0, max(-1.0, relation.affinity + affinity_delta))
+        relation.relation_type = relation_type
+        relation.last_interaction_at = now
+
+        await self.session.commit()
+        await self.session.refresh(relation)
+        return relation
+
+
 class LocationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -136,6 +211,9 @@ def build_event(
         run_id=run_id,
         tick_no=tick_no,
         event_type=event_type,
+        actor_agent_id=payload.get("agent_id"),
+        target_agent_id=payload.get("target_agent_id"),
+        location_id=payload.get("location_id") or payload.get("to_location_id"),
         visibility=visibility,
         payload=payload,
     )
