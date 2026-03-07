@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { advanceRunTick, pauseRun, resumeRun, startRun } from "@/lib/api";
+import { advanceRunTick, pauseRun, resumeRun } from "@/lib/api";
 
 type RunControlPanelProps = {
   runId: string;
@@ -15,35 +15,42 @@ export function RunControlPanel({ runId, status }: RunControlPanelProps) {
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const handleAction = (action: "start" | "pause" | "resume") => {
-    startTransition(async () => {
-      const result =
-        action === "start"
-          ? await startRun(runId)
-          : action === "pause"
-            ? await pauseRun(runId)
-            : await resumeRun(runId);
+  const isRunning = status === "running";
+  const isPaused = status === "paused";
 
+  const handlePause = () => {
+    startTransition(async () => {
+      const result = await pauseRun(runId);
       if (!result) {
-        setMessage("操作失败，可能是后端未启动。");
+        setMessage("暂停失败，可能是后端未启动。");
         return;
       }
-
-      setMessage(`Run 状态已更新为 ${result.status}。`);
+      setMessage("⏸️ 世界已暂停，居民活动停止");
       router.refresh();
     });
   };
 
-  const handleTick = () => {
+  const handleResume = () => {
+    startTransition(async () => {
+      const result = await resumeRun(runId);
+      if (!result) {
+        setMessage("恢复失败，可能是后端未启动。");
+        return;
+      }
+      setMessage("▶️ 世界已恢复运行");
+      router.refresh();
+    });
+  };
+
+  const handleStepTick = () => {
     startTransition(async () => {
       const result = await advanceRunTick(runId);
       if (!result) {
         setMessage("推进 tick 失败，可能是后端未启动。");
         return;
       }
-
       setMessage(
-        `Tick ${result.tick_no} 完成，accepted=${result.accepted_count}，rejected=${result.rejected_count}。`
+        `⏩ 手动推进 Tick ${result.tick_no}，accepted=${result.accepted_count}，rejected=${result.rejected_count}`
       );
       router.refresh();
     });
@@ -51,41 +58,63 @@ export function RunControlPanel({ runId, status }: RunControlPanelProps) {
 
   return (
     <div className="space-y-4">
+      {/* 状态指示器 */}
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-3 w-3 rounded-full ${
+            isRunning ? "animate-pulse bg-emerald-500" : "bg-amber-500"
+          }`}
+        />
+        <span className="text-sm font-medium text-slate-700">
+          {isRunning ? "🎬 世界运行中 - 居民自主活动" : "⏸️ 世界已暂停 - 导演控制模式"}
+        </span>
+      </div>
+
+      {/* 导演控制按钮 */}
       <div className="flex flex-wrap gap-3">
+        {isRunning ? (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handlePause}
+            className="inline-flex items-center gap-2 rounded-full bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-60"
+          >
+            <span>⏸️</span>
+            <span>暂停世界</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleResume}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+          >
+            <span>▶️</span>
+            <span>恢复运行</span>
+          </button>
+        )}
+
         <button
           type="button"
-          disabled={isPending || status === "running"}
-          onClick={() => handleAction("start")}
-          className="inline-flex rounded-full bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          disabled={isPending}
+          onClick={handleStepTick}
+          className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
         >
-          {isPending ? "处理中..." : "Start Run"}
-        </button>
-        <button
-          type="button"
-          disabled={isPending || status !== "running"}
-          onClick={() => handleAction("pause")}
-          className="inline-flex rounded-full bg-slate-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
-          Pause Run
-        </button>
-        <button
-          type="button"
-          disabled={isPending || status !== "paused"}
-          onClick={() => handleAction("resume")}
-          className="inline-flex rounded-full bg-moss px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
-          Resume Run
-        </button>
-        <button
-          type="button"
-          disabled={isPending || status === "draft"}
-          onClick={handleTick}
-          className="inline-flex rounded-full bg-ember px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
-          Step Tick
+          <span>⏭️</span>
+          <span>手动推进一帧</span>
         </button>
       </div>
-      {message ? <p className="text-sm text-slate-600">{message}</p> : null}
+
+      {message ? (
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">
+          {message}
+        </p>
+      ) : null}
+
+      {/* 导演提示 */}
+      <p className="text-xs text-slate-500">
+        💡 提示：世界默认自动运行，导演可随时暂停观察或手动推进特定时刻
+      </p>
     </div>
   );
 }

@@ -189,3 +189,26 @@ export async function injectDirectorEvent(
 ): Promise<{ run_id: string; status: string } | null> {
   return safePost<{ run_id: string; status: string } | null>(`/runs/${runId}/director/events`, input, null);
 }
+
+async function safeDelete<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return fallback;
+    }
+
+    return (await response.json()) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function deleteRun(runId: string): Promise<{ run_id: string; status: string } | null> {
+  return safeDelete<{ run_id: string; status: string } | null>(`/runs/${runId}`, null);
+}

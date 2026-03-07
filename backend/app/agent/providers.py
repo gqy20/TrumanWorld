@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import shutil
 from abc import ABC, abstractmethod
@@ -11,6 +12,8 @@ from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from pydantic import BaseModel, Field, ValidationError
 
 from app.infra.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 
 DECISION_OUTPUT_SCHEMA = {
@@ -139,9 +142,11 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                         except (json.JSONDecodeError, ValidationError) as exc:
                             msg = f"Failed to parse decision JSON: {exc}"
                             raise RuntimeError(msg) from exc
-        except asyncio.CancelledError as exc:
-            msg = "Claude SDK decision cancelled"
-            raise RuntimeError(msg) from exc
+        except asyncio.CancelledError:
+            # 任务被取消，这是正常的（如 scheduler 停止时），不需要抛出异常
+            logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
+            # 返回一个默认的 rest 决策
+            return RuntimeDecision(action_type="rest")
         except RuntimeError:
             raise
         except Exception as exc:

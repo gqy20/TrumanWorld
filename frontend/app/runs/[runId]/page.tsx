@@ -23,11 +23,11 @@ export default async function RunPage({ params }: RunPageProps) {
           </Link>
           <h1 className="text-4xl font-semibold text-ink">Run {runId}</h1>
           <p className="max-w-2xl text-slate-700">
-            查看单个模拟运行的当前状态、tick 进度和下一步导航。
+            🎬 导演控制台。世界默认自动运行，居民自主活动。您可以随时暂停观察或介入干预。
           </p>
         </header>
 
-        <SectionCard title="Run Status" description="来自后端 `/runs/{id}` 的实时数据。">
+        <SectionCard title="世界状态" description="实时监控世界运行状态和居民活动。">
           {run ? (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-4">
@@ -84,7 +84,7 @@ export default async function RunPage({ params }: RunPageProps) {
           </SectionCard>
         </div>
 
-        <SectionCard title="Director Event Injection" description="向世界注入一个简单事件。">
+        <SectionCard title="导演事件注入" description="向世界中注入特殊事件，干预居民行为或创造剧情。">
           <DirectorEventForm runId={runId} />
         </SectionCard>
       </div>

@@ -5,11 +5,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.db import get_db_session
+from app.infra.logging import debug, error, get_logger, info, warning
+from app.sim.scheduler import get_scheduler
 from app.sim.service import SimulationService
 from app.store.models import SimulationRun
 from app.store.repositories import AgentRepository, EventRepository, LocationRepository, RunRepository
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 class RunCreateRequest(BaseModel):
@@ -42,12 +45,44 @@ async def create_run(
     payload: RunCreateRequest,
     session: AsyncSession = Depends(get_db_session),
 ) -> RunResponse:
+    logger.info(f"Creating new run: {payload.name}")
     repo = RunRepository(session)
-    run = SimulationRun(id=str(uuid4()), name=payload.name, status="draft")
+    # 默认自动运行状态
+    run = SimulationRun(id=str(uuid4()), name=payload.name, status="running")
     created = await repo.create(run)
+    logger.info(f"Run created: id={created.id}, name={created.name}, auto-running")
+    
     if payload.seed_demo:
+        logger.debug(f"Seeding demo data for run {created.id}")
         service = SimulationService(session)
         await service.seed_demo_run(created.id)
+        logger.info(f"Demo data seeded for run {created.id}")
+    
+    # 自动启动 tick 调度器
+    scheduler = get_scheduler()
+    if not scheduler.is_running(created.id):
+        from app.infra.db import async_engine
+        
+        async def tick_callback(rid: str) -> None:
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from app.sim.service import SimulationService
+            
+            async with AsyncSession(async_engine) as new_session:
+                service = SimulationService(new_session)
+                try:
+                    await service.run_tick(rid)
+                except RuntimeError as e:
+                    # 忽略 claude_agent_sdk 的 cancel scope 错误（任务取消时的正常现象）
+                    if "cancel scope" in str(e).lower() or "cancelled" in str(e).lower():
+                        logger.debug(f"Tick callback cancelled for run {rid}")
+                    else:
+                        logger.warning(f"Auto-tick failed for run {rid}: {e}")
+                except Exception as e:
+                    logger.warning(f"Auto-tick failed for run {rid}: {e}")
+        
+        await scheduler.start_run(created.id, interval_seconds=5.0, callback=tick_callback)
+        logger.info(f"Auto-scheduler started for run {created.id}")
+    
     return RunResponse(id=UUID(created.id), name=created.name, status=created.status)
 
 
@@ -55,8 +90,10 @@ async def create_run(
 async def list_runs(
     session: AsyncSession = Depends(get_db_session),
 ) -> list[RunResponse]:
+    logger.debug("Listing all runs")
     repo = RunRepository(session)
     runs = await repo.list()
+    logger.debug(f"Found {len(runs)} runs")
     return [RunResponse(id=UUID(run.id), name=run.name, status=run.status) for run in runs]
 
 
@@ -70,6 +107,31 @@ async def start_run(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     updated = await repo.update_status(run, "running")
+    
+    # Start automatic tick scheduler (every 5 seconds)
+    scheduler = get_scheduler()
+    if not scheduler.is_running(str(run_id)):
+        from app.infra.db import async_engine
+        
+        async def tick_callback(rid: str) -> None:
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from app.sim.service import SimulationService
+            
+            async with AsyncSession(async_engine) as new_session:
+                service = SimulationService(new_session)
+                try:
+                    await service.run_tick(rid)
+                except RuntimeError as e:
+                    # 忽略 claude_agent_sdk 的 cancel scope 错误（任务取消时的正常现象）
+                    if "cancel scope" in str(e).lower() or "cancelled" in str(e).lower():
+                        logger.debug(f"Tick callback cancelled for run {rid}")
+                    else:
+                        logger.warning(f"Auto-tick failed for run {rid}: {e}")
+                except Exception as e:
+                    logger.warning(f"Auto-tick failed for run {rid}: {e}")
+        
+        await scheduler.start_run(str(run_id), interval_seconds=5.0, callback=tick_callback)
+    
     return RunResponse(id=run_id, name=updated.name, status=updated.status)
 
 
@@ -82,6 +144,11 @@ async def pause_run(
     run = await repo.get(str(run_id))
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    
+    # Stop automatic tick scheduler
+    scheduler = get_scheduler()
+    await scheduler.stop_run(str(run_id))
+    
     updated = await repo.update_status(run, "paused")
     return RunResponse(id=run_id, name=updated.name, status=updated.status)
 
@@ -104,13 +171,19 @@ async def advance_run_tick(
     run_id: UUID,
     session: AsyncSession = Depends(get_db_session),
 ) -> TickResponse:
+    logger.info(f"Advancing tick for run {run_id}")
     repo = RunRepository(session)
     run = await repo.get(str(run_id))
     if run is None:
+        logger.warning(f"Run not found: {run_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
     service = SimulationService(session)
     result = await service.run_tick(str(run_id))
+    logger.info(
+        f"Tick {result.tick_no} completed: "
+        f"accepted={len(result.accepted)}, rejected={len(result.rejected)}"
+    )
     return TickResponse(
         run_id=run_id,
         tick_no=result.tick_no,
@@ -256,3 +329,49 @@ async def inject_director_event(
         importance=payload.importance,
     )
     return {"run_id": str(run_id), "status": "queued"}
+
+
+@router.delete("/{run_id}")
+async def delete_run(
+    run_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    """Delete a run and all its associated data."""
+    logger.info(f"Deleting run: {run_id}")
+    
+    # Stop scheduler if running
+    scheduler = get_scheduler()
+    await scheduler.stop_run(str(run_id))
+    
+    repo = RunRepository(session)
+    run = await repo.get(str(run_id))
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    
+    # Delete related data in correct order (respecting foreign key constraints)
+    # Order: relationships -> memories -> events -> agents -> locations -> run
+    from sqlalchemy import delete
+    from app.store.models import Agent, Event, Location, Memory, Relationship
+    
+    run_id_str = str(run_id)
+    
+    # Delete relationships (references agents)
+    await session.execute(delete(Relationship).where(Relationship.run_id == run_id_str))
+    
+    # Delete memories (references agents)
+    await session.execute(delete(Memory).where(Memory.run_id == run_id_str))
+    
+    # Delete events (references agents, locations)
+    await session.execute(delete(Event).where(Event.run_id == run_id_str))
+    
+    # Delete agents (references locations)
+    await session.execute(delete(Agent).where(Agent.run_id == run_id_str))
+    
+    # Delete locations
+    await session.execute(delete(Location).where(Location.run_id == run_id_str))
+    
+    # Finally delete the run
+    await repo.delete(run)
+    logger.info(f"Run deleted: {run_id}")
+    
+    return {"run_id": str(run_id), "status": "deleted"}

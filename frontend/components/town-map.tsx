@@ -267,13 +267,14 @@ export function TownMap({ world, agentNameMap, onLocationClick, onAgentClick }: 
       .attr("fill", "white")
       .text(d => d.occupantCount);
 
-    // 绘制居民点
+    // 绘制居民点 - 放置在地点圆圈外部，避免重叠
     nodes.forEach(node => {
       node.occupants.forEach((agent, idx) => {
-        const angle = (idx / Math.max(node.occupants.length, 1)) * 2 * Math.PI;
-        const radius = 35;
-        const x = node.x + Math.cos(angle) * radius;
-        const y = node.y + Math.sin(angle) * radius;
+        // 计算地点外圈半径
+        const locationOuterRadius = 35 + node.capacity * 3 + 15; // 外圈 + 间距
+        const angle = (idx / Math.max(node.occupants.length, 1)) * 2 * Math.PI - Math.PI / 2;
+        const x = node.x + Math.cos(angle) * locationOuterRadius;
+        const y = node.y + Math.sin(angle) * locationOuterRadius;
 
         const agentGroup = g.append("g")
           .attr("class", "agent")
@@ -287,20 +288,21 @@ export function TownMap({ world, agentNameMap, onLocationClick, onAgentClick }: 
         // 居民圆圈
         agentGroup
           .append("circle")
-          .attr("r", 10)
+          .attr("r", 14)
           .attr("fill", () => {
             const colors = ["#fbbf24", "#60a5fa", "#a78bfa", "#f472b6", "#34d399"];
             return colors[idx % colors.length];
           })
           .attr("stroke", "white")
-          .attr("stroke-width", 2);
+          .attr("stroke-width", 3)
+          .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
 
         // 居民名字首字母
         agentGroup
           .append("text")
           .attr("text-anchor", "middle")
           .attr("dy", "0.35em")
-          .attr("font-size", "8")
+          .attr("font-size", "10")
           .attr("font-weight", "bold")
           .attr("fill", "white")
           .text(agent.name.charAt(0).toUpperCase());

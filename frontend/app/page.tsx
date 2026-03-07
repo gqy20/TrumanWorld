@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { NavLink } from "@/components/nav-link";
 import { CreateRunForm } from "@/components/create-run-form";
+import { RunList } from "@/components/run-list";
 import { SectionCard } from "@/components/section-card";
 import { listRuns } from "@/lib/api";
 
@@ -50,25 +51,8 @@ export default async function HomePage() {
           <CreateRunForm />
         </SectionCard>
 
-        <SectionCard title="Recent Runs" description="从后端读取最近的模拟运行，直接进入导演视图。">
-          {runs.length > 0 ? (
-            <div className="grid gap-3">
-              {runs.map((run) => (
-                <Link
-                  key={run.id}
-                  href={`/runs/${run.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm transition hover:border-moss"
-                >
-                  <span className="font-medium text-ink">{run.name}</span>
-                  <span className="text-slate-500">
-                    {run.status} · tick {run.current_tick ?? 0}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-600">还没有 run，先创建一个新的模拟运行。</p>
-          )}
+        <SectionCard title="Recent Runs" description="从后端读取最近的模拟运行，直接进入导演视图。悬停可删除。">
+          <RunList runs={runs} />
         </SectionCard>
       </div>
     </main>

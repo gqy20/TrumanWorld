@@ -47,6 +47,10 @@ class RunRepository:
         await self.session.refresh(run)
         return run
 
+    async def delete(self, run: SimulationRun) -> None:
+        await self.session.delete(run)
+        await self.session.commit()
+
 
 class EventRepository:
     def __init__(self, session: AsyncSession) -> None:

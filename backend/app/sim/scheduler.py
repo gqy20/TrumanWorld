@@ -1,0 +1,117 @@
+"""Simple scheduler for automatic tick advancement."""
+
+import asyncio
+from dataclasses import dataclass
+from typing import Awaitable, Callable
+
+from app.infra.logging import debug, error, info
+
+
+@dataclass
+class ScheduledRun:
+    run_id: str
+    interval_seconds: float
+    callback: Callable[[str], Awaitable[None]]
+    task: asyncio.Task | None = None
+
+
+class SimulationScheduler:
+    """Manages automatic tick advancement for runs."""
+
+    def __init__(self) -> None:
+        self._scheduled: dict[str, ScheduledRun] = {}
+        self._lock = asyncio.Lock()
+
+    async def start_run(
+        self,
+        run_id: str,
+        interval_seconds: float,
+        callback: Callable[[str], Awaitable[None]],
+    ) -> None:
+        """Start automatic tick advancement for a run."""
+        async with self._lock:
+            if run_id in self._scheduled:
+                info(f"Run {run_id} already scheduled, stopping first")
+                await self._stop_run_locked(run_id)
+
+            info(f"Starting scheduler for run {run_id} with interval {interval_seconds}s")
+            scheduled = ScheduledRun(
+                run_id=run_id,
+                interval_seconds=interval_seconds,
+                callback=callback,
+            )
+            scheduled.task = asyncio.create_task(
+                self._tick_loop(run_id, interval_seconds, callback),
+                name=f"tick-loop-{run_id}",
+            )
+            self._scheduled[run_id] = scheduled
+
+    async def stop_run(self, run_id: str) -> None:
+        """Stop automatic tick advancement for a run."""
+        async with self._lock:
+            await self._stop_run_locked(run_id)
+
+    async def _stop_run_locked(self, run_id: str) -> None:
+        """Internal method to stop a run (must hold lock)."""
+        scheduled = self._scheduled.pop(run_id, None)
+        if scheduled and scheduled.task:
+            info(f"Stopping scheduler for run {run_id}")
+            scheduled.task.cancel()
+            # Don't await the task here to avoid cancellation scope issues
+
+    def is_running(self, run_id: str) -> bool:
+        """Check if a run is being automatically scheduled."""
+        return run_id in self._scheduled
+
+    async def _tick_loop(
+        self,
+        run_id: str,
+        interval_seconds: float,
+        callback: Callable[[str], Awaitable[None]],
+    ) -> None:
+        """Main loop for automatic tick advancement."""
+        while True:
+            try:
+                await asyncio.sleep(interval_seconds)
+                debug(f"Auto-advancing tick for run {run_id}")
+                
+                # Run callback in a separate task to isolate errors and cancellation
+                task = asyncio.create_task(callback(run_id))
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    # Task was cancelled, clean up
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    debug(f"Tick callback cancelled for run {run_id}")
+                except RuntimeError as e:
+                    # Handle claude_agent_sdk anyio cancel scope errors
+                    if "cancel scope" in str(e).lower():
+                        debug(f"Tick callback cancel scope error for run {run_id}: {e}")
+                    else:
+                        error(f"RuntimeError in tick callback for run {run_id}: {e}")
+                except Exception as e:
+                    error(f"Error in tick callback for run {run_id}: {e}")
+                    # Continue running despite callback errors
+                    
+            except asyncio.CancelledError:
+                debug(f"Tick loop cancelled for run {run_id}")
+                break
+            except Exception as e:
+                error(f"Unexpected error in tick loop for run {run_id}: {e}")
+                # Continue running despite errors
+
+
+# Global scheduler instance
+_scheduler: SimulationScheduler | None = None
+
+
+def get_scheduler() -> SimulationScheduler:
+    """Get or create the global scheduler instance."""
+    global _scheduler
+    if _scheduler is None:
+        _scheduler = SimulationScheduler()
+    return _scheduler
