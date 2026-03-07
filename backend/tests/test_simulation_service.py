@@ -4,6 +4,7 @@ import pytest
 
 from app.agent.providers import AgentDecisionProvider, RuntimeDecision
 from app.agent.runtime import RuntimeInvocation
+from app.scenario.base import Scenario
 from app.sim.action_resolver import ActionIntent
 from app.sim.service import SimulationService
 from app.store.models import Agent, Location, SimulationRun
@@ -34,6 +35,55 @@ class RecordingDecisionProvider(AgentDecisionProvider):
                 target_location_id=goal.split(":", 1)[1].strip(),
             )
         return RuntimeDecision(action_type="rest")
+
+
+class FakeScenario(Scenario):
+    def __init__(self) -> None:
+        self.runtime_configured = False
+        self.seed_called = False
+        self.state_update_calls: list[tuple[str, int]] = []
+
+    def with_session(self, session):
+        return self
+
+    def configure_runtime(self, agent_runtime) -> None:
+        self.runtime_configured = True
+
+    def configure_agent_context(self, context_builder) -> None:
+        return None
+
+    async def observe_run(self, run_id: str, event_limit: int = 20):
+        raise RuntimeError("not used")
+
+    def assess(self, *, run_id: str, current_tick: int, agents: list[Agent], events: list):
+        raise RuntimeError("not used")
+
+    async def build_director_plan(self, run_id: str, agents: list[Agent]):
+        return None
+
+    def merge_agent_profile(self, agent: Agent, plan) -> dict:
+        return dict(agent.profile or {})
+
+    def fallback_intent(
+        self,
+        *,
+        agent_id: str,
+        current_location_id: str,
+        home_location_id: str | None,
+        nearby_agent_id: str | None,
+        world_role: str | None = None,
+        current_status: dict | None = None,
+        truman_suspicion_score: float = 0.0,
+        director_scene_goal: str | None = None,
+        director_priority: str | None = None,
+    ):
+        return None
+
+    async def seed_demo_run(self, run: SimulationRun) -> None:
+        self.seed_called = True
+
+    async def update_state_from_events(self, run_id: str, events: list) -> None:
+        self.state_update_calls.append((run_id, len(events)))
 
 
 @pytest.mark.asyncio
@@ -377,6 +427,48 @@ async def test_simulation_service_updates_truman_suspicion_from_rejected_events(
 
     assert updated is not None
     assert updated.status["suspicion_score"] > 0.1
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_accepts_injected_scenario(db_session):
+    run = SimulationRun(
+        id="run-fake-scenario",
+        name="fake-scenario",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    home = Location(
+        id="loc-home-fake",
+        run_id="run-fake-scenario",
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    agent = Agent(
+        id="agent-fake",
+        run_id="run-fake-scenario",
+        name="Agent",
+        occupation="resident",
+        home_location_id="loc-home-fake",
+        current_location_id="loc-home-fake",
+        current_goal="rest",
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, home, agent])
+    await db_session.commit()
+
+    scenario = FakeScenario()
+    service = SimulationService(db_session, scenario=scenario)
+    result = await service.run_tick("run-fake-scenario")
+
+    assert scenario.runtime_configured is True
+    assert scenario.state_update_calls == [("run-fake-scenario", 1)]
+    assert result.tick_no == 1
 
 
 @pytest.mark.asyncio

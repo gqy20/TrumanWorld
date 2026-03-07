@@ -7,7 +7,6 @@ simulation ticks, agent decisions, and persistence.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -20,11 +19,10 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.director.observer import DirectorAssessment
 from app.infra.settings import get_settings
-from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
-from app.scenario.truman_world.seed import TrumanWorldSeedBuilder
-from app.scenario.truman_world.state import TrumanWorldStateUpdater
+from app.scenario.base import Scenario
+from app.scenario.truman_world.scenario import TrumanWorldScenario
 from app.sim.action_resolver import ActionIntent
-from app.sim.context import ContextBuilder
+from app.sim.context import ContextBuilder, get_run_world_time
 from app.sim.persistence import PersistenceManager
 from app.sim.runner import SimulationRunner, TickResult
 from app.sim.world import AgentState, LocationState, WorldState
@@ -44,13 +42,12 @@ if TYPE_CHECKING:
 class SimulationService:
     """Loads persisted state, executes one tick, and persists results."""
 
-    DEFAULT_WORLD_START_TIME = datetime(2026, 3, 2, 7, 0, tzinfo=UTC)
-
     def __init__(
         self,
         session: AsyncSession,
         agent_runtime: AgentRuntime | None = None,
         agents_root: Path | None = None,
+        scenario: Scenario | None = None,
     ) -> None:
         self.session = session
         self.run_repo = RunRepository(session)
@@ -59,8 +56,9 @@ class SimulationService:
         self.event_repo = EventRepository(session)
         self._context_builder = ContextBuilder(session)
         self._persistence = PersistenceManager(session)
-        self._scenario = TrumanWorldCoordinator(session)
-        self._scenario_state = TrumanWorldStateUpdater(session)
+        self._scenario = (
+            scenario.with_session(session) if scenario is not None else TrumanWorldScenario(session)
+        )
         settings = get_settings()
         self.agent_runtime = agent_runtime or AgentRuntime(
             registry=AgentRegistry(agents_root or (settings.project_root / "agents"))
@@ -68,7 +66,11 @@ class SimulationService:
         self._scenario.configure_runtime(self.agent_runtime)
 
     @classmethod
-    def create_for_scheduler(cls, agent_runtime: AgentRuntime) -> "SimulationService":
+    def create_for_scheduler(
+        cls,
+        agent_runtime: AgentRuntime,
+        scenario: Scenario | None = None,
+    ) -> "SimulationService":
         """Create a SimulationService instance for scheduler use.
 
         This factory method creates a service instance that is not bound
@@ -80,8 +82,7 @@ class SimulationService:
         instance.agent_runtime = agent_runtime
         instance._context_builder = None  # type: ignore[assignment]
         instance._persistence = None  # type: ignore[assignment]
-        instance._scenario = TrumanWorldCoordinator()
-        instance._scenario_state = None  # type: ignore[assignment]
+        instance._scenario = scenario.with_session(None) if scenario is not None else TrumanWorldScenario()
         instance._scenario.configure_runtime(agent_runtime)
         return instance
 
@@ -178,14 +179,14 @@ class SimulationService:
                 ]
 
             # Second pass: build agent_data
-            scenario = TrumanWorldCoordinator(read_session)
+            scenario = self._scenario.with_session(read_session)
             assessment = scenario.assess(
                 run_id=run_id,
                 current_tick=current_tick,
                 agents=list(agents),
                 events=[],
             )
-            plan = scenario.planner.build_plan(assessment=assessment, agents=list(agents))
+            plan = await scenario.build_director_plan(run_id, list(agents))
 
             for agent in agents:
                 location_id = agent.current_location_id or agent.home_location_id
@@ -206,7 +207,7 @@ class SimulationService:
                 )
 
             world = WorldState(
-                current_time=self._get_run_world_time(run),
+                current_time=get_run_world_time(run),
                 tick_minutes=tick_minutes,
                 locations=location_states,
                 agents=agent_states,
@@ -227,8 +228,9 @@ class SimulationService:
             persisted_events = await persistence.persist_tick_results(
                 run_id, result, world, current_tick + 1
             )
-            scenario_state = TrumanWorldStateUpdater(write_session)
-            await scenario_state.persist_truman_suspicion(run_id, persisted_events)
+            await self._scenario.with_session(write_session).update_state_from_events(
+                run_id, persisted_events
+            )
 
         return result
 
@@ -373,7 +375,7 @@ class SimulationService:
             persisted = await self.event_repo.create_many(events)
             await self._persistence.persist_tick_memories(run_id, persisted)
             await self._persistence.persist_tick_relationships(run_id, persisted)
-            await self._scenario_state.persist_truman_suspicion(run_id, persisted)
+            await self._scenario.update_state_from_events(run_id, persisted)
 
     async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
         agents = await self.agent_repo.list_for_run(run_id)
@@ -458,7 +460,7 @@ class SimulationService:
         event = build_event(
             run_id=run_id,
             tick_no=run.current_tick,
-            world_time=self._get_run_world_time(run).isoformat(),
+            world_time=get_run_world_time(run).isoformat(),
             action_type=f"director_{event_type}",
             payload=payload,
             accepted=True,
@@ -469,20 +471,7 @@ class SimulationService:
         await self.event_repo.create(event)
 
     async def observe_run(self, run_id: str, event_limit: int = 20) -> DirectorAssessment:
-        run = await self.run_repo.get(run_id)
-        if run is None:
-            msg = f"Run not found: {run_id}"
-            raise ValueError(msg)
-
-        agents = await self.agent_repo.list_for_run(run_id)
-        events = await self.event_repo.list_for_run(run_id, limit=event_limit)
-
-        return self._scenario.assess(
-            run_id=run_id,
-            current_tick=run.current_tick,
-            agents=list(agents),
-            events=list(events),
-        )
+        return await self._scenario.observe_run(run_id, event_limit=event_limit)
 
     async def seed_demo_run(self, run_id: str) -> None:
         run = await self.run_repo.get(run_id)
@@ -493,8 +482,7 @@ class SimulationService:
         existing_agents = await self.agent_repo.list_for_run(run_id)
         if existing_agents:
             return
-        seed_builder = TrumanWorldSeedBuilder(self.session)
-        await seed_builder.seed_demo_run(run)
+        await self._scenario.seed_demo_run(run)
 
     async def _load_world(self, run_id: str, tick_minutes: int) -> WorldState:
         run = await self.run_repo.get(run_id)
@@ -502,26 +490,6 @@ class SimulationService:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
         return await self._context_builder.load_world(run_id, run, tick_minutes)
-
-    def _get_run_world_time(self, run) -> datetime:
-        """Calculate current world time from run metadata."""
-        from app.sim.context import DEFAULT_WORLD_START_TIME
-        from datetime import timedelta
-
-        metadata = run.metadata_json or {}
-        raw_start = metadata.get("world_start_time")
-        if isinstance(raw_start, str):
-            try:
-                start_time = datetime.fromisoformat(raw_start)
-            except ValueError:
-                start_time = DEFAULT_WORLD_START_TIME
-        else:
-            start_time = DEFAULT_WORLD_START_TIME
-
-        if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=UTC)
-
-        return start_time + timedelta(minutes=run.current_tick * run.tick_minutes)
 
     def _fallback_intent(
         self,

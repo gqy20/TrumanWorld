@@ -16,6 +16,7 @@ from app.agent.reactor import Reactor
 from app.agent.reflector import Reflector
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
+from app.scenario.truman_world.scenario import TrumanWorldScenario
 from app.scenario.truman_world.heuristics import build_truman_world_decision
 from app.agent.system_prompt import build_system_prompt
 from app.infra.settings import get_settings
@@ -47,7 +48,9 @@ def runtime(tmp_path: Path) -> AgentRuntime:
     (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
 
     registry = AgentRegistry(tmp_path)
-    return AgentRuntime(registry=registry, context_builder=ContextBuilder())
+    runtime = AgentRuntime(registry=registry, context_builder=ContextBuilder())
+    TrumanWorldScenario().configure_runtime(runtime)
+    return runtime
 
 
 class StubDecisionProvider(AgentDecisionProvider):
@@ -107,6 +110,7 @@ def test_runtime_prepare_reactor_adds_truman_role_context(tmp_path: Path):
     (agent_dir / "prompt.md").write_text("# Truman\nBase prompt", encoding="utf-8")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
+    TrumanWorldScenario().configure_runtime(runtime)
     invocation = runtime.prepare_reactor(
         "truman",
         world={
@@ -140,6 +144,7 @@ def test_runtime_prepare_reactor_adds_cast_scene_guidance(tmp_path: Path):
     (agent_dir / "prompt.md").write_text("# Cast Agent\nBase prompt", encoding="utf-8")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
+    TrumanWorldScenario().configure_runtime(runtime)
     invocation = runtime.prepare_reactor(
         "cast_agent",
         world={

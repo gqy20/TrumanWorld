@@ -141,6 +141,7 @@ truman-world/
 │   │   ├── api/         # HTTP 路由
 │   │   ├── sim/         # 仿真核心
 │   │   ├── agent/       # Agent 运行时
+│   │   ├── scenario/    # 题材/世界规则层
 │   │   ├── store/       # 数据持久化
 │   │   └── infra/       # 基础设施
 │   ├── tests/           # 测试文件
@@ -161,6 +162,42 @@ truman-world/
 ├── docs/                 # 文档
 └── CLAUDE.md            # Claude Code 配置
 ```
+
+### Scenario 结构
+
+后端现在支持通过 `Scenario` 抽象切换题材规则：
+
+```text
+backend/app/scenario/
+  base.py
+  truman_world/
+    scenario.py
+    coordinator.py
+    context.py
+    heuristics.py
+    seed.py
+    state.py
+  open_world/
+    scenario.py
+```
+
+含义是：
+
+- `sim` 不再直接绑定 Truman world 具体实现
+- `SimulationService` 依赖 `Scenario` 接口
+- 题材特定的 heuristic、seed、state update 放在各自 scenario 下
+
+新增 scenario 时，最小需要实现的是：
+
+- `with_session`
+- `configure_runtime`
+- `configure_agent_context`
+- `observe_run`
+- `build_director_plan`
+- `merge_agent_profile`
+- `fallback_intent`
+- `seed_demo_run`
+- `update_state_from_events`
 
 ---
 

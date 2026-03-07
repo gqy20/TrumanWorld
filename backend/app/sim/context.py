@@ -77,28 +77,11 @@ class ContextBuilder:
                 location_states[location_id].occupants.add(agent.id)
 
         return WorldState(
-            current_time=self._get_run_world_time(run),
+            current_time=get_run_world_time(run),
             tick_minutes=tick_minutes,
             locations=location_states,
             agents=agent_states,
         )
-
-    def _get_run_world_time(self, run: SimulationRun) -> datetime:
-        """Calculate current world time from run metadata."""
-        metadata = run.metadata_json or {}
-        raw_start = metadata.get("world_start_time")
-        if isinstance(raw_start, str):
-            try:
-                start_time = datetime.fromisoformat(raw_start)
-            except ValueError:
-                start_time = DEFAULT_WORLD_START_TIME
-        else:
-            start_time = DEFAULT_WORLD_START_TIME
-
-        if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=UTC)
-
-        return start_time + timedelta(minutes=run.current_tick * run.tick_minutes)
 
     def build_agent_world_context(
         self,
@@ -311,3 +294,21 @@ class ContextBuilder:
             result["message"] = payload["message"]
 
         return result
+
+
+def get_run_world_time(run: SimulationRun) -> datetime:
+    """Calculate current world time from run metadata."""
+    metadata = run.metadata_json or {}
+    raw_start = metadata.get("world_start_time")
+    if isinstance(raw_start, str):
+        try:
+            start_time = datetime.fromisoformat(raw_start)
+        except ValueError:
+            start_time = DEFAULT_WORLD_START_TIME
+    else:
+        start_time = DEFAULT_WORLD_START_TIME
+
+    if start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=UTC)
+
+    return start_time + timedelta(minutes=run.current_tick * run.tick_minutes)

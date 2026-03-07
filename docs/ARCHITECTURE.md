@@ -52,6 +52,35 @@ MVP 推荐架构：
                 Postgres + pgvector
 ```
 
+## 3.1 Scenario Layer
+
+当前后端已经在 `sim / agent / director` 之外补了一层 `scenario`：
+
+- `backend/app/scenario/base.py`
+- `backend/app/scenario/truman_world/scenario.py`
+- `backend/app/scenario/open_world/scenario.py`
+
+这一层的职责是：
+
+- 组织题材特定规则
+- 配置 runtime 与 agent context
+- 连接 director、state updater、seed builder
+- 向 `SimulationService` 暴露统一接口
+
+也就是说：
+
+- `sim` 负责世界运行
+- `agent` 负责认知与决策
+- `director` 负责观察和轻计划
+- `scenario` 决定“这个世界按什么题材运行”
+
+目前已经落地两个 scenario：
+
+- `TrumanWorldScenario`
+- `OpenWorldScenario`
+
+其中 `OpenWorldScenario` 是一个最小示例，用来验证这套抽象不是只服务 Truman world。
+
 ## 4. 语言边界
 
 ### 后端：Python
@@ -105,6 +134,15 @@ MVP 后端只保留 4 个模块：
 - ActionResolver
 - tick 推进
 - 关系更新
+- 场景无关的 orchestration
+
+不再负责：
+
+- Truman world 的 heuristic
+- Truman world 的 seed 数据
+- Truman world 的状态更新规则
+
+这些逻辑已经上浮到 `scenario/`。
 
 ### `agent`
 
