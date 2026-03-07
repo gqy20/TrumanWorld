@@ -294,50 +294,53 @@ export function WorldCanvas({ runId, initialData }: Props) {
         </div>
 
         <div className="grid min-h-0 gap-4 xl:grid-rows-[auto_auto_minmax(0,1fr)]">
-          <div className="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.22em] text-moss">小镇概况</div>
-            <div className="mt-4 grid gap-3">
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.22em] text-moss">小镇概况</div>
+              <span className="text-xs text-slate-400">{formatSimTime(world)}</span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
               {[
-                { label: "地点数量", value: world.locations.length },
+                { label: "地点", value: world.locations.length },
                 {
-                  label: "在场居民",
+                  label: "居民",
                   value: world.locations.reduce((count, location) => count + location.occupants.length, 0),
                 },
-                { label: "仿真时间", value: formatSimTime(world) },
-                { label: "活跃地点", value: activeLocations },
-                { label: "对话事件", value: activeConversations },
-                { label: "最新 Tick", value: latestTick },
+                { label: "活跃", value: activeLocations },
+                { label: "对话", value: activeConversations },
+                { label: "Tick", value: latestTick },
+                { label: "状态", value: world.run.status === "running" ? "运行中" : "暂停" },
               ].map(({ label, value }) => (
-                <motion.div key={label} layout className="rounded-2xl bg-mist px-4 py-3">
-                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</div>
+                <motion.div
+                  key={label}
+                  layout
+                  className="rounded-xl bg-mist px-2 py-2 text-center"
+                >
                   <motion.div
                     key={`${label}-${String(value)}`}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-1 text-3xl font-semibold text-ink"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-lg font-semibold text-ink"
                   >
                     {value}
                   </motion.div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
                 </motion.div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.22em] text-moss">观看建议</div>
-            <div className="mt-3 space-y-2 text-sm text-slate-600">
-              <p>先点地图定位地点，再看下方卡片与事件流，空间关系会更清晰。</p>
-              <p>暂停运行时只保留手动刷新，避免静止状态下持续请求。</p>
+          <div className="rounded-xl border border-slate-200 bg-white/60 p-3">
+            <div className="flex items-start gap-2 text-xs text-slate-500">
+              <span className="text-moss">💡</span>
+              <p>点击地图地点可高亮对应卡片，暂停时自动停止轮询</p>
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">近期事件</h2>
-                <span className="text-xs text-slate-400">观众视角 · 叙事流</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
+          <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-ink">近期事件</h2>
+              <div className="flex gap-1">
                 {EVENT_FILTERS.map((filter) => {
                   const active = filter.id === eventFilter;
                   return (
@@ -345,7 +348,7 @@ export function WorldCanvas({ runId, initialData }: Props) {
                       key={filter.id}
                       type="button"
                       onClick={() => setEventFilter(filter.id)}
-                      className={`rounded-full px-3 py-2 text-xs transition ${
+                      className={`rounded-full px-2.5 py-1 text-[11px] transition ${
                         active
                           ? "bg-ink text-white"
                           : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"

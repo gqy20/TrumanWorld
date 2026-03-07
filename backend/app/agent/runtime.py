@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
 from app.agent.config_loader import AgentConfig
+from app.agent.connection_pool import AgentConnectionPool
 from app.agent.context_builder import ContextBuilder
 from app.agent.providers import (
     AgentDecisionProvider,
@@ -14,8 +15,14 @@ from app.agent.providers import (
 )
 from app.agent.prompt_loader import PromptLoader
 from app.agent.registry import AgentRegistry
+from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.sim.action_resolver import ActionIntent
+
+if TYPE_CHECKING:
+    pass
+
+logger = get_logger(__name__)
 
 
 class RuntimeInvocation(BaseModel):
@@ -37,16 +44,18 @@ class AgentRuntime:
         context_builder: ContextBuilder | None = None,
         prompt_loader: PromptLoader | None = None,
         decision_provider: AgentDecisionProvider | None = None,
+        connection_pool: AgentConnectionPool | None = None,
     ) -> None:
         self.registry = registry
         self.context_builder = context_builder or ContextBuilder()
         self.prompt_loader = prompt_loader or PromptLoader()
+        self._connection_pool = connection_pool
         self.decision_provider = decision_provider or self._build_default_provider()
 
     def _build_default_provider(self) -> AgentDecisionProvider:
         settings = get_settings()
         if settings.agent_provider == "claude":
-            return ClaudeSDKDecisionProvider(settings)
+            return ClaudeSDKDecisionProvider(settings, connection_pool=self._connection_pool)
         return HeuristicDecisionProvider()
 
     def _load_agent(self, agent_id: str) -> AgentConfig:

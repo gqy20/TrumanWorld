@@ -71,14 +71,26 @@ async def create_run(
         f"Create run completed for {created.id}, starting scheduler (running: {scheduler.is_running(created.id)})"
     )
     if not scheduler.is_running(created.id):
+        from app.agent.connection_pool import get_connection_pool
         from app.agent.registry import AgentRegistry
         from app.agent.runtime import AgentRuntime
         from app.infra.db import async_engine
         from app.infra.settings import get_settings
 
         settings = get_settings()
-        # Create a shared agent runtime (not bound to any session)
-        agent_runtime = AgentRuntime(registry=AgentRegistry(settings.project_root / "agents"))
+        registry = AgentRegistry(settings.project_root / "agents")
+
+        # Get connection pool and warmup agents for this run
+        pool = await get_connection_pool()
+        agent_repo = AgentRepository(session)
+        agents = await agent_repo.list_for_run(str(created.id))
+        agent_ids = [a.id for a in agents if a.id]
+        if agent_ids:
+            logger.info(f"Warming up connection pool for {len(agent_ids)} agents")
+            await pool.warmup(agent_ids)
+
+        # Create agent runtime with connection pool
+        agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
 
         async def tick_callback(rid: str) -> None:
             # Use isolated tick method to avoid greenlet conflicts with anyio
@@ -128,6 +140,7 @@ async def start_run(
         f"Start run requested for {run_id}, scheduler running: {scheduler.is_running(str(run_id))}"
     )
     if not scheduler.is_running(str(run_id)):
+        from app.agent.connection_pool import get_connection_pool
         from app.infra.db import async_engine
         from app.sim.service import SimulationService
         from app.agent.runtime import AgentRuntime
@@ -135,8 +148,20 @@ async def start_run(
         from app.infra.settings import get_settings
 
         settings = get_settings()
-        # Create a shared agent runtime (not bound to any session)
-        agent_runtime = AgentRuntime(registry=AgentRegistry(settings.project_root / "agents"))
+        registry = AgentRegistry(settings.project_root / "agents")
+
+        # Get connection pool and warmup agents for this run
+        pool = await get_connection_pool()
+        agent_repo = AgentRepository(session)
+        agents = await agent_repo.list_for_run(str(run_id))
+        agent_ids = [a.agent_id for a in agents if a.agent_id]
+
+        if agent_ids:
+            logger.info(f"Warming up connection pool for {len(agent_ids)} agents")
+            await pool.warmup(agent_ids)
+
+        # Create agent runtime with connection pool
+        agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
 
         async def tick_callback(rid: str) -> None:
             # Use isolated tick method to avoid greenlet conflicts with anyio

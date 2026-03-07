@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect, type ReactElement } from "react";
 import type { WorldSnapshot } from "@/lib/api";
 
 type WorldEvent = WorldSnapshot["recent_events"][number];
@@ -73,50 +72,14 @@ const EVENT_CONFIG: Record<string, {
   },
 };
 
-// 打字机效果组件
-function TypewriterText({ text, speed = 30 }: { text: string; speed?: number }): ReactElement {
-  const [displayText, setDisplayText] = useState<string>("");
-  const [isComplete, setIsComplete] = useState<boolean>(false);
-
-  useEffect(() => {
-    setDisplayText("");
-    setIsComplete(false);
-    let currentIndex = 0;
-    
-    const timer = setInterval(() => {
-      if (currentIndex < text.length) {
-        setDisplayText(text.slice(0, currentIndex + 1));
-        currentIndex++;
-      } else {
-        setIsComplete(true);
-        clearInterval(timer);
-      }
-    }, speed);
-
-    return () => clearInterval(timer);
-  }, [text, speed]);
-
-  return (
-    <span>
-      {displayText}
-      {!isComplete && (
-        <motion.span
-          className="inline-block h-4 w-0.5 bg-current align-middle"
-          animate={{ opacity: [1, 0] }}
-          transition={{ duration: 0.5, repeat: Infinity }}
-        />
-      )}
-    </span>
-  );
-}
-
-export function EventCard({ 
-  event, 
-  index, 
-  isLatest, 
-  agentNameMap, 
-  locationNameMap 
+export function EventCard({
+  event,
+  index,
+  isLatest,
+  agentNameMap,
+  locationNameMap
 }: EventCardProps) {
+  // isLatest 用于高亮样式，保留参数以保持接口兼容性
   const config = EVENT_CONFIG[event.event_type] || {
     icon: "✨",
     label: event.event_type,
@@ -135,122 +98,89 @@ export function EventCard({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: -20, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 20, scale: 0.95 }}
-      transition={{ 
-        delay: index * 0.05,
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{
+        delay: index * 0.03,
         type: "spring",
-        stiffness: 300,
-        damping: 24,
+        stiffness: 400,
+        damping: 28,
       }}
       className={`
-        relative overflow-hidden rounded-2xl border-2 px-4 py-3 text-sm
-        transition-shadow hover:shadow-md
+        relative rounded-xl border px-3 py-2.5 text-sm
+        transition-shadow hover:shadow-sm
         ${config.bgColor}
         ${config.borderColor}
-        ${isLatest ? "ring-2 ring-offset-2" : ""}
+        ${isLatest ? "ring-1 ring-offset-1" : ""}
       `}
       style={{
-        boxShadow: isLatest ? `0 0 20px ${config.color}40` : undefined,
+        boxShadow: isLatest ? `0 2px 8px ${config.color}30` : undefined,
       }}
     >
-      {/* 最新事件脉冲效果 */}
-      {isLatest && (
-        <motion.div
-          className="absolute inset-0 rounded-2xl"
-          style={{ backgroundColor: config.color }}
-          initial={{ opacity: 0.3 }}
-          animate={{ opacity: [0.2, 0, 0.2] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-      )}
-
       <div className="relative">
         {/* 头部：图标 + 类型 + Tick */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <motion.span 
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg shadow-sm"
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white text-sm shadow-sm">
               {config.icon}
-            </motion.span>
-            <div>
+            </span>
+            <div className="min-w-0">
               <p className="font-medium text-gray-900">
-                {isLatest ? (
-                  <TypewriterText text={description} speed={20} />
-                ) : (
-                  <>{description}</>
-                )}
+                {description}
               </p>
               {hasMessage && (
-                <motion.div 
-                  className="mt-1 text-xs italic text-gray-600"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  transition={{ delay: 0.3 }}
-                >
+                <p className="mt-0.5 text-xs italic text-gray-600">
                   「{messageText}」
-                </motion.div>
+                </p>
               )}
               {showTalkHint && (
-                <motion.div 
-                  className="mt-1 text-xs text-gray-400"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  transition={{ delay: 0.3 }}
-                >
+                <p className="mt-0.5 text-xs text-gray-400">
                   💭 正在交谈中...
-                </motion.div>
+                </p>
               )}
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <span 
-              className="rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ 
+          <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+              style={{
                 backgroundColor: `${config.color}20`,
                 color: config.color,
               }}
             >
               {config.label}
             </span>
-            <span className="text-xs text-gray-400">
-              Tick {event.tick_no}
+            <span className="text-[10px] text-gray-400">
+              T{event.tick_no}
             </span>
           </div>
         </div>
 
         {/* 参与者标签 */}
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-1.5 flex flex-wrap gap-1">
           {event.actor_agent_id && (
-            <EventTag 
+            <EventTag
               label={agentNameMap[event.actor_agent_id] || event.actor_agent_id}
               type="actor"
             />
           )}
           {event.target_agent_id && (
-            <EventTag 
+            <EventTag
               label={`→ ${agentNameMap[event.target_agent_id] || event.target_agent_id}`}
               type="target"
             />
           )}
           {event.location_id && (
-            <EventTag 
+            <EventTag
               label={`📍 ${locationNameMap[event.location_id] || event.location_id}`}
               type="location"
             />
           )}
           {(event.payload.importance as number | undefined) && (event.payload.importance as number) >= 7 && (
-            <motion.span
-              className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700"
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            >
-              ⭐ 重要 {event.payload.importance as number}
-            </motion.span>
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+              ⭐ {event.payload.importance as number}
+            </span>
           )}
         </div>
       </div>
@@ -267,13 +197,9 @@ function EventTag({ label, type }: { label: string; type: "actor" | "target" | "
   };
 
   return (
-    <motion.span
-      className={`rounded-full px-2 py-0.5 text-xs ${colors[type]}`}
-      whileHover={{ scale: 1.05 }}
-      transition={{ type: "spring", stiffness: 400 }}
-    >
+    <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${colors[type]}`}>
       {label}
-    </motion.span>
+    </span>
   );
 }
 
