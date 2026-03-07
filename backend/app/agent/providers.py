@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import re
 import shutil
 from abc import ABC, abstractmethod
@@ -13,13 +12,14 @@ from claude_agent_sdk.types import McpSdkServerConfig
 from pydantic import BaseModel, Field, ValidationError
 
 from app.agent.system_prompt import build_system_prompt
+from app.infra.logging import get_logger
 from app.infra.settings import Settings
 
 if TYPE_CHECKING:
     from app.agent.connection_pool import AgentConnectionPool
     from app.agent.runtime import RuntimeContext, RuntimeInvocation
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 DECISION_OUTPUT_SCHEMA = {

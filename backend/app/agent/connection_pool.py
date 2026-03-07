@@ -7,16 +7,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
 from app.agent.system_prompt import build_system_prompt
+from app.infra.logging import get_logger
 from app.infra.settings import Settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 绕过嵌套会话检查（在 Claude Code 会话中运行时需要）
 # 必须在导入 SDK 之前设置，但这里我们已经在运行时了
