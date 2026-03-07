@@ -1,0 +1,33 @@
+# Code Owners
+
+# 这个文件定义了谁负责代码库的特定部分
+# 当 PR 修改这些文件时，会自动请求对应的维护者审查
+
+# 规则格式：
+# path  owner1 @owner2 ...
+
+# 所有代码默认维护者
+* @your-org/maintainers
+
+# 后端代码
+backend/ @your-org/backend-team
+
+# 前端代码
+frontend/ @your-org/frontend-team
+
+# Agent 配置
+agents/ @your-org/backend-team
+
+# 文档
+docs/ @your-org/maintainers
+**/*.md @your-org/maintainers
+
+# GitHub 配置
+.github/ @your-org/maintainers
+
+# CI/CD 配置
+.github/workflows/ @your-org/maintainers
+
+# 依赖配置
+**/pyproject.toml @your-org/backend-team
+**/package.json @your-org/frontend-team
