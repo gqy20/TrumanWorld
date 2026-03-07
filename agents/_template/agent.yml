@@ -1,0 +1,16 @@
+id: demo_agent
+name: Demo Agent
+occupation: resident
+home: demo_home
+personality:
+  openness: 0.5
+  conscientiousness: 0.5
+capabilities:
+  reflection: true
+  dialogue: true
+  mcp: false
+  subagents: false
+model:
+  max_turns: 8
+  max_budget_usd: 1.0
+
