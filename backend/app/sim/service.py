@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
+from app.infra.settings import get_settings
 from app.sim.action_resolver import ActionIntent
 from app.sim.runner import SimulationRunner, TickResult
 from app.sim.world import AgentState, LocationState, WorldState
@@ -39,8 +41,9 @@ class SimulationService:
         self.event_repo = EventRepository(session)
         self.memory_repo = MemoryRepository(session)
         self.relationship_repo = RelationshipRepository(session)
+        settings = get_settings()
         self.agent_runtime = agent_runtime or AgentRuntime(
-            registry=AgentRegistry(agents_root or Path("../agents"))
+            registry=AgentRegistry(agents_root or (settings.project_root / "agents"))
         )
 
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
@@ -71,21 +74,22 @@ class SimulationService:
                 continue
 
             nearby_agent_id = self._find_nearby_agent(world, agent.id, state.location_id)
+            runtime_agent_id = self._resolve_runtime_agent_id(agent)
             try:
-                intents.append(
-                    await self.agent_runtime.react(
-                        agent.id,
-                        world={
-                            "current_goal": agent.current_goal,
-                            "current_location_id": state.location_id,
-                            "home_location_id": agent.home_location_id,
-                            "nearby_agent_id": nearby_agent_id,
-                        },
-                        memory={"recent": []},
-                        event={},
-                    )
+                intent = await self.agent_runtime.react(
+                    runtime_agent_id,
+                    world={
+                        "current_goal": agent.current_goal,
+                        "current_location_id": state.location_id,
+                        "home_location_id": agent.home_location_id,
+                        "nearby_agent_id": nearby_agent_id,
+                    },
+                    memory={"recent": []},
+                    event={},
                 )
-            except (RuntimeError, ValueError):
+                intent.agent_id = agent.id
+                intents.append(intent)
+            except (RuntimeError, ValueError, asyncio.CancelledError):
                 intents.append(
                     self._fallback_intent(
                         agent_id=agent.id,
@@ -97,6 +101,13 @@ class SimulationService:
                 )
 
         return intents
+
+    def _resolve_runtime_agent_id(self, agent: Agent) -> str:
+        profile = agent.profile or {}
+        configured_id = profile.get("agent_config_id")
+        if isinstance(configured_id, str) and configured_id:
+            return configured_id
+        return agent.id
 
     async def inject_director_event(
         self,
@@ -163,7 +174,10 @@ class SimulationService:
             current_location_id=f"{run_id}-cafe",
             current_goal="talk",
             personality={"openness": 0.7},
-            profile={"bio": "Runs the cafe counter."},
+            profile={
+                "bio": "Runs the cafe counter.",
+                "agent_config_id": "alice",
+            },
             status={"energy": 0.8},
             current_plan={"morning": "work"},
         )
@@ -176,7 +190,10 @@ class SimulationService:
             current_location_id=f"{run_id}-cafe",
             current_goal="talk",
             personality={"agreeableness": 0.6},
-            profile={"bio": "Stops by the cafe every morning."},
+            profile={
+                "bio": "Stops by the cafe every morning.",
+                "agent_config_id": "bob",
+            },
             status={"energy": 0.7},
             current_plan={"morning": "socialize"},
         )

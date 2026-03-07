@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from app.infra.db import Base, get_db_session
+from app.infra.settings import get_settings
 from app.main import create_app
 
 
@@ -47,3 +48,11 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
 @pytest.fixture
 def anyio_backend() -> str:
     return "asyncio"
+
+
+@pytest.fixture(autouse=True)
+def default_agent_provider(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "heuristic")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import shutil
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -76,6 +78,10 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         self.settings = settings
 
     async def decide(self, invocation: Any) -> RuntimeDecision:
+        if shutil.which("claude") is None:
+            msg = "Claude CLI is not available in the current environment"
+            raise RuntimeError(msg)
+
         env = {}
         if self.settings.anthropic_api_key:
             env["ANTHROPIC_API_KEY"] = self.settings.anthropic_api_key
@@ -91,19 +97,26 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
             output_format=DECISION_OUTPUT_SCHEMA,
         )
 
-        async for message in query(prompt=invocation.prompt, options=options):
-            if isinstance(message, ResultMessage):
-                if message.is_error:
-                    msg = message.result or "Claude SDK decision failed"
-                    raise RuntimeError(msg)
-                if message.structured_output is not None:
-                    return RuntimeDecision.model_validate(message.structured_output)
-                if message.result:
-                    try:
-                        return RuntimeDecision.model_validate(json.loads(message.result))
-                    except json.JSONDecodeError as exc:
-                        msg = "Claude SDK returned non-JSON decision output"
-                        raise RuntimeError(msg) from exc
+        try:
+            async for message in query(prompt=invocation.prompt, options=options):
+                if isinstance(message, ResultMessage):
+                    if message.is_error:
+                        msg = message.result or "Claude SDK decision failed"
+                        raise RuntimeError(msg)
+                    if message.structured_output is not None:
+                        return RuntimeDecision.model_validate(message.structured_output)
+                    if message.result:
+                        try:
+                            return RuntimeDecision.model_validate(json.loads(message.result))
+                        except json.JSONDecodeError as exc:
+                            msg = "Claude SDK returned non-JSON decision output"
+                            raise RuntimeError(msg) from exc
+        except asyncio.CancelledError as exc:
+            msg = "Claude SDK decision cancelled"
+            raise RuntimeError(msg) from exc
+        except Exception as exc:
+            msg = f"Claude SDK decision failed: {exc}"
+            raise RuntimeError(msg) from exc
 
         msg = "Claude SDK returned no decision"
         raise RuntimeError(msg)

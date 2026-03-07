@@ -106,6 +106,7 @@ docker compose up --build
 说明：
 
 - `backend` 容器启动时会自动执行 `alembic upgrade head`
+- `backend` 镜像会安装 `Claude Code` CLI，供 `claude_agent_sdk` 在容器内调用
 - `frontend` 会同时注入：
   - `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:38000/api`
   - `INTERNAL_API_BASE_URL=http://backend:8000/api`

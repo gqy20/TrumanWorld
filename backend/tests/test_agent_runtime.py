@@ -1,14 +1,16 @@
+import asyncio
 from pathlib import Path
 
 import pytest
 
+import app.agent.providers as provider_module
 from app.agent.context_builder import ContextBuilder
 from app.agent.providers import AgentDecisionProvider, ClaudeSDKDecisionProvider, RuntimeDecision
 from app.agent.planner import Planner
 from app.agent.reactor import Reactor
 from app.agent.reflector import Reflector
 from app.agent.registry import AgentRegistry
-from app.agent.runtime import AgentRuntime
+from app.agent.runtime import AgentRuntime, RuntimeInvocation
 from app.infra.settings import get_settings
 
 
@@ -208,5 +210,55 @@ def test_runtime_selects_claude_provider_from_legacy_env(tmp_path: Path, monkeyp
     assert settings.agent_provider == "claude"
     assert settings.agent_model == "legacy-model"
     assert isinstance(runtime.decision_provider, ClaudeSDKDecisionProvider)
+
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_claude_provider_wraps_cancelled_error(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    get_settings.cache_clear()
+    monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
+
+    async def fake_query(*args, **kwargs):
+        raise asyncio.CancelledError
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(provider_module, "query", fake_query)
+
+    provider = ClaudeSDKDecisionProvider(get_settings())
+    invocation = RuntimeInvocation(
+        agent_id="alice",
+        task="reactor",
+        prompt="test",
+        context={},
+        max_turns=1,
+        max_budget_usd=0.1,
+    )
+
+    with pytest.raises(RuntimeError, match="decision cancelled"):
+        await provider.decide(invocation)
+
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_claude_provider_fails_fast_when_cli_missing(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setattr(provider_module.shutil, "which", lambda _: None)
+    get_settings.cache_clear()
+
+    provider = ClaudeSDKDecisionProvider(get_settings())
+    invocation = RuntimeInvocation(
+        agent_id="alice",
+        task="reactor",
+        prompt="test",
+        context={},
+        max_turns=1,
+        max_budget_usd=0.1,
+    )
+
+    with pytest.raises(RuntimeError, match="Claude CLI is not available"):
+        await provider.decide(invocation)
 
     get_settings.cache_clear()

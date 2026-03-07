@@ -4,7 +4,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir uv
+RUN npm install -g @anthropic-ai/claude-code
 
 WORKDIR /app/backend
 
