@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.db import get_db_session
+from app.sim.service import SimulationService
 from app.store.models import SimulationRun
 from app.store.repositories import EventRepository, RunRepository
 
@@ -19,6 +20,13 @@ class RunResponse(BaseModel):
     id: UUID
     name: str
     status: str
+
+
+class DirectorEventRequest(BaseModel):
+    event_type: str = Field(min_length=1, max_length=50)
+    payload: dict = Field(default_factory=dict)
+    location_id: str | None = None
+    importance: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
 @router.post("", response_model=RunResponse)
@@ -119,10 +127,19 @@ async def get_timeline(
 @router.post("/{run_id}/director/events")
 async def inject_director_event(
     run_id: UUID,
+    payload: DirectorEventRequest,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, str]:
     repo = RunRepository(session)
     run = await repo.get(str(run_id))
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    service = SimulationService(session)
+    await service.inject_director_event(
+        run_id=str(run_id),
+        event_type=payload.event_type,
+        payload=payload.payload,
+        location_id=payload.location_id,
+        importance=payload.importance,
+    )
     return {"run_id": str(run_id), "status": "queued"}

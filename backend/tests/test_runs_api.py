@@ -56,3 +56,27 @@ async def test_run_not_found_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Run not found"
+
+
+@pytest.mark.asyncio
+async def test_inject_director_event_persists_to_timeline(client):
+    create_response = await client.post("/api/runs", json={"name": "director-run"})
+    run_id = create_response.json()["id"]
+
+    inject_response = await client.post(
+        f"/api/runs/{run_id}/director/events",
+        json={
+            "event_type": "broadcast",
+            "payload": {"message": "Town hall at plaza"},
+            "importance": 0.8,
+        },
+    )
+    timeline_response = await client.get(f"/api/runs/{run_id}/timeline")
+
+    assert inject_response.status_code == 200
+    assert inject_response.json()["status"] == "queued"
+
+    timeline = timeline_response.json()
+    assert len(timeline["events"]) == 1
+    assert timeline["events"][0]["event_type"] == "director_broadcast"
+    assert timeline["events"][0]["payload"]["message"] == "Town hall at plaza"

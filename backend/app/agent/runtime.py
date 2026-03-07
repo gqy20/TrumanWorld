@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.sim.action_resolver import ActionIntent
 from app.agent.config_loader import AgentConfig
 from app.agent.context_builder import ContextBuilder
 from app.agent.prompt_loader import PromptLoader
@@ -104,3 +105,37 @@ class AgentRuntime:
             max_turns=config.model.max_turns,
             max_budget_usd=config.model.max_budget_usd,
         )
+
+    def derive_intent(self, invocation: RuntimeInvocation) -> ActionIntent:
+        world = invocation.context.get("world", {})
+        goal = world.get("current_goal")
+        current_location_id = world.get("current_location_id")
+        home_location_id = world.get("home_location_id")
+        nearby_agent_id = world.get("nearby_agent_id")
+
+        if isinstance(goal, str) and goal.startswith("move:"):
+            target_location_id = goal.split(":", 1)[1].strip()
+            return ActionIntent(
+                agent_id=invocation.agent_id,
+                action_type="move",
+                target_location_id=target_location_id,
+            )
+
+        if goal == "work":
+            return ActionIntent(agent_id=invocation.agent_id, action_type="work")
+
+        if goal == "talk" and nearby_agent_id:
+            return ActionIntent(
+                agent_id=invocation.agent_id,
+                action_type="talk",
+                target_agent_id=str(nearby_agent_id),
+            )
+
+        if current_location_id and home_location_id and current_location_id != home_location_id and goal == "go_home":
+            return ActionIntent(
+                agent_id=invocation.agent_id,
+                action_type="move",
+                target_location_id=str(home_location_id),
+            )
+
+        return ActionIntent(agent_id=invocation.agent_id, action_type="rest")

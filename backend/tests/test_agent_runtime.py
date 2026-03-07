@@ -78,6 +78,18 @@ def test_runtime_raises_for_unknown_agent(runtime: AgentRuntime):
         runtime.prepare_planner("missing-agent")
 
 
+def test_runtime_derive_intent_from_goal(runtime: AgentRuntime):
+    invocation = runtime.prepare_reactor(
+        "demo_agent",
+        world={"current_goal": "move:park", "current_location_id": "home", "home_location_id": "home"},
+    )
+
+    intent = runtime.derive_intent(invocation)
+
+    assert intent.action_type == "move"
+    assert intent.target_location_id == "park"
+
+
 def test_planner_reactor_reflector_wrap_runtime(runtime: AgentRuntime):
     planner = Planner(runtime)
     reactor = Reactor(runtime)
