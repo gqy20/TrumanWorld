@@ -112,6 +112,10 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
 只返回 JSON，不要有 markdown 代码块标记。"""
 
+        # Call SDK and parse result
+        # Note: We don't use asyncio.shield here because it causes issues with SQLAlchemy's greenlet
+        result_decision: RuntimeDecision | None = None
+        
         try:
             async for message in query(prompt=full_prompt, options=options):
                 if isinstance(message, ResultMessage):
@@ -130,28 +134,32 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                             text = text.strip()
                             # Try to parse as-is first
                             try:
-                                return RuntimeDecision.model_validate_json(text)
+                                result_decision = RuntimeDecision.model_validate_json(text)
                             except Exception:
                                 # Fallback: extract first { to last } pair
                                 start = text.find("{")
                                 end = text.rfind("}")
                                 if start != -1 and end != -1 and end > start:
                                     json_str = text[start : end + 1]
-                                    return RuntimeDecision.model_validate_json(json_str)
-                                raise ValueError("No valid JSON found in response")
+                                    result_decision = RuntimeDecision.model_validate_json(json_str)
+                                else:
+                                    raise ValueError("No valid JSON found in response")
                         except (json.JSONDecodeError, ValidationError) as exc:
                             msg = f"Failed to parse decision JSON: {exc}"
                             raise RuntimeError(msg) from exc
         except asyncio.CancelledError:
             # 任务被取消，这是正常的（如 scheduler 停止时），不需要抛出异常
             logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
-            # 返回一个默认的 rest 决策
             return RuntimeDecision(action_type="rest")
-        except RuntimeError:
+        except RuntimeError as e:
+            # Handle claude_agent_sdk anyio cancel scope errors
+            if "cancel scope" in str(e).lower():
+                logger.debug(f"Claude SDK cancel scope error for agent {invocation.agent_id}: {e}")
+                return RuntimeDecision(action_type="rest")
             raise
-        except Exception as exc:
-            msg = f"Claude SDK decision failed: {exc}"
-            raise RuntimeError(msg) from exc
-
-        msg = "Claude SDK returned no decision"
-        raise RuntimeError(msg)
+        
+        if result_decision is None:
+            msg = "Claude SDK returned no decision"
+            raise RuntimeError(msg)
+        
+        return result_decision

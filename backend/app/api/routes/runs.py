@@ -60,6 +60,7 @@ async def create_run(
     
     # 自动启动 tick 调度器
     scheduler = get_scheduler()
+    logger.info(f"Create run completed for {created.id}, starting scheduler (running: {scheduler.is_running(created.id)})")
     if not scheduler.is_running(created.id):
         from app.infra.db import async_engine
         
@@ -67,18 +68,11 @@ async def create_run(
             from sqlalchemy.ext.asyncio import AsyncSession
             from app.sim.service import SimulationService
             
+            # Create session and run tick
+            # Note: Don't catch exceptions here, let them propagate to scheduler
             async with AsyncSession(async_engine) as new_session:
                 service = SimulationService(new_session)
-                try:
-                    await service.run_tick(rid)
-                except RuntimeError as e:
-                    # 忽略 claude_agent_sdk 的 cancel scope 错误（任务取消时的正常现象）
-                    if "cancel scope" in str(e).lower() or "cancelled" in str(e).lower():
-                        logger.debug(f"Tick callback cancelled for run {rid}")
-                    else:
-                        logger.warning(f"Auto-tick failed for run {rid}: {e}")
-                except Exception as e:
-                    logger.warning(f"Auto-tick failed for run {rid}: {e}")
+                await service.run_tick(rid)
         
         await scheduler.start_run(created.id, interval_seconds=5.0, callback=tick_callback)
         logger.info(f"Auto-scheduler started for run {created.id}")
@@ -110,6 +104,7 @@ async def start_run(
     
     # Start automatic tick scheduler (every 5 seconds)
     scheduler = get_scheduler()
+    logger.info(f"Start run requested for {run_id}, scheduler running: {scheduler.is_running(str(run_id))}")
     if not scheduler.is_running(str(run_id)):
         from app.infra.db import async_engine
         
@@ -117,18 +112,11 @@ async def start_run(
             from sqlalchemy.ext.asyncio import AsyncSession
             from app.sim.service import SimulationService
             
+            # Create session and run tick
+            # Note: Don't catch exceptions here, let them propagate to scheduler
             async with AsyncSession(async_engine) as new_session:
                 service = SimulationService(new_session)
-                try:
-                    await service.run_tick(rid)
-                except RuntimeError as e:
-                    # 忽略 claude_agent_sdk 的 cancel scope 错误（任务取消时的正常现象）
-                    if "cancel scope" in str(e).lower() or "cancelled" in str(e).lower():
-                        logger.debug(f"Tick callback cancelled for run {rid}")
-                    else:
-                        logger.warning(f"Auto-tick failed for run {rid}: {e}")
-                except Exception as e:
-                    logger.warning(f"Auto-tick failed for run {rid}: {e}")
+                await service.run_tick(rid)
         
         await scheduler.start_run(str(run_id), interval_seconds=5.0, callback=tick_callback)
     
@@ -147,6 +135,7 @@ async def pause_run(
     
     # Stop automatic tick scheduler
     scheduler = get_scheduler()
+    logger.info(f"Pause run requested for {run_id}, stopping scheduler")
     await scheduler.stop_run(str(run_id))
     
     updated = await repo.update_status(run, "paused")

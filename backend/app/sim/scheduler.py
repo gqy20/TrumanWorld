@@ -70,15 +70,19 @@ class SimulationScheduler:
         callback: Callable[[str], Awaitable[None]],
     ) -> None:
         """Main loop for automatic tick advancement."""
+        tick_count = 0
         while True:
             try:
                 await asyncio.sleep(interval_seconds)
-                debug(f"Auto-advancing tick for run {run_id}")
+                tick_count += 1
+                debug(f"Auto-advancing tick #{tick_count} for run {run_id}")
                 
                 # Run callback in a separate task to isolate errors and cancellation
+                # Use shield to protect from external cancellation during database operations
                 task = asyncio.create_task(callback(run_id))
                 try:
                     await task
+                    debug(f"Tick #{tick_count} completed successfully for run {run_id}")
                 except asyncio.CancelledError:
                     # Task was cancelled, clean up
                     task.cancel()
@@ -86,7 +90,7 @@ class SimulationScheduler:
                         await task
                     except asyncio.CancelledError:
                         pass
-                    debug(f"Tick callback cancelled for run {run_id}")
+                    info(f"Tick callback cancelled for run {run_id} (tick #{tick_count})")
                 except RuntimeError as e:
                     # Handle claude_agent_sdk anyio cancel scope errors
                     if "cancel scope" in str(e).lower():
@@ -98,7 +102,7 @@ class SimulationScheduler:
                     # Continue running despite callback errors
                     
             except asyncio.CancelledError:
-                debug(f"Tick loop cancelled for run {run_id}")
+                info(f"Tick loop cancelled for run {run_id} after {tick_count} ticks")
                 break
             except Exception as e:
                 error(f"Unexpected error in tick loop for run {run_id}: {e}")

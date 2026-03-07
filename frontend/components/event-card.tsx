@@ -128,6 +128,9 @@ export function EventCard({
   const description = describeEvent(event, agentNameMap, locationNameMap);
   const messageText = event.payload.message;
   const hasMessage = typeof messageText === "string" && messageText.length > 0;
+  
+  // 对于 talk 事件，如果没有具体消息，显示一个默认提示
+  const showTalkHint = event.event_type === "talk" && !hasMessage;
 
   return (
     <motion.div
@@ -190,6 +193,16 @@ export function EventCard({
                   transition={{ delay: 0.3 }}
                 >
                   「{messageText}」
+                </motion.div>
+              )}
+              {showTalkHint && (
+                <motion.div 
+                  className="mt-1 text-xs text-gray-400"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  transition={{ delay: 0.3 }}
+                >
+                  💭 正在交谈中...
                 </motion.div>
               )}
             </div>
