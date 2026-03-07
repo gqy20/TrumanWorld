@@ -36,7 +36,11 @@ class ActionResolver:
                 False,
                 intent.action_type,
                 "agent_not_found",
-                event_payload={"agent_id": intent.agent_id, **intent.payload},
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": None,
+                    **intent.payload,
+                },
             )
 
         if intent.action_type not in self.SUPPORTED_ACTIONS:
@@ -44,7 +48,11 @@ class ActionResolver:
                 False,
                 intent.action_type,
                 "unsupported_action",
-                event_payload={"agent_id": intent.agent_id, **intent.payload},
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
+                    **intent.payload,
+                },
             )
 
         if intent.action_type == "move":
@@ -52,11 +60,16 @@ class ActionResolver:
         if intent.action_type == "talk":
             return self._resolve_talk(world, intent)
 
+        # work, rest 等其他动作需要包含 location_id
         return ActionResult(
             accepted=True,
             action_type=intent.action_type,
             reason="accepted",
-            event_payload={"agent_id": intent.agent_id, **intent.payload},
+            event_payload={
+                "agent_id": intent.agent_id,
+                "location_id": agent.location_id if agent else None,
+                **intent.payload,
+            },
         )
 
     def _resolve_move(self, world: WorldState, intent: ActionIntent) -> ActionResult:
@@ -66,7 +79,10 @@ class ActionResolver:
                 False,
                 "move",
                 "agent_not_found",
-                event_payload={"agent_id": intent.agent_id},
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": None,
+                },
             )
 
         if intent.target_location_id is None:
@@ -74,7 +90,10 @@ class ActionResolver:
                 False,
                 "move",
                 "missing_target_location",
-                event_payload={"agent_id": intent.agent_id},
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
+                },
             )
 
         destination = world.get_location(intent.target_location_id)
@@ -85,7 +104,8 @@ class ActionResolver:
                 "location_not_found",
                 event_payload={
                     "agent_id": intent.agent_id,
-                    "target_location_id": intent.target_location_id,
+                    "location_id": agent.location_id,
+                    "to_location_id": intent.target_location_id,
                 },
             )
 
@@ -96,7 +116,8 @@ class ActionResolver:
                 "already_at_location",
                 event_payload={
                     "agent_id": intent.agent_id,
-                    "target_location_id": intent.target_location_id,
+                    "location_id": agent.location_id,
+                    "to_location_id": intent.target_location_id,
                 },
             )
 
@@ -107,7 +128,8 @@ class ActionResolver:
                 "location_full",
                 event_payload={
                     "agent_id": intent.agent_id,
-                    "target_location_id": intent.target_location_id,
+                    "location_id": agent.location_id,
+                    "to_location_id": intent.target_location_id,
                 },
             )
 
@@ -132,7 +154,10 @@ class ActionResolver:
                 False,
                 "talk",
                 "agent_not_found",
-                event_payload={"agent_id": intent.agent_id},
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": None,
+                },
             )
         if target is None:
             return ActionResult(
@@ -141,6 +166,7 @@ class ActionResolver:
                 "target_not_found",
                 event_payload={
                     "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
                     "target_agent_id": intent.target_agent_id,
                 },
             )
@@ -151,6 +177,7 @@ class ActionResolver:
                 "target_not_nearby",
                 event_payload={
                     "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
                     "target_agent_id": intent.target_agent_id,
                 },
             )
