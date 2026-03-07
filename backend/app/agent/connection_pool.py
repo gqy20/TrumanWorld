@@ -305,6 +305,36 @@ class AgentConnectionPool:
             return self._pool[agent_id].session_id
         return None
 
+    async def cleanup_run(self, run_id: str) -> int:
+        """清理指定 run 的所有连接
+
+        当 run 被删除或暂停时调用，释放相关连接资源。
+
+        Args:
+            run_id: 要清理的 run ID
+
+        Returns:
+            清理的连接数
+        """
+        cleaned = 0
+        prefix = f"{run_id}:"
+
+        async with self._lock:
+            to_remove = [aid for aid in self._pool if aid.startswith(prefix)]
+
+            for aid in to_remove:
+                pooled = self._pool.pop(aid)
+                try:
+                    await pooled.client.disconnect()
+                    cleaned += 1
+                    logger.debug(f"Cleaned up connection for run: {aid}")
+                except Exception as e:
+                    logger.warning(f"Error disconnecting client {aid}: {e}")
+
+        if cleaned > 0:
+            logger.info(f"Cleaned up {cleaned} connections for run {run_id}")
+        return cleaned
+
 
 # ============ 全局连接池单例 ============
 

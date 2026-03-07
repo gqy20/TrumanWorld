@@ -152,6 +152,20 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         self.settings = settings
         self._pool = connection_pool
 
+    @staticmethod
+    def _get_pool_key(invocation: "RuntimeInvocation") -> str:
+        """Generate pool key for connection isolation between runs.
+
+        Args:
+            invocation: Runtime invocation with agent_id and optional run_id.
+
+        Returns:
+            Pool key in format "run_id:agent_id" or just "agent_id" if no run_id.
+        """
+        if invocation.run_id:
+            return f"{invocation.run_id}:{invocation.agent_id}"
+        return invocation.agent_id
+
     def _build_sdk_options(
         self,
         invocation: RuntimeInvocation,
@@ -173,10 +187,11 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
         # 确定 session_id：优先使用 invocation 中的，否则从连接池获取
         session_id = invocation.session_id
+        pool_key = self._get_pool_key(invocation)
         if not session_id and self._pool:
-            session_id = self._pool.get_session_id(invocation.agent_id)
+            session_id = self._pool.get_session_id(pool_key)
             if session_id:
-                logger.debug(f"Auto-resuming session {session_id} for agent: {invocation.agent_id}")
+                logger.debug(f"Auto-resuming session {session_id} for pool_key: {pool_key}")
 
         options = ClaudeAgentOptions(
             max_turns=invocation.max_turns,
@@ -218,11 +233,12 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         1. 连接池模式: 复用已建立的客户端连接，自动恢复 session
         2. 直接模式: 每次调用 query() 新建进程，使用 resume 参数恢复
         """
-        if self._pool and self._pool.is_warmed_up(invocation.agent_id):
-            logger.debug(f"Using POOLED connection for agent: {invocation.agent_id}")
+        pool_key = self._get_pool_key(invocation)
+        if self._pool and self._pool.is_warmed_up(pool_key):
+            logger.debug(f"Using POOLED connection for pool_key: {pool_key}")
             return await self._decide_with_pool(invocation, runtime_ctx=runtime_ctx)
         else:
-            logger.debug(f"Using QUERY mode (new process) for agent: {invocation.agent_id}")
+            logger.debug(f"Using QUERY mode (new process) for pool_key: {pool_key}")
             return await self._decide_with_query(invocation, runtime_ctx=runtime_ctx)
 
     async def _decide_with_pool(
@@ -235,9 +251,10 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
         result_decision: RuntimeDecision | None = None
         captured_session_id: str | None = None
+        pool_key = self._get_pool_key(invocation)
 
         # Acquire client from pool
-        client = await self._pool.acquire(invocation.agent_id)
+        client = await self._pool.acquire(pool_key)
 
         try:
             # Send query
@@ -290,7 +307,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         finally:
             # 释放连接并保存 session_id
             await self._pool.release(
-                invocation.agent_id,
+                pool_key,
                 session_id=captured_session_id,
             )
 

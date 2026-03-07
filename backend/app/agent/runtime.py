@@ -37,6 +37,7 @@ class RuntimeInvocation(BaseModel):
     max_budget_usd: float
     allowed_actions: list[str] = []
     session_id: str | None = None  # 用于恢复 SDK session
+    run_id: str | None = None  # 用于连接池隔离多个 run
 
 
 @dataclass
@@ -191,6 +192,9 @@ class AgentRuntime:
         invocation = self.prepare_reactor(
             agent_id, world=world, memory=memory, event=event, recent_events=recent_events
         )
+        # Set run_id from runtime_ctx for connection pool isolation
+        if runtime_ctx and runtime_ctx.run_id and not invocation.run_id:
+            invocation = invocation.model_copy(update={"run_id": runtime_ctx.run_id})
         return await self.decide_intent(invocation, runtime_ctx=runtime_ctx)
 
     def derive_intent(self, invocation: RuntimeInvocation) -> ActionIntent:

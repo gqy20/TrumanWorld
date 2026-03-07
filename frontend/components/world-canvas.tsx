@@ -97,6 +97,7 @@ export function WorldCanvas({ runId, initialData }: Props) {
   const router = useRouter();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
+  const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
 
   const { data: world, error, isValidating, mutate } = useSWR<WorldSnapshot | null>(
@@ -142,7 +143,9 @@ export function WorldCanvas({ runId, initialData }: Props) {
         }
       }
 
-      const filtered = world.recent_events.filter((event) => eventMatchesFilter(event, eventFilter));
+      const filtered = world.recent_events
+        .filter((event) => eventMatchesFilter(event, eventFilter))
+        .filter((event) => locationFilter === null || event.location_id === locationFilter);
       const conversationCount = world.recent_events.filter((event) => event.event_type === "talk").length;
       const activeLocationCount = world.locations.filter((location) =>
         world.recent_events.some((event) => event.location_id === location.id),
@@ -155,7 +158,7 @@ export function WorldCanvas({ runId, initialData }: Props) {
         activeConversations: conversationCount,
         activeLocations: activeLocationCount,
       };
-    }, [eventFilter, world]);
+    }, [eventFilter, locationFilter, world]);
 
   if (!world) {
     return (
@@ -206,112 +209,19 @@ export function WorldCanvas({ runId, initialData }: Props) {
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.75fr)_380px]">
-        <div className="grid min-h-0 gap-4 xl:grid-rows-[minmax(420px,1fr)_auto]">
+        <div className="min-h-0 flex-1">
           <TownMap
             world={world}
             agentNameMap={agentNameMap}
             highlightedLocationId={highlightedLocationId}
             onLocationClick={(locationId) => {
               setHighlightedLocationId(locationId);
+              setLocationFilter(locationId);
             }}
             onAgentClick={(agentId) => {
               router.push(`/runs/${runId}/agents/${agentId}`);
             }}
           />
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.9fr)]">
-            <div className="rounded-[28px] border border-slate-200 bg-white/75 p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">地点列表</p>
-                  <h2 className="mt-1 text-lg font-semibold text-ink">地图热点</h2>
-                </div>
-                <span className="text-xs text-slate-400">点击左侧地图或这里切换焦点</span>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {world.locations.map((location) => {
-                  const badge = beatBadge(locationBeat(location.id, world.recent_events));
-                  const selected = location.id === selectedLocation?.id;
-                  return (
-                    <button
-                      key={location.id}
-                      type="button"
-                      onClick={() => setHighlightedLocationId(location.id)}
-                      className={`rounded-3xl border px-4 py-4 text-left transition ${
-                        selected ? "border-moss bg-mist shadow-sm" : "border-slate-200 bg-white hover:border-moss/60"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-semibold text-ink">{location.name}</p>
-                          <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                            {location.location_type}
-                          </p>
-                        </div>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${badge.cls}`}>
-                          {badge.label}
-                        </span>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
-                        <span>{location.occupants.length} / {location.capacity} 人</span>
-                        <span>{selected ? "当前聚焦" : "查看详情"}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-slate-200 bg-white/75 p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">聚焦地点动态</p>
-                  <h2 className="mt-1 text-base font-semibold text-ink">
-                    {selectedLocation?.name ?? "—"} 近期事件
-                  </h2>
-                </div>
-                <div className="group relative">
-                  <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-400 shadow-sm transition hover:border-moss hover:text-moss"
-                    aria-label="操作提示"
-                  >
-                    !
-                  </button>
-                  <div className="pointer-events-none absolute bottom-9 right-0 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">操作提示</p>
-                    <ul className="space-y-2 text-xs leading-5 text-slate-600">
-                      <li className="flex gap-2"><span className="mt-0.5 text-moss">●</span>点击地图地点可聚焦右侧详情，快速查看该地点的居民和当前节奏。</li>
-                      <li className="flex gap-2"><span className="mt-0.5 text-moss">●</span>点击地图居民头像可直接进入个人页，继续查看记忆、关系和近期行为。</li>
-                      <li className="flex gap-2"><span className="mt-0.5 text-moss">●</span>当世界暂停时，自动轮询会停止，这时更适合逐帧排查行为链路。</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 space-y-2">
-                {selectedLocation
-                  ? world.recent_events
-                      .filter((e) => e.location_id === selectedLocation.id)
-                      .slice(0, 4)
-                      .map((e) => (
-                        <div key={e.id} className="flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2">
-                          <span className="mt-0.5 text-base leading-none">
-                            {e.event_type === "talk" ? "💬" : e.event_type === "move" ? "🚶" : e.event_type === "work" ? "⚒️" : "😴"}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs text-slate-700">{e.summary}</p>
-                            <p className="mt-0.5 text-[10px] text-slate-400">T{e.tick_no}</p>
-                          </div>
-                        </div>
-                      ))
-                  : null}
-                {selectedLocation && world.recent_events.filter((e) => e.location_id === selectedLocation.id).length === 0 && (
-                  <p className="text-xs text-slate-400">该地点暂无近期事件。</p>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="grid min-h-0 gap-4 xl:grid-rows-[auto_auto_minmax(0,1fr)]">
@@ -435,8 +345,8 @@ export function WorldCanvas({ runId, initialData }: Props) {
                 </svg>
               </button>
             </div>
-            {/* 简化的筛选器 */}
-            <div className="mb-3 flex flex-wrap gap-1">
+            {/* 事件类型筛选器 */}
+            <div className="mb-2 flex flex-wrap gap-1">
               {EVENT_FILTERS.map((filter) => {
                 const active = filter.id === eventFilter;
                 return (
@@ -454,6 +364,34 @@ export function WorldCanvas({ runId, initialData }: Props) {
                   </button>
                 );
               })}
+            </div>
+            {/* 地点筛选器 */}
+            <div className="mb-3 flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setLocationFilter(null)}
+                className={`rounded-full px-2.5 py-1 text-[11px] transition ${
+                  locationFilter === null
+                    ? "bg-ink text-white"
+                    : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
+                }`}
+              >
+                全部地点
+              </button>
+              {world.locations.map((loc) => (
+                <button
+                  key={loc.id}
+                  type="button"
+                  onClick={() => setLocationFilter(loc.id === locationFilter ? null : loc.id)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] transition ${
+                    locationFilter === loc.id
+                      ? "border border-moss/40 bg-moss/20 text-moss"
+                      : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
+                  }`}
+                >
+                  {loc.name}
+                </button>
+              ))}
             </div>
             <div className="min-h-0 space-y-2 overflow-auto pr-1">
               {visibleEvents.length === 0 ? (

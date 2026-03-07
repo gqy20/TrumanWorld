@@ -127,20 +127,21 @@ async def create_run(
         registry = AgentRegistry(settings.project_root / "agents")
 
         # Get connection pool and warmup agents for this run
-        # IMPORTANT: Use agent_config_id (e.g., "alice") as the key, not full agent.id
+        # IMPORTANT: Use run_id:agent_config_id as the key for connection isolation between runs
         pool = await get_connection_pool()
         agent_repo = AgentRepository(session)
         agents = await agent_repo.list_for_run(str(created.id))
-        # Extract runtime agent IDs (agent_config_id or fallback to agent.id)
-        runtime_agent_ids = set()
+        # Build pool keys with run_id prefix for multi-run isolation
+        pool_keys = set()
         for a in agents:
             config_id = (a.profile or {}).get("agent_config_id")
-            runtime_agent_ids.add(config_id if config_id else a.id)
-        if runtime_agent_ids:
+            agent_key = config_id if config_id else a.id
+            pool_keys.add(f"{created.id}:{agent_key}")
+        if pool_keys:
             logger.info(
-                f"Warming up connection pool for {len(runtime_agent_ids)} agents: {runtime_agent_ids}"
+                f"Warming up connection pool for {len(pool_keys)} agents: {pool_keys}"
             )
-            await pool.warmup(list(runtime_agent_ids))
+            await pool.warmup(list(pool_keys))
 
         # Create agent runtime with connection pool
         agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
@@ -223,16 +224,18 @@ async def restore_all_runs(
 
                 agent_repo = AgentRepository(session)
                 agents = await agent_repo.list_for_run(str(run.id))
-                runtime_agent_ids = set()
+                # Build pool keys with run_id prefix for multi-run isolation
+                pool_keys = set()
                 for a in agents:
                     config_id = (a.profile or {}).get("agent_config_id")
-                    runtime_agent_ids.add(config_id if config_id else a.id)
+                    agent_key = config_id if config_id else a.id
+                    pool_keys.add(f"{run.id}:{agent_key}")
 
-                if runtime_agent_ids:
+                if pool_keys:
                     logger.info(
-                        f"Warming up connection pool for run {run.id}: {runtime_agent_ids}"
+                        f"Warming up connection pool for run {run.id}: {pool_keys}"
                     )
-                    await pool.warmup(list(runtime_agent_ids))
+                    await pool.warmup(list(pool_keys))
 
                 agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
 
@@ -295,21 +298,22 @@ async def start_run(
         registry = AgentRegistry(settings.project_root / "agents")
 
         # Get connection pool and warmup agents for this run
-        # IMPORTANT: Use agent_config_id (e.g., "alice") as the key, not full agent.id
+        # IMPORTANT: Use run_id:agent_config_id as the key for connection isolation between runs
         pool = await get_connection_pool()
         agent_repo = AgentRepository(session)
         agents = await agent_repo.list_for_run(str(run_id))
-        # Extract runtime agent IDs (agent_config_id or fallback to agent.id)
-        runtime_agent_ids = set()
+        # Build pool keys with run_id prefix for multi-run isolation
+        pool_keys = set()
         for a in agents:
             config_id = (a.profile or {}).get("agent_config_id")
-            runtime_agent_ids.add(config_id if config_id else a.id)
+            agent_key = config_id if config_id else a.id
+            pool_keys.add(f"{run_id}:{agent_key}")
 
-        if runtime_agent_ids:
+        if pool_keys:
             logger.info(
-                f"Warming up connection pool for {len(runtime_agent_ids)} agents: {runtime_agent_ids}"
+                f"Warming up connection pool for {len(pool_keys)} agents: {pool_keys}"
             )
-            await pool.warmup(list(runtime_agent_ids))
+            await pool.warmup(list(pool_keys))
 
         # Create agent runtime with connection pool
         agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
@@ -344,6 +348,12 @@ async def pause_run(
     scheduler = get_scheduler()
     logger.info(f"Pause run requested for {run_id}, stopping scheduler")
     await scheduler.stop_run(str(run_id))
+
+    # Cleanup connection pool for this run
+    from app.agent.connection_pool import get_connection_pool
+
+    pool = await get_connection_pool()
+    await pool.cleanup_run(str(run_id))
 
     updated = await repo.update_status(run, "paused")
     return RunResponse(id=run_id, name=updated.name, status=updated.status, was_running_before_restart=updated.was_running_before_restart)
@@ -615,6 +625,12 @@ async def delete_run(
     # Stop scheduler if running
     scheduler = get_scheduler()
     await scheduler.stop_run(str(run_id))
+
+    # Cleanup connection pool for this run
+    from app.agent.connection_pool import get_connection_pool
+
+    pool = await get_connection_pool()
+    await pool.cleanup_run(str(run_id))
 
     repo = RunRepository(session)
     run = await repo.get(str(run_id))
