@@ -98,7 +98,11 @@ def test_runtime_raises_for_unknown_agent(runtime: AgentRuntime):
 def test_runtime_derive_intent_from_goal(runtime: AgentRuntime):
     invocation = runtime.prepare_reactor(
         "demo_agent",
-        world={"current_goal": "move:park", "current_location_id": "home", "home_location_id": "home"},
+        world={
+            "current_goal": "move:park",
+            "current_location_id": "home",
+            "home_location_id": "home",
+        },
     )
 
     intent = runtime.derive_intent(invocation)
@@ -181,7 +185,9 @@ def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: p
     get_settings.cache_clear()
 
 
-def test_runtime_selects_claude_provider_from_legacy_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_runtime_selects_claude_provider_from_legacy_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
     monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_MODEL", "legacy-model")
     get_settings.cache_clear()
@@ -215,7 +221,12 @@ def test_runtime_selects_claude_provider_from_legacy_env(tmp_path: Path, monkeyp
 
 
 @pytest.mark.asyncio
-async def test_claude_provider_wraps_cancelled_error(monkeypatch: pytest.MonkeyPatch):
+async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: pytest.MonkeyPatch):
+    """Test that CancelledError returns a fallback decision instead of raising.
+
+    This behavior allows the simulation to continue gracefully when
+    the SDK call is cancelled (e.g., scheduler shutdown).
+    """
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
@@ -236,8 +247,9 @@ async def test_claude_provider_wraps_cancelled_error(monkeypatch: pytest.MonkeyP
         max_budget_usd=0.1,
     )
 
-    with pytest.raises(RuntimeError, match="decision cancelled"):
-        await provider.decide(invocation)
+    # CancelledError should return a fallback decision, not raise
+    result = await provider.decide(invocation)
+    assert result.action_type == "rest"
 
     get_settings.cache_clear()
 

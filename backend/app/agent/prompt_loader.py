@@ -32,7 +32,7 @@ class PromptLoader:
             "",
             "# 输出约束",
             "- 只能返回一个 JSON 对象",
-            '- JSON 仅可包含字段：`action_type`、`target_location_id`、`target_agent_id`、`payload`',
+            "- JSON 仅可包含字段：`action_type`、`target_location_id`、`target_agent_id`、`payload`",
             "- `action_type` 必须来自允许动作集合",
             "- 当 `action_type=move` 时，应尽量提供 `target_location_id`",
             "- 当 `action_type=talk` 时，应尽量提供 `target_agent_id`",

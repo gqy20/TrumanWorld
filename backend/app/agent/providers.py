@@ -6,12 +6,15 @@ import logging
 import re
 import shutil
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from pydantic import BaseModel, Field, ValidationError
 
 from app.infra.settings import Settings
+
+if TYPE_CHECKING:
+    from app.agent.runtime import RuntimeInvocation
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +71,12 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
                 target_agent_id=str(nearby_agent_id),
             )
 
-        if current_location_id and home_location_id and current_location_id != home_location_id and goal == "go_home":
+        if (
+            current_location_id
+            and home_location_id
+            and current_location_id != home_location_id
+            and goal == "go_home"
+        ):
             return RuntimeDecision(
                 action_type="move",
                 target_location_id=str(home_location_id),
@@ -94,7 +102,11 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
         # Note: output_format is not supported by MiniMax API
         # Use global budget setting as fallback if invocation budget is too low
-        budget = invocation.max_budget_usd if invocation.max_budget_usd >= 0.1 else self.settings.agent_budget_usd
+        budget = (
+            invocation.max_budget_usd
+            if invocation.max_budget_usd >= 0.1
+            else self.settings.agent_budget_usd
+        )
         options = ClaudeAgentOptions(
             max_turns=invocation.max_turns,
             max_budget_usd=budget,
@@ -115,7 +127,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         # Call SDK and parse result
         # Note: We don't use asyncio.shield here because it causes issues with SQLAlchemy's greenlet
         result_decision: RuntimeDecision | None = None
-        
+
         try:
             async for message in query(prompt=full_prompt, options=options):
                 if isinstance(message, ResultMessage):
@@ -157,9 +169,9 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                 logger.debug(f"Claude SDK cancel scope error for agent {invocation.agent_id}: {e}")
                 return RuntimeDecision(action_type="rest")
             raise
-        
+
         if result_decision is None:
             msg = "Claude SDK returned no decision"
             raise RuntimeError(msg)
-        
+
         return result_decision

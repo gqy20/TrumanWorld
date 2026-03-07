@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,9 @@ from app.store.repositories import (
     build_event,
 )
 from app.store.models import Agent, Event, Location, Memory
+
+if TYPE_CHECKING:
+    from app.infra.db import async_engine
 
 
 class SimulationService:
@@ -46,6 +50,19 @@ class SimulationService:
             registry=AgentRegistry(agents_root or (settings.project_root / "agents"))
         )
 
+    @classmethod
+    def create_for_scheduler(cls, agent_runtime: AgentRuntime) -> "SimulationService":
+        """Create a SimulationService instance for scheduler use.
+
+        This factory method creates a service instance that is not bound
+        to a specific database session. It should only be used with
+        run_tick_isolated() method which manages its own sessions.
+        """
+        instance = cls.__new__(cls)
+        instance.session = None  # type: ignore[assignment]
+        instance.agent_runtime = agent_runtime
+        return instance
+
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
         run = await self.run_repo.get(run_id)
         if run is None:
@@ -63,6 +80,269 @@ class SimulationService:
         await self.run_repo.update_tick(run, result.tick_no)
         await self._persist_tick_events(run_id, result)
         return result
+
+    async def run_tick_isolated(
+        self,
+        run_id: str,
+        engine: "async_engine",
+        intents: list[ActionIntent] | None = None,
+    ) -> TickResult:
+        """Run a tick with isolated database sessions to avoid greenlet conflicts.
+
+        This method separates database operations from SDK calls:
+        1. Read phase: Load all needed data from database
+        2. SDK phase: Call agent runtime (without active database session)
+        3. Write phase: Persist results with a fresh database session
+
+        This prevents conflicts between SQLAlchemy's greenlet mechanism and
+        anyio's task groups used by claude_agent_sdk.
+        """
+        from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionType
+
+        # Phase 1: Read all data needed for the tick
+        async with AsyncSessionType(engine) as read_session:
+            read_repo = RunRepository(read_session)
+            run = await read_repo.get(run_id)
+            if run is None:
+                msg = f"Run not found: {run_id}"
+                raise ValueError(msg)
+
+            tick_minutes = run.tick_minutes
+            current_tick = run.current_tick
+
+            # Load locations and agents
+            location_repo = AgentRepository(read_session)
+            agent_repo = AgentRepository(read_session)
+            locations = await location_repo.list_for_run(run_id)
+            agents = await agent_repo.list_for_run(run_id)
+
+            # Build world state (copy data before session closes)
+            location_states = {
+                loc.id: LocationState(
+                    id=loc.id,
+                    name=loc.name,
+                    capacity=loc.capacity,
+                    occupants=set(),
+                )
+                for loc in locations
+            }
+
+            agent_states: dict[str, AgentState] = {}
+            agent_data: list[dict] = []  # Store agent data for later use
+            for agent in agents:
+                location_id = agent.current_location_id or agent.home_location_id
+                if location_id is None:
+                    location_id = next(iter(location_states.keys()), "unknown")
+
+                agent_states[agent.id] = AgentState(
+                    id=agent.id,
+                    name=agent.name,
+                    location_id=location_id,
+                    status=agent.status or {},
+                )
+                if location_id in location_states:
+                    location_states[location_id].occupants.add(agent.id)
+
+                # Copy agent data for SDK calls
+                agent_data.append(
+                    {
+                        "id": agent.id,
+                        "current_goal": agent.current_goal,
+                        "current_location_id": location_id,
+                        "home_location_id": agent.home_location_id,
+                        "profile": agent.profile or {},
+                    }
+                )
+
+            world = WorldState(
+                current_time=datetime.now(UTC),
+                tick_minutes=tick_minutes,
+                locations=location_states,
+                agents=agent_states,
+            )
+
+        # Phase 2: Prepare intents (SDK calls happen here, no active session)
+        if not intents:
+            intents = await self._prepare_intents_from_data(world, agent_data)
+
+        # Run simulation logic
+        runner = SimulationRunner(world)
+        runner.tick_no = current_tick
+        result = runner.tick(intents)
+
+        # Phase 3: Persist results with a fresh session
+        async with AsyncSessionType(engine) as write_session:
+            await self._persist_results(write_session, run_id, result, world, current_tick + 1)
+
+        return result
+
+    async def _prepare_intents_from_data(
+        self,
+        world: WorldState,
+        agent_data: list[dict],
+    ) -> list[ActionIntent]:
+        """Prepare intents from pre-loaded agent data.
+
+        This method is called without an active database session,
+        allowing SDK calls to use anyio without greenlet conflicts.
+        """
+        intents: list[ActionIntent] = []
+
+        for agent_dict in agent_data:
+            agent_id = agent_dict["id"]
+            state = world.get_agent(agent_id)
+            if state is None:
+                continue
+
+            nearby_agent_id = self._find_nearby_agent(world, agent_id, state.location_id)
+            profile = agent_dict.get("profile", {})
+            runtime_agent_id = profile.get("agent_config_id") or agent_id
+
+            try:
+                intent = await self.agent_runtime.react(
+                    runtime_agent_id,
+                    world={
+                        "current_goal": agent_dict.get("current_goal"),
+                        "current_location_id": agent_dict.get("current_location_id"),
+                        "home_location_id": agent_dict.get("home_location_id"),
+                        "nearby_agent_id": nearby_agent_id,
+                    },
+                    memory={"recent": []},
+                    event={},
+                )
+                intent.agent_id = agent_id
+                intents.append(intent)
+            except (RuntimeError, ValueError, asyncio.CancelledError):
+                intents.append(
+                    self._fallback_intent(
+                        agent_id=agent_id,
+                        current_goal=agent_dict.get("current_goal"),
+                        current_location_id=agent_dict.get("current_location_id"),
+                        home_location_id=agent_dict.get("home_location_id"),
+                        nearby_agent_id=nearby_agent_id,
+                    )
+                )
+
+        return intents
+
+    async def _persist_results(
+        self,
+        session: AsyncSession,
+        run_id: str,
+        result: TickResult,
+        world: WorldState,
+        new_tick: int,
+    ) -> None:
+        """Persist tick results using a fresh session."""
+        run_repo = RunRepository(session)
+        agent_repo = AgentRepository(session)
+
+        # Update agent locations
+        agents = await agent_repo.list_for_run(run_id)
+        for agent in agents:
+            state = world.get_agent(agent.id)
+            if state is not None:
+                agent.current_location_id = state.location_id
+        await session.commit()
+
+        # Update tick number
+        run = await run_repo.get(run_id)
+        if run:
+            await run_repo.update_tick(run, new_tick)
+
+        # Persist events
+        events = [
+            build_event(
+                run_id=run_id,
+                tick_no=result.tick_no,
+                world_time=result.world_time,
+                action_type=item.action_type,
+                payload=item.event_payload,
+                accepted=True,
+            )
+            for item in result.accepted
+        ]
+        events.extend(
+            build_event(
+                run_id=run_id,
+                tick_no=result.tick_no,
+                world_time=result.world_time,
+                action_type=item.action_type,
+                payload={"reason": item.reason, **item.event_payload},
+                accepted=False,
+            )
+            for item in result.rejected
+        )
+        if events:
+            event_repo = EventRepository(session)
+            persisted = await event_repo.create_many(events)
+            await self._persist_tick_memories_with_session(session, run_id, persisted)
+            await self._persist_tick_relationships_with_session(session, run_id, persisted)
+
+    async def _persist_tick_memories_with_session(
+        self,
+        session: AsyncSession,
+        run_id: str,
+        events: list[Event],
+    ) -> None:
+        """Persist memories using the provided session."""
+        memories: list[Memory] = []
+        for event in events:
+            if event.event_type.endswith("_rejected") or event.actor_agent_id is None:
+                continue
+
+            for agent_id, content, summary, related_agent_id in self._build_memory_records(event):
+                memories.append(
+                    Memory(
+                        id=str(uuid4()),
+                        run_id=run_id,
+                        agent_id=agent_id,
+                        tick_no=event.tick_no,
+                        memory_type="episodic",
+                        content=content,
+                        summary=summary,
+                        importance=event.importance,
+                        related_agent_id=related_agent_id,
+                        location_id=event.location_id,
+                        source_event_id=event.id,
+                        metadata_json={"event_type": event.event_type},
+                    )
+                )
+
+        if memories:
+            memory_repo = MemoryRepository(session)
+            await memory_repo.create_many(memories)
+
+    async def _persist_tick_relationships_with_session(
+        self,
+        session: AsyncSession,
+        run_id: str,
+        events: list[Event],
+    ) -> None:
+        """Persist relationships using the provided session."""
+        rel_repo = RelationshipRepository(session)
+        for event in events:
+            if event.event_type != "talk":
+                continue
+            if event.actor_agent_id is None or event.target_agent_id is None:
+                continue
+
+            await rel_repo.upsert_interaction(
+                run_id=run_id,
+                agent_id=event.actor_agent_id,
+                other_agent_id=event.target_agent_id,
+                familiarity_delta=0.1,
+                trust_delta=0.05,
+                affinity_delta=0.05,
+            )
+            await rel_repo.upsert_interaction(
+                run_id=run_id,
+                agent_id=event.target_agent_id,
+                other_agent_id=event.actor_agent_id,
+                familiarity_delta=0.1,
+                trust_delta=0.05,
+                affinity_delta=0.05,
+            )
 
     async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
         agents = await self.agent_repo.list_for_run(run_id)
@@ -410,7 +690,11 @@ class SimulationService:
                 target_agent_id=nearby_agent_id,
             )
 
-        if current_goal == "go_home" and home_location_id and current_location_id != home_location_id:
+        if (
+            current_goal == "go_home"
+            and home_location_id
+            and current_location_id != home_location_id
+        ):
             return ActionIntent(
                 agent_id=agent_id,
                 action_type="move",

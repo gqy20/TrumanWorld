@@ -5,11 +5,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.db import get_db_session
-from app.infra.logging import debug, error, get_logger, info, warning
+from app.infra.logging import get_logger
 from app.sim.scheduler import get_scheduler
 from app.sim.service import SimulationService
 from app.store.models import SimulationRun
-from app.store.repositories import AgentRepository, EventRepository, LocationRepository, RunRepository
+from app.store.repositories import (
+    AgentRepository,
+    EventRepository,
+    LocationRepository,
+    RunRepository,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -51,32 +56,34 @@ async def create_run(
     run = SimulationRun(id=str(uuid4()), name=payload.name, status="running")
     created = await repo.create(run)
     logger.info(f"Run created: id={created.id}, name={created.name}, auto-running")
-    
+
     if payload.seed_demo:
         logger.debug(f"Seeding demo data for run {created.id}")
         service = SimulationService(session)
         await service.seed_demo_run(created.id)
         logger.info(f"Demo data seeded for run {created.id}")
-    
+
     # 自动启动 tick 调度器
     scheduler = get_scheduler()
-    logger.info(f"Create run completed for {created.id}, starting scheduler (running: {scheduler.is_running(created.id)})")
+    logger.info(
+        f"Create run completed for {created.id}, starting scheduler (running: {scheduler.is_running(created.id)})"
+    )
     if not scheduler.is_running(created.id):
         from app.infra.db import async_engine
-        
+
         async def tick_callback(rid: str) -> None:
             from sqlalchemy.ext.asyncio import AsyncSession
             from app.sim.service import SimulationService
-            
+
             # Create session and run tick
             # Note: Don't catch exceptions here, let them propagate to scheduler
             async with AsyncSession(async_engine) as new_session:
                 service = SimulationService(new_session)
                 await service.run_tick(rid)
-        
+
         await scheduler.start_run(created.id, interval_seconds=5.0, callback=tick_callback)
         logger.info(f"Auto-scheduler started for run {created.id}")
-    
+
     return RunResponse(id=UUID(created.id), name=created.name, status=created.status)
 
 
@@ -101,25 +108,31 @@ async def start_run(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     updated = await repo.update_status(run, "running")
-    
+
     # Start automatic tick scheduler (every 5 seconds)
     scheduler = get_scheduler()
-    logger.info(f"Start run requested for {run_id}, scheduler running: {scheduler.is_running(str(run_id))}")
+    logger.info(
+        f"Start run requested for {run_id}, scheduler running: {scheduler.is_running(str(run_id))}"
+    )
     if not scheduler.is_running(str(run_id)):
         from app.infra.db import async_engine
-        
+        from app.sim.service import SimulationService
+        from app.agent.runtime import AgentRuntime
+        from app.agent.registry import AgentRegistry
+        from app.infra.settings import get_settings
+
+        settings = get_settings()
+        # Create a shared agent runtime (not bound to any session)
+        agent_runtime = AgentRuntime(registry=AgentRegistry(settings.project_root / "agents"))
+
         async def tick_callback(rid: str) -> None:
-            from sqlalchemy.ext.asyncio import AsyncSession
-            from app.sim.service import SimulationService
-            
-            # Create session and run tick
-            # Note: Don't catch exceptions here, let them propagate to scheduler
-            async with AsyncSession(async_engine) as new_session:
-                service = SimulationService(new_session)
-                await service.run_tick(rid)
-        
+            # Use isolated tick method to avoid greenlet conflicts with anyio
+            # The agent_runtime is created outside to avoid re-creating for each tick
+            service = SimulationService.create_for_scheduler(agent_runtime)
+            await service.run_tick_isolated(rid, async_engine)
+
         await scheduler.start_run(str(run_id), interval_seconds=5.0, callback=tick_callback)
-    
+
     return RunResponse(id=run_id, name=updated.name, status=updated.status)
 
 
@@ -132,12 +145,12 @@ async def pause_run(
     run = await repo.get(str(run_id))
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    
+
     # Stop automatic tick scheduler
     scheduler = get_scheduler()
     logger.info(f"Pause run requested for {run_id}, stopping scheduler")
     await scheduler.stop_run(str(run_id))
-    
+
     updated = await repo.update_status(run, "paused")
     return RunResponse(id=run_id, name=updated.name, status=updated.status)
 
@@ -327,40 +340,40 @@ async def delete_run(
 ) -> dict[str, str]:
     """Delete a run and all its associated data."""
     logger.info(f"Deleting run: {run_id}")
-    
+
     # Stop scheduler if running
     scheduler = get_scheduler()
     await scheduler.stop_run(str(run_id))
-    
+
     repo = RunRepository(session)
     run = await repo.get(str(run_id))
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    
+
     # Delete related data in correct order (respecting foreign key constraints)
     # Order: relationships -> memories -> events -> agents -> locations -> run
     from sqlalchemy import delete
     from app.store.models import Agent, Event, Location, Memory, Relationship
-    
+
     run_id_str = str(run_id)
-    
+
     # Delete relationships (references agents)
     await session.execute(delete(Relationship).where(Relationship.run_id == run_id_str))
-    
+
     # Delete memories (references agents)
     await session.execute(delete(Memory).where(Memory.run_id == run_id_str))
-    
+
     # Delete events (references agents, locations)
     await session.execute(delete(Event).where(Event.run_id == run_id_str))
-    
+
     # Delete agents (references locations)
     await session.execute(delete(Agent).where(Agent.run_id == run_id_str))
-    
+
     # Delete locations
     await session.execute(delete(Location).where(Location.run_id == run_id_str))
-    
+
     # Finally delete the run
     await repo.delete(run)
     logger.info(f"Run deleted: {run_id}")
-    
+
     return {"run_id": str(run_id), "status": "deleted"}

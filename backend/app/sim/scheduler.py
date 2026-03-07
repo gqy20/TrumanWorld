@@ -76,7 +76,7 @@ class SimulationScheduler:
                 await asyncio.sleep(interval_seconds)
                 tick_count += 1
                 debug(f"Auto-advancing tick #{tick_count} for run {run_id}")
-                
+
                 # Run callback in a separate task to isolate errors and cancellation
                 # Use shield to protect from external cancellation during database operations
                 task = asyncio.create_task(callback(run_id))
@@ -100,7 +100,7 @@ class SimulationScheduler:
                 except Exception as e:
                     error(f"Error in tick callback for run {run_id}: {e}")
                     # Continue running despite callback errors
-                    
+
             except asyncio.CancelledError:
                 info(f"Tick loop cancelled for run {run_id} after {tick_count} ticks")
                 break

@@ -140,7 +140,13 @@ class AgentRuntime:
             payload=decision.payload,
         )
 
-    async def react(self, agent_id: str, world: dict[str, Any] | None = None, memory: dict[str, Any] | None = None, event: dict[str, Any] | None = None) -> ActionIntent:
+    async def react(
+        self,
+        agent_id: str,
+        world: dict[str, Any] | None = None,
+        memory: dict[str, Any] | None = None,
+        event: dict[str, Any] | None = None,
+    ) -> ActionIntent:
         invocation = self.prepare_reactor(agent_id, world=world, memory=memory, event=event)
         return await self.decide_intent(invocation)
 
@@ -169,7 +175,12 @@ class AgentRuntime:
                 target_agent_id=str(nearby_agent_id),
             )
 
-        if current_location_id and home_location_id and current_location_id != home_location_id and goal == "go_home":
+        if (
+            current_location_id
+            and home_location_id
+            and current_location_id != home_location_id
+            and goal == "go_home"
+        ):
             return ActionIntent(
                 agent_id=invocation.agent_id,
                 action_type="move",

@@ -38,9 +38,15 @@ class RecordingDecisionProvider(AgentDecisionProvider):
 
 @pytest.mark.asyncio
 async def test_simulation_service_persists_tick_and_events(db_session):
-    run = SimulationRun(id="run-service-1", name="service", status="running", current_tick=0, tick_minutes=5)
-    home = Location(id="loc-home", run_id="run-service-1", name="Home", location_type="home", capacity=2)
-    park = Location(id="loc-park", run_id="run-service-1", name="Park", location_type="park", capacity=2)
+    run = SimulationRun(
+        id="run-service-1", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    home = Location(
+        id="loc-home", run_id="run-service-1", name="Home", location_type="home", capacity=2
+    )
+    park = Location(
+        id="loc-park", run_id="run-service-1", name="Park", location_type="park", capacity=2
+    )
     alice = Agent(
         id="alice",
         run_id="run-service-1",
@@ -83,8 +89,12 @@ async def test_simulation_service_persists_tick_and_events(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_persists_rejected_events(db_session):
-    run = SimulationRun(id="run-service-2", name="service", status="running", current_tick=0, tick_minutes=5)
-    home = Location(id="loc-home-2", run_id="run-service-2", name="Home", location_type="home", capacity=2)
+    run = SimulationRun(
+        id="run-service-2", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    home = Location(
+        id="loc-home-2", run_id="run-service-2", name="Home", location_type="home", capacity=2
+    )
     alice = Agent(
         id="alice-2",
         run_id="run-service-2",
@@ -104,7 +114,11 @@ async def test_simulation_service_persists_rejected_events(db_session):
     service = SimulationService(db_session)
     result = await service.run_tick(
         "run-service-2",
-        [ActionIntent(agent_id="alice-2", action_type="move", target_location_id="missing-location")],
+        [
+            ActionIntent(
+                agent_id="alice-2", action_type="move", target_location_id="missing-location"
+            )
+        ],
     )
 
     event_repo = EventRepository(db_session)
@@ -119,9 +133,15 @@ async def test_simulation_service_persists_rejected_events(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_can_prepare_intents_from_agent_runtime(db_session):
-    run = SimulationRun(id="run-service-3", name="service", status="running", current_tick=0, tick_minutes=5)
-    home = Location(id="loc-home-3", run_id="run-service-3", name="Home", location_type="home", capacity=2)
-    park = Location(id="loc-park-3", run_id="run-service-3", name="Park", location_type="park", capacity=2)
+    run = SimulationRun(
+        id="run-service-3", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    home = Location(
+        id="loc-home-3", run_id="run-service-3", name="Home", location_type="home", capacity=2
+    )
+    park = Location(
+        id="loc-park-3", run_id="run-service-3", name="Park", location_type="park", capacity=2
+    )
     alice = Agent(
         id="demo_agent",
         run_id="run-service-3",
@@ -154,7 +174,9 @@ async def test_simulation_service_can_prepare_intents_from_agent_runtime(db_sess
 
 @pytest.mark.asyncio
 async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_session, tmp_path):
-    run = SimulationRun(id="run-service-profile", name="service", status="running", current_tick=0, tick_minutes=5)
+    run = SimulationRun(
+        id="run-service-profile", name="service", status="running", current_tick=0, tick_minutes=5
+    )
     home = Location(
         id="loc-home-profile",
         run_id="run-service-profile",
@@ -220,8 +242,12 @@ async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_sess
 
 @pytest.mark.asyncio
 async def test_simulation_service_falls_back_when_runtime_provider_fails(db_session):
-    run = SimulationRun(id="run-service-4", name="service", status="running", current_tick=0, tick_minutes=5)
-    home = Location(id="loc-home-4", run_id="run-service-4", name="Home", location_type="home", capacity=2)
+    run = SimulationRun(
+        id="run-service-4", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    home = Location(
+        id="loc-home-4", run_id="run-service-4", name="Home", location_type="home", capacity=2
+    )
     alice = Agent(
         id="demo_agent",
         run_id="run-service-4",
@@ -252,8 +278,12 @@ async def test_simulation_service_falls_back_when_runtime_provider_fails(db_sess
 
 @pytest.mark.asyncio
 async def test_simulation_service_falls_back_when_runtime_provider_is_cancelled(db_session):
-    run = SimulationRun(id="run-service-4b", name="service", status="running", current_tick=0, tick_minutes=5)
-    home = Location(id="loc-home-4b", run_id="run-service-4b", name="Home", location_type="home", capacity=2)
+    run = SimulationRun(
+        id="run-service-4b", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    home = Location(
+        id="loc-home-4b", run_id="run-service-4b", name="Home", location_type="home", capacity=2
+    )
     alice = Agent(
         id="demo_agent",
         run_id="run-service-4b",
@@ -284,8 +314,12 @@ async def test_simulation_service_falls_back_when_runtime_provider_is_cancelled(
 
 @pytest.mark.asyncio
 async def test_simulation_service_updates_relationships_from_talk_events(db_session):
-    run = SimulationRun(id="run-service-5", name="service", status="running", current_tick=0, tick_minutes=5)
-    plaza = Location(id="loc-plaza-5", run_id="run-service-5", name="Plaza", location_type="plaza", capacity=4)
+    run = SimulationRun(
+        id="run-service-5", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    plaza = Location(
+        id="loc-plaza-5", run_id="run-service-5", name="Plaza", location_type="plaza", capacity=4
+    )
     alice = Agent(
         id="alice-5",
         run_id="run-service-5",
@@ -320,8 +354,12 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
         [ActionIntent(agent_id="alice-5", action_type="talk", target_agent_id="bob-5")],
     )
 
-    alice_relationships = await AgentRepository(db_session).list_relationships("run-service-5", "alice-5")
-    bob_relationships = await AgentRepository(db_session).list_relationships("run-service-5", "bob-5")
+    alice_relationships = await AgentRepository(db_session).list_relationships(
+        "run-service-5", "alice-5"
+    )
+    bob_relationships = await AgentRepository(db_session).list_relationships(
+        "run-service-5", "bob-5"
+    )
     alice_memories = await AgentRepository(db_session).list_recent_memories("alice-5")
     bob_memories = await AgentRepository(db_session).list_recent_memories("bob-5")
 

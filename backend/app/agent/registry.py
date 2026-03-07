@@ -3,6 +3,7 @@ from pathlib import Path
 from app.agent.config_loader import AgentConfig, AgentConfigLoader
 from app.agent.prompt_loader import PromptLoader
 
+
 class AgentRegistry:
     """Loads agent configurations from the agents directory."""
 

@@ -11,22 +11,22 @@ from app.infra.settings import get_settings
 def get_logger(name: str = "trumanworld") -> logging.Logger:
     """Get configured logger instance."""
     settings = get_settings()
-    
+
     # Create logger
     logger = logging.getLogger(name)
-    
+
     # Avoid duplicate handlers
     if logger.handlers:
         return logger
-    
+
     # Set level from settings
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
     logger.setLevel(level)
-    
+
     # Console handler with colored output
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(level)
-    
+
     # Format: timestamp - level - logger name - message
     formatter = logging.Formatter(
         fmt="%(asctime)s - %(levelname)s - [%(name)s] %(message)s",
@@ -34,11 +34,11 @@ def get_logger(name: str = "trumanworld") -> logging.Logger:
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    
+
     # Reduce noise from third-party libraries
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    
+
     return logger
 
 

@@ -88,7 +88,9 @@ class AgentRepository:
         return await self.session.get(Agent, agent_id)
 
     async def list_for_run(self, run_id: str) -> Sequence[Agent]:
-        stmt: Select[tuple[Agent]] = select(Agent).where(Agent.run_id == run_id).order_by(Agent.name.asc())
+        stmt: Select[tuple[Agent]] = (
+            select(Agent).where(Agent.run_id == run_id).order_by(Agent.name.asc())
+        )
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -102,7 +104,9 @@ class AgentRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def list_recent_events(self, run_id: str, agent_id: str, limit: int = 10) -> Sequence[Event]:
+    async def list_recent_events(
+        self, run_id: str, agent_id: str, limit: int = 10
+    ) -> Sequence[Event]:
         stmt: Select[tuple[Event]] = (
             select(Event)
             .where(
@@ -115,7 +119,9 @@ class AgentRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def list_relationships(self, run_id: str, agent_id: str, limit: int = 20) -> Sequence[Relationship]:
+    async def list_relationships(
+        self, run_id: str, agent_id: str, limit: int = 20
+    ) -> Sequence[Relationship]:
         stmt: Select[tuple[Relationship]] = (
             select(Relationship)
             .where(Relationship.run_id == run_id, Relationship.agent_id == agent_id)
@@ -142,7 +148,9 @@ class RelationshipRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_pair(self, run_id: str, agent_id: str, other_agent_id: str) -> Relationship | None:
+    async def get_pair(
+        self, run_id: str, agent_id: str, other_agent_id: str
+    ) -> Relationship | None:
         stmt: Select[tuple[Relationship]] = select(Relationship).where(
             Relationship.run_id == run_id,
             Relationship.agent_id == agent_id,
@@ -195,7 +203,9 @@ class LocationRepository:
         self.session = session
 
     async def list_for_run(self, run_id: str) -> Sequence[Location]:
-        stmt: Select[tuple[Location]] = select(Location).where(Location.run_id == run_id).order_by(Location.name.asc())
+        stmt: Select[tuple[Location]] = (
+            select(Location).where(Location.run_id == run_id).order_by(Location.name.asc())
+        )
         result = await self.session.execute(stmt)
         return result.scalars().all()
 

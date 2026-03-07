@@ -25,13 +25,14 @@ async def test_cors_preflight_allows_frontend_origin(client):
 
 
 @pytest.mark.asyncio
-async def test_create_run_returns_draft_run(client):
+async def test_create_run_returns_running_status(client):
+    """Test that create run returns running status with auto-scheduler."""
     response = await client.post("/api/runs", json={"name": "test-run"})
 
     assert response.status_code == 200
     body = response.json()
     assert body["name"] == "test-run"
-    assert body["status"] == "draft"
+    assert body["status"] == "running"  # Auto-started with scheduler
     assert body["id"]
 
     agents_response = await client.get(f"/api/runs/{body['id']}/agents")
@@ -89,7 +90,9 @@ async def test_advance_run_tick_updates_tick_counter(client):
 
 @pytest.mark.asyncio
 async def test_get_timeline_for_empty_run(client):
-    create_response = await client.post("/api/runs", json={"name": "timeline-run", "seed_demo": False})
+    create_response = await client.post(
+        "/api/runs", json={"name": "timeline-run", "seed_demo": False}
+    )
     run_id = create_response.json()["id"]
 
     timeline_response = await client.get(f"/api/runs/{run_id}/timeline")

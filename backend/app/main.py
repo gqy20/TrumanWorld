@@ -10,11 +10,11 @@ logger = get_logger(__name__)
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    
+
     info(f"Starting AI Truman World API in {settings.app_env} mode")
     info(f"Log level: {settings.log_level}")
     info(f"CORS allowed origins: {settings.cors_allowed_origins}")
-    
+
     app = FastAPI(
         title="AI Truman World API",
         version="0.1.0",
@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
     )
     app.state.settings = settings
     app.include_router(api_router, prefix=settings.api_prefix)
-    
+
     info(f"API routes registered with prefix: {settings.api_prefix}")
     return app
 
