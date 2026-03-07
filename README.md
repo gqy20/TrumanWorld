@@ -36,7 +36,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/truman-ai/truman-world.git
+git clone https://github.com/gqy20/TrumanWorld.git
 cd truman-world
 
 # 2. 配置环境

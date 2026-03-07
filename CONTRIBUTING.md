@@ -52,7 +52,7 @@
 ### 2. 克隆仓库
 
 ```bash
-git clone https://github.com/truman-ai/truman-world.git
+git clone https://github.com/gqy20/TrumanWorld.git
 cd truman-world
 ```
 

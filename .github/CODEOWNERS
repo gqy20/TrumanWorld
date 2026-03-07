@@ -7,27 +7,27 @@
 # path  owner1 @owner2 ...
 
 # 所有代码默认维护者
-* @truman-ai/maintainers
+* @gqy20
 
 # 后端代码
-backend/ @truman-ai/backend-team
+backend/ @gqy20
 
 # 前端代码
-frontend/ @truman-ai/frontend-team
+frontend/ @gqy20
 
 # Agent 配置
-agents/ @truman-ai/backend-team
+agents/ @gqy20
 
 # 文档
-docs/ @truman-ai/maintainers
-**/*.md @truman-ai/maintainers
+docs/ @gqy20
+**/*.md @gqy20
 
 # GitHub 配置
-.github/ @truman-ai/maintainers
+.github/ @gqy20
 
 # CI/CD 配置
-.github/workflows/ @truman-ai/maintainers
+.github/workflows/ @gqy20
 
 # 依赖配置
-**/pyproject.toml @truman-ai/backend-team
-**/package.json @truman-ai/frontend-team
+**/pyproject.toml @gqy20
+**/package.json @gqy20

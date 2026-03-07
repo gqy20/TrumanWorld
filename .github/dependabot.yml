@@ -13,7 +13,7 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     reviewers:
-      - "truman-ai/maintainers"
+      - "gqy20"
 
   # Node.js frontend dependencies
   - package-ecosystem: "npm"
@@ -28,7 +28,7 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     reviewers:
-      - "truman-ai/maintainers"
+      - "gqy20"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
