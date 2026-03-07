@@ -45,6 +45,38 @@ function describeEvent(event: NonNullable<Awaited<ReturnType<typeof getWorld>>>[
   return `${event.event_type} happened in the town.`;
 }
 
+function locationBeat(
+  locationId: string,
+  events: NonNullable<Awaited<ReturnType<typeof getWorld>>>["recent_events"],
+) {
+  const matched = events.find((event) => event.location_id === locationId);
+  if (!matched) {
+    return "quiet";
+  }
+  if (matched.event_type === "talk") {
+    return "conversation";
+  }
+  if (matched.event_type === "move") {
+    return "arrival";
+  }
+  if (matched.event_type === "work") {
+    return "working";
+  }
+  if (matched.event_type === "rest") {
+    return "resting";
+  }
+  return matched.event_type;
+}
+
+function beatTone(beat: string) {
+  if (beat === "conversation") return "bg-rose-100 text-rose-900";
+  if (beat === "arrival") return "bg-emerald-100 text-emerald-900";
+  if (beat === "working") return "bg-amber-100 text-amber-900";
+  if (beat === "resting") return "bg-slate-100 text-slate-800";
+  if (beat === "quiet") return "bg-white/80 text-slate-600";
+  return "bg-mist text-slate-700";
+}
+
 function connectorClass(index: number) {
   const variants = [
     "left-[23%] top-[28%] w-[54%] rotate-[3deg]",
@@ -57,6 +89,7 @@ function connectorClass(index: number) {
 export default async function WorldPage({ params }: WorldPageProps) {
   const { runId } = await params;
   const world = await getWorld(runId);
+  const latestTick = world?.recent_events[0]?.tick_no ?? world?.run.current_tick ?? 0;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f7f3e8,_#eef5f1_48%,_#f8fafc)] px-6 py-12">
@@ -100,6 +133,9 @@ export default async function WorldPage({ params }: WorldPageProps) {
 
                   <div className="grid auto-rows-[240px] gap-4 md:grid-cols-2">
                     {world.locations.map((location) => (
+                      (() => {
+                        const beat = locationBeat(location.id, world.recent_events);
+                        return (
                       <div
                         key={location.id}
                         className={`relative rounded-3xl border px-5 py-5 shadow-sm transition ${locationTone(location.location_type)}`}
@@ -121,6 +157,17 @@ export default async function WorldPage({ params }: WorldPageProps) {
                           </div>
                         </div>
 
+                        <div className="mt-4 flex items-center gap-2">
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] ${beatTone(beat)}`}>
+                            {beat}
+                          </span>
+                          {beat !== "quiet" ? (
+                            <span className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                              live at tick {latestTick}
+                            </span>
+                          ) : null}
+                        </div>
+
                         <div className="mt-5 space-y-3">
                           {location.occupants.length === 0 ? (
                             <p className="text-sm text-slate-500">这里暂时没有居民。</p>
@@ -129,7 +176,7 @@ export default async function WorldPage({ params }: WorldPageProps) {
                               <Link
                                 key={agent.id}
                                 href={`/runs/${runId}/agents/${agent.id}`}
-                                className="block rounded-2xl border border-white/80 bg-white/80 px-4 py-3 transition hover:border-moss hover:bg-white"
+                                className="agent-token block rounded-2xl border border-white/80 bg-white/80 px-4 py-3 transition hover:border-moss hover:bg-white"
                               >
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-3">
@@ -157,6 +204,8 @@ export default async function WorldPage({ params }: WorldPageProps) {
                           )}
                         </div>
                       </div>
+                        );
+                      })()
                     ))}
                   </div>
                 </div>
@@ -204,11 +253,19 @@ export default async function WorldPage({ params }: WorldPageProps) {
                   <p className="text-sm text-slate-600">世界还没有公开事件。</p>
                 ) : (
                   world.recent_events.map((event) => (
-                    <div key={event.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                    <div
+                      key={event.id}
+                      className={`relative overflow-hidden rounded-2xl border px-4 py-4 ${
+                        event.tick_no === latestTick
+                          ? "latest-beat border-moss/40 bg-emerald-50/70 shadow-sm"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="text-xs uppercase tracking-[0.18em] text-moss">
                             Tick {event.tick_no}
+                            {event.tick_no === latestTick ? " · latest" : ""}
                           </div>
                           <p className="mt-2 text-base text-ink">{describeEvent(event)}</p>
                         </div>

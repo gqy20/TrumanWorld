@@ -10,3 +10,59 @@ body {
   @apply bg-mist text-ink;
 }
 
+@keyframes drift-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(111, 139, 107, 0.28);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(111, 139, 107, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(111, 139, 107, 0);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(140%);
+  }
+}
+
+.agent-token {
+  animation: drift-float 4.8s ease-in-out infinite;
+}
+
+.agent-token:nth-child(2n) {
+  animation-duration: 5.6s;
+}
+
+.agent-token:nth-child(3n) {
+  animation-duration: 4.2s;
+}
+
+.latest-beat {
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+.latest-beat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.6) 48%, transparent 100%);
+  transform: translateX(-120%);
+  animation: shimmer-sweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
