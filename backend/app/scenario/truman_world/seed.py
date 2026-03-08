@@ -100,13 +100,13 @@ LOCATION_ID_MAP = {
     "mall": "mall",
 }
 
-# 职业中文映射
+# 职业中文映射（key 须与 agent.yml 中的 occupation 字段完全一致）
 OCCUPATION_NAMES: dict[str, str] = {
     "insurance clerk": "保险文员",
     "hospital staff": "医院职员",
-    "office colleague": "办公室同事",
+    "office coworker": "办公室同事",   # friend: occupation = office coworker
     "barista": "咖啡师",
-    "regular": "常客",
+    "shop regular": "常客",            # neighbor: occupation = shop regular
     "resident": "居民",
 }
 
