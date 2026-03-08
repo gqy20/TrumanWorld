@@ -63,13 +63,15 @@ def get_location_occupants(
         agent = get_agent(world, agent_id)
         if agent is None:
             continue
-        occupants.append({
-            "id": agent.id,
-            "name": agent.name,
-            "occupation": agent.occupation,
-            "workplace_id": agent.workplace_id,
-            "is_at_workplace": agent.workplace_id == location_id,
-        })
+        occupants.append(
+            {
+                "id": agent.id,
+                "name": agent.name,
+                "occupation": agent.occupation,
+                "workplace_id": agent.workplace_id,
+                "is_at_workplace": agent.workplace_id == location_id,
+            }
+        )
     return occupants
 
 

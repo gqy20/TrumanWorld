@@ -125,7 +125,9 @@ class SimulationService:
         instance._context_builder = None  # type: ignore[assignment]
         instance._persistence = None  # type: ignore[assignment]
         instance._scenario = (
-            scenario.with_session(None) if scenario is not None else cls.build_scenario("truman_world")
+            scenario.with_session(None)
+            if scenario is not None
+            else cls.build_scenario("truman_world")
         )
         instance._injected_scenario = scenario is not None
         instance._scenario.configure_runtime(agent_runtime)
@@ -509,10 +511,7 @@ class SimulationService:
 
         # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
         if current_goal == "work":
-            if (
-                workplace_location_id
-                and current_location_id != workplace_location_id
-            ):
+            if workplace_location_id and current_location_id != workplace_location_id:
                 return ActionIntent(
                     agent_id=agent_id,
                     action_type="move",

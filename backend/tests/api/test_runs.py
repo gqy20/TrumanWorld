@@ -43,7 +43,9 @@ async def test_create_run_returns_running_status(client):
 
     agents_response = await client.get(f"/api/runs/{body['id']}/agents")
     assert agents_response.status_code == 200
-    assert len(agents_response.json()["agents"]) == 6  # truman, spouse, friend, neighbor, alice, bob
+    assert (
+        len(agents_response.json()["agents"]) == 6
+    )  # truman, spouse, friend, neighbor, alice, bob
 
 
 @pytest.mark.asyncio
@@ -98,7 +100,9 @@ async def test_run_status_transitions(client):
 
 
 @pytest.mark.asyncio
-async def test_restore_all_runs_restarts_scheduler_and_clears_flag(client, db_session: AsyncSession):
+async def test_restore_all_runs_restarts_scheduler_and_clears_flag(
+    client, db_session: AsyncSession
+):
     create_response = await client.post("/api/runs", json={"name": "restore-run"})
     run_id = create_response.json()["id"]
 
@@ -166,7 +170,9 @@ async def test_get_world_snapshot_returns_locations_agents_and_public_events(cli
     assert world_response.status_code == 200
     body = world_response.json()
     assert body["run"]["id"] == run_id
-    assert len(body["locations"]) == 7  # plaza, apartment, office, cafe, hospital, bachelor-apt, mall
+    assert (
+        len(body["locations"]) == 7
+    )  # plaza, apartment, office, cafe, hospital, bachelor-apt, mall
     assert any(len(location["occupants"]) >= 1 for location in body["locations"])
     assert len(body["recent_events"]) >= 1
 

@@ -110,4 +110,6 @@ async def test_load_tick_data_includes_director_system_events_for_cast_only(db_s
     truman_snapshot = next(item for item in loaded.agent_data if item.id == truman.id)
 
     assert any(event["event_type"] == "director_broadcast" for event in cast_snapshot.recent_events)
-    assert all(event["event_type"] != "director_broadcast" for event in truman_snapshot.recent_events)
+    assert all(
+        event["event_type"] != "director_broadcast" for event in truman_snapshot.recent_events
+    )

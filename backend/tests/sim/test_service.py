@@ -483,7 +483,14 @@ async def test_seed_demo_run_creates_truman_world_agents(db_session):
 
     agents = await AgentRepository(db_session).list_for_run("run-demo-seed")
 
-    assert [agent.name for agent in agents] == ["Alice", "Bob", "Lauren", "Marlon", "Meryl", "Truman"]
+    assert [agent.name for agent in agents] == [
+        "Alice",
+        "Bob",
+        "Lauren",
+        "Marlon",
+        "Meryl",
+        "Truman",
+    ]
     profile_by_name = {agent.name: agent.profile for agent in agents}
     assert profile_by_name["Truman"]["world_role"] == "truman"
     assert profile_by_name["Meryl"]["world_role"] == "cast"

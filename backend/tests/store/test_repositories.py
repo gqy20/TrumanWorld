@@ -1,7 +1,12 @@
 import pytest
 
 from app.store.models import Agent, Event, SimulationRun
-from app.store.repositories import AgentRepository, EventRepository, RelationshipRepository, RunRepository
+from app.store.repositories import (
+    AgentRepository,
+    EventRepository,
+    RelationshipRepository,
+    RunRepository,
+)
 
 
 @pytest.mark.asyncio
@@ -85,32 +90,42 @@ async def test_list_recent_events_prioritises_talk_and_move_over_work_rest(db_se
     db_session.add_all([run, agent])
 
     # Two work events at high ticks, one talk event at a low tick
-    db_session.add_all([
-        Event(
-            id="ev-work-10", run_id="run-priority", tick_no=10,
-            event_type="work",
-            actor_agent_id="agent-p",
-            payload={"agent_id": "agent-p"},
-        ),
-        Event(
-            id="ev-work-11", run_id="run-priority", tick_no=11,
-            event_type="work",
-            actor_agent_id="agent-p",
-            payload={"agent_id": "agent-p"},
-        ),
-        Event(
-            id="ev-talk-5", run_id="run-priority", tick_no=5,
-            event_type="talk",
-            actor_agent_id="agent-p",
-            payload={"agent_id": "agent-p", "message": "hello"},
-        ),
-        Event(
-            id="ev-move-3", run_id="run-priority", tick_no=3,
-            event_type="move",
-            actor_agent_id="agent-p",
-            payload={"agent_id": "agent-p"},
-        ),
-    ])
+    db_session.add_all(
+        [
+            Event(
+                id="ev-work-10",
+                run_id="run-priority",
+                tick_no=10,
+                event_type="work",
+                actor_agent_id="agent-p",
+                payload={"agent_id": "agent-p"},
+            ),
+            Event(
+                id="ev-work-11",
+                run_id="run-priority",
+                tick_no=11,
+                event_type="work",
+                actor_agent_id="agent-p",
+                payload={"agent_id": "agent-p"},
+            ),
+            Event(
+                id="ev-talk-5",
+                run_id="run-priority",
+                tick_no=5,
+                event_type="talk",
+                actor_agent_id="agent-p",
+                payload={"agent_id": "agent-p", "message": "hello"},
+            ),
+            Event(
+                id="ev-move-3",
+                run_id="run-priority",
+                tick_no=3,
+                event_type="move",
+                actor_agent_id="agent-p",
+                payload={"agent_id": "agent-p"},
+            ),
+        ]
+    )
     await db_session.commit()
 
     repo = AgentRepository(db_session)

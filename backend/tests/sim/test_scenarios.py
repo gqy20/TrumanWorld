@@ -54,7 +54,14 @@ async def test_truman_world_scenario_seed_and_state_update(db_session):
     await scenario.seed_demo_run(run)
 
     agents = await AgentRepository(db_session).list_for_run(run.id)
-    assert [agent.name for agent in agents] == ["Alice", "Bob", "Lauren", "Marlon", "Meryl", "Truman"]
+    assert [agent.name for agent in agents] == [
+        "Alice",
+        "Bob",
+        "Lauren",
+        "Marlon",
+        "Meryl",
+        "Truman",
+    ]
 
     truman = next(agent for agent in agents if (agent.profile or {}).get("world_role") == "truman")
     starting_score = float((truman.status or {}).get("suspicion_score", 0.0))

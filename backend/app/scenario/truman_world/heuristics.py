@@ -31,7 +31,9 @@ def build_truman_world_decision(
     # Only handle extreme suspicion: go home immediately
     if world_role == "truman":
         if suspicion_score >= 0.95 and home_location_id and current_location_id != home_location_id:
-            return RuntimeDecision(action_type=ACTION_MOVE, target_location_id=str(home_location_id))
+            return RuntimeDecision(
+                action_type=ACTION_MOVE, target_location_id=str(home_location_id)
+            )
 
     # Handle shift workers (e.g., Meryl at hospital)
     # If agent_id contains "spouse", it's Meryl who works shift schedule
@@ -72,7 +74,9 @@ def _handle_shift_work(
     if weekday == 5 or weekday == 6:
         # Weekend: rest at home
         if current_location_id and home_location_id and current_location_id != home_location_id:
-            return RuntimeDecision(action_type=ACTION_MOVE, target_location_id=str(home_location_id))
+            return RuntimeDecision(
+                action_type=ACTION_MOVE, target_location_id=str(home_location_id)
+            )
         return RuntimeDecision(action_type="rest")
 
     # Weekday work schedule
@@ -83,19 +87,25 @@ def _handle_shift_work(
         if hour < 6 or hour >= 14:
             # Before or after shift: rest at home
             if current_location_id and home_location_id and current_location_id != home_location_id:
-                return RuntimeDecision(action_type=ACTION_MOVE, target_location_id=str(home_location_id))
+                return RuntimeDecision(
+                    action_type=ACTION_MOVE, target_location_id=str(home_location_id)
+                )
             return RuntimeDecision(action_type="rest")
     else:  # Tue, Thu
         # Evening shift: work 14:00-22:00
         if hour < 14:
             # Before shift: rest at home
             if current_location_id and home_location_id and current_location_id != home_location_id:
-                return RuntimeDecision(action_type=ACTION_MOVE, target_location_id=str(home_location_id))
+                return RuntimeDecision(
+                    action_type=ACTION_MOVE, target_location_id=str(home_location_id)
+                )
             return RuntimeDecision(action_type="rest")
 
     # During shift hours: go to workplace if not already there
     workplace_location_id = world.get("workplace_location_id")
     if workplace_location_id and current_location_id != workplace_location_id:
-        return RuntimeDecision(action_type=ACTION_MOVE, target_location_id=str(workplace_location_id))
+        return RuntimeDecision(
+            action_type=ACTION_MOVE, target_location_id=str(workplace_location_id)
+        )
 
     return None

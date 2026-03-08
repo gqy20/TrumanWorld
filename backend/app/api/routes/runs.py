@@ -454,7 +454,9 @@ async def get_run_events(
             actor_agent_id=event.actor_agent_id,
             target_agent_id=event.target_agent_id,
             actor_name=agent_name_map.get(event.actor_agent_id) if event.actor_agent_id else None,
-            target_name=agent_name_map.get(event.target_agent_id) if event.target_agent_id else None,
+            target_name=agent_name_map.get(event.target_agent_id)
+            if event.target_agent_id
+            else None,
             location_name=location_name_map.get(event.location_id) if event.location_id else None,
             payload=event.payload or {},
         )
@@ -677,7 +679,9 @@ async def inject_director_event(
             importance=payload.importance,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     return StatusResponse(run_id=str(run_id), status="queued")
 
 

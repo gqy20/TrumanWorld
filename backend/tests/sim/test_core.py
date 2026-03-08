@@ -117,13 +117,21 @@ def test_action_resolver_only_one_talk_per_pair_per_tick():
 
     result_alice = resolver.resolve(
         world,
-        ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob",
-                     payload={"message": "Hi Bob!"}),
+        ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="bob",
+            payload={"message": "Hi Bob!"},
+        ),
     )
     result_bob = resolver.resolve(
         world,
-        ActionIntent(agent_id="bob", action_type="talk", target_agent_id="alice",
-                     payload={"message": "Hi Alice!"}),
+        ActionIntent(
+            agent_id="bob",
+            action_type="talk",
+            target_agent_id="alice",
+            payload={"message": "Hi Alice!"},
+        ),
     )
 
     assert result_alice.accepted is True
@@ -140,8 +148,12 @@ def test_action_resolver_resets_talked_agents_between_ticks():
     resolver.reset_tick()
     r1 = resolver.resolve(
         world,
-        ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob",
-                     payload={"message": "Hello!"}),
+        ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="bob",
+            payload={"message": "Hello!"},
+        ),
     )
     assert r1.accepted is True
 
@@ -149,8 +161,12 @@ def test_action_resolver_resets_talked_agents_between_ticks():
     resolver.reset_tick()
     r2 = resolver.resolve(
         world,
-        ActionIntent(agent_id="bob", action_type="talk", target_agent_id="alice",
-                     payload={"message": "Hey there!"}),
+        ActionIntent(
+            agent_id="bob",
+            action_type="talk",
+            target_agent_id="alice",
+            payload={"message": "Hey there!"},
+        ),
     )
     assert r2.accepted is True
 
@@ -162,22 +178,42 @@ def test_simulation_runner_resets_talked_agents_each_tick():
     runner = SimulationRunner(world)
 
     # Tick 1: both try to talk – only first accepted
-    result1 = runner.tick([
-        ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob",
-                     payload={"message": "Tick 1 Alice"}),
-        ActionIntent(agent_id="bob", action_type="talk", target_agent_id="alice",
-                     payload={"message": "Tick 1 Bob"}),
-    ])
+    result1 = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Tick 1 Alice"},
+            ),
+            ActionIntent(
+                agent_id="bob",
+                action_type="talk",
+                target_agent_id="alice",
+                payload={"message": "Tick 1 Bob"},
+            ),
+        ]
+    )
     assert len(result1.accepted) == 1
     assert len(result1.rejected) == 1
     assert result1.rejected[0].reason == "conversation_turn_taken"
 
     # Tick 2: both try again – only first accepted (reset happened)
-    result2 = runner.tick([
-        ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob",
-                     payload={"message": "Tick 2 Alice"}),
-        ActionIntent(agent_id="bob", action_type="talk", target_agent_id="alice",
-                     payload={"message": "Tick 2 Bob"}),
-    ])
+    result2 = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Tick 2 Alice"},
+            ),
+            ActionIntent(
+                agent_id="bob",
+                action_type="talk",
+                target_agent_id="alice",
+                payload={"message": "Tick 2 Bob"},
+            ),
+        ]
+    )
     assert len(result2.accepted) == 1
     assert len(result2.rejected) == 1
