@@ -39,25 +39,26 @@ export function IntelligenceStreamModal({
   const [locationFilter, setLocationFilter] = useState<LocationFilter>(null);
 
   // Full event list loaded independently from world snapshot
-  // Use world.recent_events as initial value; updated by API on open
+  // Use world.recent_events as initial value; refreshed every time modal opens
   const recentEventsRef = useRef<WorldEvent[]>(world.recent_events);
   recentEventsRef.current = world.recent_events; // keep ref in sync with latest snapshot
 
   const [allEvents, setAllEvents] = useState<WorldEvent[]>(world.recent_events);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  // Track which runId has been loaded to avoid redundant fetches within the same open session
-  const loadedForRun = useRef<string | null>(null);
+  // Prevent duplicate in-flight requests within the same open session
+  const isLoadingRef = useRef(false);
 
   const loadAllEvents = useCallback(async (force = false) => {
-    if (!force && loadedForRun.current === runId) return;
+    if (!force && isLoadingRef.current) return;
+    isLoadingRef.current = true;
     setIsLoading(true);
     setLoadError(false);
     const result = await getRunEventsResult(runId, undefined, 500);
     setIsLoading(false);
+    isLoadingRef.current = false;
     if (result.data) {
       setAllEvents(result.data.events);
-      loadedForRun.current = runId;
     } else {
       setLoadError(true);
       // Fall back to latest world snapshot events
@@ -66,6 +67,7 @@ export function IntelligenceStreamModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]); // intentionally exclude recentEventsRef – it's a ref, stable by design
 
+  // Reload every time the modal is opened so new ticks are always reflected
   useEffect(() => {
     if (isOpen) {
       loadAllEvents();
