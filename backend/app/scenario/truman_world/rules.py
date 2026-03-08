@@ -1,13 +1,10 @@
 """World rules for TrumanWorld scenario.
 
-This module defines the cognitive rules for how agents perceive each other
-and infer information from observations. These rules are scenario-specific
-and should be injected at the scenario layer.
-
-认知规则设计原则：
-1. 可观察性分级：外表 > 行为 > 推断信息
-2. 场景上下文：同一行为在不同场所有不同含义
-3. 数据驱动：规则配置化，便于扩展
+Simplified version: Let LLM do the reasoning.
+Architecture only passes raw data, LLM infers:
+- What someone looks like based on occupation
+- What they might be doing based on location
+- What they know based on relationship familiarity
 """
 
 from __future__ import annotations
@@ -27,240 +24,25 @@ if TYPE_CHECKING:
     from app.store.models import Relationship
 
 
-OCCUPATION_APPEARANCE: dict[str, dict[str, str]] = {
-    "insurance clerk": {
-        "appearance": "穿着正装",
-        "typical_activity": "处理文件",
-        "typical_location": "办公室",
-    },
-    "hospital staff": {
-        "appearance": "穿着便装，可能刚下班",
-        "typical_activity": "通勤或休息",
-        "typical_location": "医院或家中",
-    },
-    "office coworker": {
-        "appearance": "穿着正装",
-        "typical_activity": "处理文件",
-        "typical_location": "办公室",
-    },
-    "barista": {
-        "appearance": "穿着围裙",
-        "typical_activity": "制作咖啡",
-        "typical_location": "咖啡馆",
-    },
-    "shop regular": {
-        "appearance": "穿着休闲",
-        "typical_activity": "喝咖啡或看书",
-        "typical_location": "公共空间",
-    },
-    "resident": {
-        "appearance": "穿着休闲",
-        "typical_activity": "日常活动",
-        "typical_location": "小镇各处",
-    },
-}
-
-OCCUPATION_ALIASES: dict[str, str] = {
-    "insurance clerk": "insurance clerk",
-    "保险文员": "insurance clerk",
-    "hospital staff": "hospital staff",
-    "医院职员": "hospital staff",
-    "医院工作人员": "hospital staff",
-    "office coworker": "office coworker",
-    "办公室同事": "office coworker",
-    "barista": "barista",
-    "咖啡师": "barista",
-    "shop regular": "shop regular",
-    "常客": "shop regular",
-    "resident": "resident",
-    "居民": "resident",
-}
-
-
-LOCATION_TYPE_RULES: dict[str, dict[str, str]] = {
-    "cafe": {
-        "context": "咖啡馆",
-        "typical_workers": ["barista"],
-        "typical_visitors": ["resident", "shop regular", "office coworker"],
-        "activity_hint_customer": "坐在座位上喝咖啡",
-        "activity_hint_worker": "在咖啡机后面忙碌",
-    },
-    "office": {
-        "context": "办公室",
-        "typical_workers": ["insurance clerk", "office coworker"],
-        "typical_visitors": [],
-        "activity_hint": "在工位上工作",
-    },
-    "home": {
-        "context": "住宅",
-        "typical_workers": [],
-        "typical_visitors": [],
-        "activity_hint": "在家休息",
-    },
-    "plaza": {
-        "context": "广场",
-        "typical_workers": [],
-        "typical_visitors": ["resident", "shop regular"],
-        "activity_hint": "在广场散步或闲逛",
-    },
-    "hospital": {
-        "context": "医院",
-        "typical_workers": ["hospital staff"],
-        "typical_visitors": ["resident"],
-        "activity_hint_worker": "在病区巡查或整理记录",
-        "activity_hint_customer": "在医院办理事务",
-    },
-}
-
-
-RELATIONSHIP_LEVELS = {
-    "family": {
-        "min_familiarity": 0.9,
-        "knowledge_level": "full",
-        "description": "家人，完全了解对方信息",
-    },
-    "close_friend": {
-        "min_familiarity": 0.7,
-        "knowledge_level": "high",
-        "description": "密友，较了解对方信息",
-    },
-    "friend": {
-        "min_familiarity": 0.5,
-        "knowledge_level": "medium",
-        "description": "朋友，知道基本情况",
-    },
-    "acquaintance": {
-        "min_familiarity": 0.3,
-        "knowledge_level": "low",
-        "description": "熟人，点头之交",
-    },
-    "stranger": {
-        "min_familiarity": 0.0,
-        "knowledge_level": "none",
-        "description": "陌生人，仅能通过观察推断",
-    },
-}
-
-
-def build_observable_cues(
-    occupation: str | None,
-    location_type: str | None,
-    is_at_workplace: bool = False,
-) -> dict[str, Any]:
-    """构建角色的可观察线索。
-
-    Args:
-        occupation: 角色职业
-        location_type: 当前地点类型
-        is_at_workplace: 是否在工作地点
-
-    Returns:
-        包含可观察线索的字典
-    """
-    cues: dict[str, Any] = {}
-
-    canonical_occupation = normalize_occupation(occupation)
-    if canonical_occupation is None:
-        return cues
-
-    occupation_info = OCCUPATION_APPEARANCE[canonical_occupation]
-    cues["appearance"] = occupation_info["appearance"]
-    cues["typical_activity"] = occupation_info["typical_activity"]
-
-    if location_type and location_type in LOCATION_TYPE_RULES:
-        location_info = LOCATION_TYPE_RULES[location_type]
-
-        if is_at_workplace:
-            if location_type == "cafe" and canonical_occupation in location_info.get(
-                "typical_workers", []
-            ):
-                cues["current_activity_hint"] = location_info.get("activity_hint_worker", "在工作")
-            elif location_type == "hospital" and canonical_occupation in location_info.get(
-                "typical_workers", []
-            ):
-                cues["current_activity_hint"] = location_info.get("activity_hint_worker", "在工作")
-            elif location_type == "office":
-                cues["current_activity_hint"] = location_info.get("activity_hint", "在工作")
-        else:
-            if location_type == "cafe":
-                cues["current_activity_hint"] = location_info.get(
-                    "activity_hint_customer", "喝咖啡"
-                )
-            elif location_type == "hospital":
-                cues["current_activity_hint"] = location_info.get(
-                    "activity_hint_customer", "办理事务"
-                )
-            elif location_type == "plaza":
-                cues["current_activity_hint"] = location_info.get("activity_hint", "闲逛")
-            elif location_type == "home":
-                cues["current_activity_hint"] = location_info.get("activity_hint", "休息")
-
-    return cues
-
-
-def normalize_occupation(occupation: str | None) -> str | None:
-    if not occupation:
-        return None
-    return OCCUPATION_ALIASES.get(
-        occupation, occupation if occupation in OCCUPATION_APPEARANCE else None
-    )
-
-
-def infer_knowledge_from_relationship(
-    familiarity: float,
-    other_occupation: str | None,
-    other_workplace: str | None,
-) -> dict[str, Any]:
-    """根据关系熟悉度推断对对方的了解程度。
-
-    Args:
-        familiarity: 熟悉度 (0.0 - 1.0)
-        other_occupation: 对方职业
-        other_workplace: 对方工作地点
-
-    Returns:
-        可推断的知识信息
-    """
-    knowledge: dict[str, Any] = {"knowledge_level": "none"}
-
-    for level, info in RELATIONSHIP_LEVELS.items():
-        if familiarity >= info["min_familiarity"]:
-            knowledge["relationship_level"] = level
-            knowledge["knowledge_level"] = info["knowledge_level"]
-            knowledge["description"] = info["description"]
-            break
-
-    knowledge_level = knowledge.get("knowledge_level", "none")
-
-    if knowledge_level in ("full", "high"):
-        knowledge["known_occupation"] = other_occupation
-        knowledge["known_workplace"] = other_workplace
-    elif knowledge_level == "medium":
-        knowledge["known_occupation"] = other_occupation
-    elif knowledge_level == "low":
-        knowledge["is_acquaintance"] = True
-    else:
-        knowledge["requires_observation"] = True
-
-    return knowledge
-
-
 def build_perception_context(
     viewer_id: str,
     nearby_agents: list[dict[str, Any]],
     relationships: dict[str, float],
-    current_location_type: str | None,
 ) -> dict[str, Any]:
-    """构建感知上下文，注入到 agent 的决策上下文中。
+    """Build perception context for agent decision making.
+
+    Simplified: Just pass raw data, let LLM infer:
+    - Observable cues from occupation
+    - Knowledge level from familiarity
+    - Relationship level from familiarity
 
     Args:
-        viewer_id: 观察者 ID
-        nearby_agents: 附近的 agent 列表，每个包含 id, name, occupation, workplace_id, is_at_workplace
-        relationships: 与各 agent 的熟悉度映射
-        current_location_type: 当前地点类型
+        viewer_id: Viewer agent ID
+        nearby_agents: List of nearby agents with basic info
+        relationships: Familiarity mapping
 
     Returns:
-        感知上下文字典
+        Perception context dict
     """
     perceived_agents = []
 
@@ -271,45 +53,26 @@ def build_perception_context(
         agent_id = agent.get("id", "")
         familiarity = relationships.get(agent_id, 0.0)
 
-        observable = build_observable_cues(
-            occupation=agent.get("occupation"),
-            location_type=current_location_type,
-            is_at_workplace=agent.get("is_at_workplace", False),
-        )
-
-        knowledge = infer_knowledge_from_relationship(
-            familiarity=familiarity,
-            other_occupation=agent.get("occupation"),
-            other_workplace=agent.get("workplace_id"),
-        )
-
         perceived = {
             "id": agent_id,
             "name": agent.get("name"),
+            "occupation": agent.get("occupation"),
+            "workplace_id": agent.get("workplace_id"),
+            "is_at_workplace": agent.get("is_at_workplace", False),
             "familiarity": familiarity,
-            "relationship_level": knowledge.get("relationship_level", "stranger"),
-            "observable_cues": observable,
         }
-
-        if knowledge.get("known_occupation"):
-            perceived["known_occupation"] = knowledge["known_occupation"]
-        if knowledge.get("known_workplace"):
-            perceived["known_workplace"] = knowledge["known_workplace"]
 
         perceived_agents.append(perceived)
 
     return {
         "perceived_others": perceived_agents,
-        "perception_rules": {
-            "观察优先": "先看外表和行为，再结合已知信息",
-            "推断限制": "不熟悉的陌生人只能通过场景推断职业",
-            "记忆整合": "已知的熟人信息来自长期记忆",
-        },
     }
 
 
 def filter_world_for_role(world_role: str, world: dict[str, Any]) -> dict[str, Any]:
+    """Filter world info based on agent role."""
     if world_role == "truman":
+        # Truman shouldn't see director/cast system info
         return {
             key: value
             for key, value in world.items()
@@ -319,6 +82,7 @@ def filter_world_for_role(world_role: str, world: dict[str, Any]) -> dict[str, A
 
 
 def build_role_context(world_role: str, world: dict[str, Any]) -> dict[str, Any]:
+    """Build role-specific context for agent."""
     if world_role == "truman":
         return {
             "perspective": "subjective",
@@ -347,6 +111,7 @@ def build_role_context(world_role: str, world: dict[str, Any]) -> dict[str, Any]
 
 
 def build_scene_guidance(world_role: str, world: dict[str, Any]) -> dict[str, Any]:
+    """Build scene guidance for cast agents."""
     if world_role != "cast":
         return {}
 
@@ -372,6 +137,10 @@ def build_perception_context_for_agent(
     relationships: list["Relationship"],
     current_location_id: str | None,
 ) -> dict[str, Any]:
+    """Build perception context for an agent.
+
+    Simplified: Just pass raw agent data, let LLM do all inference.
+    """
     if not current_location_id:
         return {}
 
@@ -405,5 +174,4 @@ def build_perception_context_for_agent(
         viewer_id=viewer_agent_id,
         nearby_agents=nearby_agents,
         relationships=relationship_map,
-        current_location_type=location.location_type,
     )

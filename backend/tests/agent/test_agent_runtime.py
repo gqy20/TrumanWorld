@@ -295,6 +295,7 @@ async def test_heuristic_provider_generates_message_for_talk(runtime: AgentRunti
 
 @pytest.mark.asyncio
 async def test_truman_suspicion_changes_heuristic_decision(runtime: AgentRuntime):
+    """Test that high suspicion triggers move home (only extreme case now)."""
     runtime.decision_provider = HeuristicDecisionProvider(decision_hook=build_truman_world_decision)
     invocation = runtime.prepare_reactor(
         "demo_agent",
@@ -304,25 +305,26 @@ async def test_truman_suspicion_changes_heuristic_decision(runtime: AgentRuntime
             "current_location_id": "cafe",
             "home_location_id": "home",
             "nearby_agent_id": "bob",
-            "self_status": {"suspicion_score": 0.78},
+            "self_status": {"suspicion_score": 0.96},  # Extreme suspicion
         },
     )
 
     intent = await runtime.decide_intent(invocation)
 
-    assert intent.action_type == "talk"
-    assert intent.target_agent_id == "bob"
-    assert "怪怪的" in intent.payload["message"]
+    # Extreme suspicion triggers go home
+    assert intent.action_type == "move"
+    assert intent.target_location_id == "home"
 
 
 @pytest.mark.asyncio
 async def test_cast_stabilizes_when_truman_suspicion_is_high(runtime: AgentRuntime):
+    """Test that cast agents no longer have hardcoded stabilizing behavior."""
     runtime.decision_provider = HeuristicDecisionProvider(decision_hook=build_truman_world_decision)
     invocation = runtime.prepare_reactor(
         "demo_agent",
         world={
             "world_role": "cast",
-            "current_goal": "work",
+            "current_goal": "talk",  # Set goal to talk
             "current_location_id": "cafe",
             "home_location_id": "home",
             "nearby_agent_id": "bob",
@@ -334,9 +336,10 @@ async def test_cast_stabilizes_when_truman_suspicion_is_high(runtime: AgentRunti
 
     intent = await runtime.decide_intent(invocation)
 
+    # Cast agents now let LLM decide - heuristic only handles extreme truman suspicion
     assert intent.action_type == "talk"
     assert intent.target_agent_id == "bob"
-    assert "日常" in intent.payload["message"]
+    # No hardcoded message - let LLM generate
 
 
 def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

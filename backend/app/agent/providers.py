@@ -73,15 +73,11 @@ HeuristicDecisionHook = Callable[
 
 
 class HeuristicDecisionProvider(AgentDecisionProvider):
-    # 简单的问候语列表，用于启发式对话
-    TALK_MESSAGES = [
-        "你好啊！最近怎么样？",
-        "今天天气真不错！",
-        "有什么新鲜事吗?",
-        "好久不见！",
-        "最近工作怎么样？",
-        "一起喝杯咖啡吧?",
-    ]
+    """Simplified heuristic decision provider.
+
+    Only handles basic movement logic (commute, go_home).
+    All conversation content is left to LLM.
+    """
 
     def __init__(self, decision_hook: HeuristicDecisionHook | None = None) -> None:
         self._decision_hook = decision_hook
@@ -94,8 +90,6 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
         invocation: Any,
         runtime_ctx: "RuntimeContext | None" = None,
     ) -> RuntimeDecision:
-        import random
-
         world = invocation.context.get("world", {})
         goal = world.get("current_goal")
         current_location_id = world.get("current_location_id")
@@ -119,7 +113,7 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
             if hook_decision is not None:
                 return hook_decision
 
-        # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
+        # Commute logic: move to workplace if goal is work but not there
         if goal == "work":
             if (
                 workplace_location_id
@@ -132,13 +126,15 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
                 )
             return RuntimeDecision(action_type="work")
 
+        # Talk: just initiate, let LLM generate message content
         if goal == "talk" and nearby_agent_id:
             return RuntimeDecision(
                 action_type="talk",
                 target_agent_id=str(nearby_agent_id),
-                message=random.choice(self.TALK_MESSAGES),
+                # No message - let LLM decide what to say
             )
 
+        # Go home
         if (
             current_location_id
             and home_location_id
