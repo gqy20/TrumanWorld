@@ -26,6 +26,8 @@ from app.sim.context import ContextBuilder, get_run_world_time
 from app.sim.persistence import PersistenceManager
 from app.sim.runner import SimulationRunner, TickResult
 from app.sim.world import AgentState, LocationState, WorldState
+from app.sim.world_loader import load_tick_data
+from app.sim.world_queries import find_nearby_agent, get_agent
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
@@ -126,94 +128,15 @@ class SimulationService:
 
         # Phase 1: Read all data needed for the tick
         async with AsyncSessionType(engine) as read_session:
-            read_repo = RunRepository(read_session)
-            run = await read_repo.get(run_id)
-            if run is None:
-                msg = f"Run not found: {run_id}"
-                raise ValueError(msg)
-
-            tick_minutes = run.tick_minutes
-            current_tick = run.current_tick
-
-            # Load locations and agents
-            location_repo = LocationRepository(read_session)
-            agent_repo = AgentRepository(read_session)
-            locations = await location_repo.list_for_run(run_id)
-            agents = await agent_repo.list_for_run(run_id)
-
-            # Build world state (copy data before session closes)
-            location_states = {
-                loc.id: LocationState(
-                    id=loc.id,
-                    name=loc.name,
-                    capacity=loc.capacity,
-                    occupants=set(),
-                )
-                for loc in locations
-            }
-
-            agent_states: dict[str, AgentState] = {}
-            agent_data: list[dict] = []  # Store agent data for later use
-
-            # First pass: build agent_states and location_states.occupants
-            for agent in agents:
-                location_id = agent.current_location_id or agent.home_location_id
-                if location_id is None:
-                    location_id = next(iter(location_states.keys()), "unknown")
-
-                agent_states[agent.id] = AgentState(
-                    id=agent.id,
-                    name=agent.name,
-                    location_id=location_id,
-                    status=agent.status or {},
-                )
-                if location_id in location_states:
-                    location_states[location_id].occupants.add(agent.id)
-
-            # Load recent events for all agents (after agent_states is built)
-            agent_recent_events: dict[str, list[dict]] = {}
-            context_builder = ContextBuilder(read_session)
-            for agent in agents:
-                recent_events = await agent_repo.list_recent_events(run_id, agent.id, limit=5)
-                agent_recent_events[agent.id] = [
-                    context_builder.format_event_for_context(evt, agent_states, location_states)
-                    for evt in recent_events
-                ]
-
-            # Second pass: build agent_data
-            scenario = self._scenario.with_session(read_session)
-            scenario.assess(
+            loaded = await load_tick_data(
+                session=read_session,
                 run_id=run_id,
-                current_tick=current_tick,
-                agents=list(agents),
-                events=[],
+                scenario=self._scenario,
             )
-            plan = await scenario.build_director_plan(run_id, list(agents))
-
-            for agent in agents:
-                location_id = agent.current_location_id or agent.home_location_id
-                if location_id is None:
-                    location_id = next(iter(location_states.keys()), "unknown")
-
-                profile = scenario.merge_agent_profile(agent, plan)
-
-                agent_data.append(
-                    {
-                        "id": agent.id,
-                        "current_goal": agent.current_goal,
-                        "current_location_id": location_id,
-                        "home_location_id": agent.home_location_id,
-                        "profile": profile,
-                        "recent_events": agent_recent_events.get(agent.id, []),
-                    }
-                )
-
-            world = WorldState(
-                current_time=get_run_world_time(run),
-                tick_minutes=tick_minutes,
-                locations=location_states,
-                agents=agent_states,
-            )
+            run = loaded.run
+            current_tick = run.current_tick
+            world = loaded.world
+            agent_data = loaded.agent_data
 
         # Phase 2: Prepare intents (SDK calls happen here, no active session)
         if not intents:
@@ -253,16 +176,12 @@ class SimulationService:
         """
         from app.agent.runtime import RuntimeContext
 
-        async def decide_for_agent(agent_dict: dict) -> ActionIntent:
-            """Make decision for a single agent."""
+        async def decide_for_agent(agent_dict: dict) -> ActionIntent | None:
             agent_id = agent_dict["id"]
-            state = world.get_agent(agent_id)
+            state = get_agent(world, agent_id)
             if state is None:
                 return None
 
-            nearby_agent_id = ContextBuilder._find_nearby_agent_impl(
-                world, agent_id, state.location_id
-            )
             profile = agent_dict.get("profile", {})
             runtime_agent_id = profile.get("agent_config_id") or agent_id
             truman_suspicion_score = ContextBuilder._extract_truman_suspicion_from_agent_data_impl(
@@ -278,71 +197,19 @@ class SimulationService:
                     enable_memory_tools=True,
                 )
 
-            try:
-                intent = await self.agent_runtime.react(
-                    runtime_agent_id,
-                    world=ContextBuilder._build_agent_world_context_impl(
-                        world=world,
-                        current_goal=agent_dict.get("current_goal"),
-                        current_location_id=agent_dict.get("current_location_id"),
-                        home_location_id=agent_dict.get("home_location_id"),
-                        nearby_agent_id=nearby_agent_id,
-                        current_status=state.status,
-                        truman_suspicion_score=truman_suspicion_score,
-                        world_role=(
-                            profile.get("world_role") if isinstance(profile, dict) else None
-                        ),
-                        director_scene_goal=(
-                            profile.get("director_scene_goal")
-                            if isinstance(profile, dict)
-                            else None
-                        ),
-                        director_priority=(
-                            profile.get("director_priority") if isinstance(profile, dict) else None
-                        ),
-                        director_message_hint=(
-                            profile.get("director_message_hint")
-                            if isinstance(profile, dict)
-                            else None
-                        ),
-                        director_target_agent_id=(
-                            profile.get("director_target_agent_id")
-                            if isinstance(profile, dict)
-                            else None
-                        ),
-                        director_location_hint=(
-                            profile.get("director_location_hint")
-                            if isinstance(profile, dict)
-                            else None
-                        ),
-                        director_reason=(
-                            profile.get("director_reason") if isinstance(profile, dict) else None
-                        ),
-                    ),
-                    memory={"recent": []},  # Memory tools available via MCP
-                    event={},
-                    recent_events=agent_dict.get("recent_events", []),
-                    runtime_ctx=runtime_ctx,
-                )
-                intent.agent_id = agent_id
-                return intent
-            except (RuntimeError, ValueError, asyncio.CancelledError):
-                return self._fallback_intent(
-                    agent_id=agent_id,
-                    current_goal=agent_dict.get("current_goal"),
-                    current_location_id=agent_dict.get("current_location_id"),
-                    home_location_id=agent_dict.get("home_location_id"),
-                    nearby_agent_id=nearby_agent_id,
-                    world_role=(profile.get("world_role") if isinstance(profile, dict) else None),
-                    current_status=state.status,
-                    truman_suspicion_score=truman_suspicion_score,
-                    director_scene_goal=(
-                        profile.get("director_scene_goal") if isinstance(profile, dict) else None
-                    ),
-                    director_priority=(
-                        profile.get("director_priority") if isinstance(profile, dict) else None
-                    ),
-                )
+            return await self._decide_intent_for_agent(
+                agent_id=agent_id,
+                runtime_agent_id=runtime_agent_id,
+                world=world,
+                current_goal=agent_dict.get("current_goal"),
+                current_location_id=agent_dict.get("current_location_id"),
+                home_location_id=agent_dict.get("home_location_id"),
+                current_status=state.status,
+                profile=profile if isinstance(profile, dict) else {},
+                recent_events=agent_dict.get("recent_events", []),
+                truman_suspicion_score=truman_suspicion_score,
+                runtime_ctx=runtime_ctx,
+            )
 
         # Execute all agent decisions in PARALLEL
         results = await asyncio.gather(*[decide_for_agent(a) for a in agent_data])
@@ -390,56 +257,89 @@ class SimulationService:
         plan = await self._scenario.build_director_plan(run_id, agents)
 
         for agent in agents:
-            state = world.get_agent(agent.id)
+            state = get_agent(world, agent.id)
             if state is None:
                 continue
 
-            nearby_agent_id = self._context_builder.find_nearby_agent(
-                world, agent.id, state.location_id
-            )
             runtime_agent_id = self._resolve_runtime_agent_id(agent)
             profile = self._scenario.merge_agent_profile(agent, plan)
-            try:
-                intent = await self.agent_runtime.react(
-                    runtime_agent_id,
-                    world=self._context_builder.build_agent_world_context(
-                        world=world,
-                        current_goal=agent.current_goal,
-                        current_location_id=state.location_id,
-                        home_location_id=agent.home_location_id,
-                        nearby_agent_id=nearby_agent_id,
-                        current_status=state.status,
-                        truman_suspicion_score=truman_suspicion_score,
-                        world_role=profile.get("world_role"),
-                        director_scene_goal=profile.get("director_scene_goal"),
-                        director_priority=profile.get("director_priority"),
-                        director_message_hint=profile.get("director_message_hint"),
-                        director_target_agent_id=profile.get("director_target_agent_id"),
-                        director_location_hint=profile.get("director_location_hint"),
-                        director_reason=profile.get("director_reason"),
-                    ),
-                    memory={"recent": []},
-                    event={},
+            intents.append(
+                await self._decide_intent_for_agent(
+                    agent_id=agent.id,
+                    runtime_agent_id=runtime_agent_id,
+                    world=world,
+                    current_goal=agent.current_goal,
+                    current_location_id=state.location_id,
+                    home_location_id=agent.home_location_id,
+                    current_status=state.status,
+                    profile=profile,
+                    recent_events=[],
+                    truman_suspicion_score=truman_suspicion_score,
                 )
-                intent.agent_id = agent.id
-                intents.append(intent)
-            except (RuntimeError, ValueError, asyncio.CancelledError):
-                intents.append(
-                    self._fallback_intent(
-                        agent_id=agent.id,
-                        current_goal=agent.current_goal,
-                        current_location_id=state.location_id,
-                        home_location_id=agent.home_location_id,
-                        nearby_agent_id=nearby_agent_id,
-                        world_role=profile.get("world_role"),
-                        current_status=state.status,
-                        truman_suspicion_score=truman_suspicion_score,
-                        director_scene_goal=profile.get("director_scene_goal"),
-                        director_priority=profile.get("director_priority"),
-                    )
-                )
+            )
 
         return intents
+
+    async def _decide_intent_for_agent(
+        self,
+        *,
+        agent_id: str,
+        runtime_agent_id: str,
+        world: WorldState,
+        current_goal: str | None,
+        current_location_id: str | None,
+        home_location_id: str | None,
+        current_status: dict | None,
+        profile: dict,
+        recent_events: list[dict],
+        truman_suspicion_score: float,
+        runtime_ctx=None,
+    ) -> ActionIntent:
+        nearby_agent_id = (
+            find_nearby_agent(world, agent_id, current_location_id)
+            if current_location_id is not None
+            else None
+        )
+
+        try:
+            intent = await self.agent_runtime.react(
+                runtime_agent_id,
+                world=ContextBuilder._build_agent_world_context_impl(
+                    world=world,
+                    current_goal=current_goal,
+                    current_location_id=current_location_id,
+                    home_location_id=home_location_id,
+                    nearby_agent_id=nearby_agent_id,
+                    current_status=current_status,
+                    truman_suspicion_score=truman_suspicion_score,
+                    world_role=profile.get("world_role"),
+                    director_scene_goal=profile.get("director_scene_goal"),
+                    director_priority=profile.get("director_priority"),
+                    director_message_hint=profile.get("director_message_hint"),
+                    director_target_agent_id=profile.get("director_target_agent_id"),
+                    director_location_hint=profile.get("director_location_hint"),
+                    director_reason=profile.get("director_reason"),
+                ),
+                memory={"recent": []},
+                event={},
+                recent_events=recent_events,
+                runtime_ctx=runtime_ctx,
+            )
+            intent.agent_id = agent_id
+            return intent
+        except (RuntimeError, ValueError, asyncio.CancelledError):
+            return self._fallback_intent(
+                agent_id=agent_id,
+                current_goal=current_goal,
+                current_location_id=current_location_id or "",
+                home_location_id=home_location_id,
+                nearby_agent_id=nearby_agent_id,
+                world_role=profile.get("world_role"),
+                current_status=current_status,
+                truman_suspicion_score=truman_suspicion_score,
+                director_scene_goal=profile.get("director_scene_goal"),
+                director_priority=profile.get("director_priority"),
+            )
 
     def _resolve_runtime_agent_id(self, agent: Agent) -> str:
         profile = agent.profile or {}

@@ -12,12 +12,19 @@ and should be injected at the scenario layer.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from app.sim.world_queries import (
+    build_familiarity_map,
+    get_agent,
+    get_location,
+    list_other_occupants,
+)
 
-# =============================================================================
-# 职业外观映射：定义不同职业的可观察特征
-# =============================================================================
+if TYPE_CHECKING:
+    from app.sim.world import WorldState
+    from app.store.models import Relationship
+
 
 OCCUPATION_APPEARANCE: dict[str, dict[str, str]] = {
     "insurance clerk": {
@@ -53,10 +60,6 @@ OCCUPATION_APPEARANCE: dict[str, dict[str, str]] = {
 }
 
 
-# =============================================================================
-# 场所类型推断规则
-# =============================================================================
-
 LOCATION_TYPE_RULES: dict[str, dict[str, str]] = {
     "cafe": {
         "context": "咖啡馆",
@@ -86,42 +89,33 @@ LOCATION_TYPE_RULES: dict[str, dict[str, str]] = {
 }
 
 
-# =============================================================================
-# 关系熟悉度等级
-# =============================================================================
-
 RELATIONSHIP_LEVELS = {
     "family": {
         "min_familiarity": 0.9,
-        "knowledge_level": "full",  # 知道职业、工作地点、性格等
+        "knowledge_level": "full",
         "description": "家人，完全了解对方信息",
     },
     "close_friend": {
         "min_familiarity": 0.7,
-        "knowledge_level": "high",  # 知道职业、工作地点
+        "knowledge_level": "high",
         "description": "密友，较了解对方信息",
     },
     "friend": {
         "min_familiarity": 0.5,
-        "knowledge_level": "medium",  # 知道职业
+        "knowledge_level": "medium",
         "description": "朋友，知道基本情况",
     },
     "acquaintance": {
         "min_familiarity": 0.3,
-        "knowledge_level": "low",  # 知道名字，面熟
+        "knowledge_level": "low",
         "description": "熟人，点头之交",
     },
     "stranger": {
         "min_familiarity": 0.0,
-        "knowledge_level": "none",  # 需要通过观察推断
+        "knowledge_level": "none",
         "description": "陌生人，仅能通过观察推断",
     },
 }
-
-
-# =============================================================================
-# 核心函数：构建可观察线索
-# =============================================================================
 
 
 def build_observable_cues(
@@ -148,20 +142,19 @@ def build_observable_cues(
     cues["appearance"] = occupation_info["appearance"]
     cues["typical_activity"] = occupation_info["typical_activity"]
 
-    # 根据地点和职业推断当前行为
     if location_type and location_type in LOCATION_TYPE_RULES:
         location_info = LOCATION_TYPE_RULES[location_type]
 
-        # 如果在工作地点，显示工作行为
         if is_at_workplace:
             if location_type == "cafe" and occupation in location_info.get("typical_workers", []):
                 cues["current_activity_hint"] = location_info.get("activity_hint_worker", "在工作")
             elif location_type == "office":
                 cues["current_activity_hint"] = location_info.get("activity_hint", "在工作")
         else:
-            # 不在工作地点，显示访客行为
             if location_type == "cafe":
-                cues["current_activity_hint"] = location_info.get("activity_hint_customer", "喝咖啡")
+                cues["current_activity_hint"] = location_info.get(
+                    "activity_hint_customer", "喝咖啡"
+                )
             elif location_type == "plaza":
                 cues["current_activity_hint"] = location_info.get("activity_hint", "闲逛")
             elif location_type == "home":
@@ -187,7 +180,6 @@ def infer_knowledge_from_relationship(
     """
     knowledge: dict[str, Any] = {"knowledge_level": "none"}
 
-    # 确定关系等级
     for level, info in RELATIONSHIP_LEVELS.items():
         if familiarity >= info["min_familiarity"]:
             knowledge["relationship_level"] = level
@@ -195,21 +187,16 @@ def infer_knowledge_from_relationship(
             knowledge["description"] = info["description"]
             break
 
-    # 根据知识等级返回可推断的信息
     knowledge_level = knowledge.get("knowledge_level", "none")
 
     if knowledge_level in ("full", "high"):
-        # 完全了解或较高了解：知道职业和工作地点
         knowledge["known_occupation"] = other_occupation
         knowledge["known_workplace"] = other_workplace
     elif knowledge_level == "medium":
-        # 中等了解：知道职业
         knowledge["known_occupation"] = other_occupation
     elif knowledge_level == "low":
-        # 较低了解：仅知道是熟人
         knowledge["is_acquaintance"] = True
     else:
-        # 陌生人：需要通过观察推断
         knowledge["requires_observation"] = True
 
     return knowledge
@@ -218,7 +205,7 @@ def infer_knowledge_from_relationship(
 def build_perception_context(
     viewer_id: str,
     nearby_agents: list[dict[str, Any]],
-    relationships: dict[str, float],  # agent_id -> familiarity
+    relationships: dict[str, float],
     current_location_type: str | None,
 ) -> dict[str, Any]:
     """构建感知上下文，注入到 agent 的决策上下文中。
@@ -241,14 +228,12 @@ def build_perception_context(
         agent_id = agent.get("id", "")
         familiarity = relationships.get(agent_id, 0.0)
 
-        # 获取可观察线索
         observable = build_observable_cues(
             occupation=agent.get("occupation"),
             location_type=current_location_type,
             is_at_workplace=agent.get("is_at_workplace", False),
         )
 
-        # 获取基于关系的知识
         knowledge = infer_knowledge_from_relationship(
             familiarity=familiarity,
             other_occupation=agent.get("occupation"),
@@ -263,7 +248,6 @@ def build_perception_context(
             "observable_cues": observable,
         }
 
-        # 根据熟悉度决定是否提供已知信息
         if knowledge.get("known_occupation"):
             perceived["known_occupation"] = knowledge["known_occupation"]
         if knowledge.get("known_workplace"):
@@ -279,3 +263,103 @@ def build_perception_context(
             "记忆整合": "已知的熟人信息来自长期记忆",
         },
     }
+
+
+def filter_world_for_role(world_role: str, world: dict[str, Any]) -> dict[str, Any]:
+    if world_role == "truman":
+        return {
+            key: value
+            for key, value in world.items()
+            if not key.startswith("director_") and not key.startswith("cast_")
+        }
+    return dict(world)
+
+
+def build_role_context(world_role: str, world: dict[str, Any]) -> dict[str, Any]:
+    if world_role == "truman":
+        return {
+            "perspective": "subjective",
+            "focus": "以普通居民的身份体验世界，只根据亲身经历理解周围发生的事",
+            "current_suspicion_score": world.get("self_status", {}).get("suspicion_score", 0.0),
+            "guidance": [
+                "不要假设自己知道幕后信息",
+                "优先依据眼前线索和熟悉的日常节奏做判断",
+            ],
+        }
+    if world_role == "cast":
+        return {
+            "perspective": "supporting_cast",
+            "focus": "优先保持自然、熟悉、不过分用力的日常互动",
+            "guidance": [
+                "优先做自然、连续、不会突然破坏日常节奏的动作",
+                "场景提示只是软参考，不需要生硬执行",
+                "如果信息不足，选择最稳妥、最像熟人日常的回应",
+            ],
+        }
+    return {
+        "perspective": "background",
+        "focus": "保持低风险、背景化、自然的存在感",
+        "guidance": ["优先做简单稳定的动作"],
+    }
+
+
+def build_scene_guidance(world_role: str, world: dict[str, Any]) -> dict[str, Any]:
+    if world_role != "cast":
+        return {}
+
+    scene_goal = world.get("director_scene_goal")
+    if not scene_goal:
+        return {}
+
+    return {
+        "scene_goal": scene_goal,
+        "priority": world.get("director_priority", "advisory"),
+        "message_hint": world.get("director_message_hint"),
+        "target_agent_id": world.get("director_target_agent_id"),
+        "location_hint": world.get("director_location_hint"),
+        "reason": world.get("director_reason"),
+        "is_advisory": True,
+    }
+
+
+def build_perception_context_for_agent(
+    viewer_agent_id: str,
+    world: "WorldState",
+    relationships: list["Relationship"],
+    current_location_id: str | None,
+) -> dict[str, Any]:
+    if not current_location_id:
+        return {}
+
+    location = get_location(world, current_location_id)
+    if location is None:
+        return {}
+
+    nearby_agent_ids = list_other_occupants(world, viewer_agent_id, current_location_id)
+    if not nearby_agent_ids:
+        return {"perceived_others": []}
+
+    relationship_map = build_familiarity_map(relationships)
+
+    nearby_agents = []
+    for agent_id in nearby_agent_ids:
+        agent = get_agent(world, agent_id)
+        if agent is None:
+            continue
+
+        nearby_agents.append(
+            {
+                "id": agent.id,
+                "name": agent.name,
+                "occupation": agent.occupation,
+                "workplace_id": agent.workplace_id,
+                "is_at_workplace": agent.workplace_id == current_location_id,
+            }
+        )
+
+    return build_perception_context(
+        viewer_id=viewer_agent_id,
+        nearby_agents=nearby_agents,
+        relationships=relationship_map,
+        current_location_type=location.location_type,
+    )

@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from app.sim.world_queries import find_nearby_agent, get_agent, get_location
 from app.sim.world import AgentState, LocationState, WorldState
 from app.store.repositories import AgentRepository, EventRepository, LocationRepository
 
@@ -68,7 +69,6 @@ class ContextBuilder:
             if location_id is None:
                 location_id = next(iter(location_states.keys()), "unknown")
 
-            # 从 profile 中获取工作地点信息
             profile = agent.profile or {}
             workplace_id = profile.get("workplace_location_id")
 
@@ -170,16 +170,14 @@ class ContextBuilder:
             **world.time_context(),
         }
 
-        # 添加当前地点信息
         if current_location_id:
-            location = world.get_location(current_location_id)
+            location = get_location(world, current_location_id)
             if location:
                 context["current_location_name"] = location.name
                 context["current_location_type"] = location.location_type
 
-        # 添加附近 agent 的基本信息
         if nearby_agent_id:
-            nearby_agent = world.get_agent(nearby_agent_id)
+            nearby_agent = get_agent(world, nearby_agent_id)
             if nearby_agent:
                 context["nearby_agent"] = {
                     "id": nearby_agent.id,
@@ -214,14 +212,7 @@ class ContextBuilder:
     @staticmethod
     def _find_nearby_agent_impl(world: WorldState, agent_id: str, location_id: str) -> str | None:
         """Static implementation for finding nearby agent."""
-        location = world.get_location(location_id)
-        if location is None:
-            return None
-
-        for occupant_id in sorted(location.occupants):
-            if occupant_id != agent_id:
-                return occupant_id
-        return None
+        return find_nearby_agent(world, agent_id, location_id)
 
     def extract_truman_suspicion_from_agent_data(
         self,
@@ -249,7 +240,7 @@ class ContextBuilder:
             profile = agent_dict.get("profile", {}) or {}
             if profile.get("world_role") != "truman":
                 continue
-            state = world.get_agent(agent_dict["id"])
+            state = get_agent(world, agent_dict["id"])
             if state is None:
                 continue
             return float((state.status or {}).get("suspicion_score", 0.0) or 0.0)
@@ -272,7 +263,7 @@ class ContextBuilder:
         for agent in agents:
             if (agent.profile or {}).get("world_role") != "truman":
                 continue
-            state = world.get_agent(agent.id)
+            state = get_agent(world, agent.id)
             if state is None:
                 continue
             return float((state.status or {}).get("suspicion_score", 0.0) or 0.0)
@@ -299,21 +290,17 @@ class ContextBuilder:
             "tick_no": evt.tick_no,
         }
 
-        # Add actor name
         if evt.actor_agent_id and evt.actor_agent_id in agent_states:
             result["actor_name"] = agent_states[evt.actor_agent_id].name
         else:
             result["actor_name"] = "某人"
 
-        # Add target name for talk events
         if evt.target_agent_id and evt.target_agent_id in agent_states:
             result["target_name"] = agent_states[evt.target_agent_id].name
 
-        # Add location name
         if evt.location_id and evt.location_id in location_states:
             result["location_name"] = location_states[evt.location_id].name
 
-        # Add message for talk events
         payload = evt.payload or {}
         if "message" in payload:
             result["message"] = payload["message"]
