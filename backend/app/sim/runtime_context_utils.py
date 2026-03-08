@@ -21,11 +21,13 @@ def build_agent_world_context(
     truman_suspicion_score: float = 0.0,
     world_role: str | None = None,
     director_guidance: DirectorGuidance | None = None,
+    workplace_location_id: str | None = None,
 ) -> RuntimeWorldContext:
     context = {
         "current_goal": current_goal,
         "current_location_id": current_location_id,
         "home_location_id": home_location_id,
+        "workplace_location_id": workplace_location_id,
         "nearby_agent_id": nearby_agent_id,
         "self_status": current_status or {},
         "truman_suspicion_score": truman_suspicion_score,

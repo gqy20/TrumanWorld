@@ -208,6 +208,11 @@ class SimulationService:
                     enable_memory_tools=True,
                 )
 
+            # Extract workplace_location_id from profile
+            workplace_location_id = None
+            if isinstance(profile, dict):
+                workplace_location_id = profile.get("workplace_location_id")
+
             return await self._decide_intent_for_agent(
                 agent_id=agent_id,
                 runtime_agent_id=runtime_agent_id,
@@ -220,6 +225,7 @@ class SimulationService:
                 recent_events=agent_snapshot.recent_events,
                 truman_suspicion_score=truman_suspicion_score,
                 runtime_ctx=runtime_ctx,
+                workplace_location_id=workplace_location_id,
             )
 
         # Execute all agent decisions in PARALLEL
@@ -312,6 +318,7 @@ class SimulationService:
         recent_events: list[dict],
         truman_suspicion_score: float,
         runtime_ctx=None,
+        workplace_location_id: str | None = None,
     ) -> ActionIntent:
         nearby_agent_id = (
             find_nearby_agent(world, agent_id, current_location_id)
@@ -333,6 +340,7 @@ class SimulationService:
                     truman_suspicion_score=truman_suspicion_score,
                     world_role=get_world_role(profile),
                     director_guidance=director_guidance,
+                    workplace_location_id=workplace_location_id,
                 ),
                 memory={"recent": []},
                 event={},
@@ -352,6 +360,7 @@ class SimulationService:
                 current_status=current_status,
                 truman_suspicion_score=truman_suspicion_score,
                 director_guidance=director_guidance,
+                workplace_location_id=workplace_location_id,
             )
 
     def _resolve_runtime_agent_id(self, agent: Agent) -> str:
@@ -415,6 +424,7 @@ class SimulationService:
         current_status: dict | None = None,
         truman_suspicion_score: float = 0.0,
         director_guidance: DirectorGuidance | None = None,
+        workplace_location_id: str | None = None,
     ) -> ActionIntent:
         scenario_intent = self._scenario.fallback_intent(
             agent_id=agent_id,
@@ -455,7 +465,17 @@ class SimulationService:
                 target_location_id=home_location_id,
             )
 
+        # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
         if current_goal == "work":
+            if (
+                workplace_location_id
+                and current_location_id != workplace_location_id
+            ):
+                return ActionIntent(
+                    agent_id=agent_id,
+                    action_type="move",
+                    target_location_id=workplace_location_id,
+                )
             return ActionIntent(agent_id=agent_id, action_type="work")
 
         return ActionIntent(agent_id=agent_id, action_type="rest")

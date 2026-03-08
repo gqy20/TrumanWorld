@@ -101,6 +101,7 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
         current_location_id = world.get("current_location_id")
         home_location_id = world.get("home_location_id")
         nearby_agent_id = world.get("nearby_agent_id")
+        workplace_location_id = world.get("workplace_location_id")
 
         if isinstance(goal, str) and goal.startswith("move:"):
             return RuntimeDecision(
@@ -118,7 +119,17 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
             if hook_decision is not None:
                 return hook_decision
 
+        # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
         if goal == "work":
+            if (
+                workplace_location_id
+                and current_location_id
+                and current_location_id != workplace_location_id
+            ):
+                return RuntimeDecision(
+                    action_type="move",
+                    target_location_id=str(workplace_location_id),
+                )
             return RuntimeDecision(action_type="work")
 
         if goal == "talk" and nearby_agent_id:

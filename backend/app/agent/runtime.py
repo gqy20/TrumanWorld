@@ -203,6 +203,7 @@ class AgentRuntime:
         current_location_id = world.get("current_location_id")
         home_location_id = world.get("home_location_id")
         nearby_agent_id = world.get("nearby_agent_id")
+        workplace_location_id = world.get("workplace_location_id")
 
         if isinstance(goal, str) and goal.startswith("move:"):
             target_location_id = goal.split(":", 1)[1].strip()
@@ -212,7 +213,18 @@ class AgentRuntime:
                 target_location_id=target_location_id,
             )
 
+        # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
         if goal == "work":
+            if (
+                workplace_location_id
+                and current_location_id
+                and current_location_id != workplace_location_id
+            ):
+                return ActionIntent(
+                    agent_id=invocation.agent_id,
+                    action_type="move",
+                    target_location_id=str(workplace_location_id),
+                )
             return ActionIntent(agent_id=invocation.agent_id, action_type="work")
 
         if goal == "talk" and nearby_agent_id:
