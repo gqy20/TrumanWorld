@@ -67,11 +67,13 @@ export function IntelligenceStreamModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]); // intentionally exclude recentEventsRef – it's a ref, stable by design
 
-  // Reload every time the modal is opened so new ticks are always reflected
+  // Reload every time the modal is opened so new ticks are always reflected;
+  // also poll every 5 s while open so live events appear without re-opening.
   useEffect(() => {
-    if (isOpen) {
-      loadAllEvents();
-    }
+    if (!isOpen) return;
+    loadAllEvents();
+    const timer = setInterval(() => loadAllEvents(), 5000);
+    return () => clearInterval(timer);
   }, [isOpen, loadAllEvents]);
 
   const { agentNameMap, locationNameMap, visibleEvents, latestTick } = useMemo(() => {
