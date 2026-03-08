@@ -5,6 +5,7 @@ import type {
   RunSummary,
   TickResponse,
   TimelineEvent,
+  WorldEvent,
   WorldSnapshot,
 } from "@/lib/types";
 
