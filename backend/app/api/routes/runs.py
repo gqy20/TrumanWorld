@@ -534,6 +534,7 @@ async def get_world_snapshot(
             "occupation": agent.occupation,
             "current_goal": agent.current_goal,
             "current_location_id": agent.current_location_id,
+            "config_id": (agent.profile or {}).get("agent_config_id"),
         }
         for agent in agents
     }

@@ -450,6 +450,10 @@ export function TownMap({
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            {/* Agent logo 圆形裁剪 */}
+            <clipPath id="agentLogoClip">
+              <circle cx="0" cy="0" r="11" />
+            </clipPath>
           </defs>
 
           {/* 网格背景 - 根据昼夜调整颜色 */}
@@ -735,18 +739,19 @@ export function TownMap({
                       {hasLogo ? (
                         // 使用自定义 logo
                         <>
-                          <image
-                            href={`/agents/${agent.config_id}.svg`}
-                            x={agentX - 12}
-                            y={agentY - 12}
-                            width={24}
-                            height={24}
-                            clipPath={`circle(12px at ${agentX}px ${agentY}px)`}
-                          />
+                          <g transform={`translate(${agentX}, ${agentY})`} clipPath="url(#agentLogoClip)">
+                            <image
+                              href={`/agents/${agent.config_id}.svg`}
+                              x={-11}
+                              y={-11}
+                              width={22}
+                              height={22}
+                            />
+                          </g>
                           <circle
                             cx={agentX}
                             cy={agentY}
-                            r={12}
+                            r={11}
                             fill="none"
                             stroke={fill}
                             strokeWidth={2}
