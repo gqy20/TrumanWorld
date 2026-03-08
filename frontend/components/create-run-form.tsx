@@ -15,7 +15,7 @@ export function CreateRunForm() {
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
@@ -31,22 +31,22 @@ export function CreateRunForm() {
       }}
     >
       {/* 名称输入行 */}
-      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-sm">
+      <div className="flex items-center gap-2">
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="flex-1 rounded-xl bg-white px-4 py-2.5 text-base text-ink shadow-sm placeholder:text-slate-400 outline-none transition focus:ring-2 focus:ring-moss/20 border border-transparent focus:border-moss"
+          className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base text-ink placeholder:text-slate-400 outline-none transition focus:border-moss focus:ring-2 focus:ring-moss/20"
           placeholder="输入模拟运行名称"
         />
         {/* 场景选择器 */}
-        <div className="flex items-center gap-0.5 rounded-xl bg-white border border-slate-200 p-1 shadow-sm">
+        <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
           <button
             type="button"
             onClick={() => setSeedDemo(true)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
               seedDemo
                 ? "bg-moss text-white shadow-sm"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
           >
             Truman World
@@ -57,7 +57,7 @@ export function CreateRunForm() {
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
               !seedDemo
                 ? "bg-moss text-white shadow-sm"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
           >
             空白世界
@@ -85,14 +85,14 @@ export function CreateRunForm() {
       </div>
 
       {/* 推荐命名 */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-slate-400">推荐：</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-slate-400">推荐：</span>
         {suggestions.map((suggestion) => (
           <button
             key={suggestion}
             type="button"
             onClick={() => setName(suggestion)}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-500 transition hover:border-moss hover:text-moss"
+            className="rounded-full border border-slate-200 bg-transparent px-2.5 py-0.5 text-xs text-slate-500 transition hover:border-moss hover:text-moss"
           >
             {suggestion}
           </button>

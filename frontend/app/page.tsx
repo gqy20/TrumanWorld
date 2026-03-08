@@ -28,22 +28,20 @@ export default async function HomePage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="space-y-8 p-8">
+        <div className="space-y-10 px-8 py-8">
           {/* 创建新模拟 */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-ink">新建运行</h2>
-            <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-sm">
-              <CreateRunForm />
-            </div>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">新建运行</h2>
+            <CreateRunForm />
           </section>
 
           {/* 运行列表 */}
           <section>
-            <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="mb-5 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-ink">模拟运行</h2>
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">模拟运行</h2>
                 {hasRuns && (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-medium text-slate-500">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
                     {runs.length}
                   </span>
                 )}

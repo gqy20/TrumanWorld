@@ -170,18 +170,24 @@ export function RunList({ runs }: RunListProps) {
               )}
 
               {/* 操作按钮 */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
                 <Link
                   href={`/runs/${run.id}`}
-                  className="rounded-lg bg-moss px-3 py-2.5 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-moss/90"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-moss/10 px-3 py-2 text-sm font-medium text-moss transition hover:bg-moss/20"
                 >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
                   总览
                 </Link>
                 <Link
                   href={`/runs/${run.id}/world`}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-ink"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                 >
-                  世界视图
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9" /><path d="M12 3a15 15 0 0 1 0 18M3 12h18" />
+                  </svg>
+                  世界
                 </Link>
               </div>
             </div>
