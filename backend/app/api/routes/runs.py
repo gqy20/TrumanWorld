@@ -393,8 +393,28 @@ async def get_timeline(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
+    agent_repo = AgentRepository(session)
+    location_repo = LocationRepository(session)
     event_repo = EventRepository(session)
+
+    agents = await agent_repo.list_for_run(str(run_id))
+    locations = await location_repo.list_for_run(str(run_id))
+    agent_name_map = {agent.id: agent.name for agent in agents}
+    location_name_map = {location.id: location.name for location in locations}
+
     events = await event_repo.list_for_run(str(run_id))
+
+    def enrich_payload(event) -> dict:
+        """Inject actor_name / target_name / location_name into payload."""
+        payload = dict(event.payload or {})
+        if event.actor_agent_id and "actor_name" not in payload:
+            payload["actor_name"] = agent_name_map.get(event.actor_agent_id, event.actor_agent_id)
+        if event.target_agent_id and "target_name" not in payload:
+            payload["target_name"] = agent_name_map.get(event.target_agent_id, event.target_agent_id)
+        if event.location_id and "location_name" not in payload:
+            payload["location_name"] = location_name_map.get(event.location_id, event.location_id)
+        return payload
+
     return TimelineResponse(
         run_id=str(run_id),
         events=[
@@ -403,7 +423,7 @@ async def get_timeline(
                 tick_no=event.tick_no,
                 event_type=event.event_type,
                 importance=event.importance,
-                payload=event.payload or {},
+                payload=enrich_payload(event),
             )
             for event in events
         ],
