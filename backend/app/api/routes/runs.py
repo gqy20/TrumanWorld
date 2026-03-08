@@ -650,9 +650,9 @@ async def delete_run(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
     # Delete related data in correct order (respecting foreign key constraints)
-    # Order: relationships -> memories -> events -> agents -> locations -> run
+    # Order: relationships -> memories -> director_memories -> events -> agents -> locations -> run
     from sqlalchemy import delete
-    from app.store.models import Agent, Event, Location, Memory, Relationship
+    from app.store.models import Agent, DirectorMemory, Event, Location, Memory, Relationship
 
     run_id_str = str(run_id)
 
@@ -661,6 +661,9 @@ async def delete_run(
 
     # Delete memories (references agents)
     await session.execute(delete(Memory).where(Memory.run_id == run_id_str))
+
+    # Delete director memories
+    await session.execute(delete(DirectorMemory).where(DirectorMemory.run_id == run_id_str))
 
     # Delete events (references agents, locations)
     await session.execute(delete(Event).where(Event.run_id == run_id_str))
