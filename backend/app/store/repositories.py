@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.store.models import (
@@ -173,6 +173,10 @@ class AgentRepository:
         - Events where agent is actor or target
         - Events at agent's current location (for observer awareness)
         - Director system events (if enabled)
+
+        Results are ordered by event priority first (talk/move before work/rest),
+        then by recency, so that meaningful interactions always surface within
+        the limit window instead of being displaced by repetitive work/rest noise.
         """
         # Direct participation events
         agent_events = or_(Event.actor_agent_id == agent_id, Event.target_agent_id == agent_id)
@@ -194,13 +198,21 @@ class AgentRepository:
             )
             event_scope = or_(event_scope, director_events)
 
+        # Priority ordering: talk and move events surface before work/rest noise.
+        # Within the same priority tier events are ordered by recency.
+        event_priority = case(
+            (Event.event_type.in_(["talk", "move"]), 0),
+            (Event.event_type.in_(["work", "rest"]), 2),
+            else_=1,
+        )
+
         stmt: Select[tuple[Event]] = (
             select(Event)
             .where(
                 Event.run_id == run_id,
                 event_scope,
             )
-            .order_by(Event.tick_no.desc(), Event.created_at.desc())
+            .order_by(event_priority, Event.tick_no.desc(), Event.created_at.desc())
             .limit(limit)
         )
         result = await self.session.execute(stmt)
