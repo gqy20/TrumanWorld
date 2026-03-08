@@ -304,8 +304,8 @@ class TrumanWorldSeedBuilder:
             name="Marlon",
             occupation="办公室同事",
             home_location_id=f"{run_id}-bachelor-apt",
-            current_location_id=f"{run_id}-office",
-            current_goal="work",
+            current_location_id=f"{run_id}-bachelor-apt",
+            current_goal="commute",
             personality={"agreeableness": 0.68, "openness": 0.48},
             profile=build_scenario_agent_profile(
                 bio="一个熟悉的朋友，经常和 Truman 分享日常生活。",
@@ -324,8 +324,8 @@ class TrumanWorldSeedBuilder:
             name="Lauren",
             occupation="常客",
             home_location_id=f"{run_id}-bachelor-apt",
-            current_location_id=f"{run_id}-cafe",
-            current_goal="talk",
+            current_location_id=f"{run_id}-bachelor-apt",
+            current_goal="wander",
             personality={"agreeableness": 0.58, "openness": 0.66},
             profile=build_scenario_agent_profile(
                 bio="广场和咖啡馆的常客，熟悉的面孔。",
@@ -362,7 +362,7 @@ class TrumanWorldSeedBuilder:
             name="Bob",
             occupation="居民",
             home_location_id=f"{run_id}-bachelor-apt",
-            current_location_id=f"{run_id}-plaza",
+            current_location_id=f"{run_id}-bachelor-apt",
             current_goal="wander",
             personality={"agreeableness": 0.6, "openness": 0.5},
             profile=build_scenario_agent_profile(
