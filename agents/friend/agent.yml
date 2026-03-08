@@ -2,6 +2,11 @@ id: friend
 name: Marlon
 world_role: cast
 occupation: office coworker
+workplace: harbor_office
+work_schedule:
+  start_hour: 9
+  end_hour: 17
+  work_days: [monday, tuesday, wednesday, thursday, friday]
 home: town_plaza
 personality:
   agreeableness: 0.68

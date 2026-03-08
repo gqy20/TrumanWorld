@@ -14,6 +14,16 @@ class AgentCapabilities(BaseModel):
     subagents: bool = False
 
 
+class WorkSchedule(BaseModel):
+    """工作日程配置"""
+
+    start_hour: int | None = None
+    end_hour: int | None = None
+    work_days: list[str] | None = None
+    type: str | None = None  # 如 "shift" 表示轮班
+    shifts: list[str] | None = None
+
+
 class AgentModelConfig(BaseModel):
     max_turns: int = 8
     max_budget_usd: float = 1.0
@@ -26,6 +36,8 @@ class AgentConfig(BaseModel):
     name: str = Field(min_length=1)
     world_role: Literal["truman", "cast", "npc"] = "cast"
     occupation: str = "resident"
+    workplace: str | None = None
+    work_schedule: WorkSchedule | None = None
     home: str
     personality: dict = Field(default_factory=dict)
     capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)

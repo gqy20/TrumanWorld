@@ -2,6 +2,11 @@ id: alice
 name: Alice
 world_role: cast
 occupation: barista
+workplace: corner_cafe
+work_schedule:
+  start_hour: 7
+  end_hour: 15
+  work_days: [monday, tuesday, wednesday, thursday, friday, saturday]
 home: town_cafe
 personality:
   openness: 0.7

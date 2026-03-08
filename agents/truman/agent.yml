@@ -2,6 +2,11 @@ id: truman
 name: Truman
 world_role: truman
 occupation: insurance clerk
+workplace: harbor_office
+work_schedule:
+  start_hour: 9
+  end_hour: 17
+  work_days: [monday, tuesday, wednesday, thursday, friday]
 home: seaside_apartment
 personality:
   openness: 0.55

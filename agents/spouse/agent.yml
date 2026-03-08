@@ -2,6 +2,10 @@ id: spouse
 name: Meryl
 world_role: cast
 occupation: hospital staff
+workplace: hospital
+work_schedule:
+  type: shift  # 轮班制
+  shifts: [morning, evening]
 home: seaside_apartment
 personality:
   agreeableness: 0.72

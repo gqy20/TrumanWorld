@@ -2,6 +2,7 @@ id: neighbor
 name: Lauren
 world_role: cast
 occupation: shop regular
+workplace: null  # 自由职业，无固定工作地点
 home: town_plaza
 personality:
   agreeableness: 0.58
