@@ -7,7 +7,7 @@ import type { WorldSnapshot } from "@/lib/types";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { EventCard } from "@/components/event-card";
-import { beatBadge, buildWorldNameMaps, getLocationTypeLabel, locationBeat } from "@/lib/world-utils";
+import { beatBadge, buildWorldNameMaps, getLocationTypeLabel, locationBeat, tickToSimDayTime } from "@/lib/world-utils";
 
 type LocationDetailModalProps = {
   isOpen: boolean;
@@ -183,6 +183,12 @@ export function LocationDetailModal({
                     isLatest={event.tick_no === latestTick}
                     agentNameMap={agentNameMap}
                     locationNameMap={locationNameMap}
+                    simTime={tickToSimDayTime(
+                      event.tick_no,
+                      world.run.tick_minutes ?? 5,
+                      world.run.current_tick ?? 0,
+                      world.world_clock?.iso,
+                    )}
                   />
                 ))}
                 {locationEvents.length > 10 && (

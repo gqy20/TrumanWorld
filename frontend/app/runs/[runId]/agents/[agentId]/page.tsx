@@ -5,7 +5,7 @@ import { inferAgentStatus, relationshipTone } from "@/lib/agent-utils";
 import { MetricChip } from "@/components/metric-chip";
 import { getAgentResult, getWorldResult } from "@/lib/api";
 import { describeAgentEvent } from "@/lib/event-utils";
-import { tickToSimTime } from "@/lib/world-utils";
+import { tickToSimDayTime } from "@/lib/world-utils";
 
 // 人格特质中文映射
 const PERSONALITY_LABELS: Record<string, string> = {
@@ -276,7 +276,7 @@ export default async function AgentPage({ params }: AgentPageProps) {
                                                           T{event.tick_no}
                                                           {world && (
                                                             <span className="ml-1 text-slate-300">
-                                                              {tickToSimTime(
+                                                              {tickToSimDayTime(
                                                                 event.tick_no,
                                                                 world.run.tick_minutes ?? 5,
                                                                 world.run.current_tick ?? 0,

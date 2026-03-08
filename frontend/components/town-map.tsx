@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type 
 import { AnimatePresence, motion } from "framer-motion";
 import { EVENT_MOVE } from "@/lib/simulation-protocol";
 import type { AgentSummary, WorldSnapshot } from "@/lib/types";
-import { calculateLocationHeat, getHeatLevel, getTimeOfDay, getTimeOfDayStyle } from "@/lib/world-utils";
+import { calculateLocationHeat, getHeatLevel, getTimeOfDay, getTimeOfDayStyle, simDayLabel } from "@/lib/world-utils";
 
 interface LocationNode {
   id: string;
@@ -340,7 +340,7 @@ export function TownMap({
               <span>{timeStyle.icon}</span>
               <span>{timeStyle.label}</span>
               <span className="text-slate-400">
-                {world.world_clock?.time ?? `${hour}:00`}
+                {simDayLabel(world.run.current_tick ?? 0, world.run.tick_minutes ?? 5)} {world.world_clock?.time ?? `${String(hour).padStart(2, "0")}:00`}
               </span>
             </span>
           </div>

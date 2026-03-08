@@ -191,6 +191,63 @@ export function formatSimTime(world: WorldSnapshot) {
   return `${hours}:${minutes}`;
 }
 
+const WEEKDAY_NAMES_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+
+/**
+ * 根据 tick 计算模拟世界天数（从第1天开始）和星期（第1天=周一）。
+ * 返回如 "第1天 周一" 的字符串。
+ */
+export function simDayLabel(tick: number, tickMinutes: number): string {
+  const totalMinutes = tick * tickMinutes;
+  const dayIndex = Math.floor(totalMinutes / 1440); // 1440 = 24 * 60
+  const dayNumber = dayIndex + 1; // 从第1天开始
+  const weekday = WEEKDAY_NAMES_CN[dayIndex % 7];
+  return `第${dayNumber}天 ${weekday}`;
+}
+
+/**
+ * 根据 tick 计算模拟时间，返回 "第N天 周X HH:MM" 格式。
+ * 时间从模拟开始时刻（由 clockIso 或默认 00:00 决定）推算。
+ */
+export function tickToSimDayTime(
+  tickNo: number,
+  tickMinutes: number,
+  currentTick: number,
+  clockIso?: string,
+): string {
+  let totalMinutes: number;
+  if (clockIso) {
+    const timePart = clockIso.substring(11, 16);
+    const [hhStr, mmStr] = timePart.split(":");
+    const currentTotalMinutes = parseInt(hhStr, 10) * 60 + parseInt(mmStr, 10);
+    const offsetMinutes = (tickNo - currentTick) * tickMinutes;
+    totalMinutes = ((currentTotalMinutes + offsetMinutes) % (24 * 60) + 24 * 60) % (24 * 60);
+    // 计算当前tick对应的绝对分钟数（用于推算天数）
+    // 取 clockIso 的日期部分推算绝对分钟
+    const dateStr = clockIso.substring(0, 10); // YYYY-MM-DD
+    const [, , dayStr] = dateStr.split("-");
+    // 简单：直接基于 currentTick 对应的累计分钟数推算天数
+    const currentAbsoluteMinutes = currentTick * tickMinutes;
+    const absoluteMinutes = currentAbsoluteMinutes + (tickNo - currentTick) * tickMinutes;
+    const dayIndex = Math.floor(absoluteMinutes / 1440);
+    const dayNumber = dayIndex + 1;
+    const weekday = WEEKDAY_NAMES_CN[dayIndex % 7];
+    const hh = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+    const mm = (totalMinutes % 60).toString().padStart(2, "0");
+    void dayStr;
+    return `第${dayNumber}天 ${weekday} ${hh}:${mm}`;
+  }
+  // Fallback: tick 0 = 第1天 周一 00:00
+  const absoluteMinutes = tickNo * tickMinutes;
+  const dayIndex = Math.floor(absoluteMinutes / 1440);
+  const dayNumber = dayIndex + 1;
+  const weekday = WEEKDAY_NAMES_CN[dayIndex % 7];
+  totalMinutes = absoluteMinutes % 1440;
+  const hh = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+  const mm = (totalMinutes % 60).toString().padStart(2, "0");
+  return `第${dayNumber}天 ${weekday} ${hh}:${mm}`;
+}
+
 /**
  * Convert a tick number to a human-readable simulation time string (HH:MM).
  *

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "@/lib/api";
 import type { AgentSummary, TimelineEvent, TimelineResponse } from "@/lib/types";
 import { describeTimelineEvent, getEventMeta } from "@/lib/event-utils";
+import { simDayLabel } from "@/lib/world-utils";
 
 const EVENT_TYPE_OPTIONS = [
   { value: "", label: "全部类型" },
@@ -176,7 +177,7 @@ export default function TimelinePage() {
           {timeline?.run_info && (
             <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-slate-600 shadow-sm">
               <span className="h-2 w-2 rounded-full bg-moss/60" />
-              世界时间 {timeline.run_info.current_world_time_iso.substring(11, 16)}
+              世界时间 {simDayLabel(timeline.run_info.current_tick, timeline.run_info.tick_minutes)} {timeline.run_info.current_world_time_iso.substring(11, 16)}
               <span className="text-slate-400">·</span>
               每 Tick {timeline.run_info.tick_minutes} 分钟
             </div>
@@ -374,7 +375,9 @@ export default function TimelinePage() {
                     // 取该 tick 组第一个事件的世界时间
                     const firstEvent = events[0];
                     const worldTime = firstEvent?.world_time;
-                    const worldDate = firstEvent?.world_date;
+                    // 从 tick 号计算模拟天数标签
+                    const tickMinutes = timeline.run_info?.tick_minutes ?? 5;
+                    const simDayStr = simDayLabel(tick as number, tickMinutes);
 
                     return (
                       <div key={tick} className="rounded-[28px] border border-slate-200 bg-white/85 p-4 shadow-sm">
@@ -382,12 +385,9 @@ export default function TimelinePage() {
                           <span className="rounded-full bg-moss/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-moss">
                             Tick {tick}
                           </span>
-                          {worldTime && (
-                            <span className="flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] text-slate-500">
-                              🕐 {worldTime}
-                              {worldDate && <span className="text-slate-400">&nbsp;{worldDate}</span>}
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] text-slate-500">
+                            🕐 {simDayStr}{worldTime && ` ${worldTime}`}
+                          </span>
                           <span className="text-xs text-slate-400">{events.length} 条事件</span>
                           <span className="h-px flex-1 bg-slate-200" />
                         </div>

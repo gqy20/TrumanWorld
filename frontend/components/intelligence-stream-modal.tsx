@@ -8,7 +8,7 @@ import { EventCard } from "@/components/event-card";
 import {
   buildWorldNameMaps,
   filterWorldEvents,
-  tickToSimTime,
+  tickToSimDayTime,
   type EventFilter,
 } from "@/lib/world-utils";
 import { getRunEventsResult } from "@/lib/api";
@@ -235,7 +235,7 @@ export function IntelligenceStreamModal({
                     isLatest={event.tick_no === latestTick}
                     agentNameMap={agentNameMap}
                     locationNameMap={locationNameMap}
-                    simTime={tickToSimTime(
+                    simTime={tickToSimDayTime(
                       event.tick_no,
                       world.run.tick_minutes ?? 5,
                       world.run.current_tick ?? 0,

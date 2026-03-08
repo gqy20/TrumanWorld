@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useWorld } from "@/components/world-context";
 import { startRunResult, pauseRunResult } from "@/lib/api";
-import { formatSimTime } from "@/lib/world-utils";
+import { formatSimTime, simDayLabel } from "@/lib/world-utils";
 
 /** Format elapsed seconds as H:MM:SS or M:SS */
 function formatElapsed(seconds: number): string {
@@ -163,7 +163,7 @@ export function WorldStatusBar() {
 
       <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600">
         {world.world_clock
-          ? `${world.world_clock.date} ${world.world_clock.weekday_name_cn} ${world.world_clock.time_period_cn} ${world.world_clock.time}`
+          ? `${simDayLabel(world.run.current_tick ?? 0, world.run.tick_minutes ?? 5)} ${world.world_clock.time}`
           : `模拟时间 ${formatSimTime(world)}`}
       </span>
 
