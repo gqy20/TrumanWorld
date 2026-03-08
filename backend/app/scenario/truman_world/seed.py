@@ -89,9 +89,12 @@ LOCATION_CONFIGS = [
 # 地点 ID 映射：agent.yml 中的 home/workplace 值 -> location id suffix
 LOCATION_ID_MAP = {
     "apartment": "apartment",
+    "demo_home": "apartment",      # alias used in agent.yml
     "bachelor_apt": "bachelor-apt",
     "office": "office",
+    "harbor_office": "office",     # alias used in agent.yml
     "cafe": "cafe",
+    "corner_cafe": "cafe",          # alias used in agent.yml
     "hospital": "hospital",
     "plaza": "plaza",
     "mall": "mall",
