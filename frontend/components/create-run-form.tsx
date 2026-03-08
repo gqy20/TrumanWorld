@@ -8,7 +8,8 @@ import { createRun } from "@/lib/api";
 export function CreateRunForm() {
   const router = useRouter();
   const [name, setName] = useState("demo-run");
-  const [seedDemo, setSeedDemo] = useState(true);
+  const [scenarioType, setScenarioType] = useState<"truman_world" | "open_world">("truman_world");
+  const [tickMinutes, setTickMinutes] = useState(5);
   const [message, setMessage] = useState<string>("");
   const [isPending, startTransition] = useTransition();
   const suggestions = ["demo-run", "town-morning", "story-lab", "night-shift"];
@@ -19,7 +20,7 @@ export function CreateRunForm() {
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
-          const result = await createRun(name, seedDemo);
+          const result = await createRun(name, scenarioType, true, tickMinutes);
           if (result) {
             setMessage(`已创建：${result.name}`);
             router.push(`/runs/${result.id}`);
@@ -42,9 +43,9 @@ export function CreateRunForm() {
         <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
           <button
             type="button"
-            onClick={() => setSeedDemo(true)}
+            onClick={() => setScenarioType("truman_world")}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
-              seedDemo
+              scenarioType === "truman_world"
                 ? "bg-moss text-white shadow-sm"
                 : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
@@ -53,16 +54,29 @@ export function CreateRunForm() {
           </button>
           <button
             type="button"
-            onClick={() => setSeedDemo(false)}
+            onClick={() => setScenarioType("open_world")}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
-              !seedDemo
+              scenarioType === "open_world"
                 ? "bg-moss text-white shadow-sm"
                 : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
           >
-            空白世界
+            Open World
           </button>
         </div>
+        {/* 时间速度选择器 */}
+        <select
+          value={tickMinutes}
+          onChange={(e) => setTickMinutes(Number(e.target.value))}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-none focus:border-moss focus:ring-2 focus:ring-moss/20"
+        >
+          <option value={1}>1分钟/tick</option>
+          <option value={5}>5分钟/tick</option>
+          <option value={10}>10分钟/tick</option>
+          <option value={15}>15分钟/tick</option>
+          <option value={30}>30分钟/tick</option>
+          <option value={60}>60分钟/tick</option>
+        </select>
         <button
           type="submit"
           disabled={isPending}

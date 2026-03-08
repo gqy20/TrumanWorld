@@ -19,8 +19,12 @@ from app.api.schemas.simulation import (
     WorldSnapshotRunResponse,
     AgentSummaryResponse,
 )
-from app.infra.db import get_db_session
+from app.agent.connection_pool import get_connection_pool
+from app.agent.registry import AgentRegistry
+from app.agent.runtime import AgentRuntime
+from app.infra.db import async_engine, get_db_session
 from app.infra.logging import get_logger
+from app.infra.settings import get_settings
 from app.scenario.truman_world.types import get_agent_config_id
 from app.sim.context import get_run_world_time
 from app.sim.scheduler import get_scheduler
@@ -47,10 +51,22 @@ class RunCreateRequest(BaseModel):
         description="运行名称",
         examples=["My First World", "Alice Town"],
     )
+    scenario_type: Literal["truman_world", "open_world"] = Field(
+        default="truman_world",
+        description="运行场景类型",
+        examples=["truman_world", "open_world"],
+    )
     seed_demo: bool = Field(
         default=True,
         description="是否自动填充演示数据（agent、地点等）",
         examples=[True],
+    )
+    tick_minutes: int = Field(
+        default=5,
+        ge=1,
+        le=60,
+        description="每个 tick 代表的分钟数",
+        examples=[5],
     )
 
 
@@ -60,6 +76,7 @@ class RunResponse(BaseModel):
     id: UUID = Field(..., description="运行 ID")
     name: str = Field(..., description="运行名称")
     status: str = Field(..., description="运行状态", examples=["running", "paused", "stopped"])
+    scenario_type: str = Field(..., description="运行场景类型", examples=["truman_world"])
     current_tick: int | None = Field(None, description="当前 tick 数")
     tick_minutes: int | None = Field(None, description="每个 tick 代表的分钟数")
     was_running_before_restart: bool = Field(
@@ -106,6 +123,55 @@ class TickResponse(BaseModel):
     rejected_count: int = Field(..., description="拒绝的动作数量")
 
 
+def build_run_response(run: SimulationRun) -> RunResponse:
+    return RunResponse(
+        id=UUID(run.id),
+        name=run.name,
+        status=run.status,
+        scenario_type=run.scenario_type,
+        current_tick=run.current_tick,
+        tick_minutes=run.tick_minutes,
+        was_running_before_restart=run.was_running_before_restart,
+    )
+
+
+async def ensure_run_started(session: AsyncSession, run: SimulationRun) -> SimulationRun:
+    scheduler = get_scheduler()
+    if scheduler.is_running(run.id):
+        if run.status != "running":
+            return await RunRepository(session).update_status(run, "running")
+        return run
+
+    settings = get_settings()
+    registry = AgentRegistry(settings.project_root / "agents")
+    pool = await get_connection_pool()
+
+    agent_repo = AgentRepository(session)
+    agents = await agent_repo.list_for_run(run.id)
+    pool_keys = set()
+    for agent in agents:
+        config_id = get_agent_config_id(agent.profile)
+        agent_key = config_id if config_id else agent.id
+        pool_keys.add(f"{run.id}:{agent_key}")
+
+    if pool_keys:
+        logger.info(f"Warming up connection pool for run {run.id}: {pool_keys}")
+        await pool.warmup(list(pool_keys))
+
+    agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
+    scenario = SimulationService.build_scenario(run.scenario_type)
+
+    async def tick_callback(rid: str) -> None:
+        service = SimulationService.create_for_scheduler(agent_runtime, scenario=scenario)
+        await service.run_tick_isolated(rid, async_engine)
+
+    await scheduler.start_run(run.id, interval_seconds=5.0, callback=tick_callback)
+
+    if run.status != "running":
+        return await RunRepository(session).update_status(run, "running")
+    return run
+
+
 @router.post(
     "",
     response_model=RunResponse,
@@ -118,64 +184,27 @@ async def create_run(
 ) -> RunResponse:
     logger.info(f"Creating new run: {payload.name}")
     repo = RunRepository(session)
-    # 默认自动运行状态
-    run = SimulationRun(id=str(uuid4()), name=payload.name, status="running")
+    run = SimulationRun(
+        id=str(uuid4()),
+        name=payload.name,
+        status="running",
+        scenario_type=payload.scenario_type,
+        tick_minutes=payload.tick_minutes,
+    )
     created = await repo.create(run)
     logger.info(f"Run created: id={created.id}, name={created.name}, auto-running")
 
     if payload.seed_demo:
         logger.debug(f"Seeding demo data for run {created.id}")
-        service = SimulationService(session)
+        service = SimulationService(
+            session,
+            scenario=SimulationService.build_scenario(created.scenario_type, session),
+        )
         await service.seed_demo_run(created.id)
         logger.info(f"Demo data seeded for run {created.id}")
 
-    # 自动启动 tick 调度器
-    scheduler = get_scheduler()
-    logger.info(
-        f"Create run completed for {created.id}, starting scheduler (running: {scheduler.is_running(created.id)})"
-    )
-    if not scheduler.is_running(created.id):
-        from app.agent.connection_pool import get_connection_pool
-        from app.agent.registry import AgentRegistry
-        from app.agent.runtime import AgentRuntime
-        from app.infra.db import async_engine
-        from app.infra.settings import get_settings
-
-        settings = get_settings()
-        registry = AgentRegistry(settings.project_root / "agents")
-
-        # Get connection pool and warmup agents for this run
-        # IMPORTANT: Use run_id:agent_config_id as the key for connection isolation between runs
-        pool = await get_connection_pool()
-        agent_repo = AgentRepository(session)
-        agents = await agent_repo.list_for_run(str(created.id))
-        # Build pool keys with run_id prefix for multi-run isolation
-        pool_keys = set()
-        for a in agents:
-            config_id = get_agent_config_id(a.profile)
-            agent_key = config_id if config_id else a.id
-            pool_keys.add(f"{created.id}:{agent_key}")
-        if pool_keys:
-            logger.info(f"Warming up connection pool for {len(pool_keys)} agents: {pool_keys}")
-            await pool.warmup(list(pool_keys))
-
-        # Create agent runtime with connection pool
-        agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
-
-        async def tick_callback(rid: str) -> None:
-            # Use isolated tick method to avoid greenlet conflicts with anyio
-            service = SimulationService.create_for_scheduler(agent_runtime)
-            await service.run_tick_isolated(rid, async_engine)
-
-        await scheduler.start_run(created.id, interval_seconds=5.0, callback=tick_callback)
-        logger.info(f"Auto-scheduler started for run {created.id}")
-
-    return RunResponse(
-        id=UUID(created.id),
-        name=created.name,
-        status=created.status,
-        was_running_before_restart=created.was_running_before_restart,
-    )
+    created = await ensure_run_started(session, created)
+    return build_run_response(created)
 
 
 @router.get(
@@ -224,6 +253,7 @@ async def list_runs(
             id=UUID(run.id),
             name=run.name,
             status=run.status,
+            scenario_type=run.scenario_type,
             current_tick=run.current_tick,
             tick_minutes=run.tick_minutes,
             was_running_before_restart=run.was_running_before_restart,
@@ -254,60 +284,14 @@ async def restore_all_runs(
         return []
 
     restored: list[RunResponse] = []
-    scheduler = get_scheduler()
 
     for run in runs_to_restore:
         try:
-            # Update status to running
-            updated = await repo.update_status(run, "running")
-
-            # Start scheduler if not already running
-            if not scheduler.is_running(str(run.id)):
-                from app.agent.connection_pool import get_connection_pool
-                from app.infra.db import async_engine
-                from app.sim.service import SimulationService
-                from app.agent.runtime import AgentRuntime
-                from app.agent.registry import AgentRegistry
-                from app.infra.settings import get_settings
-
-                settings = get_settings()
-                registry = AgentRegistry(settings.project_root / "agents")
-                pool = await get_connection_pool()
-
-                agent_repo = AgentRepository(session)
-                agents = await agent_repo.list_for_run(str(run.id))
-                # Build pool keys with run_id prefix for multi-run isolation
-                pool_keys = set()
-                for a in agents:
-                    config_id = get_agent_config_id(a.profile)
-                    agent_key = config_id if config_id else a.id
-                    pool_keys.add(f"{run.id}:{agent_key}")
-
-                if pool_keys:
-                    logger.info(f"Warming up connection pool for run {run.id}: {pool_keys}")
-                    await pool.warmup(list(pool_keys))
-
-                agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
-
-                async def tick_callback(rid: str) -> None:
-                    service = SimulationService.create_for_scheduler(agent_runtime)
-                    await service.run_tick_isolated(rid, async_engine)
-
-                await scheduler.start_run(str(run.id), interval_seconds=5.0, callback=tick_callback)
-                logger.info(f"Scheduler started for restored run {run.id}")
-
-            # Clear the flag after successful restore
+            updated = await ensure_run_started(session, run)
             await repo.clear_was_running_flag(updated)
-            restored.append(
-                RunResponse(
-                    id=UUID(updated.id),
-                    name=updated.name,
-                    status=updated.status,
-                    current_tick=updated.current_tick,
-                    tick_minutes=updated.tick_minutes,
-                    was_running_before_restart=False,
-                )
-            )
+            refreshed = await repo.get(updated.id)
+            if refreshed is not None:
+                restored.append(build_run_response(refreshed))
         except Exception as e:
             logger.error(f"Failed to restore run {run.id}: {e}")
 
@@ -329,57 +313,8 @@ async def start_run(
     run = await repo.get(str(run_id))
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    updated = await repo.update_status(run, "running")
-
-    # Start automatic tick scheduler (every 5 seconds)
-    scheduler = get_scheduler()
-    logger.info(
-        f"Start run requested for {run_id}, scheduler running: {scheduler.is_running(str(run_id))}"
-    )
-    if not scheduler.is_running(str(run_id)):
-        from app.agent.connection_pool import get_connection_pool
-        from app.infra.db import async_engine
-        from app.sim.service import SimulationService
-        from app.agent.runtime import AgentRuntime
-        from app.agent.registry import AgentRegistry
-        from app.infra.settings import get_settings
-
-        settings = get_settings()
-        registry = AgentRegistry(settings.project_root / "agents")
-
-        # Get connection pool and warmup agents for this run
-        # IMPORTANT: Use run_id:agent_config_id as the key for connection isolation between runs
-        pool = await get_connection_pool()
-        agent_repo = AgentRepository(session)
-        agents = await agent_repo.list_for_run(str(run_id))
-        # Build pool keys with run_id prefix for multi-run isolation
-        pool_keys = set()
-        for a in agents:
-            config_id = get_agent_config_id(a.profile)
-            agent_key = config_id if config_id else a.id
-            pool_keys.add(f"{run_id}:{agent_key}")
-
-        if pool_keys:
-            logger.info(f"Warming up connection pool for {len(pool_keys)} agents: {pool_keys}")
-            await pool.warmup(list(pool_keys))
-
-        # Create agent runtime with connection pool
-        agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
-
-        async def tick_callback(rid: str) -> None:
-            # Use isolated tick method to avoid greenlet conflicts with anyio
-            # The agent_runtime is created outside to avoid re-creating for each tick
-            service = SimulationService.create_for_scheduler(agent_runtime)
-            await service.run_tick_isolated(rid, async_engine)
-
-        await scheduler.start_run(str(run_id), interval_seconds=5.0, callback=tick_callback)
-
-    return RunResponse(
-        id=run_id,
-        name=updated.name,
-        status=updated.status,
-        was_running_before_restart=updated.was_running_before_restart,
-    )
+    updated = await ensure_run_started(session, run)
+    return build_run_response(updated)
 
 
 @router.post(
@@ -409,12 +344,7 @@ async def pause_run(
     await pool.cleanup_run(str(run_id))
 
     updated = await repo.update_status(run, "paused")
-    return RunResponse(
-        id=run_id,
-        name=updated.name,
-        status=updated.status,
-        was_running_before_restart=updated.was_running_before_restart,
-    )
+    return build_run_response(updated)
 
 
 @router.post(
@@ -431,13 +361,8 @@ async def resume_run(
     run = await repo.get(str(run_id))
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    updated = await repo.update_status(run, "running")
-    return RunResponse(
-        id=run_id,
-        name=updated.name,
-        status=updated.status,
-        was_running_before_restart=updated.was_running_before_restart,
-    )
+    updated = await ensure_run_started(session, run)
+    return build_run_response(updated)
 
 
 @router.post(
@@ -489,6 +414,7 @@ async def get_run(
         id=run.id,
         name=run.name,
         status=run.status,
+        scenario_type=run.scenario_type,
         current_tick=run.current_tick,
         tick_minutes=run.tick_minutes,
     )
@@ -665,6 +591,7 @@ async def get_world_snapshot(
             id=run.id,
             name=run.name,
             status=run.status,
+            scenario_type=run.scenario_type,
             current_tick=run.current_tick,
             tick_minutes=run.tick_minutes,
         ),

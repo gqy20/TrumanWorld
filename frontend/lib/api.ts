@@ -119,8 +119,22 @@ export async function listAgents(runId: string): Promise<{ run_id: string; agent
   return safeFetch(`/runs/${runId}/agents`, { run_id: runId, agents: [] });
 }
 
-export async function createRun(name: string, seedDemo = true): Promise<CreateRunResponse | null> {
-  return safePost<CreateRunResponse | null>("/runs", { name, seed_demo: seedDemo }, null);
+export async function createRun(
+  name: string,
+  scenarioType = "truman_world",
+  seedDemo = true,
+  tickMinutes = 5,
+): Promise<CreateRunResponse | null> {
+  return safePost<CreateRunResponse | null>(
+    "/runs",
+    {
+      name,
+      scenario_type: scenarioType,
+      seed_demo: seedDemo,
+      tick_minutes: tickMinutes,
+    },
+    null,
+  );
 }
 
 export async function startRun(runId: string): Promise<RunSummary | null> {
