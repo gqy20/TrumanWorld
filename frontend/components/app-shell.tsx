@@ -50,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
             {!isCollapsed && (
               <div className="overflow-hidden">
                 <h1 className="text-sm font-semibold text-ink">Truman World</h1>
-                <p className="text-[10px] text-slate-400">导演控制台</p>
+                <p className="text-xs text-slate-400">导演控制台</p>
               </div>
             )}
           </div>
@@ -89,7 +89,7 @@ export function AppShell({ children }: AppShellProps) {
 
           {!isCollapsed && runs && runs.length > 0 && (
             <div className="mt-4 px-3">
-              <p className="mb-2 px-2 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">
+              <p className="mb-2 px-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
                 世界列表
               </p>
               <div className="space-y-0.5">
@@ -104,12 +104,12 @@ export function AppShell({ children }: AppShellProps) {
         <div className="border-t border-white/60 p-3">
           {!isCollapsed ? (
             <div className="flex items-center justify-between rounded-xl bg-white/50 px-3 py-2">
-              <span className="text-[10px] text-slate-400">v0.1.0</span>
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-500">MVP</span>
+              <span className="text-xs text-slate-400">v0.1.0</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">MVP</span>
             </div>
           ) : (
             <div className="flex justify-center">
-              <span className="text-[10px] text-slate-400">v0.1</span>
+              <span className="text-xs text-slate-400">v0.1</span>
             </div>
           )}
         </div>
@@ -178,7 +178,7 @@ function RunListItem({ run }: { run: RunSummary }) {
       />
       <div className="min-w-0 flex-1">
         <p className={`truncate text-sm ${isActive ? "font-medium" : ""}`}>{run.name}</p>
-        <p className="text-[11px] text-slate-400">
+        <p className="text-xs text-slate-400">
           Tick {run.current_tick ?? 0}
         </p>
       </div>

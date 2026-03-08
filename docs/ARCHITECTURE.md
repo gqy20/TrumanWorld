@@ -1,8 +1,8 @@
 # AI Truman World MVP 架构设计
 
-- 版本：`v0.1.0`
+- 版本：`v0.1.1`
 - 状态：`MVP 精简版`
-- 最后更新：`2026-03-07`
+- 最后更新：`2026-03-08`
 
 ## 1. 架构结论
 
@@ -473,16 +473,17 @@ MVP 只保留 6 张表：
 
 MVP 前端只保留：
 
-- `/runs`
-- `/runs/[id]`
-- `/runs/[id]/timeline`
-- `/runs/[id]/agents/[agentId]`
+- `/` - 首页
+- `/runs` - Run 列表
+- `/runs/[id]` - Run 概览页
+- `/runs/[id]/timeline` - 事件时间线
+- `/runs/[id]/agents/[agentId]` - Agent 详情页
+- `/runs/[id]/world` - 小镇地图可视化
 
 不做：
 
 - 复杂 graph 页面
 - replay 动画页面
-- 复杂地图渲染
 
 ## 14. API 范围
 
