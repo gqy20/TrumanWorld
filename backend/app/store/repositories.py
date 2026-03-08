@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.store.models import (
@@ -160,13 +160,26 @@ class AgentRepository:
         return result.scalars().all()
 
     async def list_recent_events(
-        self, run_id: str, agent_id: str, limit: int = 10
+        self,
+        run_id: str,
+        agent_id: str,
+        limit: int = 10,
+        include_director_system_events: bool = False,
     ) -> Sequence[Event]:
+        agent_events = or_(Event.actor_agent_id == agent_id, Event.target_agent_id == agent_id)
+        event_scope = agent_events
+        if include_director_system_events:
+            director_events = and_(
+                Event.visibility == "system",
+                Event.event_type.startswith("director_"),
+            )
+            event_scope = or_(agent_events, director_events)
+
         stmt: Select[tuple[Event]] = (
             select(Event)
             .where(
                 Event.run_id == run_id,
-                (Event.actor_agent_id == agent_id) | (Event.target_agent_id == agent_id),
+                event_scope,
             )
             .order_by(Event.tick_no.desc(), Event.created_at.desc())
             .limit(limit)

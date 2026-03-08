@@ -20,6 +20,7 @@ DIRECTOR_EVENT_BROADCAST = f"{DIRECTOR_EVENT_PREFIX}broadcast"
 DIRECTOR_EVENT_ACTIVITY = f"{DIRECTOR_EVENT_PREFIX}activity"
 DIRECTOR_EVENT_SHUTDOWN = f"{DIRECTOR_EVENT_PREFIX}shutdown"
 DIRECTOR_EVENT_WEATHER_CHANGE = f"{DIRECTOR_EVENT_PREFIX}weather_change"
+DIRECTOR_EVENT_KINDS = ("activity", "shutdown", "broadcast", "weather_change")
 
 # 导演场景目标常量
 DIRECTOR_SCENE_SOFT_CHECK_IN = "soft_check_in"
@@ -69,4 +70,7 @@ def build_rejected_event_type(action_type: ActionType) -> RejectedActionEventTyp
 
 
 def build_director_event_type(event_type: str) -> str:
+    if event_type not in DIRECTOR_EVENT_KINDS:
+        msg = f"Unsupported director event type: {event_type}"
+        raise ValueError(msg)
     return f"{DIRECTOR_EVENT_PREFIX}{event_type}"

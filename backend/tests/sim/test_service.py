@@ -38,6 +38,17 @@ class RecordingDecisionProvider(AgentDecisionProvider):
         return RuntimeDecision(action_type="rest")
 
 
+class ContextCapturingDecisionProvider(AgentDecisionProvider):
+    def __init__(self) -> None:
+        self.recent_events_by_agent: dict[str, list[dict]] = {}
+
+    async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
+        self.recent_events_by_agent[invocation.agent_id] = list(
+            invocation.context.get("recent_events", [])
+        )
+        return RuntimeDecision(action_type="rest")
+
+
 class FakeScenario(Scenario):
     def __init__(self) -> None:
         self.runtime_configured = False
@@ -359,6 +370,106 @@ async def test_simulation_service_uses_world_role_and_clock_in_runtime_context(
 
     assert result.world_time == "2026-03-02T07:45:00+00:00"
     assert recording_provider.agent_ids == ["truman"]
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_includes_director_system_events_for_cast_recent_events(
+    db_session, tmp_path
+):
+    run = SimulationRun(
+        id="run-service-director-events",
+        name="service",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    square = Location(
+        id="loc-square-director-events",
+        run_id=run.id,
+        name="Square",
+        location_type="plaza",
+        capacity=4,
+    )
+    cast = Agent(
+        id="run-service-director-events-cast",
+        run_id=run.id,
+        name="Meryl",
+        occupation="resident",
+        home_location_id=square.id,
+        current_location_id=square.id,
+        current_goal="rest",
+        personality={},
+        profile={"agent_config_id": "spouse", "world_role": "cast"},
+        status={},
+        current_plan={},
+    )
+    truman = Agent(
+        id="run-service-director-events-truman",
+        run_id=run.id,
+        name="Truman",
+        occupation="resident",
+        home_location_id=square.id,
+        current_location_id=square.id,
+        current_goal="rest",
+        personality={},
+        profile={"agent_config_id": "truman", "world_role": "truman"},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, square, cast, truman])
+    await db_session.commit()
+
+    service = SimulationService(db_session)
+    await service.inject_director_event(
+        run_id=run.id,
+        event_type="broadcast",
+        payload={"message": "Town hall at plaza"},
+        importance=0.8,
+    )
+
+    spouse_dir = tmp_path / "spouse"
+    spouse_dir.mkdir(parents=True)
+    (spouse_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: spouse",
+                "name: Meryl",
+                "occupation: resident",
+                "home: loc-square-director-events",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (spouse_dir / "prompt.md").write_text("# Meryl\nBase prompt", encoding="utf-8")
+
+    truman_dir = tmp_path / "truman"
+    truman_dir.mkdir(parents=True)
+    (truman_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: truman",
+                "name: Truman",
+                "occupation: resident",
+                "home: loc-square-director-events",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (truman_dir / "prompt.md").write_text("# Truman\nBase prompt", encoding="utf-8")
+
+    capturing_provider = ContextCapturingDecisionProvider()
+    runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
+    runtime.decision_provider = capturing_provider
+    service = SimulationService(db_session, agent_runtime=runtime, agents_root=tmp_path)
+
+    await service.run_tick(run.id)
+
+    spouse_recent_events = capturing_provider.recent_events_by_agent["spouse"]
+    truman_recent_events = capturing_provider.recent_events_by_agent["truman"]
+
+    assert any(event["event_type"] == "director_broadcast" for event in spouse_recent_events)
+    assert all(event["event_type"] != "director_broadcast" for event in truman_recent_events)
 
 
 @pytest.mark.asyncio

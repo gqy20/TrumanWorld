@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.scenario.truman_world.types import get_world_role
 from app.sim.context import ContextBuilder
 from app.sim.location_utils import resolve_agent_location_id
 from app.sim.types import AgentDecisionSnapshot
@@ -27,7 +28,13 @@ async def build_agent_recent_events(
     agent_recent_events: dict[str, list[dict[str, Any]]] = {}
 
     for agent in agents:
-        recent_events = await agent_repo.list_recent_events(run_id, agent.id, limit=5)
+        include_director_system_events = get_world_role(agent.profile) == "cast"
+        recent_events = await agent_repo.list_recent_events(
+            run_id,
+            agent.id,
+            limit=5,
+            include_director_system_events=include_director_system_events,
+        )
         agent_recent_events[agent.id] = [
             context_builder.format_event_for_context(evt, agent_states, location_states)
             for evt in recent_events

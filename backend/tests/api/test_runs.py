@@ -165,3 +165,20 @@ async def test_inject_director_event_persists_to_timeline(client):
     assert len(timeline["events"]) == 1
     assert timeline["events"][0]["event_type"] == "director_broadcast"
     assert timeline["events"][0]["payload"]["message"] == "Town hall at plaza"
+
+
+@pytest.mark.asyncio
+async def test_inject_director_event_rejects_unknown_event_type(client):
+    create_response = await client.post("/api/runs", json={"name": "director-run-invalid"})
+    run_id = create_response.json()["id"]
+
+    inject_response = await client.post(
+        f"/api/runs/{run_id}/director/events",
+        json={
+            "event_type": "festival",
+            "payload": {"message": "Street festival"},
+            "importance": 0.8,
+        },
+    )
+
+    assert inject_response.status_code == 422

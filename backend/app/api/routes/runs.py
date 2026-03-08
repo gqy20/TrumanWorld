@@ -1,4 +1,5 @@
 from uuid import UUID, uuid4
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -72,10 +73,8 @@ class RunResponse(BaseModel):
 class DirectorEventRequest(BaseModel):
     """导演事件注入请求"""
 
-    event_type: str = Field(
+    event_type: Literal["activity", "shutdown", "broadcast", "weather_change"] = Field(
         ...,
-        min_length=1,
-        max_length=50,
         description="事件类型",
         examples=["activity", "shutdown", "broadcast", "weather_change"],
     )
@@ -726,13 +725,16 @@ async def inject_director_event(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     service = SimulationService(session)
-    await service.inject_director_event(
-        run_id=str(run_id),
-        event_type=payload.event_type,
-        payload=payload.payload,
-        location_id=payload.location_id,
-        importance=payload.importance,
-    )
+    try:
+        await service.inject_director_event(
+            run_id=str(run_id),
+            event_type=payload.event_type,
+            payload=payload.payload,
+            location_id=payload.location_id,
+            importance=payload.importance,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return StatusResponse(run_id=str(run_id), status="queued")
 
 

@@ -29,6 +29,7 @@ from app.scenario.truman_world.types import (
     get_world_role,
 )
 from app.sim.action_resolver import ActionIntent
+from app.sim.agent_snapshot_builder import build_agent_recent_events
 from app.sim.context import ContextBuilder, get_run_world_time
 from app.sim.event_utils import build_event
 from app.sim.persistence import PersistenceManager
@@ -265,6 +266,13 @@ class SimulationService:
             agents, world
         )
         plan = await self._scenario.build_director_plan(run_id, agents)
+        agent_recent_events = await build_agent_recent_events(
+            session=self.session,
+            run_id=run_id,
+            agents=list(agents),
+            agent_states=world.agents,
+            location_states=world.locations,
+        )
 
         for agent in agents:
             state = get_agent(world, agent.id)
@@ -283,7 +291,7 @@ class SimulationService:
                     home_location_id=agent.home_location_id,
                     current_status=state.status,
                     profile=profile,
-                    recent_events=[],
+                    recent_events=agent_recent_events.get(agent.id, []),
                     truman_suspicion_score=truman_suspicion_score,
                 )
             )
