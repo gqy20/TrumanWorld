@@ -44,6 +44,8 @@ export function IntelligenceStreamModal({
   recentEventsRef.current = world.recent_events; // keep ref in sync with latest snapshot
 
   const [allEvents, setAllEvents] = useState<WorldEvent[]>(world.recent_events);
+  // Track known event ids to avoid replacing the whole list on every poll tick
+  const knownIdsRef = useRef<Set<string>>(new Set(world.recent_events.map((e) => e.id)));
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // Prevent duplicate in-flight requests within the same open session
@@ -52,20 +54,38 @@ export function IntelligenceStreamModal({
   const loadAllEvents = useCallback(async (force = false) => {
     if (!force && isLoadingRef.current) return;
     isLoadingRef.current = true;
-    setIsLoading(true);
+    // Only show full loading spinner on first open (knownIds empty = first load)
+    const isFirstLoad = knownIdsRef.current.size === 0;
+    if (isFirstLoad) setIsLoading(true);
     setLoadError(false);
     const result = await getRunEventsResult(runId, undefined, 500);
-    setIsLoading(false);
+    if (isFirstLoad) setIsLoading(false);
     isLoadingRef.current = false;
     if (result.data) {
-      setAllEvents(result.data.events);
+      const incoming = result.data.events;
+      // Only update state when there are genuinely new events to avoid re-render flicker
+      const newEvents = incoming.filter((e) => !knownIdsRef.current.has(e.id));
+      if (newEvents.length > 0 || knownIdsRef.current.size === 0) {
+        incoming.forEach((e) => knownIdsRef.current.add(e.id));
+        setAllEvents(incoming);
+      }
     } else {
       setLoadError(true);
       // Fall back to latest world snapshot events
-      setAllEvents(recentEventsRef.current);
+      if (knownIdsRef.current.size === 0) setAllEvents(recentEventsRef.current);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]); // intentionally exclude recentEventsRef – it's a ref, stable by design
+
+  // Reset known-ids whenever the modal is freshly opened so a full reload occurs
+  const prevIsOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      // Fresh open: clear cache so first poll does a full replace
+      knownIdsRef.current = new Set();
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
 
   // Reload every time the modal is opened so new ticks are always reflected;
   // also poll every 5 s while open so live events appear without re-opening.
