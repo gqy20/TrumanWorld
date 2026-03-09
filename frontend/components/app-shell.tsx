@@ -74,17 +74,13 @@ export function AppShell({ children }: AppShellProps) {
           <button
             type="button"
             onClick={() => setIsCollapsed(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-            title="收起"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 active:scale-95"
+            title="收起侧边栏"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-4 w-4"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            {/* 双竖线向左箭头，更优雅的折叠图标 */}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+              <path d="M11 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M16 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
             </svg>
           </button>
         </div>
@@ -113,12 +109,15 @@ export function AppShell({ children }: AppShellProps) {
 
           {runs && runs.length > 0 && (
             <div className="mt-4 px-3">
-              <p className="mb-2 px-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
-                世界列表
-              </p>
-              <div className="space-y-0.5">
-                {runs.map((run) => (
-                  <RunListItem key={run.id} run={run} />
+              <div className="mb-2 flex items-center justify-between px-2">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
+                  世界列表
+                </p>
+                <span className="text-[10px] text-slate-400">{runs.length} 个</span>
+              </div>
+              <div className="space-y-1">
+                {runs.map((run, index) => (
+                  <RunListItem key={run.id} run={run} index={index} />
                 ))}
               </div>
             </div>
@@ -191,32 +190,43 @@ function SidebarNavItemWide({
   );
 }
 
-function RunListItem({ run }: { run: RunSummary }) {
+function RunListItem({ run, index }: { run: RunSummary; index: number }) {
   const pathname = usePathname();
   const isActive = pathname.startsWith(`/runs/${run.id}`);
 
   return (
     <Link
       href={`/runs/${run.id}/world`}
-      className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${
+      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
         isActive
-          ? "bg-white text-moss shadow-sm"
+          ? "bg-white text-moss shadow-sm ring-1 ring-black/5"
           : "text-slate-600 hover:bg-white/60 hover:text-ink"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          run.status === "running" ? "bg-emerald-500" : "bg-amber-500"
-        }`}
-      />
+      {/* 序号替代小圆点，更优雅 */}
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-medium ${
+        isActive
+          ? "bg-moss/10 text-moss"
+          : run.status === "running"
+            ? "bg-emerald-50 text-emerald-600"
+            : "bg-slate-100 text-slate-500"
+      }`}>
+        {index + 1}
+      </span>
       <div className="min-w-0 flex-1">
         <p className={`truncate text-sm ${isActive ? "font-medium" : ""}`}>{run.name}</p>
         <p className="text-xs text-slate-400">
           Tick {run.current_tick ?? 0}
+          {run.status === "running" && (
+            <span className="ml-1.5 inline-flex items-center gap-0.5">
+              <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
+              运行中
+            </span>
+          )}
         </p>
       </div>
       {isActive && (
-        <svg className="h-3.5 w-3.5 text-moss/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-moss/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M9 5l7 7-7 7" />
         </svg>
       )}
