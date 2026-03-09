@@ -23,7 +23,16 @@ export function WorldStatusBar() {
 
   // 总时长 = elapsed_seconds(历史累计) + (now - started_at)(本次运行)
   // 暂停时仅展示 elapsed_seconds，不再递增
-  const [elapsed, setElapsed] = useState(0);
+  // 惰性初始化：mount 时直接从已有 world 数据计算，避免从 0 闪烁
+  const [elapsed, setElapsed] = useState(() => {
+    if (!world) return 0;
+    const base = world.run.elapsed_seconds ?? 0;
+    if (world.run.status === "running" && world.run.started_at) {
+      const sessionSecs = Math.floor((Date.now() - new Date(world.run.started_at).getTime()) / 1000);
+      return sessionSecs > 7200 ? base : base + Math.max(0, sessionSecs);
+    }
+    return base;
+  });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localStartRef = useRef<number | null>(null);
 

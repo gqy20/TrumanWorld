@@ -70,14 +70,8 @@ git clone https://github.com/gqy20/TrumanWorld.git
 cd TrumanWorld
 
 # 2. 配置环境
+# 编辑 .env，按需填写 API Key 等配置
 cp .env.example .env
-cp frontend/.env.local.example frontend/.env.local
-
-# 可选：如果暂时不接入 Claude，可使用启发式 provider 跑通闭环
-echo "TRUMANWORLD_AGENT_PROVIDER=heuristic" >> .env
-
-# 如需 Claude 决策层，再补充：
-# TRUMANWORLD_ANTHROPIC_API_KEY=...
 
 # 3. 启动
 make dev

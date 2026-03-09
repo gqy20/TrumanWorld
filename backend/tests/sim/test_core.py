@@ -170,6 +170,33 @@ def test_action_resolver_only_one_talk_per_pair_per_tick():
     assert result_bob.reason == "conversation_turn_taken"
 
 
+def test_action_resolver_suppresses_rest_for_talk_target():
+    """When Alice talks to Bob, Bob's subsequent rest intent in the same tick
+    should be suppressed (rejected with 'agent_in_conversation') so no
+    spurious rest event appears alongside the talk event."""
+    world = _build_collocated_world()
+    resolver = ActionResolver()
+    resolver.reset_tick()
+
+    result_alice = resolver.resolve(
+        world,
+        ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="bob",
+            payload={"message": "Hey Bob!"},
+        ),
+    )
+    result_bob_rest = resolver.resolve(
+        world,
+        ActionIntent(agent_id="bob", action_type="rest"),
+    )
+
+    assert result_alice.accepted is True
+    assert result_bob_rest.accepted is False
+    assert result_bob_rest.reason == "agent_in_conversation"
+
+
 def test_action_resolver_resets_talked_agents_between_ticks():
     """After reset_tick(), the same pair can talk again in the next tick."""
     world = _build_collocated_world()

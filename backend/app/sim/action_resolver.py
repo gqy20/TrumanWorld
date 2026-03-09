@@ -71,6 +71,19 @@ class ActionResolver:
                 },
             )
 
+        # If this agent is already participating in a talk this tick (as target),
+        # suppress any other action so the timeline doesn't show a spurious rest/move.
+        if intent.agent_id in self._talked_agents and intent.action_type != "talk":
+            return ActionResult(
+                False,
+                intent.action_type,
+                "agent_in_conversation",
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
+                },
+            )
+
         if intent.action_type == "move":
             return self._resolve_move(world, intent)
         if intent.action_type == "talk":
@@ -78,7 +91,7 @@ class ActionResolver:
         if intent.action_type == "work":
             return self._resolve_work(world, intent)
 
-        # work, rest 等其他动作需要包含 location_id
+        # rest and other actions
         return ActionResult(
             accepted=True,
             action_type=intent.action_type,
