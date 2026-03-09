@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
   title: "Truman World",
-  description: "你是导演 | 观察、记录、注入事件——但不能操控 AI 居民的想法 | 楚门的世界 AI 版",
+  description: "观察、记录、注入事件——AI 居民们不知道自己是 AI | 楚门的世界 AI 版",
   icons: {
     icon: "/icon.svg",
   },

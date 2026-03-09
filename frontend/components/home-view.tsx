@@ -32,8 +32,8 @@ export function HomeView({ runs, error }: HomeViewProps) {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-ink">导演控制台</h1>
-            <p className="mt-0.5 text-xs text-slate-400">AI 驱动仿真世界管理</p>
+            <h1 className="text-xl font-semibold text-ink">楚门的世界</h1>
+            <p className="mt-0.5 text-xs text-slate-400">观察、记录、创造条件——让 Truman 真实地生活</p>
           </div>
           {hasRuns && (
             <div className="flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50/80 px-3 py-1.5">

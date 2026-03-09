@@ -71,7 +71,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
             <div className="overflow-hidden">
               <h1 className="text-sm font-semibold text-ink">Truman World</h1>
-              <p className="text-[11px] text-slate-400">AI 版导演控制台</p>
+              <p className="text-[11px] text-slate-400">你就是导演</p>
             </div>
           </div>
 
