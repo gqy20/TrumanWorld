@@ -50,20 +50,23 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
     const agents: { id: string; name: string; location?: string }[] = [];
     for (const location of world.locations) {
       for (const agent of location.occupants) {
-        const status = agent.status?.toLowerCase() || "";
+        // status 是对象，检查 current_action 或 action 字段
+        const statusObj = agent.status || {};
+        const action = String(statusObj.current_action || statusObj.action || "").toLowerCase();
+        const state = String(statusObj.state || "").toLowerCase();
         let match = false;
         switch (type) {
           case "working":
-            match = status.includes("work") || status.includes("在岗");
+            match = action.includes("work") || state.includes("work");
             break;
           case "socializing":
-            match = status.includes("talk") || status.includes("对话") || status.includes("social");
+            match = action.includes("talk") || action.includes("conversation") || state.includes("talk");
             break;
           case "resting":
-            match = status.includes("rest") || status.includes("休息") || status.includes("sleep");
+            match = action.includes("rest") || action.includes("sleep") || state.includes("rest");
             break;
           case "commuting":
-            match = status.includes("move") || status.includes("通勤") || status.includes("travel");
+            match = action.includes("move") || action.includes("travel") || action.includes("commute") || state.includes("move");
             break;
         }
         if (match) {
@@ -203,7 +206,7 @@ interface ActivityDetailModalProps {
 
 function ActivityDetailModal({ isOpen, onClose, title, agents }: ActivityDetailModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md" showCloseButton title={title}>
+    <Modal isOpen={isOpen} onClose={onClose} size="md" showCloseButton={false} title={title}>
       <div className="max-h-[60vh] overflow-y-auto">
         {agents.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-400">暂无{title}的智能体</p>

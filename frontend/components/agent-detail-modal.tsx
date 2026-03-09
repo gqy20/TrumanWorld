@@ -181,21 +181,17 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                 <div className="mt-3 space-y-3">
                   {relationships.slice(0, 5).map((rel, index) => {
                     const familiarityPct = (rel.familiarity * 100).toFixed(0);
-                    const tone = relationshipTone(rel.familiarity);
-                    const barColor = tone === "close" ? "bg-emerald-500" : tone === "neutral" ? "bg-slate-400" : "bg-amber-500";
+                    const barColor = relationshipTone(rel.familiarity);
+                    const textColor = rel.familiarity >= 0.75
+                      ? "text-emerald-600"
+                      : rel.familiarity >= 0.45
+                        ? "text-amber-600"
+                        : "text-slate-500";
                     return (
                       <div key={`${rel.other_agent_id}-${index}`}>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-700">{rel.other_agent_name || "未知"}</span>
-                          <span
-                            className={`text-[10px] ${
-                              tone === "close"
-                                ? "text-emerald-600"
-                                : tone === "neutral"
-                                  ? "text-slate-500"
-                                  : "text-amber-600"
-                            }`}
-                          >
+                          <span className={`text-[10px] ${textColor}`}>
                             {familiarityPct}%
                           </span>
                         </div>

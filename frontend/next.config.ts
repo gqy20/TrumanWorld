@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(__dirname, ".."),
   allowedDevOrigins: ["127.0.0.1", "localhost", "*.local", "10.*", "172.*", "192.168.*"],
+  devIndicators: {
+    appIsrStatus: false,
+    buildActivity: false,
+  },
   async rewrites() {
     return [
       {
