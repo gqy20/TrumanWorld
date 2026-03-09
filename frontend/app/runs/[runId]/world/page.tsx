@@ -1,11 +1,31 @@
 "use client";
 
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { WorldCanvas } from "@/components/world-canvas";
 import { WorldStatusBar } from "@/components/world-status-bar";
+import { WorldOpeningAnimation } from "@/components/world-opening-animation";
 import { useWorld } from "@/components/world-context";
 
 export default function WorldPage() {
   const { runId, world, error } = useWorld();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  // 检查是否是新建的世界
+  useEffect(() => {
+    const isNew = searchParams.get("new") === "1";
+    if (isNew) {
+      setShowAnimation(true);
+      // 清除 URL 参数，避免刷新时再次显示
+      router.replace(`/runs/${runId}/world`);
+    }
+  }, [searchParams, runId, router]);
+
+  const handleAnimationComplete = () => {
+    setShowAnimation(false);
+  };
 
   if (error) {
     return (
@@ -31,8 +51,16 @@ export default function WorldPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#f7f3e8,_#eef5f1_48%,_#f8fafc)]">
-      {/* 头部：标题 + 状态栏 */}
+    <>
+      {/* 开场动画 */}
+      <WorldOpeningAnimation
+        isVisible={showAnimation}
+        onComplete={handleAnimationComplete}
+        runName={world?.run.name}
+      />
+
+      <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#f7f3e8,_#eef5f1_48%,_#f8fafc)]">
+        {/* 头部：标题 + 状态栏 */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-white/40 bg-white/55 px-6 py-3 backdrop-blur">
         <div className="flex items-center gap-6">
           <div>
@@ -51,5 +79,6 @@ export default function WorldPage() {
         <WorldCanvas runId={runId} />
       </div>
     </div>
+    </>
   );
 }

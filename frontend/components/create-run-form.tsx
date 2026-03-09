@@ -23,7 +23,7 @@ export function CreateRunForm() {
           const result = await createRunResult(name, scenarioType, true, tickMinutes);
           if (result.data) {
             setMessage(`已创建：${result.data.name}`);
-            router.push(`/runs/${result.data.id}`);
+            router.push(`/runs/${result.data.id}?new=1`);
             router.refresh();
           } else {
             setMessage(
