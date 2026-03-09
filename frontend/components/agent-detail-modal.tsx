@@ -180,8 +180,8 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                   关系网络 ({relationships.length})
                 </p>
                 <div className="mt-3 space-y-2">
-                  {relationships.slice(0, 5).map((rel) => (
-                    <div key={rel.target_agent_id} className="flex items-center justify-between">
+                  {relationships.slice(0, 5).map((rel, index) => (
+                    <div key={`${rel.target_agent_id}-${index}`} className="flex items-center justify-between">
                       <span className="text-sm text-slate-700">{rel.target_name}</span>
                       <span
                         className={`text-[10px] ${
