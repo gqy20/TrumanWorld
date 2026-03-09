@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useState, useEffect } from "react";
 import useSWR from "swr";
-import { buildApiUrl, fetchApiResult, type ApiResult } from "@/lib/api";
+import { buildApiUrl, fetchApiResult, type ApiResult, deleteRunResult } from "@/lib/api";
 import type { RunSummary } from "@/lib/types";
 
 type AppShellProps = {
@@ -38,7 +38,7 @@ export function AppShell({ children }: AppShellProps) {
     }
   }, [pathname]);
   
-  const { data: runsResult } = useSWR<ApiResult<RunSummary[]>>(
+  const { data: runsResult, mutate: mutateRuns } = useSWR<ApiResult<RunSummary[]>>(
     buildApiUrl("/runs"),
     fetchApiResult,
     {
@@ -51,6 +51,10 @@ export function AppShell({ children }: AppShellProps) {
     },
   );
   const runs = runsResult?.data ?? [];
+
+  const handleRunDeleted = () => {
+    void mutateRuns();
+  };
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -117,7 +121,7 @@ export function AppShell({ children }: AppShellProps) {
               </div>
               <div className="space-y-1">
                 {runs.map((run, index) => (
-                  <RunListItem key={run.id} run={run} index={index} />
+                  <RunListItem key={run.id} run={run} index={index} onDelete={handleRunDeleted} />
                 ))}
               </div>
             </div>
@@ -190,46 +194,94 @@ function SidebarNavItemWide({
   );
 }
 
-function RunListItem({ run, index }: { run: RunSummary; index: number }) {
+function RunListItem({ run, index, onDelete }: { run: RunSummary; index: number; onDelete?: (runId: string) => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isActive = pathname.startsWith(`/runs/${run.id}`);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`确定要删除世界 "${run.name}" 吗？此操作不可恢复。`)) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteRunResult(run.id);
+      if (result.data) {
+        onDelete?.(run.id);
+        // 如果删除的是当前正在查看的世界，跳转到首页
+        if (isActive) {
+          router.push("/");
+        }
+      } else {
+        alert("删除失败: " + (result.error === "network_error" ? "网络错误" : "未知错误"));
+      }
+    } catch {
+      alert("删除失败");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
-    <Link
-      href={`/runs/${run.id}/world`}
-      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-        isActive
-          ? "bg-white text-moss shadow-sm ring-1 ring-black/5"
-          : "text-slate-600 hover:bg-white/60 hover:text-ink"
-      }`}
-    >
-      {/* 序号替代小圆点，更优雅 */}
-      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-medium ${
-        isActive
-          ? "bg-moss/10 text-moss"
-          : run.status === "running"
-            ? "bg-emerald-50 text-emerald-600"
-            : "bg-slate-100 text-slate-500"
-      }`}>
-        {index + 1}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${isActive ? "font-medium" : ""}`}>{run.name}</p>
-        <p className="text-xs text-slate-400">
-          Tick {run.current_tick ?? 0}
-          {run.status === "running" && (
-            <span className="ml-1.5 inline-flex items-center gap-0.5">
-              <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
-              运行中
-            </span>
-          )}
-        </p>
-      </div>
+    <div className={`group flex items-center gap-2 rounded-xl px-2 py-2 transition-all ${
+      isActive
+        ? "bg-white text-moss shadow-sm ring-1 ring-black/5"
+        : "text-slate-600 hover:bg-white/60 hover:text-ink"
+    }`}>
+      <Link
+        href={`/runs/${run.id}/world`}
+        className="flex min-w-0 flex-1 items-center gap-2"
+      >
+        {/* 序号替代小圆点，更优雅 */}
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-medium ${
+          isActive
+            ? "bg-moss/10 text-moss"
+            : run.status === "running"
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-slate-100 text-slate-500"
+        }`}>
+          {index + 1}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={`truncate text-sm ${isActive ? "font-medium" : ""}`}>{run.name}</p>
+          <p className="text-xs text-slate-400">
+            Tick {run.current_tick ?? 0}
+            {run.status === "running" && (
+              <span className="ml-1.5 inline-flex items-center gap-0.5">
+                <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
+                运行中
+              </span>
+            )}
+          </p>
+        </div>
+      </Link>
+      {/* 删除按钮 - 悬浮时显示 */}
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={isDeleting}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 ${
+          isDeleting ? "opacity-50" : "opacity-0 group-hover:opacity-100"
+        }`}
+        title="删除世界"
+      >
+        {isDeleting ? (
+          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
       {isActive && (
-        <svg className="h-4 w-4 text-moss/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 shrink-0 text-moss/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M9 5l7 7-7 7" />
         </svg>
       )}
-    </Link>
+    </div>
   );
 }
