@@ -342,10 +342,6 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
         支持 resume 参数恢复历史对话。
         """
-        result_decision: RuntimeDecision | None = None
-        captured_session_id: str | None = None
-        gen = None
-
         if shutil.which("claude") is None:
             msg = "Claude CLI is not available in the current environment"
             raise RuntimeError(msg)
@@ -366,6 +362,31 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 {json_schema}
 
     返回 JSON，不要有 markdown 代码块标记. """
+
+        try:
+            return await self._query_internal(invocation, full_prompt, options, runtime_ctx)
+        except asyncio.CancelledError:
+            # 任务被取消，这是正常的(如 scheduler 停止时),不需要抛出异常
+            logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
+            return RuntimeDecision(action_type="rest")
+        except RuntimeError as e:
+            # Handle claude_agent_sdk anyio cancel scope errors
+            if "cancel scope" in str(e).lower() or "different task" in str(e).lower():
+                logger.debug(f"Claude SDK cancel scope error for agent {invocation.agent_id}: {e}")
+                return RuntimeDecision(action_type="rest")
+            raise
+
+    async def _query_internal(
+        self,
+        invocation: RuntimeInvocation,
+        full_prompt: str,
+        options: "ClaudeAgentOptions",
+        runtime_ctx: "RuntimeContext | None" = None,
+    ) -> RuntimeDecision:
+        """Internal query execution - separated to handle SDK cleanup issues."""
+        result_decision: RuntimeDecision | None = None
+        captured_session_id: str | None = None
+        gen = None
 
         try:
             gen = query(prompt=full_prompt, options=options)
@@ -407,24 +428,14 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                         except (json.JSONDecodeError, ValidationError) as exc:
                             msg = f"Failed to parse decision JSON: {exc}"
                             raise RuntimeError(msg) from exc
-        except asyncio.CancelledError:
-            # 任务被取消，这是正常的(如 scheduler 停止时),不需要抛出异常
-            logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
-            return RuntimeDecision(action_type="rest")
-        except RuntimeError as e:
-            # Handle claude_agent_sdk anyio cancel scope errors
-            if "cancel scope" in str(e).lower():
-                logger.debug(f"Claude SDK cancel scope error for agent {invocation.agent_id}: {e}")
-                return RuntimeDecision(action_type="rest")
-            raise
         finally:
-            # Properly close the async generator to avoid "cancel scope in different task" errors
+            # Properly close the async generator
             if gen is not None:
                 try:
                     await gen.aclose()
-                except RuntimeError as e:
-                    if "cancel scope" not in str(e).lower():
-                        raise
+                except RuntimeError:
+                    # Ignore "cancel scope in different task" errors - this is a known SDK issue
+                    pass
 
         if result_decision is None:
             msg = "Claude SDK returned no decision"

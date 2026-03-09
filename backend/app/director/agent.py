@@ -252,6 +252,28 @@ Make your decision:"""
 
 返回 JSON，不要有 markdown 代码块标记。"""
 
+        try:
+            return await self._call_llm_internal(full_prompt, options)
+        except asyncio.CancelledError:
+            # 任务被取消，这是正常的，不需要抛出异常
+            logger.debug("DirectorAgent LLM call cancelled")
+            return self._mock_llm_response()
+        except RuntimeError as e:
+            # Handle claude_agent_sdk anyio cancel scope errors
+            if "cancel scope" in str(e).lower() or "different task" in str(e).lower():
+                logger.debug(f"DirectorAgent cancel scope error: {e}")
+                return self._mock_llm_response()
+            raise
+        except Exception as exc:
+            logger.warning(f"DirectorAgent LLM call failed: {exc}, using mock")
+            return self._mock_llm_response()
+
+    async def _call_llm_internal(
+        self, full_prompt: str, options: "ClaudeAgentOptions"
+    ) -> str:
+        """Internal LLM call - separated to handle SDK cleanup issues."""
+        from claude_agent_sdk import query
+
         gen = None
         try:
             gen = query(prompt=full_prompt, options=options)
@@ -278,28 +300,14 @@ Make your decision:"""
                     return text
 
             raise RuntimeError("DirectorAgent LLM returned no result")
-
-        except asyncio.CancelledError:
-            # 任务被取消，这是正常的，不需要抛出异常
-            logger.debug("DirectorAgent LLM call cancelled")
-            return self._mock_llm_response()
-        except RuntimeError as e:
-            # Handle claude_agent_sdk anyio cancel scope errors
-            if "cancel scope" in str(e).lower():
-                logger.debug(f"DirectorAgent cancel scope error: {e}")
-                return self._mock_llm_response()
-            raise
-        except Exception as exc:
-            logger.warning(f"DirectorAgent LLM call failed: {exc}, using mock")
-            return self._mock_llm_response()
         finally:
-            # Properly close the async generator to avoid "cancel scope in different task" errors
+            # Properly close the async generator
             if gen is not None:
                 try:
                     await gen.aclose()
-                except RuntimeError as e:
-                    if "cancel scope" not in str(e).lower():
-                        raise
+                except RuntimeError:
+                    # Ignore "cancel scope in different task" errors - this is a known SDK issue
+                    pass
 
     def _mock_llm_response(self) -> str:
         """Return a mock response for testing or when LLM is unavailable."""
