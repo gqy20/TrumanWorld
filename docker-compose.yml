@@ -37,9 +37,12 @@ services:
       - backend_venv:/app/backend/.venv
     working_dir: /app/backend
     command: >
-      sh -c "uv sync --extra dev &&
-             uv run alembic upgrade head &&
-             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "
+        if [ ! -f .venv/pyvenv.cfg ] || [ uv.lock -nt .venv/pyvenv.cfg ]; then
+          echo '📦 安装后端依赖...' && uv sync --extra dev;
+        fi &&
+        uv run alembic upgrade head &&
+        uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build:
@@ -51,7 +54,7 @@ services:
       backend:
         condition: service_started
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:38000/api
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/api}
       INTERNAL_API_BASE_URL: http://backend:8000/api
     ports:
       - "33100:3000"
@@ -61,8 +64,11 @@ services:
       - frontend_next:/app/frontend/.next
     working_dir: /app/frontend
     command: >
-      sh -c "npm install &&
-             npm run dev -- --hostname 0.0.0.0 --port 3000"
+      sh -c "
+        if [ ! -d node_modules/.bin ] || [ package-lock.json -nt node_modules/.bin/next ]; then
+          echo '📦 安装前端依赖...' && npm install;
+        fi &&
+        npm run dev -- --hostname 0.0.0.0 --port 3000"
 
 volumes:
   postgres_data:

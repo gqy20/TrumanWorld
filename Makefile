@@ -6,7 +6,7 @@ LOGS_DIR := logs
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev lint format test migrate pre-commit dev docker-dev db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos
+.PHONY: install backend-install frontend-install backend-dev frontend-dev lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -184,10 +184,12 @@ dev: check-ports db-start db-migrate sync-agent-logos
 	echo "================================"; \
 	echo "按 Ctrl+C 停止前后端（数据库会继续运行）"; \
 	echo ""; \
-	(trap 'kill %1 %2 2>/dev/null' INT; \
-		(cd $(BACKEND_DIR) && uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
-		(cd $(FRONTEND_DIR) && npm run dev -- --port $(FRONTEND_PORT) 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
-		wait)
+	(cd $(BACKEND_DIR) && uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
+	BACKEND_PID=$$!; \
+	(cd $(FRONTEND_DIR) && npm run dev -- --port $(FRONTEND_PORT) 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
+	FRONTEND_PID=$$!; \
+	trap 'echo ""; echo "🛑 停止服务..."; kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; wait $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; echo "✅ 已停止"' INT TERM; \
+	wait $$BACKEND_PID $$FRONTEND_PID
 
 # Docker 开发环境启动（带日志输出）
 docker-dev:
@@ -199,4 +201,16 @@ docker-dev:
 	echo "日志目录: $(LOGS_DIR)/"; \
 	echo "日志文件: docker_$${LOG_TIMESTAMP}.log"; \
 	echo "================================"; \
-	docker-compose up 2>&1 | tee $(LOGS_DIR)/docker_$${LOG_TIMESTAMP}.log
+	docker-compose up --build 2>&1 | tee $(LOGS_DIR)/docker_$${LOG_TIMESTAMP}.log
+
+# 停止并移除 Docker 容器（保留数据卷）
+docker-down:
+	@echo "🛑 停止 Docker 容器..."
+	@docker-compose down
+	@echo "✅ 容器已停止"
+
+# 完全清理 Docker 环境（容器 + 数据卷）
+docker-clean:
+	@echo "🗑️  清理 Docker 环境（容器 + 数据卷）..."
+	@docker-compose down -v --remove-orphans
+	@echo "✅ Docker 环境已清理"

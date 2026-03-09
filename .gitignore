@@ -10,7 +10,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-!frontend/.env.local.example
 *.local
 
 # Python
