@@ -14,6 +14,7 @@ import { LocationDetailModal } from "@/components/location-detail-modal";
 import { WorldHealthPanel } from "@/components/world-health-panel";
 import { StoryTimeline } from "@/components/story-timeline";
 import { TimelineModal } from "@/components/timeline-modal";
+import { AgentDetailModal } from "@/components/agent-detail-modal";
 import { useWorld } from "@/components/world-context";
 import {
   calculateWorldHealthMetrics,
@@ -42,6 +43,8 @@ export function WorldCanvas({ runId }: Props) {
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
   const [isLocationExpanded, setIsLocationExpanded] = useState(false);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  const [isAgentExpanded, setIsAgentExpanded] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   // 监听打开时间线弹窗的事件
   useEffect(() => {
@@ -119,7 +122,8 @@ export function WorldCanvas({ runId }: Props) {
               setLocationFilter(locationId);
             }}
             onAgentClick={(agentId) => {
-              router.push(`/runs/${runId}/agents/${agentId}`);
+              setSelectedAgentId(agentId);
+              setIsAgentExpanded(true);
             }}
           />
         </div>
@@ -231,6 +235,16 @@ export function WorldCanvas({ runId }: Props) {
           onClose={() => setIsTimelineExpanded(false)}
           runId={runId}
         />
+
+        {/* 智能体详情弹窗 */}
+        {selectedAgentId && (
+          <AgentDetailModal
+            isOpen={isAgentExpanded}
+            onClose={() => setIsAgentExpanded(false)}
+            runId={runId}
+            agentId={selectedAgentId}
+          />
+        )}
       </div>
     </div>
   );

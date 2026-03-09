@@ -41,22 +41,18 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
     // 阶段 3: 打字机文字 (2-4s)
     const textTimer = setTimeout(() => setStage("text"), 2000);
 
-    // 阶段 4: 渐出开始时立即触发跳转，遮罩渐出期间路由已切换，不会闪回
+    // 阶段 4: 渐出开始时立即触发跳转
+    // 不设置 completeTimer，不主动 setStage("done")
+    // 遮罩靠路由切换后组件卸载自然消失，彻底避免"遮罩先消失再跳转"的闪回
     const fadeTimer = setTimeout(() => {
       setStage("fade");
       onCompleteRef.current();
     }, 4000);
 
-    // 动画自身收尾
-    const completeTimer = setTimeout(() => {
-      setStage("done");
-    }, 5000);
-
     return () => {
       clearTimeout(zoomTimer);
       clearTimeout(textTimer);
       clearTimeout(fadeTimer);
-      clearTimeout(completeTimer);
     };
   }, [isVisible]);  // 只依赖 isVisible，稳定
 
@@ -67,8 +63,8 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
       {isAnimating && (
         <motion.div
           initial={{ opacity: 1 }}
-          animate={{ opacity: isAnimating ? 1 : 0 }}
-          transition={{ duration: 0.5 }}
+          animate={{ opacity: stage === "fade" ? 0 : 1 }}
+          transition={{ duration: 1 }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
         >
           {/* 阶段 1: 雪花噪点效果 */}

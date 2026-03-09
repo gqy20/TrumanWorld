@@ -6,7 +6,7 @@ import { Modal } from "@/components/modal";
 import { getApiBaseUrl } from "@/lib/api";
 import type { AgentSummary, TimelineEvent, TimelineResponse } from "@/lib/types";
 import { describeTimelineEvent, getEventMeta } from "@/lib/event-utils";
-import { simDayLabel } from "@/lib/world-utils";
+import { simDayLabel, tickToSimDayTime } from "@/lib/world-utils";
 
 const EVENT_TYPE_OPTIONS = [
   { value: "", label: "全部类型" },
@@ -225,7 +225,12 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
                           <div className="flex items-center gap-1">
                             <span>起始:</span>
                             <span className="text-moss">
-                              {simDayLabel(Number(pendingFilters.tickFrom), timeline.run_info.tick_minutes)}
+                              {tickToSimDayTime(
+                                Number(pendingFilters.tickFrom),
+                                timeline.run_info.tick_minutes,
+                                timeline.run_info.current_tick,
+                                timeline.run_info.current_world_time_iso
+                              )}
                             </span>
                           </div>
                         )}
@@ -233,7 +238,12 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
                           <div className="flex items-center gap-1">
                             <span>结束:</span>
                             <span className="text-moss">
-                              {simDayLabel(Number(pendingFilters.tickTo), timeline.run_info.tick_minutes)}
+                              {tickToSimDayTime(
+                                Number(pendingFilters.tickTo),
+                                timeline.run_info.tick_minutes,
+                                timeline.run_info.current_tick,
+                                timeline.run_info.current_world_time_iso
+                              )}
                             </span>
                           </div>
                         )}

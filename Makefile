@@ -33,7 +33,7 @@ backend-dev:
 	cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port $(BACKEND_PORT)
 
 frontend-dev: sync-agent-logos
-	cd $(FRONTEND_DIR) && npm run dev -- --port $(FRONTEND_PORT)
+	cd $(FRONTEND_DIR) && npm run dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0
 
 lint:
 	cd $(BACKEND_DIR) && uv run ruff check app tests
@@ -186,7 +186,7 @@ dev: check-ports db-start db-migrate sync-agent-logos
 	echo ""; \
 	(cd $(BACKEND_DIR) && uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
 	BACKEND_PID=$$!; \
-	(cd $(FRONTEND_DIR) && npm run dev -- --port $(FRONTEND_PORT) 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
+	(cd $(FRONTEND_DIR) && npm run dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
 	FRONTEND_PID=$$!; \
 	trap 'echo ""; echo "🛑 停止服务..."; kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; wait $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; echo "✅ 已停止"' INT TERM; \
 	wait $$BACKEND_PID $$FRONTEND_PID
