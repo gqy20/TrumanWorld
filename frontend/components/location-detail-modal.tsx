@@ -40,7 +40,7 @@ export function LocationDetailModal({
   }, [world, locationId]);
 
   const location = world.locations.find((l) => l.id === locationId);
-  const beat = location ? beatBadge(locationBeat(location.id, world.recent_events, world.locations)) : null;
+  const beat = location ? beatBadge(locationBeat(location.id, world.recent_events, world.locations, world.run.current_tick)) : null;
   const latestTick = locationEvents[0]?.tick_no ?? world.run.current_tick ?? 0;
 
   if (!isOpen || !location) return null;

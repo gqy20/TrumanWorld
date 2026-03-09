@@ -154,14 +154,17 @@ export function locationBeat(
   locationId: string,
   events: WorldSnapshot["recent_events"],
   locations?: WorldSnapshot["locations"],
+  currentTick?: number,
 ): LocationBeat {
   // 如果地点当前没有人，直接返回 quiet，不依赖历史事件
   if (locations) {
     const loc = locations.find((l) => l.id === locationId);
     if (loc && loc.occupants.length === 0) return "quiet";
   }
+  // 只看最新 tick 的事件（当前 tick 或上一 tick），避免历史事件污染当前状态
   const latest = events.find((event) => event.location_id === locationId);
   if (!latest) return "quiet";
+  if (currentTick !== undefined && latest.tick_no < currentTick - 1) return "quiet";
   if (latest.event_type === EVENT_TALK) return "conversation";
   if (latest.event_type === EVENT_MOVE) return "arrival";
   if (latest.event_type === EVENT_WORK) return "working";

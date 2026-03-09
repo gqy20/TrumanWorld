@@ -95,7 +95,7 @@ export function WorldCanvas({ runId }: Props) {
 
   const selectedLocation =
     world.locations.find((location) => location.id === highlightedLocationId) ?? world.locations[0] ?? null;
-  const selectedLocationBeat = selectedLocation ? beatBadge(locationBeat(selectedLocation.id, world.recent_events, world.locations)) : null;
+  const selectedLocationBeat = selectedLocation ? beatBadge(locationBeat(selectedLocation.id, world.recent_events, world.locations, world.run.current_tick)) : null;
   const residentCount = world.locations.reduce((count, location) => count + location.occupants.length, 0);
   const latestEvent = world.recent_events[0] ?? null;
 
