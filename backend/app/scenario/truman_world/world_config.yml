@@ -1,0 +1,63 @@
+# TrumanWorld 世界常识配置
+# 这个文件定义了所有 agent 共享的世界知识
+
+# 日常节律
+daily_rhythm:
+  lunch_time: "11:30-13:30"
+  social_time: "18:00-22:00"
+  work_days:
+    - monday
+    - tuesday
+    - wednesday
+    - thursday
+    - friday
+
+# 地点用途定义
+location_purposes:
+  cafe:
+    - 用餐
+    - 喝咖啡
+    - 社交
+    - 工作
+  mall:
+    - 购物
+    - 用餐
+    - 休闲
+    - 社交
+  hospital:
+    - 看病
+    - 探病
+    - 工作
+  plaza:
+    - 散步
+    - 社交
+    - 活动
+    - 休息
+  office:
+    - 工作
+    - 会议
+    - 办公
+
+# 社会常识/规范
+social_norms:
+  - "小镇居民通常在 11:30-13:30 去咖啡馆或商场吃午餐"
+  - "傍晚 18:00-22:00 是人们社交的时间，常去广场、咖啡馆"
+  - "海湾医院提供医疗服务，也是 Meryl 的工作地点"
+  - "港湾商场可以购物、用餐、休闲"
+  - "街角咖啡馆是居民常去的社交场所"
+
+# 地点描述（用于 agent 理解地点）
+location_descriptions:
+  cafe: "提供咖啡和简餐的场所，适合社交和工作"
+  mall: "大型购物中心，可以购物、用餐、休闲"
+  hospital: "医疗服务机构，提供看病、探病服务"
+  plaza: "开放的公共空间，适合散步、社交、活动"
+  office: "办公场所，用于工作和会议"
+
+# 时间相关的建议
+time_suggestions:
+  morning: "早晨，人们通常在家或去工作的路上"
+  noon: "中午，是用餐和休息的时间"
+  afternoon: "下午，工作时间"
+  evening: "傍晚，社交和休闲的时间"
+  night: "夜晚，休息时间"

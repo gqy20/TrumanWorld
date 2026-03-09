@@ -9,7 +9,10 @@ Architecture only passes raw data, LLM infers:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+import yaml
 
 from app.scenario.truman_world.types import get_director_guidance
 from app.sim.world_queries import (
@@ -22,6 +25,23 @@ from app.sim.world_queries import (
 if TYPE_CHECKING:
     from app.sim.world import WorldState
     from app.store.models import Relationship
+
+
+# 加载世界配置
+_WORLD_CONFIG_PATH = Path(__file__).parent / "world_config.yml"
+_WORLD_CONFIG_CACHE: dict[str, Any] | None = None
+
+
+def _load_world_config() -> dict[str, Any]:
+    """Load world configuration from YAML file.
+    
+    Uses caching to avoid repeated file reads.
+    """
+    global _WORLD_CONFIG_CACHE
+    if _WORLD_CONFIG_CACHE is None:
+        with open(_WORLD_CONFIG_PATH, "r", encoding="utf-8") as f:
+            _WORLD_CONFIG_CACHE = yaml.safe_load(f)
+    return _WORLD_CONFIG_CACHE
 
 
 def build_perception_context(
@@ -115,27 +135,16 @@ def build_world_common_knowledge() -> dict[str, Any]:
     
     This defines the shared understanding of how the world works,
     including daily rhythms, location purposes, and social norms.
+    
+    Configuration is loaded from world_config.yml for easy management.
     """
+    config = _load_world_config()
     return {
-        "daily_rhythm": {
-            "lunch_time": "11:30-13:30",
-            "social_time": "18:00-22:00",
-            "work_days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
-        },
-        "location_purposes": {
-            "cafe": ["用餐", "喝咖啡", "社交", "工作"],
-            "mall": ["购物", "用餐", "休闲", "社交"],
-            "hospital": ["看病", "探病", "工作"],
-            "plaza": ["散步", "社交", "活动", "休息"],
-            "office": ["工作", "会议", "办公"],
-        },
-        "social_norms": [
-            "小镇居民通常在 11:30-13:30 去咖啡馆或商场吃午餐",
-            "傍晚 18:00-22:00 是人们社交的时间，常去广场、咖啡馆",
-            "海湾医院提供医疗服务，也是 Meryl 的工作地点",
-            "港湾商场可以购物、用餐、休闲",
-            "街角咖啡馆是居民常去的社交场所",
-        ],
+        "daily_rhythm": config.get("daily_rhythm", {}),
+        "location_purposes": config.get("location_purposes", {}),
+        "social_norms": config.get("social_norms", []),
+        "location_descriptions": config.get("location_descriptions", {}),
+        "time_suggestions": config.get("time_suggestions", {}),
     }
 
 
