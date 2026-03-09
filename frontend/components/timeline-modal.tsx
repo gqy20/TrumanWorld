@@ -174,7 +174,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="xl"
+      size="full"
       showCloseButton={false}
       title="🎬 事件回放"
       subtitle="按 tick 回放事件流，适合复盘剧情节点和角色行为链路"
@@ -220,43 +220,47 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
             <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
               <p className="text-[11px] uppercase tracking-[0.15em] text-moss">检索过滤</p>
               <div className="mt-3 space-y-3">
-                {/* 世界日期时间范围 */}
-                <div>
-                  <label className={labelCls}>世界时间范围</label>
-                  <div className="mt-1.5 space-y-1.5">
-                    <input
-                      type="datetime-local"
-                      className={inputCls}
-                      value={pendingFilters.worldDatetimeFrom}
-                      onChange={(e) => updatePending("worldDatetimeFrom", e.target.value)}
-                    />
-                    <input
-                      type="datetime-local"
-                      className={inputCls}
-                      value={pendingFilters.worldDatetimeTo}
-                      onChange={(e) => updatePending("worldDatetimeTo", e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Tick 范围 */}
+                {/* Tick 范围 - 与世界时间同步 */}
                 <div>
                   <label className={labelCls}>Tick 范围</label>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      placeholder="起始"
-                      className={inputCls}
-                      value={pendingFilters.tickFrom}
-                      onChange={(e) => updatePending("tickFrom", e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="结束"
-                      className={inputCls}
-                      value={pendingFilters.tickTo}
-                      onChange={(e) => updatePending("tickTo", e.target.value)}
-                    />
+                  <div className="mt-1.5 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        placeholder="起始 Tick"
+                        className={inputCls}
+                        value={pendingFilters.tickFrom}
+                        onChange={(e) => updatePending("tickFrom", e.target.value)}
+                      />
+                      <input
+                        type="number"
+                        placeholder="结束 Tick"
+                        className={inputCls}
+                        value={pendingFilters.tickTo}
+                        onChange={(e) => updatePending("tickTo", e.target.value)}
+                      />
+                    </div>
+                    {/* 显示对应的模拟时间 */}
+                    {timeline?.run_info && (
+                      <div className="space-y-1 text-[10px] text-slate-400">
+                        {pendingFilters.tickFrom && (
+                          <div className="flex items-center gap-1">
+                            <span>起始:</span>
+                            <span className="text-moss">
+                              {simDayLabel(Number(pendingFilters.tickFrom), timeline.run_info.tick_minutes)}
+                            </span>
+                          </div>
+                        )}
+                        {pendingFilters.tickTo && (
+                          <div className="flex items-center gap-1">
+                            <span>结束:</span>
+                            <span className="text-moss">
+                              {simDayLabel(Number(pendingFilters.tickTo), timeline.run_info.tick_minutes)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
