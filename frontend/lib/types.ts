@@ -128,6 +128,15 @@ export type WorldSnapshot = {
     move_count: number;
     rejection_count: number;
   };
+  health_metrics_config?: {
+    continuity_penalty_factor: number;
+    continuity_warning_threshold: number;
+    continuity_trend_down_threshold: number;
+    continuity_trend_stable_threshold: number;
+    social_baseline_talks_per_person_per_day: number;
+    social_trend_up_threshold: number;
+    social_trend_stable_threshold: number;
+  };
 };
 
 export type DirectorMemory = {

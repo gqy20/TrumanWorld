@@ -22,6 +22,7 @@ from app.api.schemas.simulation import (
     WorldDirectorStatsResponse,
     WorldEventResponse,
     WorldEventsResponse,
+    WorldHealthMetricsConfig,
     WorldLocationResponse,
     WorldSnapshotResponse,
     WorldSnapshotRunResponse,
@@ -29,6 +30,7 @@ from app.api.schemas.simulation import (
 )
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
+from app.scenario.truman_world.rules import load_world_config
 from app.scenario.truman_world.types import get_agent_config_id
 from app.sim.context import get_run_world_time
 from app.sim.run_lifecycle import ensure_run_started, pause_run_execution
@@ -710,6 +712,25 @@ async def get_director_memories(
     )
 
 
+def _build_health_metrics_config() -> WorldHealthMetricsConfig:
+    """Load health metrics evaluation baselines from world_config.yml."""
+    try:
+        cfg = load_world_config().get("health_metrics", {})
+        cont = cfg.get("continuity", {})
+        soc = cfg.get("social", {})
+        return WorldHealthMetricsConfig(
+            continuity_penalty_factor=cont.get("penalty_factor", 200.0),
+            continuity_warning_threshold=cont.get("warning_threshold", 0.2),
+            continuity_trend_down_threshold=cont.get("trend_down_threshold", 0.15),
+            continuity_trend_stable_threshold=cont.get("trend_stable_threshold", 0.05),
+            social_baseline_talks_per_person_per_day=soc.get("baseline_talks_per_person_per_day", 20.0),
+            social_trend_up_threshold=soc.get("trend_up_threshold", 10.0),
+            social_trend_stable_threshold=soc.get("trend_stable_threshold", 3.0),
+        )
+    except Exception:
+        return WorldHealthMetricsConfig()
+
+
 @router.get(
     "/{run_id}/world",
     response_model=WorldSnapshotResponse,
@@ -874,6 +895,7 @@ async def get_world_snapshot(
             move_count=all_time_event_counts.get("move", 0),
             rejection_count=all_time_event_counts.get("move_rejected", 0) + all_time_event_counts.get("talk_rejected", 0),
         ),
+        health_metrics_config=_build_health_metrics_config(),
     )
 
 

@@ -187,6 +187,19 @@ class WorldDailyStatsResponse(BaseModel):
     rejection_count: int = 0
 
 
+class WorldHealthMetricsConfig(BaseModel):
+    """Health metrics evaluation baselines, loaded from world_config.yml."""
+    # Continuity score
+    continuity_penalty_factor: float = 200.0
+    continuity_warning_threshold: float = 0.2
+    continuity_trend_down_threshold: float = 0.15
+    continuity_trend_stable_threshold: float = 0.05
+    # Social activity score
+    social_baseline_talks_per_person_per_day: float = 20.0
+    social_trend_up_threshold: float = 10.0
+    social_trend_stable_threshold: float = 3.0
+
+
 class DirectorMemoryResponse(BaseModel):
     id: str
     tick_no: int
@@ -224,3 +237,4 @@ class WorldSnapshotResponse(BaseModel):
     recent_events: list[WorldEventResponse]
     director_stats: WorldDirectorStatsResponse = Field(default_factory=WorldDirectorStatsResponse)
     daily_stats: WorldDailyStatsResponse = Field(default_factory=WorldDailyStatsResponse)
+    health_metrics_config: WorldHealthMetricsConfig = Field(default_factory=WorldHealthMetricsConfig)

@@ -85,17 +85,21 @@ export function calculateWorldHealthMetrics(
   let continuityIssue: string | undefined;
 
   if (world.daily_stats) {
+    const hmc = world.health_metrics_config;
+    const penaltyFactor = hmc?.continuity_penalty_factor ?? 200;
+    const warningThreshold = hmc?.continuity_warning_threshold ?? 0.2;
+    const trendDownThreshold = hmc?.continuity_trend_down_threshold ?? 0.15;
+
     const totalEvents =
       (world.daily_stats.talk_count ?? 0) +
       (world.daily_stats.move_count ?? 0) +
       (world.daily_stats.rejection_count ?? 0);
     const rejectionCount = world.daily_stats.rejection_count ?? 0;
     const rejectionRate = totalEvents > 0 ? rejectionCount / totalEvents : 0;
-    // 拒绝率 0% → 100分，50% → 0分（拒绝率每增加1%扣2分）
-    continuityScore = Math.max(0, Math.round(100 - rejectionRate * 200));
-    continuityTrend = rejectionRate > 0.15 ? "down" : rejectionRate > 0.05 ? "stable" : "stable";
+    continuityScore = Math.max(0, Math.round(100 - rejectionRate * penaltyFactor));
+    continuityTrend = rejectionRate > trendDownThreshold ? "down" : "stable";
     continuityIssue =
-      rejectionRate > 0.2
+      rejectionRate > warningThreshold
         ? `动作拒绝率偏高 (${Math.round(rejectionRate * 100)}%)`
         : undefined;
   } else {
@@ -116,6 +120,11 @@ export function calculateWorldHealthMetrics(
   let socialTrend: Trend;
 
   if (world.daily_stats && world.daily_stats.talk_count != null) {
+    const hmc = world.health_metrics_config;
+    const baseline = hmc?.social_baseline_talks_per_person_per_day ?? 20;
+    const trendUpThreshold = hmc?.social_trend_up_threshold ?? 10;
+    const trendStableThreshold = hmc?.social_trend_stable_threshold ?? 3;
+
     const tick = world.run.current_tick ?? 0;
     const tickMinutes = world.run.tick_minutes ?? 5;
     const totalDays = Math.max((tick * tickMinutes) / (24 * 60), 0.1);
@@ -123,9 +132,9 @@ export function calculateWorldHealthMetrics(
     const agentCount = Math.max(world.run.agent_count ?? agents.length, 1);
     const talksPerPersonPerDay = world.daily_stats.talk_count / totalDays / agentCount;
     // 基准：每人每天 20 次对话 = 100%（活跃世界参考值）
-    socialActivity = Math.min(100, Math.round((talksPerPersonPerDay / 20) * 100));
+    socialActivity = Math.min(100, Math.round((talksPerPersonPerDay / baseline) * 100));
     socialTrend =
-      talksPerPersonPerDay > 10 ? "up" : talksPerPersonPerDay > 3 ? "stable" : "down";
+      talksPerPersonPerDay > trendUpThreshold ? "up" : talksPerPersonPerDay > trendStableThreshold ? "stable" : "down";
   } else {
     const talkEvents = events.filter((e) => e.event_type === EVENT_TALK);
     socialActivity = Math.min(100, (talkEvents.length / 10) * 100);

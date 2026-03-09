@@ -178,3 +178,24 @@ shift_work_config:
     4: "morning"   # Friday
     5: null        # Saturday - rest
     6: null        # Sunday - rest
+
+# =============================================================================
+# 世界健康度评估基准（前端使用）
+# =============================================================================
+
+health_metrics:
+  # 剧情连贯性：基于累计动作拒绝率
+  # 计算公式：max(0, 100 - 拒绝率 * continuity_penalty_factor)
+  # 拒绝率 = rejections / (talks + moves + rejections)
+  continuity:
+    penalty_factor: 200        # 每1%拒绝率扣多少分（200 = 拒绝率50%时得0分）
+    warning_threshold: 0.2     # 拒绝率超过此值显示警告提示
+    trend_down_threshold: 0.15 # 拒绝率超过此值趋势显示为下降
+    trend_stable_threshold: 0.05
+
+  # 社交活跃度：基于每人每天对话次数（人均）
+  # 计算公式：min(100, 每人每天对话次数 / baseline_talks_per_person_per_day * 100)
+  social:
+    baseline_talks_per_person_per_day: 30  # 达到此值即为100%
+    trend_up_threshold: 10     # 每人每天超过此值趋势为上升
+    trend_stable_threshold: 3  # 每人每天超过此值趋势为稳定（否则下降）
