@@ -7,6 +7,7 @@ intelligent intervention decisions based on world state observation.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +21,27 @@ if TYPE_CHECKING:
     from app.store.models import Agent
 
 logger = get_logger(__name__)
+
+# Director decision output schema for LLM
+DIRECTOR_DECISION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "should_intervene": {"type": "boolean"},
+        "scene_goal": {
+            "type": "string",
+            "enum": ["soft_check_in", "preemptive_comfort", "keep_scene_natural", "break_isolation", "rejection_recovery", "none"]
+        },
+        "target_cast_names": {"type": "array", "items": {"type": "string"}},
+        "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"]},
+        "urgency": {"type": "string", "enum": ["advisory", "immediate", "emergency"]},
+        "reasoning": {"type": "string"},
+        "message_hint": {"type": "string"},
+        "strategy": {"type": "string"},
+        "cooldown_ticks": {"type": "integer", "minimum": 1, "maximum": 10}
+    },
+    "required": ["should_intervene", "scene_goal"],
+    "additionalProperties": False
+}
 
 
 @dataclass
@@ -189,16 +211,80 @@ Make your decision:"""
         return prompt
 
     async def _call_llm(self, prompt: str) -> str:
-        """Call LLM for decision.
+        """Call LLM for decision using Claude SDK.
 
-        For now, this is a placeholder that should be implemented with the
-        actual LLM client. In production, this would use Claude SDK or similar.
+        Uses the same LLM infrastructure as agent decisions.
         """
-        # TODO: Implement actual LLM call
-        # For now, return a mock response for testing
-        logger.debug("DirectorAgent LLM call (mock)")
+        from claude_agent_sdk import ClaudeAgentOptions, query
 
-        # This is a placeholder - in production, use actual LLM
+        logger.debug("DirectorAgent calling LLM for decision")
+
+        # Build environment for SDK
+        env = {}
+        if self.settings.anthropic_api_key:
+            env["ANTHROPIC_API_KEY"] = self.settings.anthropic_api_key
+        if self.settings.anthropic_base_url:
+            env["ANTHROPIC_BASE_URL"] = self.settings.anthropic_base_url
+
+        # Check if Claude CLI is available
+        import shutil
+        if shutil.which("claude") is None:
+            logger.warning("Claude CLI not available, falling back to mock")
+            return self._mock_llm_response()
+
+        # Build options
+        options = ClaudeAgentOptions(
+            max_turns=1,
+            max_budget_usd=0.1,  # Director decisions are simpler, lower budget
+            model=self._model,
+            cwd=str(self.settings.project_root),
+            env=env,
+            system_prompt="You are the Director of a simulation. You make decisions about when and how to intervene.",
+        )
+
+        # Add JSON schema to prompt
+        json_schema = json.dumps(DIRECTOR_DECISION_SCHEMA, indent=2)
+        full_prompt = f"""{prompt}
+
+重要：你必须只返回一个有效的 JSON 对象，不要有其他任何文本。JSON 格式如下:
+{json_schema}
+
+返回 JSON，不要有 markdown 代码块标记。"""
+
+        try:
+            gen = query(prompt=full_prompt, options=options)
+            async for message in gen:
+                if hasattr(message, "is_error") and message.is_error:
+                    msg = getattr(message, "result", None) or "DirectorAgent LLM call failed"
+                    raise RuntimeError(msg)
+
+                # Extract result
+                result = getattr(message, "result", None)
+                if result:
+                    text = result.strip()
+                    # Remove markdown code block markers if present
+                    if text.startswith("```"):
+                        text = re.sub(r"^```json?\n?", "", text)
+                        text = re.sub(r"\n?```$", "", text)
+                    text = text.strip()
+
+                    # Log token usage if available
+                    usage = getattr(message, "usage", None)
+                    if usage:
+                        logger.debug(f"DirectorAgent LLM usage: {usage}")
+
+                    await gen.aclose()
+                    return text
+
+            await gen.aclose()
+            raise RuntimeError("DirectorAgent LLM returned no result")
+
+        except Exception as exc:
+            logger.warning(f"DirectorAgent LLM call failed: {exc}, using mock")
+            return self._mock_llm_response()
+
+    def _mock_llm_response(self) -> str:
+        """Return a mock response for testing or when LLM is unavailable."""
         import random
 
         # Simulate occasional interventions for testing

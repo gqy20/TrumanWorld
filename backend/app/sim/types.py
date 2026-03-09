@@ -15,6 +15,8 @@ class AgentDecisionSnapshot:
     home_location_id: str | None
     profile: ScenarioAgentProfile
     recent_events: list[dict[str, Any]]
+    # 预加载的记忆缓存，用于 MCP 工具查询（避免在 anyio task 中创建 DB session）
+    memory_cache: dict[str, list[dict[str, Any]]] | None = None
 
 
 class NearbyAgentContext(TypedDict):
