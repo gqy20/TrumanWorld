@@ -162,13 +162,13 @@ class StrategyExecutor:
         priority_order = ["critical", "high", "normal", "advisory", "low"]
         
         # Group strategies by priority
-        strategies_by_priority: dict[str, list[tuple[str, dict]]] = {}
+        strategies_by_priority: dict[str, list[tuple[str, Any]]] = {}
         for strategy_id, strategy_config in strategies.items():
-            action = strategy_config.get("action", {})
-            priority = action.get("priority", "normal")
+            action = strategy_config.action
+            priority = action.get("priority", "normal") if isinstance(action, dict) else getattr(action, "priority", "normal")
             
             # Skip if recently used
-            scene_goal = action.get("scene_goal", strategy_id)
+            scene_goal = action.get("scene_goal", strategy_id) if isinstance(action, dict) else getattr(action, "scene_goal", strategy_id)
             if scene_goal in recent_goals:
                 continue
             
@@ -182,7 +182,7 @@ class StrategyExecutor:
                 continue
             
             for strategy_id, strategy_config in strategies_by_priority[priority]:
-                condition = strategy_config.get("condition", {})
+                condition = strategy_config.condition
                 
                 if self._condition_engine.evaluate(condition, assessment):
                     logger.debug(f"Strategy '{strategy_id}' triggered (priority: {priority})")
@@ -209,30 +209,45 @@ class StrategyExecutor:
         
         strategy_id = triggered["strategy_id"]
         config = triggered["config"]
-        action = config.get("action", {})
+        action = config.action
         
         # Build reason from condition
-        condition = config.get("condition", {})
-        metric = condition.get("metric", "unknown")
-        operator = condition.get("operator", "eq")
-        value = condition.get("value", "unknown")
+        condition = config.condition
+        metric = condition.get("metric", "unknown") if isinstance(condition, dict) else getattr(condition, "metric", "unknown")
+        operator = condition.get("operator", "eq") if isinstance(condition, dict) else getattr(condition, "operator", "eq")
+        value = condition.get("value", "unknown") if isinstance(condition, dict) else getattr(condition, "value", "unknown")
         
+        config_name = config.name if hasattr(config, "name") else config.get("name", strategy_id) if isinstance(config, dict) else strategy_id
         reason_map = {
-            "truman_isolation_ticks": f"Truman 已经连续独处较长时间，触发 '{config.get('name', strategy_id)}' 策略",
-            "suspicion_trend": f"怀疑度趋势为 {value}，触发 '{config.get('name', strategy_id)}' 策略",
-            "suspicion_level": f"怀疑度等级为 {value}，触发 '{config.get('name', strategy_id)}' 策略",
-            "continuity_risk": f"连续性风险为 {value}，触发 '{config.get('name', strategy_id)}' 策略",
-            "recent_rejections": f"连续被拒绝 {value} 次，触发 '{config.get('name', strategy_id)}' 策略",
+            "truman_isolation_ticks": f"Truman 已经连续独处较长时间，触发 '{config_name}' 策略",
+            "suspicion_trend": f"怀疑度趋势为 {value}，触发 '{config_name}' 策略",
+            "suspicion_level": f"怀疑度等级为 {value}，触发 '{config_name}' 策略",
+            "continuity_risk": f"连续性风险为 {value}，触发 '{config_name}' 策略",
+            "recent_rejections": f"连续被拒绝 {value} 次，触发 '{config_name}' 策略",
         }
-        reason = reason_map.get(metric, f"条件满足（{metric} {operator} {value}），触发 '{config.get('name', strategy_id)}' 策略")
+        reason = reason_map.get(metric, f"条件满足（{metric} {operator} {value}），触发 '{config_name}' 策略")
+        
+        # Handle action as dict or dataclass
+        if isinstance(action, dict):
+            scene_goal = action.get("scene_goal", strategy_id)
+            priority = action.get("priority", "normal")
+            urgency = action.get("urgency", "advisory")
+            cooldown_ticks = action.get("cooldown_ticks", 3)
+        else:
+            scene_goal = getattr(action, "scene_goal", strategy_id)
+            priority = getattr(action, "priority", "normal")
+            urgency = getattr(action, "urgency", "advisory")
+            cooldown_ticks = getattr(action, "cooldown_ticks", 3)
+        
+        message_hint = config.message_hint if hasattr(config, "message_hint") else config.get("message_hint", "") if isinstance(config, dict) else ""
         
         return {
-            "scene_goal": action.get("scene_goal", strategy_id),
+            "scene_goal": scene_goal,
             "target_cast_ids": [triggered["primary_cast_id"]],
-            "priority": action.get("priority", "normal"),
-            "urgency": action.get("urgency", "advisory"),
-            "message_hint": config.get("message_hint", ""),
+            "priority": priority,
+            "urgency": urgency,
+            "message_hint": message_hint,
             "target_agent_id": triggered["truman_agent_id"],
             "reason": reason,
-            "cooldown_ticks": action.get("cooldown_ticks", 3),
+            "cooldown_ticks": cooldown_ticks,
         }

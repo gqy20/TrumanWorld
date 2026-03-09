@@ -29,7 +29,6 @@ export function CreateRunForm() {
 
   const handleAnimationComplete = useCallback(() => {
     animationDone.current = true;
-    setShowAnimation(false);
     doNavigate();
   }, [doNavigate]);
 
@@ -40,6 +39,7 @@ export function CreateRunForm() {
         isVisible={showAnimation}
         onComplete={handleAnimationComplete}
         runName={animationName}
+        mode="enter"
       />
     <form
       className="space-y-3"

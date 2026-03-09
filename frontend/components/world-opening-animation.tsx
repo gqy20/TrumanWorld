@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
@@ -15,10 +16,17 @@ type Stage = "noise" | "zoom" | "text" | "fade" | "done";
 
 export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "create" }: WorldOpeningAnimationProps) {
   const [stage, setStage] = useState<Stage>("done");
+  const [mounted, setMounted] = useState(false);
+
+  // 确保只在客户端挂载 portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isVisible) {
-      setStage("done");
+      // 仅在动画未启动时才重置，避免打断进行中的动画
+      setStage((prev) => (prev === "done" ? "done" : prev));
       return;
     }
 
@@ -31,13 +39,15 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
     // 阶段 3: 打字机文字 (2-4s)
     const textTimer = setTimeout(() => setStage("text"), 2000);
 
-    // 阶段 4: 渐出 (4-5s)
-    const fadeTimer = setTimeout(() => setStage("fade"), 4000);
+    // 阶段 4: 渐出开始时立即触发跳转，遮罩渐出期间路由已切换，不会闪回
+    const fadeTimer = setTimeout(() => {
+      setStage("fade");
+      onComplete();
+    }, 4000);
 
-    // 完成
+    // 动画自身收尾
     const completeTimer = setTimeout(() => {
       setStage("done");
-      onComplete();
     }, 5000);
 
     return () => {
@@ -50,14 +60,14 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
 
   const isAnimating = stage !== "done";
 
-  return (
+  const content = (
     <AnimatePresence>
       {isAnimating && (
         <motion.div
           initial={{ opacity: 1 }}
           animate={{ opacity: isAnimating ? 1 : 0 }}
           transition={{ duration: 0.5 }}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
         >
           {/* 阶段 1: 雪花噪点效果 */}
           {stage === "noise" && (
@@ -98,7 +108,7 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
               <TypewriterText
                 text={
                   mode === "enter"
-                    ? runName ? `进入世界 "${runName}"` : "进入世界"
+                    ? "欢迎来到 Truman World"
                     : runName ? `世界 "${runName}" 已创建` : "新世界已创建"
                 }
                 className="text-2xl font-medium text-white"
@@ -121,6 +131,9 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+  return createPortal(content, document.body);
 }
 
 // 简化版打字机组件（内联）

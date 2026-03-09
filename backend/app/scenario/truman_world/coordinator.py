@@ -159,7 +159,7 @@ class TrumanWorldCoordinator:
         except Exception as exc:
             logger.warning(f"Director planner failed: {exc}, falling back to rule-based")
             # 如果智能决策失败，回退到纯规则决策
-            plan = self.planner._build_rule_based_plan(
+            plan = self.planner._build_config_based_plan(
                 assessment=assessment,
                 cast_agents=[a for a in agents if self._get_world_role(a) == "cast"],
                 recent_goals=set(recent_goals),
