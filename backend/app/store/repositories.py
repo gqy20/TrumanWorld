@@ -63,12 +63,6 @@ class RunRepository:
     async def update_tick(self, run: SimulationRun, tick_no: int) -> SimulationRun:
         from datetime import UTC, datetime
         run.current_tick = tick_no
-        # 每个 tick 顺便刷新已运行秒数，防止崩溃时当前进度丢失
-        if run.started_at is not None:
-            now = datetime.now(UTC)
-            session_secs = int((now - run.started_at).total_seconds())
-            run.elapsed_seconds = (run.elapsed_seconds or 0) + max(0, session_secs)
-            run.started_at = now  # 重置起始点，避免重复累计
         await self.session.commit()
         await self.session.refresh(run)
         return run

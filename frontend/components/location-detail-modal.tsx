@@ -7,7 +7,7 @@ import type { WorldSnapshot } from "@/lib/types";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { EventCard } from "@/components/event-card";
-import { beatBadge, buildWorldNameMaps, getLocationTypeLabel, locationBeat, tickToSimDayTime } from "@/lib/world-utils";
+import { beatBadge, buildWorldNameMaps, locationBeat, tickToSimDayTime } from "@/lib/world-utils";
 
 type LocationDetailModalProps = {
   isOpen: boolean;
@@ -28,7 +28,9 @@ export function LocationDetailModal({
 }: LocationDetailModalProps) {
   const { agentNameMap, locationNameMap, locationEvents } = useMemo(() => {
     const { agentNameMap, locationNameMap } = buildWorldNameMaps(world);
-    const events = world.recent_events.filter((event) => event.location_id === locationId);
+    const events = world.recent_events
+      .filter((event) => event.location_id === locationId)
+      .sort((a, b) => b.tick_no - a.tick_no); // 按 tick 倒序，最新的在前
 
     return {
       agentNameMap,
@@ -55,7 +57,6 @@ export function LocationDetailModal({
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">聚焦地点</p>
             <h2 className="text-xl font-semibold text-ink">{location.name}</h2>
-            <p className="text-sm text-slate-500">{getLocationTypeLabel(location.location_type)}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
@@ -175,7 +176,7 @@ export function LocationDetailModal({
               </div>
             ) : (
               <div className="space-y-2">
-                {locationEvents.slice(0, 10).map((event, index) => (
+                {locationEvents.slice(0, 50).map((event, index) => (
                   <EventCard
                     key={event.id}
                     event={event}
@@ -191,9 +192,9 @@ export function LocationDetailModal({
                     )}
                   />
                 ))}
-                {locationEvents.length > 10 && (
+                {locationEvents.length > 50 && (
                   <p className="text-center text-xs text-slate-500">
-                    还有 {locationEvents.length - 10} 条事件
+                    还有 {locationEvents.length - 50} 条事件
                   </p>
                 )}
               </div>
