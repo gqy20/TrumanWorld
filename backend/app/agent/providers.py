@@ -221,35 +221,17 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         )
 
         # Add MCP memory server if enabled
-        if runtime_ctx and runtime_ctx.enable_memory_tools:
-            # 优先使用预加载的 memory_cache（避免 greenlet 冲突）
-            if runtime_ctx.memory_cache is not None:
-                from app.agent.memory_mcp_server_cached import create_memory_mcp_server_cached
+        if runtime_ctx and runtime_ctx.enable_memory_tools and runtime_ctx.memory_cache is not None:
+            from app.agent.memory_mcp_server_cached import create_memory_mcp_server_cached
 
-                memory_server = create_memory_mcp_server_cached(runtime_ctx.memory_cache)
-                options.mcp_servers = {
-                    "trumanworld-memory": McpSdkServerConfig(
-                        type="sdk",
-                        name="trumanworld-memory",
-                        instance=memory_server,
-                    )
-                }
-            # 回退到 DB 引擎模式（兼容旧代码）
-            elif runtime_ctx.db_engine is not None:
-                from app.agent.memory_mcp_server import create_memory_mcp_server
-
-                memory_server = create_memory_mcp_server(
-                    engine=runtime_ctx.db_engine,
-                    agent_id=invocation.agent_id,
-                    run_id=runtime_ctx.run_id or "",
+            memory_server = create_memory_mcp_server_cached(runtime_ctx.memory_cache)
+            options.mcp_servers = {
+                "trumanworld-memory": McpSdkServerConfig(
+                    type="sdk",
+                    name="trumanworld-memory",
+                    instance=memory_server,
                 )
-                options.mcp_servers = {
-                    "trumanworld-memory": McpSdkServerConfig(
-                        type="sdk",
-                        name="trumanworld-memory",
-                        instance=memory_server,
-                    )
-                }
+            }
 
         return options
 

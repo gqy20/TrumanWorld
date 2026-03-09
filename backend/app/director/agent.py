@@ -6,6 +6,7 @@ intelligent intervention decisions based on world state observation.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass
@@ -251,6 +252,7 @@ Make your decision:"""
 
 返回 JSON，不要有 markdown 代码块标记。"""
 
+        gen = None
         try:
             gen = query(prompt=full_prompt, options=options)
             async for message in gen:
@@ -273,15 +275,31 @@ Make your decision:"""
                     if usage:
                         logger.debug(f"DirectorAgent LLM usage: {usage}")
 
-                    await gen.aclose()
                     return text
 
-            await gen.aclose()
             raise RuntimeError("DirectorAgent LLM returned no result")
 
+        except asyncio.CancelledError:
+            # 任务被取消，这是正常的，不需要抛出异常
+            logger.debug("DirectorAgent LLM call cancelled")
+            return self._mock_llm_response()
+        except RuntimeError as e:
+            # Handle claude_agent_sdk anyio cancel scope errors
+            if "cancel scope" in str(e).lower():
+                logger.debug(f"DirectorAgent cancel scope error: {e}")
+                return self._mock_llm_response()
+            raise
         except Exception as exc:
             logger.warning(f"DirectorAgent LLM call failed: {exc}, using mock")
             return self._mock_llm_response()
+        finally:
+            # Properly close the async generator to avoid "cancel scope in different task" errors
+            if gen is not None:
+                try:
+                    await gen.aclose()
+                except RuntimeError as e:
+                    if "cancel scope" not in str(e).lower():
+                        raise
 
     def _mock_llm_response(self) -> str:
         """Return a mock response for testing or when LLM is unavailable."""
