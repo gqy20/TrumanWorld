@@ -42,7 +42,7 @@ const EMPTY_FILTERS: Filters = {
   agentId: "",
 };
 
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 5000; // 直接加载大量数据，避免分页
 
 interface TimelineModalProps {
   isOpen: boolean;
@@ -76,7 +76,6 @@ function isoToDatetimeLocal(iso: string): string {
 export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [pendingFilters, setPendingFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [offset, setOffset] = useState(0);
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,11 +91,11 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   }, [runId, isOpen]);
 
   const fetchTimeline = useCallback(
-    async (appliedFilters: Filters, currentOffset: number, orderDesc: boolean = true) => {
+    async (appliedFilters: Filters, orderDesc: boolean = true) => {
       setLoading(true);
       setError(null);
       try {
-        const url = buildTimelineUrl(getApiBaseUrl(), runId, appliedFilters, PAGE_SIZE, currentOffset, orderDesc);
+        const url = buildTimelineUrl(getApiBaseUrl(), runId, appliedFilters, PAGE_SIZE, 0, orderDesc);
         const res = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error(`请求失败: ${res.status}`);
         const data = (await res.json()) as TimelineResponse;
@@ -114,33 +113,19 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   // 打开时加载数据
   useEffect(() => {
     if (isOpen) {
-      void fetchTimeline(EMPTY_FILTERS, 0);
+      void fetchTimeline(EMPTY_FILTERS);
     }
   }, [isOpen, fetchTimeline]);
 
   const handleSearch = () => {
     setFilters(pendingFilters);
-    setOffset(0);
-    void fetchTimeline(pendingFilters, 0);
+    void fetchTimeline(pendingFilters);
   };
 
   const handleReset = () => {
     setPendingFilters(EMPTY_FILTERS);
     setFilters(EMPTY_FILTERS);
-    setOffset(0);
-    void fetchTimeline(EMPTY_FILTERS, 0);
-  };
-
-  const handlePrevPage = () => {
-    const newOffset = Math.max(0, offset - PAGE_SIZE);
-    setOffset(newOffset);
-    void fetchTimeline(filters, newOffset);
-  };
-
-  const handleNextPage = () => {
-    const newOffset = offset + PAGE_SIZE;
-    setOffset(newOffset);
-    void fetchTimeline(filters, newOffset);
+    void fetchTimeline(EMPTY_FILTERS);
   };
 
   const groups = useMemo(() => {
@@ -160,8 +145,6 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   const total = timeline?.total ?? 0;
   const filtered = timeline?.filtered ?? 0;
   const hasFilter = Object.values(filters).some(Boolean);
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   const updatePending = (key: keyof Filters, value: string) =>
     setPendingFilters((prev) => ({ ...prev, [key]: value }));
@@ -207,11 +190,6 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
               {hasFilter && (
                 <p className="mt-2 text-[10px] text-slate-400">
                   匹配 <span className="font-semibold text-moss">{filtered}</span> / {total} 条
-                </p>
-              )}
-              {total > PAGE_SIZE && (
-                <p className="mt-1 text-[10px] text-amber-600">
-                  第 {currentPage}/{totalPages} 页
                 </p>
               )}
             </section>
@@ -361,31 +339,6 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
               </div>
             )}
           </div>
-
-          {/* 分页 */}
-          {total > PAGE_SIZE && (
-            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-              <button
-                type="button"
-                onClick={handlePrevPage}
-                disabled={offset === 0}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-              >
-                上一页
-              </button>
-              <span className="text-sm text-slate-500">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={handleNextPage}
-                disabled={currentPage >= totalPages}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-              >
-                下一页
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </Modal>

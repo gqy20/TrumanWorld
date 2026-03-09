@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -17,16 +17,18 @@ type Stage = "noise" | "zoom" | "text" | "fade" | "done";
 export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "create" }: WorldOpeningAnimationProps) {
   const [stage, setStage] = useState<Stage>("done");
   const [mounted, setMounted] = useState(false);
+  // 用 ref 存储 onComplete，避免 effect 因回调引用变化而重复触发
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; });
 
   // 确保只在客户端挂载 portal
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // 只依赖 isVisible，onComplete 通过 ref 调用，不影响 effect 稳定性
   useEffect(() => {
     if (!isVisible) {
-      // 仅在动画未启动时才重置，避免打断进行中的动画
-      setStage((prev) => (prev === "done" ? "done" : prev));
       return;
     }
 
@@ -42,7 +44,7 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
     // 阶段 4: 渐出开始时立即触发跳转，遮罩渐出期间路由已切换，不会闪回
     const fadeTimer = setTimeout(() => {
       setStage("fade");
-      onComplete();
+      onCompleteRef.current();
     }, 4000);
 
     // 动画自身收尾
@@ -56,7 +58,7 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
       clearTimeout(fadeTimer);
       clearTimeout(completeTimer);
     };
-  }, [isVisible, onComplete]);
+  }, [isVisible]);  // 只依赖 isVisible，稳定
 
   const isAnimating = stage !== "done";
 
