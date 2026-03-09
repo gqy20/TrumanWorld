@@ -16,7 +16,7 @@
     "@dicebear/collection": "^9.4.0",
     "@dicebear/core": "^9.4.0",
     "d3": "^7.9.0",
-    "framer-motion": "^12.35.0",
+    "framer-motion": "^12.35.2",
     "next": "^16.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
