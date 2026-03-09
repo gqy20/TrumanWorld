@@ -178,23 +178,36 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                 <p className="text-[11px] uppercase tracking-[0.15em] text-moss">
                   关系网络 ({relationships.length})
                 </p>
-                <div className="mt-3 space-y-2">
-                  {relationships.slice(0, 5).map((rel, index) => (
-                    <div key={`${rel.other_agent_id}-${index}`} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-700">{rel.other_agent_name || "未知"}</span>
-                      <span
-                        className={`text-[10px] ${
-                          relationshipTone(rel.familiarity) === "close"
-                            ? "text-emerald-600"
-                            : relationshipTone(rel.familiarity) === "neutral"
-                              ? "text-slate-500"
-                              : "text-amber-600"
-                        }`}
-                      >
-                        熟悉度 {(rel.familiarity * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  ))}
+                <div className="mt-3 space-y-3">
+                  {relationships.slice(0, 5).map((rel, index) => {
+                    const familiarityPct = (rel.familiarity * 100).toFixed(0);
+                    const tone = relationshipTone(rel.familiarity);
+                    const barColor = tone === "close" ? "bg-emerald-500" : tone === "neutral" ? "bg-slate-400" : "bg-amber-500";
+                    return (
+                      <div key={`${rel.other_agent_id}-${index}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-700">{rel.other_agent_name || "未知"}</span>
+                          <span
+                            className={`text-[10px] ${
+                              tone === "close"
+                                ? "text-emerald-600"
+                                : tone === "neutral"
+                                  ? "text-slate-500"
+                                  : "text-amber-600"
+                            }`}
+                          >
+                            {familiarityPct}%
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={`h-full rounded-full ${barColor}`}
+                            style={{ width: `${familiarityPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
