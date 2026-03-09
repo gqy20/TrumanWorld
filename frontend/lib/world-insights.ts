@@ -119,12 +119,13 @@ export function calculateWorldHealthMetrics(
     const tick = world.run.current_tick ?? 0;
     const tickMinutes = world.run.tick_minutes ?? 5;
     const totalDays = Math.max((tick * tickMinutes) / (24 * 60), 0.1);
-    const agentCount = Math.max(agents.length, 1);
+    // 优先使用 run.agent_count，保证人数增加后也能正确标准化
+    const agentCount = Math.max(world.run.agent_count ?? agents.length, 1);
     const talksPerPersonPerDay = world.daily_stats.talk_count / totalDays / agentCount;
-    // 每人每天 10 次 = 100%，低于1次/天视为不活跃
-    socialActivity = Math.min(100, Math.round((talksPerPersonPerDay / 10) * 100));
+    // 基准：每人每天 20 次对话 = 100%（活跃世界参考值）
+    socialActivity = Math.min(100, Math.round((talksPerPersonPerDay / 20) * 100));
     socialTrend =
-      talksPerPersonPerDay > 3 ? "up" : talksPerPersonPerDay > 1 ? "stable" : "down";
+      talksPerPersonPerDay > 10 ? "up" : talksPerPersonPerDay > 3 ? "stable" : "down";
   } else {
     const talkEvents = events.filter((e) => e.event_type === EVENT_TALK);
     socialActivity = Math.min(100, (talkEvents.length / 10) * 100);
