@@ -26,14 +26,14 @@ export function HomeView({ runs, error }: HomeViewProps) {
     <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#f7f3e8,_#eef5f1_48%,_#f8fafc)]">
       {/* 顶部 header - 毛玻璃效果 */}
       <div
-        className={`flex-shrink-0 border-b border-white/60 bg-white/65 px-8 py-5 backdrop-blur transition-all duration-500 ${
+        className={`flex-shrink-0 border-b border-white/60 bg-white/65 px-8 py-4 backdrop-blur transition-all duration-500 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
         }`}
       >
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-ink">楚门的世界</h1>
-            <p className="mt-0.5 text-xs text-slate-400">观察、记录、创造条件——让 Truman 真实地生活</p>
+            <p className="mt-0.5 text-sm text-slate-400">观察、记录、创造条件——让 Truman 真实地生活</p>
           </div>
           {hasRuns && (
             <div className="flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50/80 px-3 py-1.5">
@@ -49,24 +49,16 @@ export function HomeView({ runs, error }: HomeViewProps) {
 
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-8 px-8 py-8">
-          {/* 创建新模拟 - 独立卡片 */}
+          {/* 创建新模拟 */}
           <section
             className={`transition-all duration-500 delay-100 ${
               visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
             }`}
           >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-ink">创建世界</h2>
+            </div>
             <div className="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-sm backdrop-blur">
-              <div className="mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-moss/10 text-moss">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </span>
-                <div>
-                  <h2 className="text-sm font-semibold text-ink">新建运行</h2>
-                  <p className="text-xs text-slate-400">创建新的仿真世界实例</p>
-                </div>
-              </div>
               <CreateRunForm />
             </div>
           </section>
@@ -77,9 +69,9 @@ export function HomeView({ runs, error }: HomeViewProps) {
               visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
             }`}
           >
-            <div className="mb-5 flex items-center justify-between gap-4">
+            <div className="mb-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">模拟运行</h2>
+                <h2 className="text-base font-semibold text-ink">模拟运行</h2>
                 {hasRuns && (
                   <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-sm">
                     {runs.length}

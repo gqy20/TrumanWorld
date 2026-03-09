@@ -27,13 +27,13 @@ const NAV_ITEMS = [
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
-  // 在世界页面默认折叠左侧栏
-  const isWorldPage = pathname.includes("/world");
-  const [isCollapsed, setIsCollapsed] = useState(isWorldPage);
-  
-  // 当路径变化时，如果在世界页面则折叠
+  // 在世界页面或主控制台页面默认折叠左侧栏
+  const shouldCollapseByDefault = pathname.includes("/world") || pathname === "/" || pathname === "";
+  const [isCollapsed, setIsCollapsed] = useState(shouldCollapseByDefault);
+
+  // 当路径变化时，如果在世界页面或主控制台页面则折叠
   useEffect(() => {
-    if (pathname.includes("/world")) {
+    if (pathname.includes("/world") || pathname === "/" || pathname === "") {
       setIsCollapsed(true);
     }
   }, [pathname]);
