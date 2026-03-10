@@ -10,7 +10,7 @@
 
 1. **不要** 在公开 issue 中披露安全漏洞
 2. 通过 GitHub 的 [Private Vulnerability Reporting](https://github.com/gqy20/TrumanWorld/security/advisories/new) 功能提交漏洞报告
-3. 或者发送邮件至 **gqy2005@163.com**
+3. 或者发送邮件至 **qingyu_ge@foxmail.com**
 
 ### 报告内容
 
