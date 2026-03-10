@@ -34,8 +34,10 @@ class PromptLoader:
         ]
 
         # 渲染日程引导（如果有 daily_schedule）
-        daily_schedule = context.get("daily_schedule")
-        time_period = context.get("time_period")
+        # daily_schedule 在 context["world"] 子字典中（由 build_agent_world_context 注入）
+        _world_ctx = context.get("world") or {}
+        daily_schedule = _world_ctx.get("daily_schedule") if isinstance(_world_ctx, dict) else None
+        time_period = _world_ctx.get("time_period") if isinstance(_world_ctx, dict) else None
         if daily_schedule and isinstance(daily_schedule, dict):
             lines.append("# 我的日程计划")
             lines.append(

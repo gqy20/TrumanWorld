@@ -89,22 +89,28 @@ async def has_reflection_for_today(
 
 def _build_basic_world_context(world: "WorldState") -> dict:
     """Build minimal world context dict for planner/reflector prompts."""
+    weekday = world.current_time.weekday()
     return {
         "world_time": world.current_time.isoformat(),
         "time_period": world._time_period(),
-        "weekday": world.weekday_name(),
+        "weekday": world._weekday_name(weekday),
     }
 
 
 async def _load_recent_memories(
     session: "AsyncSession",
+    run_id: str,
     agent_id: str,
     limit: int = 5,
 ) -> list[dict]:
     """Load recent long_term memories for the agent as simple dicts."""
     result = await session.execute(
         select(Memory)
-        .where(Memory.agent_id == agent_id, Memory.memory_category == "long_term")
+        .where(
+            Memory.run_id == run_id,
+            Memory.agent_id == agent_id,
+            Memory.memory_category == "long_term",
+        )
         .order_by(Memory.created_at.desc())
         .limit(limit)
     )
@@ -122,6 +128,8 @@ async def _load_today_events(
     ticks_per_day: int,
 ) -> list[dict]:
     """Load events from today (last ticks_per_day ticks) for the agent."""
+    from sqlalchemy import or_
+
     since_tick = max(0, tick_no - ticks_per_day)
     result = await session.execute(
         select(Event)
@@ -129,21 +137,23 @@ async def _load_today_events(
             Event.run_id == run_id,
             Event.tick_no > since_tick,
             Event.tick_no <= tick_no,
+            or_(
+                Event.actor_agent_id == agent_id,
+                Event.target_agent_id == agent_id,
+            ),
         )
         .order_by(Event.tick_no.asc())
     )
-    events = []
-    for ev in result.scalars().all():
-        # only include events where this agent is actor or target
-        if ev.actor_agent_id == agent_id or ev.target_agent_id == agent_id:
-            events.append({
-                "event_type": ev.event_type,
-                "tick_no": ev.tick_no,
-                "actor_agent_id": ev.actor_agent_id,
-                "target_agent_id": ev.target_agent_id,
-                "payload": ev.payload or {},
-            })
-    return events
+    return [
+        {
+            "event_type": ev.event_type,
+            "tick_no": ev.tick_no,
+            "actor_agent_id": ev.actor_agent_id,
+            "target_agent_id": ev.target_agent_id,
+            "payload": ev.payload or {},
+        }
+        for ev in result.scalars().all()
+    ]
 
 
 # ── Planner 执行 ──────────────────────────────────────────────────────────────
@@ -173,7 +183,9 @@ async def run_morning_planning(
         # Pre-load recent memories outside of gather to avoid session conflicts
         memories_by_agent: dict[str, list[dict]] = {}
         for agent in pending:
-            memories_by_agent[agent.id] = await _load_recent_memories(read_session, agent.id)
+            memories_by_agent[agent.id] = await _load_recent_memories(
+                read_session, run_id, agent.id
+            )
 
     if not pending:
         return
