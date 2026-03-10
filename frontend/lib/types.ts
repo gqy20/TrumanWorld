@@ -178,6 +178,29 @@ export type DirectorMemory = {
   created_at: string;
 };
 
+export type SystemMetrics = {
+  processResidentMemoryBytes: number;
+  processVirtualMemoryBytes: number;
+  processCpuSecondsTotal: number;
+  processOpenFileDescriptors?: number | null;
+  activeRuns: number;
+  tickTotal: {
+    inlineSuccess: number;
+    inlineError: number;
+    isolatedSuccess: number;
+    isolatedError: number;
+  };
+  llmCallTotal: number;
+  llmCostUsdTotal: number;
+  llmTokensTotal: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheCreation: number;
+  };
+  scrapedAt: number;
+};
+
 export type AgentRecentEvent = {
   id: string;
   tick_no: number;

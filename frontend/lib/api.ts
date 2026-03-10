@@ -4,6 +4,7 @@ import type {
   CreateRunResponse,
   DirectorMemory,
   RunSummary,
+  SystemMetrics,
   TickResponse,
   TimelineFilter,
   TimelineResponse,
@@ -17,6 +18,7 @@ export type {
   CreateRunResponse,
   DirectorMemory,
   RunSummary,
+  SystemMetrics,
   TickResponse,
   TimelineEvent,
   TimelineFilter,
@@ -490,4 +492,91 @@ export async function fetchApiOrFallback<T>(url: string, fallback: T): Promise<T
 
 export async function fetchApiResult<T>(url: string): Promise<ApiResult<T>> {
   return fetchResultUrl<T>(url);
+}
+
+function readMetricValue(metricsText: string, metricName: string): number {
+  const pattern = new RegExp(`^${metricName}\\s+([0-9.eE+-]+)$`, "m");
+  const match = metricsText.match(pattern);
+  return match ? Number(match[1]) : 0;
+}
+
+function readLabeledMetricValue(
+  metricsText: string,
+  metricName: string,
+  labels: Record<string, string>,
+): number {
+  const labelsPattern = Object.entries(labels)
+    .map(([key, value]) => `${key}="${value}"`)
+    .join(",");
+  const pattern = new RegExp(`^${metricName}\\{${labelsPattern}\\}\\s+([0-9.eE+-]+)$`, "m");
+  const match = metricsText.match(pattern);
+  return match ? Number(match[1]) : 0;
+}
+
+export async function getSystemMetrics(): Promise<SystemMetrics | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(buildApiUrl("/metrics"), {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        Accept: "text/plain",
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const metricsText = await response.text();
+
+    return {
+      processResidentMemoryBytes: readMetricValue(metricsText, "process_resident_memory_bytes"),
+      processVirtualMemoryBytes: readMetricValue(metricsText, "process_virtual_memory_bytes"),
+      processCpuSecondsTotal: readMetricValue(metricsText, "process_cpu_seconds_total"),
+      processOpenFileDescriptors: readMetricValue(metricsText, "process_open_fds") || null,
+      activeRuns: readMetricValue(metricsText, "trumanworld_active_runs"),
+      tickTotal: {
+        inlineSuccess: readLabeledMetricValue(metricsText, "trumanworld_tick_total", {
+          mode: "inline",
+          status: "success",
+        }),
+        inlineError: readLabeledMetricValue(metricsText, "trumanworld_tick_total", {
+          mode: "inline",
+          status: "error",
+        }),
+        isolatedSuccess: readLabeledMetricValue(metricsText, "trumanworld_tick_total", {
+          mode: "isolated",
+          status: "success",
+        }),
+        isolatedError: readLabeledMetricValue(metricsText, "trumanworld_tick_total", {
+          mode: "isolated",
+          status: "error",
+        }),
+      },
+      llmCallTotal: readMetricValue(metricsText, "trumanworld_llm_call_total"),
+      llmCostUsdTotal: readMetricValue(metricsText, "trumanworld_llm_cost_usd_total"),
+      llmTokensTotal: {
+        input: readLabeledMetricValue(metricsText, "trumanworld_llm_tokens_total", {
+          token_type: "input",
+        }),
+        output: readLabeledMetricValue(metricsText, "trumanworld_llm_tokens_total", {
+          token_type: "output",
+        }),
+        cacheRead: readLabeledMetricValue(metricsText, "trumanworld_llm_tokens_total", {
+          token_type: "cache_read",
+        }),
+        cacheCreation: readLabeledMetricValue(metricsText, "trumanworld_llm_tokens_total", {
+          token_type: "cache_creation",
+        }),
+      },
+      scrapedAt: Date.now(),
+    };
+  } catch {
+    return null;
+  }
 }

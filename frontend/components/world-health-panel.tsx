@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import useSWR from "swr";
 import type { WorldHealthMetrics, Trend } from "@/lib/world-insights";
-import type { DirectorMemory } from "@/lib/types";
+import type { DirectorMemory, SystemMetrics } from "@/lib/types";
 import {
   getTrendIcon,
   getTrendColor,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/world-insights";
 import { DirectorEventForm } from "@/components/director-event-form";
 import { useWorld } from "@/components/world-context";
-import { getDirectorMemoriesResult } from "@/lib/api";
+import { getDirectorMemoriesResult, getSystemMetrics } from "@/lib/api";
 import type { WorldSnapshot } from "@/lib/types";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
@@ -36,6 +37,7 @@ interface ActivityModalState {
 
 export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProps) {
   const [isDirectorExpanded, setIsDirectorExpanded] = useState(false);
+  const [isSystemExpanded, setIsSystemExpanded] = useState(false);
   const [activityModal, setActivityModal] = useState<ActivityModalState>({
     isOpen: false,
     type: null,
@@ -43,6 +45,14 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
     agents: [],
   });
   const { refresh } = useWorld();
+  const { data: systemMetrics } = useSWR<SystemMetrics | null>(
+    "/metrics",
+    getSystemMetrics,
+    {
+      refreshInterval: 5000,
+      revalidateOnFocus: true,
+    },
+  );
 
   // 根据活动类型获取智能体列表
   const getAgentsByActivity = (type: ActivityType): { id: string; name: string; location?: string }[] => {
@@ -127,6 +137,18 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
         />
       </div>
 
+      <div className="mt-4">
+        <SystemStatusPanel
+          metrics={systemMetrics}
+          onClick={() => setIsSystemExpanded(true)}
+        />
+        <SystemStatusModal
+          isOpen={isSystemExpanded}
+          onClose={() => setIsSystemExpanded(false)}
+          metrics={systemMetrics}
+        />
+      </div>
+
       {/* 导演干预 - 独立卡片区域 */}
       <div className="mt-4">
         <DirectorStats
@@ -196,6 +218,337 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
         title={activityModal.title}
         agents={activityModal.agents}
       />
+    </div>
+  );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes <= 0) return "0 MB";
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function formatCost(value: number) {
+  return `$${value.toFixed(4)}`;
+}
+
+function formatAge(timestamp: number) {
+  const deltaSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  return `${deltaSeconds}s 前`;
+}
+
+function SystemStatusPanel({
+  metrics,
+  onClick,
+}: {
+  metrics: SystemMetrics | null | undefined;
+  onClick: () => void;
+}) {
+  if (!metrics) {
+    return (
+      <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium text-slate-700">🖥️ 系统状态</div>
+          <div className="text-[11px] text-slate-400">指标加载中</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-left transition hover:bg-slate-100/80"
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium text-slate-700">🖥️ 系统状态</div>
+        <div className="flex items-center gap-2">
+          <div className="text-[11px] text-slate-400">刷新于 {formatAge(metrics.scrapedAt)}</div>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-4 w-4 text-slate-400"
+          >
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <StatusStat label="内存 RSS" value={formatBytes(metrics.processResidentMemoryBytes)} />
+        <StatusStat label="CPU 秒" value={metrics.processCpuSecondsTotal.toFixed(1)} highlight />
+      </div>
+    </button>
+  );
+}
+
+function SystemStatusModal({
+  isOpen,
+  onClose,
+  metrics,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  metrics: SystemMetrics | null | undefined;
+}) {
+  const [selectedSection, setSelectedSection] = useState<"overview" | "ticks" | "llm">("overview");
+  const totalTicks = metrics
+    ? metrics.tickTotal.inlineSuccess +
+      metrics.tickTotal.inlineError +
+      metrics.tickTotal.isolatedSuccess +
+      metrics.tickTotal.isolatedError
+    : 0;
+  const totalTokens = metrics
+    ? metrics.llmTokensTotal.input +
+      metrics.llmTokensTotal.output +
+      metrics.llmTokensTotal.cacheRead +
+      metrics.llmTokensTotal.cacheCreation
+    : 0;
+  const totalFailures = metrics
+    ? metrics.tickTotal.inlineError + metrics.tickTotal.isolatedError
+    : 0;
+  const sectionCounts = {
+    overview: metrics ? 4 : 0,
+    ticks: totalTicks,
+    llm: metrics?.llmCallTotal ?? 0,
+  };
+
+  const modal = (
+    <AnimatePresence>
+      {isOpen && (
+        <Modal
+          isOpen={isOpen}
+          onClose={onClose}
+          size="xl"
+          showCloseButton={false}
+          title="系统状态"
+          subtitle="查看运行时资源消耗和累计调用统计"
+        >
+          {!metrics ? (
+            <div className="py-8 text-center text-sm text-slate-400">指标加载中</div>
+          ) : (
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="flex w-72 shrink-0 flex-col border-r border-slate-100 bg-slate-50/50">
+                <div className="border-b border-slate-100 p-4">
+                  <h3 className="text-sm font-semibold text-slate-700">🖥️ 资源摘要</h3>
+                  <div className="mt-3 rounded-2xl bg-white p-4 shadow-xs">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-slate-500">内存 RSS</div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900">
+                          {formatBytes(metrics.processResidentMemoryBytes)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">CPU 秒</div>
+                        <div className="mt-1 text-lg font-semibold text-emerald-600">
+                          {metrics.processCpuSecondsTotal.toFixed(1)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                      <span>活跃 Run</span>
+                      <span className="font-semibold text-slate-700">{formatCount(metrics.activeRuns)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                      <span>最近刷新</span>
+                      <span>{formatAge(metrics.scrapedAt)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-auto p-4">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+                    统计视图
+                  </div>
+                  <div className="space-y-1">
+                    <NavItem
+                      icon="📊"
+                      label="资源总览"
+                      count={sectionCounts.overview}
+                      active={selectedSection === "overview"}
+                      onClick={() => setSelectedSection("overview")}
+                    />
+                    <NavItem
+                      icon="⏱️"
+                      label="Tick 累计"
+                      count={sectionCounts.ticks}
+                      active={selectedSection === "ticks"}
+                      onClick={() => setSelectedSection("ticks")}
+                      tone={totalFailures > 0 ? "amber" : "slate"}
+                    />
+                    <NavItem
+                      icon="🤖"
+                      label="LLM 累计"
+                      count={sectionCounts.llm}
+                      active={selectedSection === "llm"}
+                      onClick={() => setSelectedSection("llm")}
+                      tone="emerald"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1 overflow-y-auto bg-white p-6">
+                {selectedSection === "overview" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatusStat label="内存 RSS" value={formatBytes(metrics.processResidentMemoryBytes)} />
+                      <StatusStat label="虚拟内存" value={formatBytes(metrics.processVirtualMemoryBytes)} />
+                      <StatusStat label="CPU 秒" value={metrics.processCpuSecondsTotal.toFixed(1)} highlight />
+                      <StatusStat label="活跃 Run" value={formatCount(metrics.activeRuns)} />
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <div className="text-sm font-semibold text-slate-700">当前观察</div>
+                      <div className="mt-3 space-y-2 text-sm text-slate-600">
+                        <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                          <span>进程内存占用</span>
+                          <span className="font-medium text-slate-900">
+                            {formatBytes(metrics.processResidentMemoryBytes)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                          <span>CPU 累计消耗</span>
+                          <span className="font-medium text-slate-900">
+                            {metrics.processCpuSecondsTotal.toFixed(1)}s
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                          <span>系统并发运行</span>
+                          <span className="font-medium text-slate-900">{formatCount(metrics.activeRuns)} runs</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedSection === "ticks" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <MiniStatusChip label="总 Tick" value={formatCount(totalTicks)} />
+                      <MiniStatusChip label="失败" value={formatCount(totalFailures)} tone="amber" />
+                      <MiniStatusChip label="Inline 成功" value={formatCount(metrics.tickTotal.inlineSuccess)} />
+                      <MiniStatusChip label="Isolated 成功" value={formatCount(metrics.tickTotal.isolatedSuccess)} />
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <div className="text-sm font-semibold text-slate-700">执行拆分</div>
+                      <div className="mt-3 space-y-2">
+                        <StatusRow label="Inline 失败" value={formatCount(metrics.tickTotal.inlineError)} tone="amber" />
+                        <StatusRow
+                          label="Isolated 失败"
+                          value={formatCount(metrics.tickTotal.isolatedError)}
+                          tone="amber"
+                        />
+                        <StatusRow label="Inline 成功" value={formatCount(metrics.tickTotal.inlineSuccess)} />
+                        <StatusRow label="Isolated 成功" value={formatCount(metrics.tickTotal.isolatedSuccess)} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedSection === "llm" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <MiniStatusChip label="调用次数" value={formatCount(metrics.llmCallTotal)} />
+                      <MiniStatusChip label="总成本" value={formatCost(metrics.llmCostUsdTotal)} />
+                      <MiniStatusChip label="总 Tokens" value={formatCount(totalTokens)} />
+                      <MiniStatusChip
+                        label="缓存 Tokens"
+                        value={formatCount(metrics.llmTokensTotal.cacheRead + metrics.llmTokensTotal.cacheCreation)}
+                      />
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <div className="text-sm font-semibold text-slate-700">Token 明细</div>
+                      <div className="mt-3 space-y-2">
+                        <StatusRow label="输入 Tokens" value={formatCount(metrics.llmTokensTotal.input)} />
+                        <StatusRow label="输出 Tokens" value={formatCount(metrics.llmTokensTotal.output)} />
+                        <StatusRow label="缓存读取" value={formatCount(metrics.llmTokensTotal.cacheRead)} />
+                        <StatusRow
+                          label="缓存创建"
+                          value={formatCount(metrics.llmTokensTotal.cacheCreation)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+    </AnimatePresence>
+  );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(modal, document.body);
+}
+
+function StatusRow({
+  label,
+  value,
+  tone = "slate",
+}: {
+  label: string;
+  value: string;
+  tone?: "slate" | "amber";
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+      <span className="text-sm text-slate-600">{label}</span>
+      <span className={`text-sm font-semibold ${tone === "amber" ? "text-amber-700" : "text-slate-900"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function StatusStat({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg border p-2.5 ${
+        highlight
+          ? "border-emerald-100 bg-emerald-50/70"
+          : "border-white/80 bg-white/80"
+      }`}
+    >
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+function MiniStatusChip({
+  label,
+  value,
+  tone = "slate",
+}: {
+  label: string;
+  value: string;
+  tone?: "slate" | "amber";
+}) {
+  const toneClasses =
+    tone === "amber"
+      ? "border-amber-100 bg-amber-50/80 text-amber-700"
+      : "border-slate-100 bg-slate-50 text-slate-700";
+
+  return (
+    <div className={`rounded-lg border px-2.5 py-2 ${toneClasses}`}>
+      <div className="text-[10px] opacity-70">{label}</div>
+      <div className="mt-1 text-sm font-semibold">{value}</div>
     </div>
   );
 }
