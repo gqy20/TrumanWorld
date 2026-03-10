@@ -69,6 +69,10 @@ class TrumanWorldScenario(Scenario):
     async def build_director_plan(self, run_id: str, agents: list[Agent]):
         return await self.coordinator.build_director_plan(run_id, agents)
 
+    async def persist_director_plan(self, run_id: str, plan) -> None:
+        """Persist the director plan generated in Phase 1 (must be called in write_session)."""
+        await self.coordinator.persist_director_plan(run_id, plan)
+
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:
         return self.coordinator.merge_agent_profile(agent, plan)
 

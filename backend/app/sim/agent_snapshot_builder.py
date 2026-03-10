@@ -133,7 +133,14 @@ async def build_agent_snapshots(
     scenario: "Scenario",
     location_states: dict[str, "LocationState"],
     agent_states: dict[str, "AgentState"],
-) -> list[AgentDecisionSnapshot]:
+) -> tuple[list[AgentDecisionSnapshot], Any]:
+    """Build per-agent decision snapshots.
+
+    Returns a tuple of (agent_data, director_plan).
+    director_plan is the plan returned by scenario.build_director_plan(),
+    which must NOT be persisted here (read_session context).
+    Persistence is the caller's responsibility in the write_session phase.
+    """
     # Phase 1: 预加载所有需要的数据（在 read_session 中完成）
     agent_recent_events = await build_agent_recent_events(
         session=session,
@@ -180,4 +187,4 @@ async def build_agent_snapshots(
             )
         )
 
-    return agent_data
+    return agent_data, plan

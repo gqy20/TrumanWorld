@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from app.sim.agent_snapshot_builder import build_agent_snapshots
@@ -13,6 +13,7 @@ from app.store.repositories import AgentRepository, LocationRepository, RunRepos
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.director.types import DirectorPlan
     from app.scenario.base import Scenario
     from app.store.models import Agent, SimulationRun
 
@@ -23,6 +24,7 @@ class LoadedTickData:
     world: WorldState
     agent_data: list[AgentDecisionSnapshot]
     agents: list["Agent"]
+    director_plan: "DirectorPlan | None" = field(default=None)
 
 
 async def load_tick_data(
@@ -74,7 +76,7 @@ async def load_tick_data(
         if location_id in location_states:
             location_states[location_id].occupants.add(agent.id)
 
-    agent_data = await build_agent_snapshots(
+    agent_data, director_plan = await build_agent_snapshots(
         session=session,
         run_id=run_id,
         run=run,
@@ -91,4 +93,10 @@ async def load_tick_data(
         agents=agent_states,
     )
 
-    return LoadedTickData(run=run, world=world, agent_data=agent_data, agents=agents)
+    return LoadedTickData(
+        run=run,
+        world=world,
+        agent_data=agent_data,
+        agents=agents,
+        director_plan=director_plan,
+    )

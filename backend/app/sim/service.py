@@ -20,6 +20,7 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.director.manual_planner import ManualDirectorPlanner
 from app.director.observer import DirectorAssessment
+from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
@@ -65,6 +66,9 @@ from app.store.models import LlmCall
 
 if TYPE_CHECKING:
     from app.infra.db import async_engine
+
+
+logger = get_logger(__name__)
 
 
 class SimulationService:
@@ -199,6 +203,7 @@ class SimulationService:
             current_tick = loaded.run.current_tick
             world = loaded.world
             agent_data = loaded.agent_data
+            director_plan = loaded.director_plan
         self._scenario = self.build_scenario(run.scenario_type)
         self._scenario.configure_runtime(self.agent_runtime)
 
@@ -224,6 +229,15 @@ class SimulationService:
             await self._scenario.with_session(write_session).update_state_from_events(
                 run_id, persisted_events
             )
+            # Persist director plan generated in Phase 1 (read_session context)
+            # This avoids greenlet conflicts from writing inside read_session.
+            if director_plan is not None:
+                try:
+                    write_scenario = self._scenario.with_session(write_session)
+                    if hasattr(write_scenario, "persist_director_plan"):
+                        await write_scenario.persist_director_plan(run_id, director_plan)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"Failed to persist director plan for run {run_id}: {exc}")
             # Persist LLM call records (独立 session，失败不影响主流程)
         if llm_records and engine is not None:
             from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession

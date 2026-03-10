@@ -165,29 +165,43 @@ class TrumanWorldCoordinator:
                 recent_goals=set(recent_goals),
             )
 
-        # 保存新的自动干预计划到记忆
-        if plan is not None and self.director_memory_repo is not None:
-            await self.director_memory_repo.create(
-                run_id=run_id,
-                tick_no=run.current_tick,
-                scene_goal=plan.scene_goal,
-                target_cast_ids=plan.target_cast_ids,
-                priority=plan.priority,
-                urgency=plan.urgency,
-                message_hint=plan.message_hint,
-                target_agent_id=plan.target_agent_id,
-                reason=plan.reason,
-                trigger_suspicion_score=assessment.truman_suspicion_score,
-                trigger_continuity_risk=assessment.continuity_risk,
-                cooldown_ticks=plan.cooldown_ticks,
-            )
-            if plan.is_intelligent_decision:
-                logger.info(
-                    f"Saved intelligent director plan at tick {run.current_tick}: "
-                    f"{plan.scene_goal} with strategy: {plan.strategy}"
-                )
-
         return plan
+
+    async def persist_director_plan(
+        self,
+        run_id: str,
+        plan: "DirectorPlan",
+        assessment: "DirectorAssessment | None" = None,
+    ) -> None:
+        """将自动干预计划持久化到记忆，应在 write_session 阶段调用。
+
+        此方法从 _build_auto_plan 中分离出来，以满足读写分离要求：
+        - _build_auto_plan 在 read_session 内执行（只读）
+        - persist_director_plan 在 write_session 内执行（写入）
+        """
+        if self.director_memory_repo is None:
+            return
+        run = await self.run_repo.get(run_id) if self.run_repo is not None else None
+        tick_no = run.current_tick if run is not None else 0
+        await self.director_memory_repo.create(
+            run_id=run_id,
+            tick_no=tick_no,
+            scene_goal=plan.scene_goal,
+            target_cast_ids=plan.target_cast_ids,
+            priority=plan.priority,
+            urgency=plan.urgency,
+            message_hint=plan.message_hint,
+            target_agent_id=plan.target_agent_id,
+            reason=plan.reason,
+            trigger_suspicion_score=assessment.truman_suspicion_score if assessment else 0.0,
+            trigger_continuity_risk=assessment.continuity_risk if assessment else "stable",
+            cooldown_ticks=plan.cooldown_ticks,
+        )
+        if plan.is_intelligent_decision:
+            logger.info(
+                f"Saved intelligent director plan at tick {tick_no}: "
+                f"{plan.scene_goal} with strategy: {plan.strategy}"
+            )
 
     def _convert_memory_to_plan(self, memory) -> DirectorPlan:
         """将 DirectorMemory 转换为 DirectorPlan"""
