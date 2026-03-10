@@ -65,7 +65,7 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
           initial={{ opacity: 1 }}
           animate={{ opacity: stage === "fade" ? 0 : 1 }}
           transition={{ duration: 1 }}
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
+          className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-black"
         >
           {/* 阶段 1: 雪花噪点效果 */}
           {stage === "noise" && (
@@ -73,7 +73,7 @@ export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMjIiIG9wYWNpdHk9IjAuNCIvPgo8L3N2Zz4=')] bg-[length:4px_4px]"
+              className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMjIiIG9wYWNpdHk9IjAuNCIvPgo8L3N2Zz4=')] bg-size-[4px_4px]"
             />
           )}
 

@@ -29,7 +29,7 @@ export function WorldLiveControls({ tick, status }: WorldLiveControlsProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="rounded-full bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-sm">
+      <div className="rounded-full bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-xs">
         Tick {tick} · {status}
       </div>
       <button
@@ -44,12 +44,12 @@ export function WorldLiveControls({ tick, status }: WorldLiveControlsProps) {
       >
         {isPending ? "刷新中..." : "Refresh"}
       </button>
-      <label className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-sm">
+      <label className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-xs">
         <input
           type="checkbox"
           checked={isAutoRefresh}
           onChange={(event) => setIsAutoRefresh(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-moss focus:ring-moss"
+          className="h-4 w-4 rounded-sm border-slate-300 text-moss focus:ring-moss"
         />
         Auto refresh
       </label>

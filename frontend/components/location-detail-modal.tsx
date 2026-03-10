@@ -48,7 +48,7 @@ export function LocationDetailModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md" showCloseButton={false}>
       {/* 自定义头部 */}
-      <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
+      <div className="flex items-center justify-between border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-6 py-4">
         <div>
           <h2 className="text-xl font-semibold text-ink">{location.name}</h2>
         </div>
@@ -125,7 +125,7 @@ export function LocationDetailModal({
                     key={agent.id}
                     href={`/runs/${runId}/agents/${agent.id}`}
                     onClick={onClose}
-                    className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-moss hover:shadow-sm"
+                    className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-moss hover:shadow-xs"
                   >
                     <AgentAvatar
                       agentId={agent.id}

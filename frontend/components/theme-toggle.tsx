@@ -18,7 +18,7 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps) {
 
   if (!mounted) {
     return (
-      <div className={`flex items-center gap-1 rounded-full bg-[var(--sidebar-hover)] p-1 ${className}`}>
+      <div className={`flex items-center gap-1 rounded-full bg-(--sidebar-hover) p-1 ${className}`}>
         {OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -34,7 +34,7 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps) {
 
   return (
     <div
-      className={`flex items-center gap-0.5 rounded-full bg-[var(--sidebar-hover)] p-1 ${className}`}
+      className={`flex items-center gap-0.5 rounded-full bg-(--sidebar-hover) p-1 ${className}`}
       role="radiogroup"
       aria-label="主题切换"
     >
@@ -43,7 +43,7 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps) {
           key={option.value}
           onClick={() => setTheme(option.value)}
           style={{ color: theme === option.value ? "var(--sidebar-text)" : "var(--sidebar-muted)" }}
-          className="relative flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:text-[var(--sidebar-text)]"
+          className="relative flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:text-(--sidebar-text)"
           role="radio"
           aria-checked={theme === option.value}
           aria-label={option.label}
@@ -52,7 +52,7 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps) {
           {theme === option.value && (
             <motion.div
               layoutId="theme-indicator"
-              className="absolute inset-0 rounded-full bg-[var(--sidebar-active)]"
+              className="absolute inset-0 rounded-full bg-(--sidebar-active)"
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
           )}

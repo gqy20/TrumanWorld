@@ -205,7 +205,7 @@ function TimelineEventItem({ event }: { event: StoryEvent }) {
   const config = typeConfig[event.type];
 
   return (
-    <div className="flex items-start gap-3 rounded-xl bg-white p-3 shadow-sm">
+    <div className="flex items-start gap-3 rounded-xl bg-white p-3 shadow-xs">
       <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${config.bg} ${config.color}`}>
         {config.icon}
       </span>

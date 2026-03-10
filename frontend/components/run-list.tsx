@@ -83,14 +83,13 @@ export function RunList({ runs }: RunListProps) {
       {runs.map((run) => {
         const isRunning = run.status === "running";
         const isPaused = run.status === "paused";
-        const statusColor = isRunning ? "emerald" : isPaused ? "amber" : "slate";
         const statusBg = isRunning ? "bg-emerald-50/50" : isPaused ? "bg-amber-50/50" : "bg-slate-50/50";
         const statusBorder = isRunning ? "border-emerald-200/60" : isPaused ? "border-amber-200/60" : "border-slate-200/60";
 
         return (
           <div
             key={run.id}
-            className={`group relative overflow-hidden rounded-[24px] border ${statusBorder} ${statusBg} shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white/90`}
+            className={`group relative overflow-hidden rounded-[24px] border ${statusBorder} ${statusBg} shadow-xs backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white/90`}
           >
             {/* 左侧状态竖条 */}
             <div
@@ -116,7 +115,7 @@ export function RunList({ runs }: RunListProps) {
                   type="button"
                   onClick={() => handleDelete(run.id)}
                   disabled={isPending && deletingId === run.id}
-                  className="flex-shrink-0 rounded-lg p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400 disabled:opacity-50"
+                  className="shrink-0 rounded-lg p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400 disabled:opacity-50"
                   title="删除"
                 >
                   {deletingId === run.id ? (
@@ -204,7 +203,7 @@ export function RunList({ runs }: RunListProps) {
               <button
                 type="button"
                 onClick={() => handleWorldClick(run)}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-moss px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-moss/90 hover:shadow-md active:scale-[0.98]"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-moss px-4 py-2.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-moss/90 hover:shadow-md active:scale-[0.98]"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="9" /><path d="M12 3a15 15 0 0 1 0 18M3 12h18" />

@@ -2,11 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
-import type { WorldEvent } from "@/lib/types";
 
 import { AgentAvatar } from "@/components/agent-avatar";
-import { EventCard } from "@/components/event-card";
 import { TownMap } from "@/components/town-map";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { IntelligenceStreamModal } from "@/components/intelligence-stream-modal";
@@ -23,13 +20,10 @@ import {
 import {
   beatBadge,
   buildWorldNameMaps,
-  filterWorldEvents,
   formatGoal,
   locationBeat,
   locationTone,
-  type EventFilter,
 } from "@/lib/world-utils";
-import { EVENT_FILTERS } from "@/lib/constants";
 
 type Props = {
   runId: string;
@@ -38,8 +32,6 @@ type Props = {
 export function WorldCanvas({ runId }: Props) {
   const { world } = useWorld();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
-  const [eventFilter, setEventFilter] = useState<EventFilter>("all");
-  const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
   const [isLocationExpanded, setIsLocationExpanded] = useState(false);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
@@ -52,8 +44,6 @@ export function WorldCanvas({ runId }: Props) {
     window.addEventListener("openTimelineModal", handleOpenTimeline);
     return () => window.removeEventListener("openTimelineModal", handleOpenTimeline);
   }, []);
-
-  const latestTick = world?.recent_events[0]?.tick_no ?? world?.run.current_tick ?? 0;
 
   // 计算世界洞察数据
   const { healthMetrics, storyChapters } = useMemo(() => {
@@ -75,25 +65,18 @@ export function WorldCanvas({ runId }: Props) {
     );
   }, [world]);
 
-  const { agentNameMap, locationNameMap, visibleEvents } =
-    useMemo(() => {
-      if (!world) {
-        return {
-          agentNameMap: {} as Record<string, string>,
-          locationNameMap: {} as Record<string, string>,
-          visibleEvents: [] as WorldEvent[],
-        };
-      }
-
-      const { agentNameMap, locationNameMap } = buildWorldNameMaps(world);
-      const filtered = filterWorldEvents(world.recent_events, eventFilter, locationFilter);
-
+  const { agentNameMap } = useMemo(() => {
+    if (!world) {
       return {
-        agentNameMap,
-        locationNameMap,
-        visibleEvents: filtered,
+        agentNameMap: {} as Record<string, string>,
       };
-    }, [eventFilter, locationFilter, world]);
+    }
+
+    const { agentNameMap } = buildWorldNameMaps(world);
+    return {
+      agentNameMap,
+    };
+  }, [world]);
 
   if (!world) {
     return (
@@ -106,9 +89,6 @@ export function WorldCanvas({ runId }: Props) {
   const selectedLocation =
     world.locations.find((location) => location.id === highlightedLocationId) ?? world.locations[0] ?? null;
   const selectedLocationBeat = selectedLocation ? beatBadge(locationBeat(selectedLocation.id, world.recent_events, world.locations, world.run.current_tick)) : null;
-  const residentCount = world.locations.reduce((count, location) => count + location.occupants.length, 0);
-  const latestEvent = world.recent_events[0] ?? null;
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px_320px]">
@@ -119,7 +99,6 @@ export function WorldCanvas({ runId }: Props) {
             highlightedLocationId={highlightedLocationId}
             onLocationClick={(locationId) => {
               setHighlightedLocationId(locationId);
-              setLocationFilter(locationId);
             }}
             onAgentClick={(agentId) => {
               setSelectedAgentId(agentId);
@@ -134,7 +113,7 @@ export function WorldCanvas({ runId }: Props) {
           {healthMetrics && <WorldHealthPanel metrics={healthMetrics} runId={runId} world={world} />}
 
           {/* 地点详情卡片 */}
-          <div className="rounded-[28px] border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="rounded-[28px] border border-slate-200 bg-white/80 p-4 shadow-xs">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-ink">{selectedLocation?.name ?? "暂无地点"}</h2>
@@ -153,7 +132,7 @@ export function WorldCanvas({ runId }: Props) {
                 <button
                   type="button"
                   onClick={() => setIsLocationExpanded(true)}
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-moss hover:text-moss"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-xs transition hover:border-moss hover:text-moss"
                   title="放大查看地点详情"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
@@ -172,7 +151,7 @@ export function WorldCanvas({ runId }: Props) {
                       <Link
                         key={agent.id}
                         href={`/runs/${runId}/agents/${agent.id}`}
-                        className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 transition hover:border-moss hover:shadow-sm"
+                        className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 transition hover:border-moss hover:shadow-xs"
                       >
                         <AgentAvatar
                           agentId={agent.id}
@@ -249,4 +228,3 @@ export function WorldCanvas({ runId }: Props) {
     </div>
   );
 }
-

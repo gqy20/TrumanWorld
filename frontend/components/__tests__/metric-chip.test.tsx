@@ -19,6 +19,6 @@ describe('MetricChip', () => {
     const { container } = render(<MetricChip label="Test" value="10" />)
     const div = container.firstChild as HTMLElement
 
-    expect(div).toHaveClass('rounded-3xl', 'border', 'border-slate-200', 'px-4', 'py-4', 'shadow-sm')
+    expect(div).toHaveClass('rounded-3xl', 'border', 'border-slate-200', 'px-4', 'py-4', 'shadow-xs')
   })
 })

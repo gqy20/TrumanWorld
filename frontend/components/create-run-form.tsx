@@ -77,7 +77,7 @@ export function CreateRunForm() {
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base text-ink placeholder:text-slate-400 outline-none transition focus:border-moss focus:ring-2 focus:ring-moss/20"
+          className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base text-ink placeholder:text-slate-400 outline-hidden transition focus:border-moss focus:ring-2 focus:ring-moss/20"
           placeholder="输入模拟运行名称"
         />
         {/* 场景选择器 */}
@@ -87,7 +87,7 @@ export function CreateRunForm() {
             onClick={() => setScenarioType("truman_world")}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
               scenarioType === "truman_world"
-                ? "bg-moss text-white shadow-sm"
+                ? "bg-moss text-white shadow-xs"
                 : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
           >
@@ -98,7 +98,7 @@ export function CreateRunForm() {
             onClick={() => setScenarioType("open_world")}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
               scenarioType === "open_world"
-                ? "bg-moss text-white shadow-sm"
+                ? "bg-moss text-white shadow-xs"
                 : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
           >
@@ -109,7 +109,7 @@ export function CreateRunForm() {
         <select
           value={tickMinutes}
           onChange={(e) => setTickMinutes(Number(e.target.value))}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-none focus:border-moss focus:ring-2 focus:ring-moss/20"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-hidden focus:border-moss focus:ring-2 focus:ring-moss/20"
         >
           <option value={1}>1分钟/tick</option>
           <option value={5}>5分钟/tick</option>
@@ -121,7 +121,7 @@ export function CreateRunForm() {
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-xl bg-moss px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-moss/90 disabled:opacity-60 whitespace-nowrap"
+          className="inline-flex items-center gap-2 rounded-xl bg-moss px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-moss/90 disabled:opacity-60 whitespace-nowrap"
         >
           {isPending ? (
             <>

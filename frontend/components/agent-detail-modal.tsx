@@ -108,7 +108,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
         <aside className="flex w-80 shrink-0 flex-col border-r border-slate-100 bg-slate-50/50">
           <div className="flex-1 overflow-y-auto p-4">
             {/* 头像和状态 */}
-            <section className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+            <section className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
               <div className="flex items-center gap-4">
                 <AgentAvatar
                   agentId={agent.agent_id}
@@ -130,7 +130,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
             {/* 人格特质 */}
             {Object.keys(personality).length > 0 && (
-              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
                 <p className="text-[11px] uppercase tracking-[0.15em] text-moss">人格特质</p>
                 <div className="mt-3 space-y-2">
                   {Object.entries(personality).map(([key, value]) => (
@@ -157,7 +157,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
             {/* 角色配置 */}
             {Object.keys(profile).length > 0 && (
-              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
                 <p className="text-[11px] uppercase tracking-[0.15em] text-moss">角色设定</p>
                 <div className="mt-3 space-y-2">
                   {Object.entries(profile).map(([key, value]) => (
@@ -174,7 +174,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
             {/* 关系网络 */}
             {relationships.length > 0 && (
-              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
                 <p className="text-[11px] uppercase tracking-[0.15em] text-moss">
                   关系网络 ({relationships.length})
                 </p>
@@ -213,7 +213,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
         {/* 右侧：行为和记忆 */}
         <div className="flex min-h-0 flex-1 flex-col gap-4 bg-slate-50/30 p-4">
           {/* 近期事件 */}
-          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <span className="h-4 w-1 rounded-full bg-moss" />
               近期事件
@@ -256,7 +256,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
           </section>
 
           {/* 记忆 */}
-          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <span className="h-4 w-1 rounded-full bg-amber-500" />
               内部记忆栈

@@ -80,7 +80,7 @@ export function DirectorEventForm({ runId, onInjected, compact }: DirectorEventF
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           rows={compact ? 2 : 4}
-          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-moss focus:ring-2 focus:ring-moss/10"
+          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed outline-hidden transition placeholder:text-slate-400 hover:border-slate-300 focus:border-moss focus:ring-2 focus:ring-moss/10"
           placeholder="输入要广播给居民的消息..."
         />
         <input type="hidden" value={eventType} />
@@ -107,7 +107,7 @@ export function DirectorEventForm({ runId, onInjected, compact }: DirectorEventF
         <button
           type="submit"
           disabled={isPending}
-          className={`rounded-full bg-ember font-medium text-white shadow-sm transition hover:bg-ember/90 hover:shadow disabled:opacity-60 ${compact ? "px-4 py-1.5 text-xs" : "px-6 py-2.5 text-sm"}`}
+          className={`rounded-full bg-ember font-medium text-white shadow-xs transition hover:bg-ember/90 hover:shadow-sm disabled:opacity-60 ${compact ? "px-4 py-1.5 text-xs" : "px-6 py-2.5 text-sm"}`}
         >
           {isPending ? "注入中..." : "注入事件"}
         </button>

@@ -23,10 +23,10 @@ export function HomeView({ runs, error }: HomeViewProps) {
   const runningCount = runs.filter((r) => r.status === "running").length;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#f7f3e8,_#eef5f1_48%,_#f8fafc)]">
+    <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)]">
       {/* 顶部 header - 毛玻璃效果 */}
       <div
-        className={`flex-shrink-0 border-b border-white/60 bg-white/65 px-8 py-4 backdrop-blur transition-all duration-500 ${
+        className={`shrink-0 border-b border-white/60 bg-white/65 px-8 py-4 backdrop-blur-sm transition-all duration-500 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
         }`}
       >
@@ -58,7 +58,7 @@ export function HomeView({ runs, error }: HomeViewProps) {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-ink">创建世界</h2>
             </div>
-            <div className="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-sm backdrop-blur">
+            <div className="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-xs backdrop-blur-sm">
               <CreateRunForm />
             </div>
           </section>
@@ -73,7 +73,7 @@ export function HomeView({ runs, error }: HomeViewProps) {
               <div className="flex items-center gap-3">
                 <h2 className="text-base font-semibold text-ink">模拟运行</h2>
                 {hasRuns && (
-                  <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-sm">
+                  <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-xs">
                     {runs.length}
                   </span>
                 )}
@@ -84,7 +84,7 @@ export function HomeView({ runs, error }: HomeViewProps) {
               </div>
             </div>
             {error ? (
-              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800 backdrop-blur">
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800 backdrop-blur-sm">
                 {error === "network_error"
                   ? "后端当前不可达，列表展示的是空状态。"
                   : "运行列表加载失败。"}

@@ -43,7 +43,7 @@ export function EventCard({
       }}
       className={`
         relative rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
-        transition-shadow hover:shadow-sm
+        transition-shadow hover:shadow-xs
         ${isLatest ? "ring-1 ring-offset-1" : ""}
       `}
       style={{
@@ -57,7 +57,7 @@ export function EventCard({
       <div className="relative pl-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-50 text-sm shadow-sm">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-50 text-sm shadow-xs">
               {config.icon}
             </span>
             <div className="min-w-0">
@@ -76,7 +76,7 @@ export function EventCard({
               )}
             </div>
           </div>
-          <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
             <span
               className="rounded-full px-2 py-0.5 text-[10px] font-medium"
               style={{

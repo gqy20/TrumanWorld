@@ -23,9 +23,9 @@ export default async function RunPage({ params }: RunPageProps) {
           : "未能读取运行详情。";
 
     return (
-      <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(247,243,232,0.9),_rgba(238,245,241,0.94)_38%,_rgba(248,250,252,1))]">
+      <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(247,243,232,0.9),rgba(238,245,241,0.94)_38%,rgba(248,250,252,1))]">
         <div className="flex flex-1 items-center justify-center px-6">
-          <div className="max-w-md rounded-2xl border border-amber-200 bg-white/80 p-6 text-center shadow-sm">
+          <div className="max-w-md rounded-2xl border border-amber-200 bg-white/80 p-6 text-center shadow-xs">
             <h1 className="text-xl font-semibold text-ink">{title}</h1>
             <p className="mt-2 text-sm text-slate-600">{detail}</p>
           </div>

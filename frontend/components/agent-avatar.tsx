@@ -102,7 +102,7 @@ export function AgentAvatar({
 
       {/* 头像 */}
       <div
-        className="relative overflow-hidden rounded-full bg-white shadow-sm"
+        className="relative overflow-hidden rounded-full bg-white shadow-xs"
         style={{
           width: dimensions.container - 4,
           height: dimensions.container - 4,
@@ -129,7 +129,7 @@ export function AgentAvatar({
       {/* 职业小图标 */}
       {occupation && (
         <span
-          className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] shadow-sm"
+          className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] shadow-xs"
           title={occupation}
         >
           {getOccupationEmoji(occupation)}

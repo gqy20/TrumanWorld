@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Modal } from "@/components/modal";
 import { getApiBaseUrl } from "@/lib/api";
 import type { AgentSummary, TimelineEvent, TimelineResponse } from "@/lib/types";
@@ -67,10 +66,6 @@ function buildTimelineUrl(
   if (f.agentId) params.set("agent_id", f.agentId);
   if (orderDesc) params.set("order_desc", "true");
   return `${baseUrl}/runs/${runId}/timeline?${params.toString()}`;
-}
-
-function isoToDatetimeLocal(iso: string): string {
-  return iso.substring(0, 16);
 }
 
 export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
@@ -150,7 +145,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
     setPendingFilters((prev) => ({ ...prev, [key]: value }));
 
   const inputCls =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder-slate-300 focus:border-moss focus:outline-none";
+    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder-slate-300 focus:border-moss focus:outline-hidden";
   const labelCls = "text-[11px] uppercase tracking-[0.15em] text-slate-400";
 
   return (
@@ -167,7 +162,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
         <aside className="flex w-72 shrink-0 flex-col border-r border-slate-100 bg-slate-50/50">
           <div className="flex-1 overflow-y-auto p-4">
             {/* 摘要卡片 */}
-            <section className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+            <section className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
               <p className="text-[11px] uppercase tracking-[0.15em] text-moss">回放摘要</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-mist px-3 py-2.5">
@@ -195,7 +190,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
             </section>
 
             {/* 搜索过滤 */}
-            <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+            <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
               <p className="text-[11px] uppercase tracking-[0.15em] text-moss">检索过滤</p>
               <div className="mt-3 space-y-3">
                 {/* Tick 范围 - 与世界时间同步 */}
@@ -256,7 +251,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
                 <div>
                   <label className={labelCls}>事件类型</label>
                   <select
-                    className={`${inputCls} appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27%3e%3cpath d=%27M6 9l6 6 6-6%27/%3e%3c/svg%3e')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat pr-8`}
+                    className={`${inputCls} appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27%3e%3cpath d=%27M6 9l6 6 6-6%27/%3e%3c/svg%3e')] bg-size-[1rem] bg-position-[right_0.5rem_center] bg-no-repeat pr-8`}
                     value={pendingFilters.eventType}
                     onChange={(e) => updatePending("eventType", e.target.value)}
                   >
@@ -272,7 +267,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
                 <div>
                   <label className={labelCls}>角色</label>
                   <select
-                    className={`${inputCls} appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27%3e%3cpath d=%27M6 9l6 6 6-6%27/%3e%3c/svg%3e')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat pr-8`}
+                    className={`${inputCls} appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27%3e%3cpath d=%27M6 9l6 6 6-6%27/%3e%3c/svg%3e')] bg-size-[1rem] bg-position-[right_0.5rem_center] bg-no-repeat pr-8`}
                     value={pendingFilters.agentId}
                     onChange={(e) => updatePending("agentId", e.target.value)}
                   >
@@ -400,7 +395,7 @@ function EventCard({ event }: EventCardProps) {
   const locationName = event.payload.location_name;
 
   return (
-    <div className="rounded-xl border border-white bg-white p-3 shadow-sm transition hover:shadow-md">
+    <div className="rounded-xl border border-white bg-white p-3 shadow-xs transition hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="text-lg">{meta.icon}</span>

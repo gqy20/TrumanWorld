@@ -5,7 +5,6 @@ import type {
   DirectorMemory,
   RunSummary,
   TickResponse,
-  TimelineEvent,
   TimelineFilter,
   TimelineResponse,
   WorldEvent,

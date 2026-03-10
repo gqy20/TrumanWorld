@@ -89,7 +89,7 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
     setActivityModal({ isOpen: true, type, title, agents });
   };
   return (
-    <div className="rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+    <div className="rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
       {/* 标题区 */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-ink">🌍 世界健康度</h2>
@@ -518,7 +518,7 @@ function DirectorInterventionModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, runId]);
+  }, [isOpen, runId, maxMemories]);
 
   const filteredMemories = useMemo(() => {
     if (selectedFilter === "queued") {
@@ -607,7 +607,7 @@ function DirectorInterventionModal({
 
                 {/* 执行率 */}
                 <div className="border-t border-slate-100 p-4">
-                  <div className="rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="rounded-2xl bg-white p-4 shadow-xs">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500">执行率</span>
                       <span className={`font-bold ${hasIssue ? "text-amber-600" : "text-emerald-600"}`}>
@@ -733,7 +733,7 @@ function NavItem({
             ? "bg-emerald-100 text-emerald-800"
             : tone === "amber"
               ? "bg-amber-100 text-amber-800"
-              : "bg-white text-slate-700 shadow-sm"
+              : "bg-white text-slate-700 shadow-xs"
           : "bg-slate-100 text-slate-600"
       }`}>
         {count}
@@ -760,7 +760,7 @@ function DirectorMemoryCard({ memory }: { memory: DirectorMemory }) {
           };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusMeta.tone}`}>

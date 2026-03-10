@@ -60,13 +60,13 @@ export function AppShell({ children }: AppShellProps) {
     <div className="flex h-screen w-screen overflow-hidden">
       {/* 侧边栏 - 完全折叠时隐藏 */}
       <nav
-        className={`flex flex-shrink-0 flex-col border-r border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(247,249,252,0.72))] backdrop-blur-xl transition-all duration-300 ${
+        className={`flex shrink-0 flex-col border-r border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(247,249,252,0.72))] backdrop-blur-xl transition-all duration-300 ${
           isCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-[272px] opacity-100"
         }`}
       >
         <div className="flex items-center justify-between border-b border-white/60 px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-md shadow-slate-900/10">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-md shadow-slate-900/10">
               <Image src="/logo.svg" alt="Truman World Logo" width={36} height={36} priority />
             </div>
             <div className="overflow-hidden">
@@ -131,7 +131,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="border-t border-white/60 p-3">
           <div className="flex items-center justify-between rounded-xl bg-white/50 px-3 py-2">
             <span className="text-xs text-slate-400">v0.1.0</span>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">MVP</span>
+            <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">MVP</span>
           </div>
         </div>
       </nav>
@@ -141,7 +141,7 @@ export function AppShell({ children }: AppShellProps) {
         <button
           type="button"
           onClick={() => setIsCollapsed(false)}
-          className="absolute left-0 top-1/2 z-50 flex h-12 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg border border-l-0 border-slate-200 bg-white/90 text-slate-400 shadow-sm backdrop-blur transition-all hover:w-7 hover:bg-white hover:text-slate-600"
+          className="absolute left-0 top-1/2 z-50 flex h-12 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg border border-l-0 border-slate-200 bg-white/90 text-slate-400 shadow-xs backdrop-blur-sm transition-all hover:w-7 hover:bg-white hover:text-slate-600"
           title="展开侧边栏"
         >
           {/* 双竖线图标 - 参考 ChatGPT */}
@@ -182,7 +182,7 @@ function SidebarNavItemWide({
           : "gap-2.5 rounded-xl px-2.5 py-2"
       } ${
         isActive
-          ? "bg-white text-moss shadow-sm"
+          ? "bg-white text-moss shadow-xs"
           : "text-slate-600 hover:bg-white/60 hover:text-ink"
       }`}
     >
@@ -226,7 +226,7 @@ function RunListItem({ run, index, onDelete }: { run: RunSummary; index: number;
   return (
     <div className={`group flex items-center gap-2 rounded-xl px-2 py-2 transition-all ${
       isActive
-        ? "bg-white text-moss shadow-sm ring-1 ring-black/5"
+        ? "bg-white text-moss shadow-xs ring-1 ring-black/5"
         : "text-slate-600 hover:bg-white/60 hover:text-ink"
     }`}>
       <Link

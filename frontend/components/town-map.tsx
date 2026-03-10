@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type 
 import { AnimatePresence, motion } from "framer-motion";
 import { EVENT_MOVE } from "@/lib/simulation-protocol";
 import type { AgentSummary, WorldSnapshot } from "@/lib/types";
-import { calculateLocationHeat, getHeatLevel, getTimeOfDay, getTimeOfDayStyle, simDayLabel, type LocationHeatConfig } from "@/lib/world-utils";
+import { calculateLocationHeat, getHeatLevel, getTimeOfDay, getTimeOfDayStyle, type LocationHeatConfig } from "@/lib/world-utils";
 
 interface LocationNode {
   id: string;
@@ -330,7 +330,7 @@ export function TownMap({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
-      className={`flex h-full min-h-[460px] flex-col rounded-[28px] border p-4 shadow-sm backdrop-blur transition-colors duration-1000 ${
+      className={`flex h-full min-h-[460px] flex-col rounded-[28px] border p-4 shadow-xs backdrop-blur-sm transition-colors duration-1000 ${
         timeStyle.isDark
           ? "border-slate-700/50 bg-slate-800/80"
           : "border-white/70 bg-white/80"
@@ -407,7 +407,7 @@ export function TownMap({
         </div>
       </div>
       <div
-        className={`relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-gradient-to-br ${timeStyle.bgGradient} transition-all duration-1000`}
+        className={`relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-linear-to-br ${timeStyle.bgGradient} transition-all duration-1000`}
       >
         {/* 夜晚遮罩层 */}
         {timeStyle.isDark && (
@@ -539,7 +539,7 @@ export function TownMap({
                     onLocationClick?.(node.id);
                   }
                 }}
-                className="cursor-pointer outline-none focus:outline-none"
+                className="cursor-pointer outline-hidden focus:outline-hidden"
               >
                 <title>{`${node.name} · ${node.occupantCount}/${node.capacity} · ${heatLevel.label}`}</title>
                 {/* 热力发光层 - 底层发光效果 */}
@@ -782,11 +782,11 @@ export function TownMap({
         </svg>
         <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 rounded-b-[24px] px-4 py-2 text-xs text-slate-400 ${
           timeStyle.isDark
-            ? "bg-gradient-to-t from-slate-900/80 to-transparent"
-            : "bg-gradient-to-t from-white/80 to-transparent"
+            ? "bg-linear-to-t from-slate-900/80 to-transparent"
+            : "bg-linear-to-t from-white/80 to-transparent"
         }`}>
           <p>点击地点查看详情。光晕强度表示活动热度。{timeStyle.isDark && "黄色窗户表示有人。"}</p>
-          <p className={`flex-shrink-0 text-right ${timeStyle.isDark ? "text-slate-400" : "text-slate-500"}`}>
+          <p className={`shrink-0 text-right ${timeStyle.isDark ? "text-slate-400" : "text-slate-500"}`}>
             {hoveredLabel ?? "悬停、聚焦或点击后查看地点与居民摘要"}
           </p>
         </div>

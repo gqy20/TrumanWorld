@@ -168,13 +168,13 @@ export default function TimelinePage() {
     setPendingFilters((prev) => ({ ...prev, [key]: value }));
 
   const inputCls =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder-slate-300 focus:border-moss focus:outline-none";
+    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder-slate-300 focus:border-moss focus:outline-hidden";
   const labelCls = "text-[11px] uppercase tracking-[0.15em] text-slate-400";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#f7f3e8,_#eef5f1_48%,_#f8fafc)]">
+    <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)]">
       {/* 顶部标题栏 */}
-      <div className="border-b border-white/60 bg-white/65 px-8 py-5 backdrop-blur">
+      <div className="border-b border-white/60 bg-white/65 px-8 py-5 backdrop-blur-sm">
         <Link href={`/runs/${runId}/world`} className="text-xs uppercase tracking-[0.25em] text-moss hover:text-ink">
           ← 返回 World Viewer
         </Link>
@@ -185,7 +185,7 @@ export default function TimelinePage() {
             <p className="mt-1 text-sm text-slate-500">按 tick 回放事件流，适合复盘剧情节点和角色行为链路。</p>
           </div>
           {timeline?.run_info && (
-            <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-slate-600 shadow-sm">
+            <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-slate-600 shadow-xs">
               <span className="h-2 w-2 rounded-full bg-moss/60" />
               世界时间 {simDayLabel(timeline.run_info.current_tick, timeline.run_info.tick_minutes)} {timeline.run_info.current_world_time_iso.substring(11, 16)}
               <span className="text-slate-400">·</span>
@@ -200,7 +200,7 @@ export default function TimelinePage() {
           {/* 左侧栏 */}
           <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:pr-1">
             {/* 摘要卡片 */}
-            <section className="rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <section className="rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-xs backdrop-blur-sm">
               <p className="text-xs uppercase tracking-[0.22em] text-moss">回放摘要</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-2xl bg-mist px-3 py-3">
@@ -233,7 +233,7 @@ export default function TimelinePage() {
             </section>
 
             {/* 搜索过滤卡片 */}
-            <section className="rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <section className="rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-xs backdrop-blur-sm">
               <p className="text-xs uppercase tracking-[0.22em] text-moss">检索过滤</p>
               <div className="mt-4 space-y-4">
 
@@ -338,7 +338,7 @@ export default function TimelinePage() {
                   <button
                     onClick={handleSearch}
                     disabled={loading}
-                    className="flex-1 rounded-xl bg-moss px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-moss/90 disabled:opacity-50"
+                    className="flex-1 rounded-xl bg-moss px-3 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-moss/90 disabled:opacity-50"
                   >
                     {loading ? "加载中…" : "检索"}
                   </button>
@@ -354,7 +354,7 @@ export default function TimelinePage() {
             </section>
 
             {/* 阅读提示 */}
-            <section className="rounded-[28px] border border-slate-200 bg-white/80 p-5 shadow-sm">
+            <section className="rounded-[28px] border border-slate-200 bg-white/80 p-5 shadow-xs">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-400">阅读提示</p>
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                 <p>先看最近 tick，再向下回溯，能更快定位一段行为链路是怎么发生的。</p>
@@ -365,7 +365,7 @@ export default function TimelinePage() {
           </aside>
 
           {/* 右侧主内容 */}
-          <section className="rounded-[32px] border border-white/70 bg-white/78 p-5 shadow-sm backdrop-blur">
+          <section className="rounded-[32px] border border-white/70 bg-white/78 p-5 shadow-xs backdrop-blur-sm">
             {loading ? (
               <div className="flex h-40 items-center justify-center text-sm text-slate-400">加载中…</div>
             ) : error ? (
@@ -391,7 +391,7 @@ export default function TimelinePage() {
                     const simDayStr = simDayLabel(tickNo, tickMinutes);
 
                     return (
-                      <div key={tick} className="rounded-[28px] border border-slate-200 bg-white/85 p-4 shadow-sm">
+                      <div key={tick} className="rounded-[28px] border border-slate-200 bg-white/85 p-4 shadow-xs">
                         <div className="mb-4 flex items-center gap-3 rounded-full bg-white/90 px-3 py-2">
                           <span className="rounded-full bg-moss/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-moss">
                             Tick {tick}
@@ -409,11 +409,11 @@ export default function TimelinePage() {
                             return (
                               <article
                                 key={event.id}
-                                className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm"
+                                className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-xs"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex items-start gap-3">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-lg shadow-sm">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-lg shadow-xs">
                                       {meta.icon}
                                     </span>
                                     <div>

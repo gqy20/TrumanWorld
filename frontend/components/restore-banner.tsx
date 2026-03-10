@@ -44,7 +44,7 @@ export function RestoreBanner({ count }: RestoreBannerProps) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="flex-shrink-0 text-amber-500"
+          className="shrink-0 text-amber-500"
         >
           <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
           <path d="M3 3v5h5" />
@@ -58,7 +58,7 @@ export function RestoreBanner({ count }: RestoreBannerProps) {
           </span>
         </p>
       </div>
-      <div className="flex flex-shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
         <button
           type="button"
           onClick={() => setDismissed(true)}
@@ -71,7 +71,7 @@ export function RestoreBanner({ count }: RestoreBannerProps) {
           type="button"
           onClick={handleRestore}
           disabled={isPending || isRestoring}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white shadow-xs transition hover:bg-amber-600 disabled:opacity-50"
         >
           {isRestoring ? (
             <>

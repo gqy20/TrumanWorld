@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import type { WorldSnapshot, WorldEvent } from "@/lib/types";
 import { EventCard } from "@/components/event-card";
 import {
@@ -103,7 +103,7 @@ export function IntelligenceStreamModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg" showCloseButton={false}>
         {/* Header */}
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
+        <div className="border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-ink">世界情报流</h2>

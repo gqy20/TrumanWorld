@@ -37,7 +37,7 @@ export function StoryTimeline({ chapters, onExpand }: StoryTimelineProps) {
 
   if (chapters.length === 0) {
     return (
-      <div className="flex h-full flex-col rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+      <div className="flex h-full flex-col rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
         <h2 className="text-lg font-semibold text-ink">📖 今日故事线</h2>
         <p className="mt-4 text-sm text-slate-500">暂无故事数据</p>
       </div>
@@ -45,7 +45,7 @@ export function StoryTimeline({ chapters, onExpand }: StoryTimelineProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
       <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold text-ink">📖 今日故事线</h2>
         <div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ export function StoryTimeline({ chapters, onExpand }: StoryTimelineProps) {
             <button
               type="button"
               onClick={onExpand}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-moss hover:text-moss"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-xs transition hover:border-moss hover:text-moss"
               title="放大查看完整时间线"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
@@ -270,7 +270,7 @@ function CompactEventItem({ event, index }: CompactEventItemProps) {
           </p>
         )}
       </div>
-      <span className="text-[10px] text-slate-400 flex-shrink-0">{event.time}</span>
+      <span className="text-[10px] text-slate-400 shrink-0">{event.time}</span>
     </motion.div>
   );
 }
@@ -307,7 +307,7 @@ export function StoryTimelineCompact({
         </span>
       </div>
       <div className="mt-2 space-y-2">
-        {allEvents.map((event, idx) => (
+        {allEvents.map((event) => (
           <div key={event.id} className="flex items-center gap-2 text-sm">
             <span>{event.icon}</span>
             <span className="flex-1 truncate text-slate-700">

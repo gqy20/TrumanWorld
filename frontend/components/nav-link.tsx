@@ -12,7 +12,7 @@ export function NavLink({ href, eyebrow, title, children }: NavLinkProps) {
   return (
     <Link
       href={href}
-      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-moss/40 hover:shadow-md"
+      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-xs transition hover:-translate-y-0.5 hover:border-moss/40 hover:shadow-md"
     >
       <div className="text-xs uppercase tracking-[0.25em] text-moss">{eyebrow}</div>
       <h2 className="mt-3 text-2xl font-semibold text-ink">{title}</h2>
