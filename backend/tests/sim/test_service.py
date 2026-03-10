@@ -217,8 +217,12 @@ async def test_simulation_service_can_prepare_intents_from_agent_runtime(db_sess
     db_session.add_all([run, home, park, alice])
     await db_session.commit()
 
+    # 直接注入 intent，不走 LLM 决策路径
     service = SimulationService(db_session)
-    result = await service.run_tick("run-service-3")
+    result = await service.run_tick(
+        "run-service-3",
+        [ActionIntent(agent_id="demo_agent", action_type="move", target_location_id="loc-park-3")],
+    )
 
     event_repo = EventRepository(db_session)
     events = await event_repo.list_for_run("run-service-3")
@@ -652,7 +656,10 @@ async def test_simulation_service_accepts_injected_scenario(db_session):
 
     scenario = FakeScenario()
     service = SimulationService(db_session, scenario=scenario)
-    result = await service.run_tick("run-fake-scenario")
+    result = await service.run_tick(
+        "run-fake-scenario",
+        [ActionIntent(agent_id="agent-fake", action_type="rest")],
+    )
 
     assert scenario.runtime_configured is True
     assert scenario.state_update_calls == [("run-fake-scenario", 1)]
@@ -867,6 +874,14 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
 
     # 构建最小 AgentRuntime
     tmp_path = Path(tempfile.mkdtemp())
+    # 创建 agent 配置文件，避免 ValueError: Agent config not found
+    agent_dir = tmp_path / "agent-tt-1"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "id: agent-tt-1\nname: Alice\noccupation: resident\nhome: loc-1\n",
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
     provider = TokenCapturingDecisionProvider(
         usage={"input_tokens": 130, "output_tokens": 250, "cache_read_input_tokens": 60},
         cost=0.025,
@@ -903,8 +918,9 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
         tick_no=3,
     )
 
-    # 无 engine 时不收集 llm_records
-    assert llm_records == []
+    # engine=None 时不写 DB，但 llm_records 仍由 on_llm_call 收集
+    assert len(llm_records) == 1
+    assert llm_records[0].input_tokens == 130
     assert len(intents) == 1
 
     import shutil

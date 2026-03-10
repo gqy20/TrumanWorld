@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from claude_agent_sdk.types import McpSdkServerConfig
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from app.agent.system_prompt import build_system_prompt
 from app.infra.logging import get_logger
@@ -34,7 +34,7 @@ DECISION_OUTPUT_SCHEMA = {
         "target_location_id": {"type": ["string", "null"]},
         "target_agent_id": {"type": ["string", "null"]},
         "message": {"type": ["string", "null"], "description": "对话消息内容（仅 talk 类型需要)"},
-        "payload": {"type": "object"},
+        "payload": {"type": ["object", "null"]},
     },
     "required": ["action_type"],
     "additionalProperties": False,
@@ -47,6 +47,13 @@ class RuntimeDecision(BaseModel):
     target_agent_id: str | None = None
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_payload(cls, values: Any) -> Any:
+        if isinstance(values, dict) and values.get("payload") is None:
+            values["payload"] = {}
+        return values
 
 
 class AgentDecisionProvider(ABC):
@@ -129,6 +136,9 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
 
 class ClaudeSDKDecisionProvider(AgentDecisionProvider):
     """Claude SDK 决策提供者，支持连接池复用和 MCP memory tools。"""
+
+    #: 最大重试次数（不含首次尝试），可在运行时覆盖
+    max_retries: int = 2
 
     def __init__(
         self,
@@ -307,9 +317,10 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         invocation: RuntimeInvocation,
         runtime_ctx: "RuntimeContext | None" = None,
     ) -> RuntimeDecision:
-        """使用 query() 进行决策（原有逻辑)
+        """使用 query() 进行决策，支持重试。
 
-        支持 resume 参数恢复历史对话。
+        可重试异常：RuntimeError、ValueError（LLM 内容/解析错误）。
+        不可重试：CancelledError、cancel scope 错误（SDK 已知问题，静默处理）。
         """
         if shutil.which("claude") is None:
             msg = "Claude CLI is not available in the current environment"
@@ -317,13 +328,11 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
         options = self._build_sdk_options(invocation, runtime_ctx=runtime_ctx)
 
-        # 日志记录 resume 状态
         if invocation.session_id:
             logger.debug(
                 f"Resuming session {invocation.session_id} for agent {invocation.agent_id}"
             )
 
-        # Build prompt that asks for JSON response
         json_schema = json.dumps(DECISION_OUTPUT_SCHEMA, indent=2)
         full_prompt = f"""{invocation.prompt}
 
@@ -332,18 +341,48 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
     返回 JSON，不要有 markdown 代码块标记. """
 
-        try:
-            return await self._query_internal(invocation, full_prompt, options, runtime_ctx)
-        except asyncio.CancelledError:
-            # 任务被取消，这是正常的(如 scheduler 停止时),不需要抛出异常
-            logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
-            return RuntimeDecision(action_type="rest")
-        except RuntimeError as e:
-            # Handle claude_agent_sdk anyio cancel scope errors
-            if "cancel scope" in str(e).lower() or "different task" in str(e).lower():
-                logger.debug(f"Claude SDK cancel scope error for agent {invocation.agent_id}: {e}")
+        max_attempts = self.max_retries + 1
+        last_exc: Exception | None = None
+
+        for attempt in range(max_attempts):
+            try:
+                return await self._query_internal(invocation, full_prompt, options, runtime_ctx)
+            except asyncio.CancelledError:
+                # 任务被取消，属于正常情况（如 scheduler 停止），不重试，静默返回 rest
+                logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
                 return RuntimeDecision(action_type="rest")
-            raise
+            except RuntimeError as e:
+                # cancel scope 错误是 SDK 已知问题，不重试，静默返回 rest
+                if "cancel scope" in str(e).lower() or "different task" in str(e).lower():
+                    logger.debug(
+                        f"Claude SDK cancel scope error for agent {invocation.agent_id}: {e}"
+                    )
+                    return RuntimeDecision(action_type="rest")
+                last_exc = e
+                if attempt < max_attempts - 1:
+                    logger.warning(
+                        f"Claude SDK decision failed for agent {invocation.agent_id} "
+                        f"(attempt {attempt + 1}/{max_attempts}): {e}. Retrying..."
+                    )
+                else:
+                    logger.warning(
+                        f"Claude SDK decision exhausted all {max_attempts} attempts "
+                        f"for agent {invocation.agent_id}: {e}"
+                    )
+            except ValueError as e:
+                last_exc = e
+                if attempt < max_attempts - 1:
+                    logger.warning(
+                        f"Claude SDK JSON parse failed for agent {invocation.agent_id} "
+                        f"(attempt {attempt + 1}/{max_attempts}): {e}. Retrying..."
+                    )
+                else:
+                    logger.warning(
+                        f"Claude SDK JSON parse exhausted all {max_attempts} attempts "
+                        f"for agent {invocation.agent_id}: {e}"
+                    )
+
+        raise last_exc  # type: ignore[misc]
 
     async def _query_internal(
         self,
