@@ -2,6 +2,7 @@ id: bob
 name: Bob
 world_role: cast
 occupation: resident
+work_description: "无固定工作，日常活动比较自由"
 home: bachelor_apt
 personality:
   agreeableness: 0.6

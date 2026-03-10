@@ -20,7 +20,7 @@ from app.scenario.truman_world.director_config import (
     DirectorConfig,
     load_director_config,
 )
-from app.scenario.truman_world.types import get_agent_config_id, get_world_role
+from app.scenario.types import get_agent_config_id, get_world_role
 
 if TYPE_CHECKING:
     from app.store.models import Agent

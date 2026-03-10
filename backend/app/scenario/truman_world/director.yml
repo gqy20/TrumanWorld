@@ -63,7 +63,7 @@ strategies:
     name: "温和关注"
     description: "当怀疑度较高时，通过熟人互动稳定场面"
     condition:
-      type: "threshold"
+      type: "eq"
       metric: "suspicion_level"
       operator: "eq"
       value: "high"
@@ -78,7 +78,7 @@ strategies:
     name: "保持自然"
     description: "当连续性风险较高时，维持场景自然感"
     condition:
-      type: "threshold"
+      type: "in"
       metric: "continuity_risk"
       operator: "in"
       value: ["critical", "elevated"]

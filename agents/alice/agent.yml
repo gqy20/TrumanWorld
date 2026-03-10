@@ -2,6 +2,7 @@ id: alice
 name: Alice
 world_role: cast
 occupation: barista
+work_description: "咖啡师，制作咖啡、服务顾客"
 workplace: corner_cafe
 work_schedule:
   start_hour: 7

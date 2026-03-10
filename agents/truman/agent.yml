@@ -2,6 +2,7 @@ id: truman
 name: Truman
 world_role: truman
 occupation: insurance clerk
+work_description: "审核保险理赔、整理客户档案、处理保单变更"
 workplace: harbor_office
 work_schedule:
   start_hour: 9

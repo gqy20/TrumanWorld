@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from app.agent.context_builder import ScenarioContextHooks
 from app.scenario.base import Scenario
+from app.scenario.types import AgentProfile, ScenarioGuidance
 from app.scenario.truman_world.rules import (
     build_role_context,
     build_scene_guidance,
@@ -81,9 +82,25 @@ class TrumanWorldScenario(Scenario):
         nearby_agent_id: str | None,
         world_role: str | None = None,
         current_status: dict | None = None,
-        truman_suspicion_score: float = 0.0,
-        director_guidance: DirectorGuidance | None = None,
+        scenario_state: dict | None = None,
+        scenario_guidance: ScenarioGuidance | None = None,
     ):
+        # Extract truman-specific fields from scenario_state for backward compat
+        truman_suspicion_score = float(
+            (scenario_state or {}).get("truman_suspicion_score", 0.0) or 0.0
+        )
+        # scenario_guidance carries generic keys; DirectorGuidance uses director_ prefixed keys
+        director_guidance: DirectorGuidance | None = None
+        if scenario_guidance:
+            from app.scenario.truman_world.types import build_director_guidance
+            director_guidance = build_director_guidance(
+                scene_goal=scenario_guidance.get("scene_goal"),
+                priority=scenario_guidance.get("priority"),
+                message_hint=scenario_guidance.get("message_hint"),
+                target_agent_id=scenario_guidance.get("target_agent_id"),
+                location_hint=scenario_guidance.get("location_hint"),
+                reason=scenario_guidance.get("reason"),
+            )
         return self.coordinator.fallback_intent(
             agent_id=agent_id,
             current_location_id=current_location_id,

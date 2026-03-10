@@ -1,3 +1,5 @@
+import pytest
+
 from app.director.observer import DirectorAssessment, SuspicionTrend
 from app.director.planner import DirectorPlanner
 from app.protocol.simulation import (
@@ -35,7 +37,8 @@ def _make_truman_agent(suspicion_score: float = 0.0) -> Agent:
     )
 
 
-def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
+@pytest.mark.asyncio
+async def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
     planner = DirectorPlanner()
     agents = [
         _make_cast_agent("cast-spouse", "Meryl", "spouse"),
@@ -52,7 +55,7 @@ def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
         notes=["Truman 的怀疑度已经明显升高。"],
     )
 
-    plan = planner.build_plan(assessment=assessment, agents=agents)
+    plan = await planner.build_plan(assessment=assessment, agents=agents)
 
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
@@ -61,7 +64,8 @@ def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
     assert plan.target_agent_id == "truman-1"
 
 
-def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
+@pytest.mark.asyncio
+async def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
     """测试怀疑度快速上升时触发预防性安抚"""
     planner = DirectorPlanner()
     agents = [
@@ -88,7 +92,7 @@ def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
         notes=[],
     )
 
-    plan = planner.build_plan(assessment=assessment, agents=agents)
+    plan = await planner.build_plan(assessment=assessment, agents=agents)
 
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_PREEMPTIVE_COMFORT
@@ -96,7 +100,8 @@ def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
     assert "不安" in plan.message_hint or "转移注意力" in plan.message_hint
 
 
-def test_director_planner_builds_break_isolation_for_lonely_truman():
+@pytest.mark.asyncio
+async def test_director_planner_builds_break_isolation_for_lonely_truman():
     """测试 Truman 长时间独处时触发打破隔离"""
     planner = DirectorPlanner()
     agents = [
@@ -115,14 +120,15 @@ def test_director_planner_builds_break_isolation_for_lonely_truman():
         notes=[],
     )
 
-    plan = planner.build_plan(assessment=assessment, agents=agents)
+    plan = await planner.build_plan(assessment=assessment, agents=agents)
 
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_BREAK_ISOLATION
     assert plan.cooldown_ticks == 4  # 隔离场景冷却时间较长
 
 
-def test_director_planner_builds_rejection_recovery_for_multiple_rejections():
+@pytest.mark.asyncio
+async def test_director_planner_builds_rejection_recovery_for_multiple_rejections():
     """测试连续被拒绝时触发恢复计划"""
     planner = DirectorPlanner()
     agents = [
@@ -141,7 +147,7 @@ def test_director_planner_builds_rejection_recovery_for_multiple_rejections():
         notes=[],
     )
 
-    plan = planner.build_plan(assessment=assessment, agents=agents)
+    plan = await planner.build_plan(assessment=assessment, agents=agents)
 
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_REJECTION_RECOVERY
@@ -149,7 +155,8 @@ def test_director_planner_builds_rejection_recovery_for_multiple_rejections():
     assert "拒绝" in plan.reason or "拒绝" in plan.message_hint
 
 
-def test_director_planner_avoids_duplicate_interventions():
+@pytest.mark.asyncio
+async def test_director_planner_avoids_duplicate_interventions():
     """测试避免重复干预"""
     planner = DirectorPlanner()
     agents = [
@@ -168,7 +175,7 @@ def test_director_planner_avoids_duplicate_interventions():
     )
 
     # 第一次应该生成计划
-    plan1 = planner.build_plan(
+    plan1 = await planner.build_plan(
         assessment=assessment,
         agents=agents,
         recent_intervention_goals=[],
@@ -176,7 +183,7 @@ def test_director_planner_avoids_duplicate_interventions():
     assert plan1 is not None
 
     # 第二次，如果最近已经有相同的干预，应该返回 None 或其他计划
-    plan2 = planner.build_plan(
+    plan2 = await planner.build_plan(
         assessment=assessment,
         agents=agents,
         recent_intervention_goals=[DIRECTOR_SCENE_SOFT_CHECK_IN],
@@ -185,7 +192,8 @@ def test_director_planner_avoids_duplicate_interventions():
     assert plan2 is None
 
 
-def test_director_planner_prioritizes_rapid_rise_over_high_suspicion():
+@pytest.mark.asyncio
+async def test_director_planner_prioritizes_rapid_rise_over_high_suspicion():
     """测试快速上升优先于高怀疑度"""
     planner = DirectorPlanner()
     agents = [
@@ -212,7 +220,7 @@ def test_director_planner_prioritizes_rapid_rise_over_high_suspicion():
         notes=[],
     )
 
-    plan = planner.build_plan(assessment=assessment, agents=agents)
+    plan = await planner.build_plan(assessment=assessment, agents=agents)
 
     # 快速上升应该优先
     assert plan is not None

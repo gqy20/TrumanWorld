@@ -2,6 +2,7 @@ id: neighbor
 name: Lauren
 world_role: cast
 occupation: shop regular
+work_description: "自由职业者，常在咖啡馆活动"
 workplace: null  # 自由职业，无固定工作地点
 home: bachelor_apt
 personality:

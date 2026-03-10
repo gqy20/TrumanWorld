@@ -24,11 +24,13 @@ from app.infra.settings import get_settings
 from app.scenario.base import Scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
 from app.scenario.truman_world.scenario import TrumanWorldScenario
+from app.scenario.types import (
+    get_agent_config_id,
+    get_world_role,
+)
 from app.scenario.truman_world.types import (
     DirectorGuidance,
-    get_agent_config_id,
     get_director_guidance,
-    get_world_role,
 )
 from app.sim.action_resolver import ActionIntent
 from app.sim.agent_snapshot_builder import build_agent_recent_events
@@ -38,6 +40,7 @@ from app.sim.persistence import PersistenceManager
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_truman_suspicion_from_agent_data,
+    inject_profile_fields_into_context,
 )
 from app.sim.runner import SimulationRunner, TickResult
 from app.sim.types import AgentDecisionSnapshot
@@ -429,21 +432,23 @@ class SimulationService:
         director_guidance = get_director_guidance(profile)
 
         try:
+            world_ctx = build_agent_world_context(
+                world=world,
+                current_goal=current_goal,
+                current_location_id=current_location_id,
+                home_location_id=home_location_id,
+                nearby_agent_id=nearby_agent_id,
+                current_status=current_status,
+                truman_suspicion_score=truman_suspicion_score,
+                world_role=get_world_role(profile),
+                director_guidance=director_guidance,
+                workplace_location_id=workplace_location_id,
+                current_plan=current_plan,
+            )
+            inject_profile_fields_into_context(world_ctx, profile)
             intent = await self.agent_runtime.react(
                 runtime_agent_id,
-                world=build_agent_world_context(
-                    world=world,
-                    current_goal=current_goal,
-                    current_location_id=current_location_id,
-                    home_location_id=home_location_id,
-                    nearby_agent_id=nearby_agent_id,
-                    current_status=current_status,
-                    truman_suspicion_score=truman_suspicion_score,
-                    world_role=get_world_role(profile),
-                    director_guidance=director_guidance,
-                    workplace_location_id=workplace_location_id,
-                    current_plan=current_plan,
-                ),
+                world=world_ctx,
                 memory={"recent": []},
                 event={},
                 recent_events=recent_events,
@@ -581,6 +586,22 @@ class SimulationService:
         workplace_location_id: str | None = None,
         world: WorldState | None = None,
     ) -> ActionIntent:
+        # Build scenario_state and scenario_guidance from legacy params
+        scenario_state: dict | None = None
+        if truman_suspicion_score != 0.0:
+            scenario_state = {"truman_suspicion_score": truman_suspicion_score}
+        # Convert DirectorGuidance (director_*) to ScenarioGuidance (generic keys)
+        scenario_guidance = None
+        if director_guidance:
+            from app.scenario.types import ScenarioGuidance
+            scenario_guidance = ScenarioGuidance(
+                scene_goal=director_guidance.get("director_scene_goal"),
+                priority=director_guidance.get("director_priority"),
+                message_hint=director_guidance.get("director_message_hint"),
+                target_agent_id=director_guidance.get("director_target_agent_id"),
+                location_hint=director_guidance.get("director_location_hint"),
+                reason=director_guidance.get("director_reason"),
+            )
         scenario_intent = self._scenario.fallback_intent(
             agent_id=agent_id,
             current_location_id=current_location_id,
@@ -588,8 +609,8 @@ class SimulationService:
             nearby_agent_id=nearby_agent_id,
             world_role=world_role,
             current_status=current_status,
-            truman_suspicion_score=truman_suspicion_score,
-            director_guidance=director_guidance,
+            scenario_state=scenario_state,
+            scenario_guidance=scenario_guidance,
         )
         if scenario_intent is not None:
             return scenario_intent

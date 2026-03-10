@@ -2,6 +2,7 @@ id: spouse
 name: Meryl
 world_role: cast
 occupation: hospital staff
+work_description: "医院工作人员，协助病房巡查和病历整理"
 workplace: hospital
 work_schedule:
   type: shift  # 轮班制

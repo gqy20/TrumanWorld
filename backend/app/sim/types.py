@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
-from app.scenario.truman_world.types import DirectorGuidance, WorldRole
-from app.scenario.truman_world.types import ScenarioAgentProfile
+from app.scenario.types import AgentProfile, get_world_role, get_agent_config_id
+from app.scenario.truman_world.types import DirectorGuidance
+
+# Re-export for backward compatibility
+ScenarioAgentProfile = AgentProfile
+WorldRole = str
 
 
 @dataclass
@@ -13,7 +17,7 @@ class AgentDecisionSnapshot:
     current_goal: str | None
     current_location_id: str
     home_location_id: str | None
-    profile: ScenarioAgentProfile
+    profile: AgentProfile
     recent_events: list[dict[str, Any]]
     # 预加载的记忆缓存，用于 MCP 工具查询（避免在 anyio task 中创建 DB session）
     memory_cache: dict[str, list[dict[str, Any]]] | None = None
@@ -38,7 +42,7 @@ class RuntimeWorldContext(DirectorGuidance, total=False):
     nearby_agent: NearbyAgentContext
     self_status: dict[str, Any]
     truman_suspicion_score: float
-    world_role: WorldRole
+    world_role: str
     tick_no: int
     tick_minutes: int
     world_time: str

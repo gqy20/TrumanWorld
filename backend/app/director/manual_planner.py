@@ -15,7 +15,7 @@ from app.protocol.simulation import (
     DIRECTOR_SCENE_SHUTDOWN,
     DIRECTOR_SCENE_WEATHER_CHANGE,
 )
-from app.scenario.truman_world.types import get_world_role
+from app.scenario.types import get_world_role
 from app.store.models import Agent
 
 

@@ -8,7 +8,7 @@ from app.agent.runtime import AgentRuntime
 from app.infra.db import async_engine
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
-from app.scenario.truman_world.types import get_agent_config_id
+from app.scenario.types import get_agent_config_id
 from app.sim.scheduler import get_scheduler
 from app.sim.service import SimulationService
 from app.store.models import SimulationRun

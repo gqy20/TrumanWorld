@@ -9,7 +9,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from app.scenario.truman_world.types import DirectorGuidance, get_world_role
+from app.scenario.types import get_world_role
+from app.scenario.truman_world.types import DirectorGuidance
 from app.sim.event_utils import format_event_for_context
 from app.sim.runtime_context_utils import (
     build_agent_world_context,

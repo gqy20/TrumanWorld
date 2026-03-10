@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
-
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -72,10 +70,11 @@ class AgentConfig(BaseModel):
 
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
-    world_role: Literal["truman", "cast", "npc"] = "cast"
+    world_role: str = "cast"  # scenario-defined role; not restricted to a fixed enum
     occupation: str = "resident"
     workplace: str | None = None
     work_schedule: WorkSchedule | None = None
+    work_description: str | None = None  # inline work description (replaces WORK_DESCRIPTIONS dict)
     home: str
     personality: dict = Field(default_factory=dict)
     capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)

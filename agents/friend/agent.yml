@@ -2,6 +2,7 @@ id: friend
 name: Marlon
 world_role: cast
 occupation: office coworker
+work_description: "与 Truman 同一办公室，负责保单录入和客户咨询"
 workplace: harbor_office
 work_schedule:
   start_hour: 9

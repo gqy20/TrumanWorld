@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.protocol.simulation import DIRECTOR_EVENT_PREFIX
-from app.scenario.truman_world.types import get_world_role
+from app.scenario.types import get_world_role
 from app.store.models import Agent, Event
 
 

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.scenario.truman_world.types import DirectorGuidance, get_world_role
+from app.scenario.types import get_world_role
+from app.scenario.truman_world.types import DirectorGuidance
 from app.sim.types import AgentDecisionSnapshot, RuntimeWorldContext
 from app.sim.world_queries import get_agent, get_location, get_location_occupants
 
@@ -75,6 +76,22 @@ def build_agent_world_context(
         context.update(_normalize_director_guidance(director_guidance))
 
     return context
+
+
+def inject_profile_fields_into_context(
+    context: dict,
+    profile: dict | None,
+) -> None:
+    """Inject selected agent profile fields into the world context dict.
+
+    Currently injects: schedule_type (for heuristics shift detection).
+    Called by service after build_agent_world_context.
+    """
+    if not profile:
+        return
+    schedule_type = profile.get("schedule_type")
+    if schedule_type:
+        context["schedule_type"] = schedule_type
 
 
 def extract_truman_suspicion_from_agent_data(

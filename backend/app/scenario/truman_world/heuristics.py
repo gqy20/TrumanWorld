@@ -42,9 +42,10 @@ def build_truman_world_decision(
                 action_type=ACTION_MOVE, target_location_id=str(home_location_id)
             )
 
-    # Handle shift workers (e.g., Meryl at hospital)
-    # If agent_id contains "spouse", it's Meryl who works shift schedule
-    if agent_id and "spouse" in agent_id.lower():
+    # Handle shift workers: read schedule_type from world context (injected from agent profile)
+    # This replaces the brittle "spouse" in agent_id string match.
+    schedule_type = world.get("schedule_type")
+    if schedule_type == "shift":
         shift_decision = _handle_shift_work(
             world=world,
             current_location_id=current_location_id,

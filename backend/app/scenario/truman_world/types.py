@@ -1,8 +1,42 @@
+"""TrumanWorld-specific types.
+
+Generic types (AgentProfile, ScenarioGuidance, get_world_role, get_agent_config_id,
+build_agent_profile, merge_agent_profile) now live in app.scenario.types.
+This module keeps TrumanWorld-private extensions and re-exports the generics
+under their old names for backward compatibility within this package.
+"""
+
 from __future__ import annotations
 
-from typing import Any, Literal, Mapping, TypedDict, cast
+from typing import Any, Literal, Mapping, TypedDict
 
-WorldRole = Literal["truman", "cast", "npc"]
+# ---------------------------------------------------------------------------
+# Re-export generic types under legacy names used inside truman_world/
+# ---------------------------------------------------------------------------
+from app.scenario.types import (
+    AgentProfile as ScenarioAgentProfile,
+    WorldRole,
+    get_world_role,
+    get_agent_config_id,
+    build_agent_profile as build_scenario_agent_profile,
+)
+
+__all__ = [
+    "DirectorGuidance",
+    "ScenarioAgentProfile",
+    "WorldRole",
+    "get_world_role",
+    "get_agent_config_id",
+    "build_scenario_agent_profile",
+    "merge_scenario_agent_profile",
+    "build_director_guidance",
+    "get_director_guidance",
+]
+
+
+# ---------------------------------------------------------------------------
+# TrumanWorld-private: Director guidance
+# ---------------------------------------------------------------------------
 
 
 class DirectorGuidance(TypedDict, total=False):
@@ -12,37 +46,6 @@ class DirectorGuidance(TypedDict, total=False):
     director_target_agent_id: str
     director_location_hint: str
     director_reason: str
-
-
-class ScenarioAgentProfile(TypedDict, total=False):
-    bio: str
-    agent_config_id: str
-    world_role: WorldRole
-    workplace: str
-    workplace_location_id: str
-    work_description: str
-    director_scene_goal: str
-    director_priority: str
-    director_message_hint: str
-    director_target_agent_id: str
-    director_location_hint: str
-    director_reason: str
-
-
-def get_world_role(profile: Mapping[str, Any] | None) -> WorldRole | None:
-    if not profile:
-        return None
-    world_role = profile.get("world_role")
-    if world_role in {"truman", "cast", "npc"}:
-        return cast(WorldRole, world_role)
-    return None
-
-
-def get_agent_config_id(profile: Mapping[str, Any] | None) -> str | None:
-    if not profile:
-        return None
-    agent_config_id = profile.get("agent_config_id")
-    return agent_config_id if isinstance(agent_config_id, str) and agent_config_id else None
 
 
 def build_director_guidance(
@@ -72,35 +75,6 @@ def build_director_guidance(
     return guidance
 
 
-def build_scenario_agent_profile(
-    *,
-    agent_config_id: str | None = None,
-    world_role: WorldRole | None = None,
-    bio: str | None = None,
-    workplace: str | None = None,
-    workplace_location_id: str | None = None,
-    work_description: str | None = None,
-    guidance: DirectorGuidance | None = None,
-    extras: Mapping[str, Any] | None = None,
-) -> ScenarioAgentProfile:
-    profile = cast(ScenarioAgentProfile, dict(extras or {}))
-    if bio is not None:
-        profile["bio"] = bio
-    if agent_config_id is not None:
-        profile["agent_config_id"] = agent_config_id
-    if world_role is not None:
-        profile["world_role"] = world_role
-    if workplace is not None:
-        profile["workplace"] = workplace
-    if workplace_location_id is not None:
-        profile["workplace_location_id"] = workplace_location_id
-    if work_description is not None:
-        profile["work_description"] = work_description
-    if guidance:
-        profile.update(guidance)
-    return profile
-
-
 def get_director_guidance(profile: Mapping[str, Any] | None) -> DirectorGuidance:
     if not profile:
         return {}
@@ -117,8 +91,14 @@ def get_director_guidance(profile: Mapping[str, Any] | None) -> DirectorGuidance
 def merge_scenario_agent_profile(
     profile: Mapping[str, Any] | None,
     guidance: DirectorGuidance | None = None,
-) -> ScenarioAgentProfile:
-    return build_scenario_agent_profile(guidance=guidance, extras=profile)
+) -> "ScenarioAgentProfile":
+    """Merge a profile dict with optional TrumanWorld DirectorGuidance."""
+    from typing import cast as _cast
+    from app.scenario.types import AgentProfile
+    base = _cast(AgentProfile, dict(profile or {}))
+    if guidance:
+        base.update(guidance)
+    return base
 
 
 def _as_optional_str(value: Any) -> str | None:

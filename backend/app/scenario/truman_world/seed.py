@@ -43,16 +43,6 @@ def _get_location_id_map() -> dict:
 def _get_occupation_names() -> dict[str, str]:
     return _get_world_config().get("occupation_names", {})
 
-# 工作描述映射
-WORK_DESCRIPTIONS: dict[str, str] = {
-    "truman": "审核保险理赔、整理客户档案、处理保单变更",
-    "spouse": "医院工作人员，协助病房巡查和病历整理",
-    "friend": "与 Truman 同一办公室，负责保单录入和客户咨询",
-    "alice": "咖啡师，制作咖啡、服务顾客",
-    "neighbor": "自由职业者，常在咖啡馆活动",
-    "bob": "无固定工作，日常活动比较自由",
-}
-
 
 class TrumanWorldSeedBuilder:
     """Builds the default Truman-world demo seed from agent configuration files."""
@@ -85,10 +75,6 @@ class TrumanWorldSeedBuilder:
     def _get_occupation_name(self, occupation: str) -> str:
         """Get localized occupation name."""
         return _get_occupation_names().get(occupation, occupation)
-
-    def _get_work_description(self, agent_id: str) -> str:
-        """Get work description for an agent."""
-        return WORK_DESCRIPTIONS.get(agent_id, "")
 
     async def seed_demo_run(self, run: SimulationRun) -> None:
         """Seed a demo run from agent configuration files."""
@@ -150,13 +136,19 @@ class TrumanWorldSeedBuilder:
             if config.workplace and config.workplace in location_id_map:
                 workplace_name = locations[location_id_map[config.workplace]].name
 
+            # 提取轮班类型（用于 heuristics 替代 agent_id 字符串匹配）
+            schedule_type = None
+            if config.work_schedule and config.work_schedule.type:
+                schedule_type = config.work_schedule.type
+
             profile = build_scenario_agent_profile(
                 bio=bio,
                 agent_config_id=config.id,
                 world_role=config.world_role,
                 workplace=workplace_name,
                 workplace_location_id=workplace_location_id,
-                work_description=self._get_work_description(config.id),
+                work_description=config.work_description or "",
+                extras={"schedule_type": schedule_type} if schedule_type else None,
             )
 
             # 构建状态
