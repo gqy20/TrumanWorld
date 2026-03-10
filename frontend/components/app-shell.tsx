@@ -130,8 +130,8 @@ export function AppShell({ children }: AppShellProps) {
 
         <div className="border-t border-white/60 p-3">
           <div className="flex items-center justify-between rounded-xl bg-white/50 px-3 py-2">
-            <span className="text-xs text-slate-400">v0.1.0</span>
-            <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">MVP</span>
+            <span className="text-xs text-slate-400">Current Build</span>
+            <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">Experimental</span>
           </div>
         </div>
       </nav>

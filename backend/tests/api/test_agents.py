@@ -195,8 +195,8 @@ async def test_get_agent_returns_generated_talk_memory_for_target(client, db_ses
     assert len(body["recent_events"]) == 1
     assert body["recent_events"][0]["event_type"] == "talk"
     assert len(body["memories"]) == 1
-    # 对话记忆包含实际对话内容（由 heuristic provider 生成）
-    assert body["memories"][0]["summary"].startswith("Alice said:")
+    # 对话记忆包含对方的名字（message 由 LLM 生成，此处为空）
+    assert "Alice" in body["memories"][0]["summary"]
 
 
 @pytest.mark.asyncio

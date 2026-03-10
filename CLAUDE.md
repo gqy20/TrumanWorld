@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Truman World is an AI social simulation system built with Claude Agent SDK. It's a small-scale, 可持续运行、可观察、可回放的 AI 小镇仿真器。MVP 目标：10-20 个 agent 在一个小镇持续运行 3-7 天。
+AI Truman World is an AI social simulation system built with Claude Agent SDK. It is a small-scale, 可持续运行、可观察、可回放的 AI 小镇仿真器，当前定位更接近持续演进中的实验系统，而不只是最初的 MVP 样机。
 
 ## Common Commands
 

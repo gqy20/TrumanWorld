@@ -6,27 +6,29 @@
 
 ## 📖 文档分类
 
-### 产品文档
+### 当前实现
+
+| 文档 | 说明 | 适合角色 |
+|------|------|----------|
+| [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md) | 当前代码实现与模块边界 | 开发者/技术负责人 |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | 环境搭建与调试 | 新加入开发者 |
+| [SCENARIOS.md](SCENARIOS.md) | Scenario 设计与支持情况 | 开发者 |
+
+### MVP 历史文档
 
 | 文档 | 说明 | 适合角色 |
 |------|------|----------|
 | [PRD.md](PRD.md) | MVP 产品需求定义 | PM/产品负责人 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | v0.1 MVP 架构设计稿 | 开发者 |
+| [TASK_BREAKDOWN.md](TASK_BREAKDOWN.md) | MVP 开发任务拆解 | 开发者 |
+| [ESTIMATE.md](ESTIMATE.md) | MVP 代码量与工期估算 | 开发者/PM |
 | [BUILD_VS_BUY.md](BUILD_VS_BUY.md) | 复用/自研决策分析 | 技术负责人 |
-
-### 技术文档
-
-| 文档 | 说明 | 适合角色 |
-|------|------|----------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 技术架构与模块设计 | 开发者 |
-| [ESTIMATE.md](ESTIMATE.md) | 代码量与工期估算 | 开发者/PM |
-| [TASK_BREAKDOWN.md](TASK_BREAKDOWN.md) | 开发任务拆解 | 开发者 |
-| [RUN_QUALITY.md](RUN_QUALITY.md) | Truman world 运行质量评估 | 开发者/导演 |
 
 ### 开发指南
 
 | 文档 | 说明 | 适合角色 |
 |------|------|----------|
-| [DEVELOPMENT.md](DEVELOPMENT.md) | 环境搭建与调试 | 新加入开发者 |
+| [RUN_QUALITY.md](RUN_QUALITY.md) | Truman world 运行质量评估 | 开发者/导演 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献规范与流程 | 贡献者 |
 | [CLAUDE.md](../CLAUDE.md) | Claude Code 配置 | 使用 Claude Code 的开发者 |
 
@@ -42,19 +44,20 @@
 
 ### 我想了解产品
 
-1. 先看 [PRD.md](PRD.md) 了解 MVP 目标
-2. 再看 [ARCHITECTURE.md](ARCHITECTURE.md) 了解技术方案
+1. 先看 [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md) 了解当前实现
+2. 再看 [PRD.md](PRD.md) 了解最初的 MVP 目标
 
 ### 我想参与开发
 
 1. 先看 [DEVELOPMENT.md](DEVELOPMENT.md) 搭建环境
-2. 再看 [TASK_BREAKDOWN.md](TASK_BREAKDOWN.md) 了解任务
+2. 再看 [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md) 了解当前模块边界
 3. 参考 [CONTRIBUTING.md](../CONTRIBUTING.md) 提交代码
 
 ### 我想做技术决策
 
-1. 先看 [BUILD_VS_BUY.md](BUILD_VS_BUY.md) 了解复用策略
-2. 参考 [ESTIMATE.md](ESTIMATE.md) 评估工作量
+1. 先看 [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md) 了解当前系统边界
+2. 再看 [BUILD_VS_BUY.md](BUILD_VS_BUY.md) 了解复用策略
+3. 参考 [ARCHITECTURE.md](ARCHITECTURE.md) 与 [ESTIMATE.md](ESTIMATE.md) 作为 MVP 历史基线
 
 ---
 

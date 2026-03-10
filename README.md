@@ -3,17 +3,19 @@
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python)
 ![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Status](https://img.shields.io/badge/Status-MVP-orange)
+![Status](https://img.shields.io/badge/Status-Experimental-orange)
 [![CI](https://github.com/gqy20/TrumanWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/gqy20/TrumanWorld/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/gqy20/TrumanWorld/branch/main/graph/badge.svg)](https://codecov.io/gh/gqy20/TrumanWorld)
 
 > 你就是楚门世界的导演
 
-一个 AI 社会模拟系统。在这个小镇里，AI 居民们自然地生活、工作、社交。
+一个面向实验与观测的 AI 社会模拟系统。在这个小镇里，AI 居民们自然地生活、工作、社交。
 其中有一个"主角"(Truman)，他不知道自己是 AI —— 他有自己的生活、困惑、情感、成长。
 其他居民与他共享这个世界，自然地互动。
 
 你的任务：观察、记录、创造条件——让 Truman 能真实地生活。
+
+当前仓库已经不再只是最初的 MVP 样机，而是一个持续演进中的实验系统。最初的 MVP 设计基线请看 [docs/PRD.md](docs/PRD.md) 与 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，当前实现请看 [docs/CURRENT_ARCHITECTURE.md](docs/CURRENT_ARCHITECTURE.md)。
 
 ---
 

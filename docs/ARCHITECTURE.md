@@ -1,5 +1,8 @@
 # AI Truman World MVP 架构设计
 
+> 历史文档：这是 `v0.1.0` 阶段的 MVP 架构设计稿，用于记录最初的范围、取舍和落地假设。
+> 当前实现请改看 [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md)。
+
 - 版本：`v0.1.0`
 - 状态：`MVP 精简版`
 - 最后更新：`2026-03-08`

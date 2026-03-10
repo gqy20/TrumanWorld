@@ -12,9 +12,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.providers import (
-    build_default_talk_message,
-)
 from app.protocol.simulation import build_director_event_type
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
@@ -479,8 +476,7 @@ class SimulationService:
         )
         director_guidance = get_director_guidance(profile)
 
-        try:
-            world_ctx = build_agent_world_context(
+        world_ctx = build_agent_world_context(
                 world=world,
                 current_goal=current_goal,
                 current_location_id=current_location_id,
@@ -493,31 +489,17 @@ class SimulationService:
                 workplace_location_id=workplace_location_id,
                 current_plan=current_plan,
             )
-            inject_profile_fields_into_context(world_ctx, profile)
-            intent = await self.agent_runtime.react(
-                runtime_agent_id,
-                world=world_ctx,
-                memory={"recent": []},
-                event={},
-                recent_events=recent_events,
-                runtime_ctx=runtime_ctx,
-            )
-            intent.agent_id = agent_id
-            return intent
-        except (RuntimeError, ValueError, asyncio.CancelledError):
-            return self._fallback_intent(
-                agent_id=agent_id,
-                current_goal=current_goal,
-                current_location_id=current_location_id or "",
-                home_location_id=home_location_id,
-                nearby_agent_id=nearby_agent_id,
-                world_role=get_world_role(profile),
-                current_status=current_status,
-                truman_suspicion_score=truman_suspicion_score,
-                director_guidance=director_guidance,
-                workplace_location_id=workplace_location_id,
-                world=world,
-            )
+        inject_profile_fields_into_context(world_ctx, profile)
+        intent = await self.agent_runtime.react(
+            runtime_agent_id,
+            world=world_ctx,
+            memory={"recent": []},
+            event={},
+            recent_events=recent_events,
+            runtime_ctx=runtime_ctx,
+        )
+        intent.agent_id = agent_id
+        return intent
 
     def _resolve_runtime_agent_id(self, agent: Agent) -> str:
         return get_agent_config_id(agent.profile) or agent.id
@@ -620,103 +602,3 @@ class SimulationService:
             raise ValueError(msg)
         return await self._context_builder.load_world(run_id, run, tick_minutes)
 
-    def _fallback_intent(
-        self,
-        agent_id: str,
-        current_goal: str | None,
-        current_location_id: str,
-        home_location_id: str | None,
-        nearby_agent_id: str | None,
-        world_role: str | None = None,
-        current_status: dict | None = None,
-        truman_suspicion_score: float = 0.0,
-        director_guidance: DirectorGuidance | None = None,
-        workplace_location_id: str | None = None,
-        world: WorldState | None = None,
-    ) -> ActionIntent:
-        # Build scenario_state and scenario_guidance from legacy params
-        scenario_state: dict | None = None
-        if truman_suspicion_score != 0.0:
-            scenario_state = {"truman_suspicion_score": truman_suspicion_score}
-        # Convert DirectorGuidance (director_*) to ScenarioGuidance (generic keys)
-        scenario_guidance = None
-        if director_guidance:
-            from app.scenario.types import ScenarioGuidance
-
-            scenario_guidance = ScenarioGuidance(
-                scene_goal=director_guidance.get("director_scene_goal"),
-                priority=director_guidance.get("director_priority"),
-                message_hint=director_guidance.get("director_message_hint"),
-                target_agent_id=director_guidance.get("director_target_agent_id"),
-                location_hint=director_guidance.get("director_location_hint"),
-                reason=director_guidance.get("director_reason"),
-            )
-        scenario_intent = self._scenario.fallback_intent(
-            agent_id=agent_id,
-            current_location_id=current_location_id,
-            home_location_id=home_location_id,
-            nearby_agent_id=nearby_agent_id,
-            world_role=world_role,
-            current_status=current_status,
-            scenario_state=scenario_state,
-            scenario_guidance=scenario_guidance,
-        )
-        if scenario_intent is not None:
-            return scenario_intent
-
-        if isinstance(current_goal, str) and current_goal.startswith("move:"):
-            target_location_id = current_goal.split(":", 1)[1].strip()
-            # 检查目标地点是否存在
-            if world is not None and world.get_location(target_location_id) is None:
-                return ActionIntent(agent_id=agent_id, action_type="rest")
-            return ActionIntent(
-                agent_id=agent_id,
-                action_type="move",
-                target_location_id=target_location_id,
-            )
-
-        if current_goal == "talk" and nearby_agent_id:
-            return ActionIntent(
-                agent_id=agent_id,
-                action_type="talk",
-                target_agent_id=nearby_agent_id,
-                payload={"message": build_default_talk_message()},
-            )
-
-        if (
-            current_goal == "go_home"
-            and home_location_id
-            and current_location_id != home_location_id
-        ):
-            return ActionIntent(
-                agent_id=agent_id,
-                action_type="move",
-                target_location_id=home_location_id,
-            )
-
-        # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
-        if current_goal == "work":
-            if workplace_location_id and current_location_id != workplace_location_id:
-                return ActionIntent(
-                    agent_id=agent_id,
-                    action_type="move",
-                    target_location_id=workplace_location_id,
-                )
-            # 检查当前地点类型
-            if world is not None:
-                current_location = (
-                    world.get_location(current_location_id) if current_location_id else None
-                )
-                current_location_type = current_location.location_type if current_location else None
-                if workplace_location_id or current_location_type in {
-                    "office",
-                    "hospital",
-                    "cafe",
-                    "shop",
-                }:
-                    return ActionIntent(agent_id=agent_id, action_type="work")
-            elif workplace_location_id:
-                return ActionIntent(agent_id=agent_id, action_type="work")
-            return ActionIntent(agent_id=agent_id, action_type="rest")
-
-        return ActionIntent(agent_id=agent_id, action_type="rest")

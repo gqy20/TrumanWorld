@@ -17,7 +17,6 @@ from app.agent.reflector import Reflector
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
 from app.scenario.truman_world.scenario import TrumanWorldScenario
-from app.scenario.truman_world.heuristics import build_truman_world_decision
 from app.agent.system_prompt import build_system_prompt
 from app.infra.settings import get_settings
 
@@ -194,57 +193,6 @@ def test_runtime_raises_for_unknown_agent(runtime: AgentRuntime):
         runtime.prepare_planner("missing-agent")
 
 
-def test_runtime_derive_intent_from_goal(runtime: AgentRuntime):
-    invocation = runtime.prepare_reactor(
-        "demo_agent",
-        world={
-            "current_goal": "move:park",
-            "current_location_id": "home",
-            "home_location_id": "home",
-            "known_location_ids": ["home", "park"],
-        },
-    )
-
-    intent = runtime.derive_intent(invocation)
-
-    assert intent.action_type == "move"
-    assert intent.target_location_id == "park"
-
-
-def test_runtime_derive_intent_rests_when_move_goal_target_is_unknown(runtime: AgentRuntime):
-    invocation = runtime.prepare_reactor(
-        "demo_agent",
-        world={
-            "current_goal": "move:town-center",
-            "current_location_id": "home",
-            "home_location_id": "home",
-            "known_location_ids": ["home", "park"],
-        },
-    )
-
-    intent = runtime.derive_intent(invocation)
-
-    assert intent.action_type == "rest"
-
-
-def test_runtime_derive_talk_intent_includes_default_message(runtime: AgentRuntime):
-    invocation = runtime.prepare_reactor(
-        "demo_agent",
-        world={
-            "current_goal": "talk",
-            "current_location_id": "cafe",
-            "home_location_id": "home",
-            "nearby_agent_id": "bob",
-        },
-    )
-
-    intent = runtime.derive_intent(invocation)
-
-    assert intent.action_type == "talk"
-    assert intent.target_agent_id == "bob"
-    assert intent.payload["message"]
-
-
 def test_planner_reactor_reflector_wrap_runtime(runtime: AgentRuntime):
     planner = Planner(runtime)
     reactor = Reactor(runtime)
@@ -291,7 +239,8 @@ async def test_runtime_decide_intent_uses_provider(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_heuristic_provider_generates_message_for_talk(runtime: AgentRuntime):
+async def test_heuristic_provider_returns_rest_for_talk_goal(runtime: AgentRuntime):
+    """HeuristicDecisionProvider no longer handles talk goal — delegates to LLM (rest fallback)."""
     invocation = runtime.prepare_reactor(
         "demo_agent",
         world={
@@ -304,34 +253,8 @@ async def test_heuristic_provider_generates_message_for_talk(runtime: AgentRunti
 
     intent = await runtime.decide_intent(invocation)
 
-    assert intent.action_type == "talk"
-    assert intent.target_agent_id == "bob"
-    assert isinstance(intent.payload.get("message"), str)
-    assert intent.payload["message"]
-
-
-@pytest.mark.asyncio
-async def test_truman_suspicion_changes_heuristic_decision(runtime: AgentRuntime):
-    """Test that high suspicion triggers move home (only extreme case now)."""
-    runtime.decision_provider = HeuristicDecisionProvider(decision_hook=build_truman_world_decision)
-    invocation = runtime.prepare_reactor(
-        "demo_agent",
-        world={
-            "world_role": "truman",
-            "current_goal": "work",
-            "current_location_id": "cafe",
-            "home_location_id": "home",
-            "nearby_agent_id": "bob",
-            "self_status": {"suspicion_score": 0.96},  # Extreme suspicion
-        },
-    )
-
-    intent = await runtime.decide_intent(invocation)
-
-    # Extreme suspicion triggers go home
-    assert intent.action_type == "move"
-    assert intent.target_location_id == "home"
-
+    # Heuristic no longer handles talk — only move:xxx is handled; everything else falls back to rest
+    assert intent.action_type == "rest"
 
 @pytest.mark.asyncio
 async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: AgentRuntime):
@@ -348,32 +271,6 @@ async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: Ag
     intent = await runtime.decide_intent(invocation)
 
     assert intent.action_type == "rest"
-
-
-@pytest.mark.asyncio
-async def test_cast_stabilizes_when_truman_suspicion_is_high(runtime: AgentRuntime):
-    """Test that cast agents no longer have hardcoded stabilizing behavior."""
-    runtime.decision_provider = HeuristicDecisionProvider(decision_hook=build_truman_world_decision)
-    invocation = runtime.prepare_reactor(
-        "demo_agent",
-        world={
-            "world_role": "cast",
-            "current_goal": "talk",  # Set goal to talk
-            "current_location_id": "cafe",
-            "home_location_id": "home",
-            "nearby_agent_id": "bob",
-            "truman_suspicion_score": 0.84,
-            "director_scene_goal": "soft_check_in",
-            "director_priority": "advisory",
-        },
-    )
-
-    intent = await runtime.decide_intent(invocation)
-
-    # Cast agents now let LLM decide - heuristic only handles extreme truman suspicion
-    assert intent.action_type == "talk"
-    assert intent.target_agent_id == "bob"
-    # No hardcoded message - let LLM generate
 
 
 def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -493,9 +390,10 @@ async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: 
 
 
 @pytest.mark.asyncio
-async def test_runtime_decide_intent_adds_default_message_when_claude_omits_it(
+async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
+    """When LLM omits message, decide_intent accepts the empty value without injecting a default."""
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
@@ -548,9 +446,11 @@ async def test_runtime_decide_intent_adds_default_message_when_claude_omits_it(
 
     assert result.action_type == "talk"
     assert result.target_agent_id == "bob"
-    assert result.payload["message"]
+    # LLM did not provide message — accepted as empty (no default injection)
+    assert "message" not in result.payload
 
     get_settings.cache_clear()
+
 
 
 @pytest.mark.asyncio

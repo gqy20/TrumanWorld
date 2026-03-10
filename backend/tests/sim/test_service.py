@@ -1,4 +1,3 @@
-import asyncio
 
 import pytest
 
@@ -17,16 +16,6 @@ from app.store.repositories import (
     LlmCallRepository,
     RunRepository,
 )
-
-
-class FailingDecisionProvider(AgentDecisionProvider):
-    async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
-        raise RuntimeError("provider unavailable")
-
-
-class CancelledDecisionProvider(AgentDecisionProvider):
-    async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
-        raise asyncio.CancelledError
 
 
 class RecordingDecisionProvider(AgentDecisionProvider):
@@ -380,51 +369,6 @@ async def test_simulation_service_uses_world_role_and_clock_in_runtime_context(
 
 
 @pytest.mark.asyncio
-async def test_simulation_service_fallback_rests_for_unknown_move_target(db_session):
-    run = SimulationRun(
-        id="run-service-invalid-move",
-        name="service",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
-    )
-    home = Location(
-        id="loc-home-invalid-move",
-        run_id="run-service-invalid-move",
-        name="Home",
-        location_type="home",
-        capacity=2,
-    )
-    alice = Agent(
-        id="demo_agent",
-        run_id="run-service-invalid-move",
-        name="Demo Agent",
-        occupation="resident",
-        home_location_id="loc-home-invalid-move",
-        current_location_id="loc-home-invalid-move",
-        current_goal="move:town-center",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
-    )
-
-    db_session.add_all([run, home, alice])
-    await db_session.commit()
-
-    failing_runtime = SimulationService(db_session).agent_runtime
-    failing_runtime.decision_provider = FailingDecisionProvider()
-    service = SimulationService(db_session, agent_runtime=failing_runtime)
-
-    result = await service.run_tick("run-service-invalid-move")
-
-    assert result.tick_no == 1
-    assert len(result.accepted) == 1
-    assert result.accepted[0].action_type == "rest"
-    assert len(result.rejected) == 0
-
-
-@pytest.mark.asyncio
 async def test_simulation_service_includes_director_system_events_for_cast_recent_events(
     db_session, tmp_path
 ):
@@ -713,129 +657,6 @@ async def test_simulation_service_accepts_injected_scenario(db_session):
     assert scenario.runtime_configured is True
     assert scenario.state_update_calls == [("run-fake-scenario", 1)]
     assert result.tick_no == 1
-
-
-@pytest.mark.asyncio
-async def test_simulation_service_falls_back_when_runtime_provider_fails(db_session):
-    run = SimulationRun(
-        id="run-service-4", name="service", status="running", current_tick=0, tick_minutes=5
-    )
-    home = Location(
-        id="loc-home-4", run_id="run-service-4", name="Home", location_type="home", capacity=2
-    )
-    alice = Agent(
-        id="demo_agent",
-        run_id="run-service-4",
-        name="Demo Agent",
-        occupation="resident",
-        home_location_id="loc-home-4",
-        current_location_id="loc-home-4",
-        current_goal="work",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
-    )
-
-    db_session.add_all([run, home, alice])
-    await db_session.commit()
-
-    failing_runtime = SimulationService(db_session).agent_runtime
-    failing_runtime.decision_provider = FailingDecisionProvider()
-    service = SimulationService(db_session, agent_runtime=failing_runtime)
-
-    result = await service.run_tick("run-service-4")
-
-    assert result.tick_no == 1
-    assert len(result.accepted) == 1
-    assert result.accepted[0].action_type == "rest"
-
-
-@pytest.mark.asyncio
-async def test_simulation_service_falls_back_when_runtime_provider_is_cancelled(db_session):
-    run = SimulationRun(
-        id="run-service-4b", name="service", status="running", current_tick=0, tick_minutes=5
-    )
-    home = Location(
-        id="loc-home-4b", run_id="run-service-4b", name="Home", location_type="home", capacity=2
-    )
-    alice = Agent(
-        id="demo_agent",
-        run_id="run-service-4b",
-        name="Demo Agent",
-        occupation="resident",
-        home_location_id="loc-home-4b",
-        current_location_id="loc-home-4b",
-        current_goal="work",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
-    )
-
-    db_session.add_all([run, home, alice])
-    await db_session.commit()
-
-    cancelled_runtime = SimulationService(db_session).agent_runtime
-    cancelled_runtime.decision_provider = CancelledDecisionProvider()
-    service = SimulationService(db_session, agent_runtime=cancelled_runtime)
-
-    result = await service.run_tick("run-service-4b")
-
-    assert result.tick_no == 1
-    assert len(result.accepted) == 1
-    assert result.accepted[0].action_type == "rest"
-
-
-@pytest.mark.asyncio
-async def test_simulation_service_fallback_talk_includes_message(db_session):
-    run = SimulationRun(
-        id="run-service-4c", name="service", status="running", current_tick=0, tick_minutes=5
-    )
-    cafe = Location(
-        id="loc-cafe-4c", run_id="run-service-4c", name="Cafe", location_type="cafe", capacity=4
-    )
-    alice = Agent(
-        id="alice-4c",
-        run_id="run-service-4c",
-        name="Alice",
-        occupation="resident",
-        home_location_id="loc-cafe-4c",
-        current_location_id="loc-cafe-4c",
-        current_goal="talk",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
-    )
-    bob = Agent(
-        id="bob-4c",
-        run_id="run-service-4c",
-        name="Bob",
-        occupation="resident",
-        home_location_id="loc-cafe-4c",
-        current_location_id="loc-cafe-4c",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
-    )
-
-    db_session.add_all([run, cafe, alice, bob])
-    await db_session.commit()
-
-    failing_runtime = SimulationService(db_session).agent_runtime
-    failing_runtime.decision_provider = FailingDecisionProvider()
-    service = SimulationService(db_session, agent_runtime=failing_runtime)
-
-    result = await service.run_tick("run-service-4c")
-
-    assert result.tick_no == 1
-    # alice 的 talk 动作被接受；bob 因被对话占用（agent_in_conversation）其动作被拒绝，是正常行为
-    assert len(result.accepted) == 1
-    alice_talk = next(item for item in result.accepted if item.action_type == "talk")
-    assert alice_talk.event_payload["target_agent_id"] == "bob-4c"
-    assert alice_talk.event_payload["message"]
 
 
 @pytest.mark.asyncio

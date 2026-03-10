@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent.providers import build_default_talk_message
 from app.sim.world import WorldState
 
 
@@ -260,7 +259,7 @@ class ActionResolver:
                 "agent_id": intent.agent_id,
                 "target_agent_id": target.id,
                 "location_id": agent.location_id,
-                "message": intent.payload.get("message") or build_default_talk_message(),
+                "message": intent.payload.get("message") or "",
                 **intent.payload,
             },
         )

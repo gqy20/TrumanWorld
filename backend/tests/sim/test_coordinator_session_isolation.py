@@ -189,6 +189,16 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
     # 创建 AgentRuntime（使用 heuristic provider，不调用外部 SDK）
     tmp_path = Path(tempfile.mkdtemp())
     try:
+        # 创建 agent 配置文件，避免 ValueError: Agent config not found
+        for agent_id, agent_name in [("spouse", "Meryl"), ("truman", "Truman")]:
+            agent_dir = tmp_path / agent_id
+            agent_dir.mkdir(parents=True)
+            (agent_dir / "agent.yml").write_text(
+                f"id: {agent_id}\nname: {agent_name}\noccupation: resident\nhome: {loc_id}\n",
+                encoding="utf-8",
+            )
+            (agent_dir / "prompt.md").write_text(f"# {agent_name}\nBase prompt", encoding="utf-8")
+
         registry = AgentRegistry(tmp_path)
         runtime = AgentRuntime(registry=registry, decision_provider=HeuristicDecisionProvider())
         service = SimulationService.create_for_scheduler(runtime)

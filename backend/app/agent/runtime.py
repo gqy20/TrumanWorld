@@ -14,7 +14,6 @@ from app.agent.providers import (
     AgentDecisionProvider,
     ClaudeSDKDecisionProvider,
     HeuristicDecisionProvider,
-    build_default_talk_message,
 )
 from app.agent.prompt_loader import PromptLoader
 from app.agent.registry import AgentRegistry
@@ -174,12 +173,10 @@ class AgentRuntime:
         runtime_ctx: RuntimeContext | None = None,
     ) -> ActionIntent:
         decision = await self.decision_provider.decide(invocation, runtime_ctx=runtime_ctx)
-        # 将 message 合并到 payload 中，以便传递到 event
         payload = dict(decision.payload)
         if decision.message:
             payload["message"] = decision.message
-        if decision.action_type == "talk" and not payload.get("message"):
-            payload["message"] = build_default_talk_message()
+        # No default message injection — LLM must provide message content for talk actions
         return ActionIntent(
             agent_id=invocation.agent_id,
             action_type=decision.action_type,
@@ -308,68 +305,3 @@ class AgentRuntime:
             logger.warning(f"{task} could not parse JSON for {agent_id}: {result_text[:200]}")
         return parsed
 
-    def derive_intent(self, invocation: RuntimeInvocation) -> ActionIntent:
-        world = invocation.context.get("world", {})
-        goal = world.get("current_goal")
-        current_location_id = world.get("current_location_id")
-        current_location_type = world.get("current_location_type")
-        home_location_id = world.get("home_location_id")
-        nearby_agent_id = world.get("nearby_agent_id")
-        workplace_location_id = world.get("workplace_location_id")
-        known_location_ids = world.get("known_location_ids")
-
-        if isinstance(goal, str) and goal.startswith("move:"):
-            target_location_id = goal.split(":", 1)[1].strip()
-            if (
-                isinstance(known_location_ids, list)
-                and target_location_id not in known_location_ids
-            ):
-                return ActionIntent(agent_id=invocation.agent_id, action_type="rest")
-            return ActionIntent(
-                agent_id=invocation.agent_id,
-                action_type="move",
-                target_location_id=target_location_id,
-            )
-
-        # 通勤逻辑：goal=work 但不在工作地点时，先生成 move 动作
-        if goal == "work":
-            if (
-                workplace_location_id
-                and current_location_id
-                and current_location_id != workplace_location_id
-            ):
-                return ActionIntent(
-                    agent_id=invocation.agent_id,
-                    action_type="move",
-                    target_location_id=str(workplace_location_id),
-                )
-            if workplace_location_id or current_location_type in {
-                "office",
-                "hospital",
-                "cafe",
-                "shop",
-            }:
-                return ActionIntent(agent_id=invocation.agent_id, action_type="work")
-            return ActionIntent(agent_id=invocation.agent_id, action_type="rest")
-
-        if goal == "talk" and nearby_agent_id:
-            return ActionIntent(
-                agent_id=invocation.agent_id,
-                action_type="talk",
-                target_agent_id=str(nearby_agent_id),
-                payload={"message": build_default_talk_message()},
-            )
-
-        if (
-            current_location_id
-            and home_location_id
-            and current_location_id != home_location_id
-            and goal == "go_home"
-        ):
-            return ActionIntent(
-                agent_id=invocation.agent_id,
-                action_type="move",
-                target_location_id=str(home_location_id),
-            )
-
-        return ActionIntent(agent_id=invocation.agent_id, action_type="rest")

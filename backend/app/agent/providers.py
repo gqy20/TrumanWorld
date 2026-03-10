@@ -59,10 +59,11 @@ class AgentDecisionProvider(ABC):
         raise NotImplementedError
 
 
-DEFAULT_TALK_MESSAGE = "你好，最近怎么样？"
+DEFAULT_TALK_MESSAGE = ""
 
 
 def build_default_talk_message() -> str:
+    """Deprecated: returns empty string. LLM must provide message content."""
     return DEFAULT_TALK_MESSAGE
 
 
@@ -73,10 +74,10 @@ HeuristicDecisionHook = Callable[
 
 
 class HeuristicDecisionProvider(AgentDecisionProvider):
-    """Simplified heuristic decision provider.
+    """Minimal fallback decision provider.
 
-    Only handles basic movement logic (commute, go_home).
-    All conversation content is left to LLM.
+    Only handles the move:xxx direct instruction format.
+    All other behavior is delegated to LLM.
     """
 
     def __init__(self, decision_hook: HeuristicDecisionHook | None = None) -> None:
@@ -92,13 +93,9 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
     ) -> RuntimeDecision:
         world = invocation.context.get("world", {})
         goal = world.get("current_goal")
-        current_location_id = world.get("current_location_id")
-        current_location_type = world.get("current_location_type")
-        home_location_id = world.get("home_location_id")
-        nearby_agent_id = world.get("nearby_agent_id")
-        workplace_location_id = world.get("workplace_location_id")
         known_location_ids = world.get("known_location_ids")
 
+        # move:xxx is a direct system instruction, not a behavior decision
         if isinstance(goal, str) and goal.startswith("move:"):
             target_location_id = goal.split(":", 1)[1].strip()
             if (
@@ -113,6 +110,9 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
 
         if self._decision_hook is not None:
             agent_id = getattr(invocation, "agent_id", None)
+            nearby_agent_id = world.get("nearby_agent_id")
+            current_location_id = world.get("current_location_id")
+            home_location_id = world.get("home_location_id")
             hook_decision = self._decision_hook(
                 world=world,
                 nearby_agent_id=nearby_agent_id,
@@ -123,46 +123,7 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
             if hook_decision is not None:
                 return hook_decision
 
-        # Commute logic: move to workplace if goal is work but not there
-        if goal == "work":
-            if (
-                workplace_location_id
-                and current_location_id
-                and current_location_id != workplace_location_id
-            ):
-                return RuntimeDecision(
-                    action_type="move",
-                    target_location_id=str(workplace_location_id),
-                )
-            if workplace_location_id or current_location_type in {
-                "office",
-                "hospital",
-                "cafe",
-                "shop",
-            }:
-                return RuntimeDecision(action_type="work")
-            return RuntimeDecision(action_type="rest")
-
-        # Talk: just initiate, let LLM generate message content
-        if goal == "talk" and nearby_agent_id:
-            return RuntimeDecision(
-                action_type="talk",
-                target_agent_id=str(nearby_agent_id),
-                # No message - let LLM decide what to say
-            )
-
-        # Go home
-        if (
-            current_location_id
-            and home_location_id
-            and current_location_id != home_location_id
-            and goal == "go_home"
-        ):
-            return RuntimeDecision(
-                action_type="move",
-                target_location_id=str(home_location_id),
-            )
-
+        # All other goals: rest as safe fallback (LLM should handle these)
         return RuntimeDecision(action_type="rest")
 
 
