@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useSWR from "swr";
 import type { WorldHealthMetrics, Trend } from "@/lib/world-insights";
-import type { DirectorMemory, SystemMetrics } from "@/lib/types";
+import type { DirectorMemory, SystemMetrics, SystemOverview } from "@/lib/types";
 import {
   getTrendIcon,
   getTrendColor,
@@ -14,7 +14,7 @@ import {
 } from "@/lib/world-insights";
 import { DirectorEventForm } from "@/components/director-event-form";
 import { useWorld } from "@/components/world-context";
-import { getDirectorMemoriesResult, getSystemMetrics } from "@/lib/api";
+import { getDirectorMemoriesResult, getSystemMetrics, getSystemOverview } from "@/lib/api";
 import type { WorldSnapshot } from "@/lib/types";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
@@ -48,6 +48,14 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
   const { data: systemMetrics } = useSWR<SystemMetrics | null>(
     "/metrics",
     getSystemMetrics,
+    {
+      refreshInterval: 5000,
+      revalidateOnFocus: true,
+    },
+  );
+  const { data: systemOverview } = useSWR<SystemOverview | null>(
+    "/system/overview",
+    getSystemOverview,
     {
       refreshInterval: 5000,
       revalidateOnFocus: true,
@@ -139,12 +147,14 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
 
       <div className="mt-4">
         <SystemStatusPanel
+          overview={systemOverview}
           metrics={systemMetrics}
           onClick={() => setIsSystemExpanded(true)}
         />
         <SystemStatusModal
           isOpen={isSystemExpanded}
           onClose={() => setIsSystemExpanded(false)}
+          overview={systemOverview}
           metrics={systemMetrics}
         />
       </div>
@@ -235,19 +245,30 @@ function formatCost(value: number) {
   return `$${value.toFixed(4)}`;
 }
 
+function formatCpuPercent(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
 function formatAge(timestamp: number) {
   const deltaSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
   return `${deltaSeconds}s 前`;
 }
 
 function SystemStatusPanel({
+  overview,
   metrics,
   onClick,
 }: {
+  overview: SystemOverview | null | undefined;
   metrics: SystemMetrics | null | undefined;
   onClick: () => void;
 }) {
-  if (!metrics) {
+  const total = overview?.components.total;
+  const memoryValue = total ? formatBytes(total.rssBytes) : metrics ? formatBytes(metrics.processResidentMemoryBytes) : null;
+  const cpuValue = total ? formatCpuPercent(total.cpuPercent) : null;
+  const refreshedAt = overview?.collectedAt ?? metrics?.scrapedAt;
+
+  if (!metrics && !overview) {
     return (
       <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
         <div className="flex items-center justify-between">
@@ -267,7 +288,7 @@ function SystemStatusPanel({
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium text-slate-700">🖥️ 系统状态</div>
         <div className="flex items-center gap-2">
-          <div className="text-[11px] text-slate-400">刷新于 {formatAge(metrics.scrapedAt)}</div>
+          <div className="text-[11px] text-slate-400">刷新于 {refreshedAt ? formatAge(refreshedAt) : "—"}</div>
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -281,8 +302,8 @@ function SystemStatusPanel({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <StatusStat label="内存 RSS" value={formatBytes(metrics.processResidentMemoryBytes)} />
-        <StatusStat label="CPU 秒" value={metrics.processCpuSecondsTotal.toFixed(1)} highlight />
+        <StatusStat label="总内存" value={memoryValue ?? "—"} />
+        <StatusStat label="CPU" value={cpuValue ?? "—"} highlight />
       </div>
     </button>
   );
@@ -291,10 +312,12 @@ function SystemStatusPanel({
 function SystemStatusModal({
   isOpen,
   onClose,
+  overview,
   metrics,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  overview: SystemOverview | null | undefined;
   metrics: SystemMetrics | null | undefined;
 }) {
   const [selectedSection, setSelectedSection] = useState<"overview" | "ticks" | "llm">("overview");
@@ -313,6 +336,36 @@ function SystemStatusModal({
   const totalFailures = metrics
     ? metrics.tickTotal.inlineError + metrics.tickTotal.isolatedError
     : 0;
+  const refreshedAt = overview?.collectedAt ?? metrics?.scrapedAt;
+  const overviewTotal = overview?.components.total;
+  const totalMemoryValue = overviewTotal
+    ? formatBytes(overviewTotal.rssBytes)
+    : metrics
+      ? formatBytes(metrics.processResidentMemoryBytes)
+      : "—";
+  const totalVmsValue = overviewTotal
+    ? formatBytes(overviewTotal.vmsBytes)
+    : metrics
+      ? formatBytes(metrics.processVirtualMemoryBytes)
+      : "—";
+  const totalCpuValue = overviewTotal ? formatCpuPercent(overviewTotal.cpuPercent) : "—";
+  const totalProcessCount = overviewTotal ? formatCount(overviewTotal.processCount) : "—";
+  const activeRunsValue = metrics ? formatCount(metrics.activeRuns) : "—";
+  const backendMemoryValue = metrics ? formatBytes(metrics.processResidentMemoryBytes) : "—";
+  const backendCpuSecondsValue = metrics ? `${metrics.processCpuSecondsTotal.toFixed(1)}s` : "—";
+  const inlineSuccessValue = metrics ? formatCount(metrics.tickTotal.inlineSuccess) : "—";
+  const isolatedSuccessValue = metrics ? formatCount(metrics.tickTotal.isolatedSuccess) : "—";
+  const inlineErrorValue = metrics ? formatCount(metrics.tickTotal.inlineError) : "—";
+  const isolatedErrorValue = metrics ? formatCount(metrics.tickTotal.isolatedError) : "—";
+  const llmCallTotalValue = metrics ? formatCount(metrics.llmCallTotal) : "—";
+  const llmCostValue = metrics ? formatCost(metrics.llmCostUsdTotal) : "—";
+  const cacheTokenValue = metrics
+    ? formatCount(metrics.llmTokensTotal.cacheRead + metrics.llmTokensTotal.cacheCreation)
+    : "—";
+  const inputTokenValue = metrics ? formatCount(metrics.llmTokensTotal.input) : "—";
+  const outputTokenValue = metrics ? formatCount(metrics.llmTokensTotal.output) : "—";
+  const cacheReadValue = metrics ? formatCount(metrics.llmTokensTotal.cacheRead) : "—";
+  const cacheCreationValue = metrics ? formatCount(metrics.llmTokensTotal.cacheCreation) : "—";
   const sectionCounts = {
     overview: metrics ? 4 : 0,
     ticks: totalTicks,
@@ -330,7 +383,7 @@ function SystemStatusModal({
           title="系统状态"
           subtitle="查看运行时资源消耗和累计调用统计"
         >
-          {!metrics ? (
+          {!metrics && !overview ? (
             <div className="py-8 text-center text-sm text-slate-400">指标加载中</div>
           ) : (
             <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -340,25 +393,27 @@ function SystemStatusModal({
                   <div className="mt-3 rounded-2xl bg-white p-4 shadow-xs">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs text-slate-500">内存 RSS</div>
+                        <div className="text-xs text-slate-500">总内存</div>
                         <div className="mt-1 text-lg font-semibold text-slate-900">
-                          {formatBytes(metrics.processResidentMemoryBytes)}
+                          {totalMemoryValue}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">CPU 秒</div>
+                        <div className="text-xs text-slate-500">CPU</div>
                         <div className="mt-1 text-lg font-semibold text-emerald-600">
-                          {metrics.processCpuSecondsTotal.toFixed(1)}
+                          {totalCpuValue}
                         </div>
                       </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
                       <span>活跃 Run</span>
-                      <span className="font-semibold text-slate-700">{formatCount(metrics.activeRuns)}</span>
+                      <span className="font-semibold text-slate-700">
+                        {overview ? totalProcessCount : activeRunsValue}
+                      </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                       <span>最近刷新</span>
-                      <span>{formatAge(metrics.scrapedAt)}</span>
+                      <span>{refreshedAt ? formatAge(refreshedAt) : "—"}</span>
                     </div>
                   </div>
                 </div>
@@ -399,32 +454,39 @@ function SystemStatusModal({
                 {selectedSection === "overview" && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
-                      <StatusStat label="内存 RSS" value={formatBytes(metrics.processResidentMemoryBytes)} />
-                      <StatusStat label="虚拟内存" value={formatBytes(metrics.processVirtualMemoryBytes)} />
-                      <StatusStat label="CPU 秒" value={metrics.processCpuSecondsTotal.toFixed(1)} highlight />
-                      <StatusStat label="活跃 Run" value={formatCount(metrics.activeRuns)} />
+                      <StatusStat label="总内存" value={totalMemoryValue} />
+                      <StatusStat label="总虚拟内存" value={totalVmsValue} />
+                      <StatusStat label="CPU" value={totalCpuValue} highlight />
+                      <StatusStat label="总进程数" value={totalProcessCount} />
                     </div>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                      <div className="text-sm font-semibold text-slate-700">当前观察</div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
-                          <span>进程内存占用</span>
-                          <span className="font-medium text-slate-900">
-                            {formatBytes(metrics.processResidentMemoryBytes)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
-                          <span>CPU 累计消耗</span>
-                          <span className="font-medium text-slate-900">
-                            {metrics.processCpuSecondsTotal.toFixed(1)}s
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
-                          <span>系统并发运行</span>
-                          <span className="font-medium text-slate-900">{formatCount(metrics.activeRuns)} runs</span>
+                    {overview ? (
+                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                        <div className="text-sm font-semibold text-slate-700">组件拆分</div>
+                        <div className="mt-3 space-y-3">
+                          <ComponentStatusCard label="Backend" component={overview.components.backend} />
+                          <ComponentStatusCard label="Frontend" component={overview.components.frontend} />
+                          <ComponentStatusCard label="PostgreSQL" component={overview.components.postgres} />
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                        <div className="text-sm font-semibold text-slate-700">当前观察</div>
+                        <div className="mt-3 space-y-2 text-sm text-slate-600">
+                          <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                            <span>后端进程内存</span>
+                            <span className="font-medium text-slate-900">
+                              {backendMemoryValue}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                            <span>后端 CPU 累计</span>
+                            <span className="font-medium text-slate-900">
+                              {backendCpuSecondsValue}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -433,20 +495,20 @@ function SystemStatusModal({
                     <div className="grid grid-cols-2 gap-3">
                       <MiniStatusChip label="总 Tick" value={formatCount(totalTicks)} />
                       <MiniStatusChip label="失败" value={formatCount(totalFailures)} tone="amber" />
-                      <MiniStatusChip label="Inline 成功" value={formatCount(metrics.tickTotal.inlineSuccess)} />
-                      <MiniStatusChip label="Isolated 成功" value={formatCount(metrics.tickTotal.isolatedSuccess)} />
+                      <MiniStatusChip label="Inline 成功" value={inlineSuccessValue} />
+                      <MiniStatusChip label="Isolated 成功" value={isolatedSuccessValue} />
                     </div>
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                       <div className="text-sm font-semibold text-slate-700">执行拆分</div>
                       <div className="mt-3 space-y-2">
-                        <StatusRow label="Inline 失败" value={formatCount(metrics.tickTotal.inlineError)} tone="amber" />
+                        <StatusRow label="Inline 失败" value={inlineErrorValue} tone="amber" />
                         <StatusRow
                           label="Isolated 失败"
-                          value={formatCount(metrics.tickTotal.isolatedError)}
+                          value={isolatedErrorValue}
                           tone="amber"
                         />
-                        <StatusRow label="Inline 成功" value={formatCount(metrics.tickTotal.inlineSuccess)} />
-                        <StatusRow label="Isolated 成功" value={formatCount(metrics.tickTotal.isolatedSuccess)} />
+                        <StatusRow label="Inline 成功" value={inlineSuccessValue} />
+                        <StatusRow label="Isolated 成功" value={isolatedSuccessValue} />
                       </div>
                     </div>
                   </div>
@@ -455,23 +517,23 @@ function SystemStatusModal({
                 {selectedSection === "llm" && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
-                      <MiniStatusChip label="调用次数" value={formatCount(metrics.llmCallTotal)} />
-                      <MiniStatusChip label="总成本" value={formatCost(metrics.llmCostUsdTotal)} />
+                      <MiniStatusChip label="调用次数" value={llmCallTotalValue} />
+                      <MiniStatusChip label="总成本" value={llmCostValue} />
                       <MiniStatusChip label="总 Tokens" value={formatCount(totalTokens)} />
                       <MiniStatusChip
                         label="缓存 Tokens"
-                        value={formatCount(metrics.llmTokensTotal.cacheRead + metrics.llmTokensTotal.cacheCreation)}
+                        value={cacheTokenValue}
                       />
                     </div>
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                       <div className="text-sm font-semibold text-slate-700">Token 明细</div>
                       <div className="mt-3 space-y-2">
-                        <StatusRow label="输入 Tokens" value={formatCount(metrics.llmTokensTotal.input)} />
-                        <StatusRow label="输出 Tokens" value={formatCount(metrics.llmTokensTotal.output)} />
-                        <StatusRow label="缓存读取" value={formatCount(metrics.llmTokensTotal.cacheRead)} />
+                        <StatusRow label="输入 Tokens" value={inputTokenValue} />
+                        <StatusRow label="输出 Tokens" value={outputTokenValue} />
+                        <StatusRow label="缓存读取" value={cacheReadValue} />
                         <StatusRow
                           label="缓存创建"
-                          value={formatCount(metrics.llmTokensTotal.cacheCreation)}
+                          value={cacheCreationValue}
                         />
                       </div>
                     </div>
@@ -504,6 +566,37 @@ function StatusRow({
       <span className={`text-sm font-semibold ${tone === "amber" ? "text-amber-700" : "text-slate-900"}`}>
         {value}
       </span>
+    </div>
+  );
+}
+
+function ComponentStatusCard({
+  label,
+  component,
+}: {
+  label: string;
+  component: SystemOverview["components"]["backend"];
+}) {
+  const unavailable = component.status === "unavailable";
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold text-slate-800">{label}</div>
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            unavailable ? "bg-slate-100 text-slate-500" : "bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {unavailable ? "未发现" : "已采集"}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <MiniStatusChip label="内存" value={formatBytes(component.rssBytes)} />
+        <MiniStatusChip label="CPU" value={formatCpuPercent(component.cpuPercent)} />
+        <MiniStatusChip label="进程数" value={formatCount(component.processCount)} />
+        <MiniStatusChip label="CPU 秒" value={component.cpuSeconds.toFixed(1)} />
+      </div>
     </div>
   );
 }

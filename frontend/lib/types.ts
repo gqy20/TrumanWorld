@@ -201,6 +201,25 @@ export type SystemMetrics = {
   scrapedAt: number;
 };
 
+export type SystemOverviewComponent = {
+  status: "available" | "unavailable";
+  rssBytes: number;
+  vmsBytes: number;
+  cpuSeconds: number;
+  cpuPercent: number;
+  processCount: number;
+};
+
+export type SystemOverview = {
+  collectedAt: number;
+  components: {
+    backend: SystemOverviewComponent;
+    frontend: SystemOverviewComponent;
+    postgres: SystemOverviewComponent;
+    total: SystemOverviewComponent;
+  };
+};
+
 export type AgentRecentEvent = {
   id: string;
   tick_no: number;

@@ -5,6 +5,7 @@ import type {
   DirectorMemory,
   RunSummary,
   SystemMetrics,
+  SystemOverview,
   TickResponse,
   TimelineFilter,
   TimelineResponse,
@@ -19,6 +20,7 @@ export type {
   DirectorMemory,
   RunSummary,
   SystemMetrics,
+  SystemOverview,
   TickResponse,
   TimelineEvent,
   TimelineFilter,
@@ -576,6 +578,98 @@ export async function getSystemMetrics(): Promise<SystemMetrics | null> {
       },
       scrapedAt: Date.now(),
     };
+  } catch {
+    return null;
+  }
+}
+
+function toCamelCaseSystemOverview(input: {
+  collected_at: number;
+  components: Record<
+    string,
+    {
+      status: "available" | "unavailable";
+      rss_bytes: number;
+      vms_bytes: number;
+      cpu_seconds: number;
+      cpu_percent: number;
+      process_count: number;
+    }
+  >;
+}): SystemOverview {
+  return {
+    collectedAt: input.collected_at,
+    components: {
+      backend: {
+        status: input.components.backend.status,
+        rssBytes: input.components.backend.rss_bytes,
+        vmsBytes: input.components.backend.vms_bytes,
+        cpuSeconds: input.components.backend.cpu_seconds,
+        cpuPercent: input.components.backend.cpu_percent,
+        processCount: input.components.backend.process_count,
+      },
+      frontend: {
+        status: input.components.frontend.status,
+        rssBytes: input.components.frontend.rss_bytes,
+        vmsBytes: input.components.frontend.vms_bytes,
+        cpuSeconds: input.components.frontend.cpu_seconds,
+        cpuPercent: input.components.frontend.cpu_percent,
+        processCount: input.components.frontend.process_count,
+      },
+      postgres: {
+        status: input.components.postgres.status,
+        rssBytes: input.components.postgres.rss_bytes,
+        vmsBytes: input.components.postgres.vms_bytes,
+        cpuSeconds: input.components.postgres.cpu_seconds,
+        cpuPercent: input.components.postgres.cpu_percent,
+        processCount: input.components.postgres.process_count,
+      },
+      total: {
+        status: input.components.total.status,
+        rssBytes: input.components.total.rss_bytes,
+        vmsBytes: input.components.total.vms_bytes,
+        cpuSeconds: input.components.total.cpu_seconds,
+        cpuPercent: input.components.total.cpu_percent,
+        processCount: input.components.total.process_count,
+      },
+    },
+  };
+}
+
+export async function getSystemOverview(): Promise<SystemOverview | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(buildApiUrl("/system/overview"), {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as {
+      collected_at: number;
+      components: Record<
+        string,
+        {
+          status: "available" | "unavailable";
+          rss_bytes: number;
+          vms_bytes: number;
+          cpu_seconds: number;
+          cpu_percent: number;
+          process_count: number;
+        }
+      >;
+    };
+    return toCamelCaseSystemOverview(payload);
   } catch {
     return null;
   }

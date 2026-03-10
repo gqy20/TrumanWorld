@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.agent.connection_pool as connection_pool_module
+import app.api.routes.system as system_route
 from app.store.models import (
     Agent,
     DirectorMemory,
@@ -33,6 +34,60 @@ async def test_metrics_endpoint_exposes_runtime_metrics(client):
     assert "trumanworld_tick_duration_seconds" in body
     assert "trumanworld_active_runs" in body
     assert "process_resident_memory_bytes" in body
+
+
+@pytest.mark.asyncio
+async def test_system_overview_endpoint_returns_project_components(client, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        system_route,
+        "get_system_overview_payload",
+        lambda: {
+            "collected_at": 1234567890,
+            "components": {
+                "backend": {
+                    "status": "available",
+                    "rss_bytes": 100,
+                    "vms_bytes": 200,
+                    "cpu_seconds": 3.5,
+                    "cpu_percent": 25.0,
+                    "process_count": 1,
+                },
+                "frontend": {
+                    "status": "available",
+                    "rss_bytes": 300,
+                    "vms_bytes": 400,
+                    "cpu_seconds": 2.0,
+                    "cpu_percent": 50.0,
+                    "process_count": 2,
+                },
+                "postgres": {
+                    "status": "unavailable",
+                    "rss_bytes": 0,
+                    "vms_bytes": 0,
+                    "cpu_seconds": 0.0,
+                    "cpu_percent": 0.0,
+                    "process_count": 0,
+                },
+                "total": {
+                    "status": "available",
+                    "rss_bytes": 400,
+                    "vms_bytes": 600,
+                    "cpu_seconds": 5.5,
+                    "cpu_percent": 75.0,
+                    "process_count": 3,
+                },
+            },
+        },
+    )
+
+    response = await client.get("/api/system/overview")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["components"]["backend"]["cpu_percent"] == 25.0
+    assert body["components"]["frontend"]["process_count"] == 2
+    assert body["components"]["postgres"]["status"] == "unavailable"
+    assert body["components"]["total"]["rss_bytes"] == 400
 
 
 @pytest.mark.asyncio
