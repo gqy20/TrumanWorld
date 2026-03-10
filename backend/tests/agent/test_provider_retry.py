@@ -6,11 +6,12 @@
 - 不可重试：CancelledError、cancel scope 错误（SDK 已知问题，静默处理）
 - 每次失败记录 warning，耗尽后抛出最后一次异常
 """
+
 from __future__ import annotations
 
 import pytest
 import app.agent.providers as provider_module
-from app.agent.providers import ClaudeSDKDecisionProvider, RuntimeDecision
+from app.agent.providers import ClaudeSDKDecisionProvider
 from app.agent.runtime import RuntimeInvocation
 from app.infra.settings import get_settings
 
@@ -155,8 +156,8 @@ async def test_cancelled_error_not_retried(monkeypatch):
         nonlocal call_count
         call_count += 1
         raise asyncio.CancelledError
-        # unreachable, but needed to make this an async generator
-        yield  # noqa: unreachable
+        if False:
+            yield None
 
     monkeypatch.setattr(provider_module, "query", fake_query)
 

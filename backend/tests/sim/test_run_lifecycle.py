@@ -23,24 +23,32 @@ class FakeScheduler:
 
 class FakePool:
     def __init__(self) -> None:
-        self.warmup_calls: list[list[str]] = []
         self.cleanup_calls: list[str] = []
-
-    async def warmup(self, agent_ids: list[str]) -> int:
-        self.warmup_calls.append(agent_ids)
-        return len(agent_ids)
 
     async def cleanup_run(self, run_id: str) -> int:
         self.cleanup_calls.append(run_id)
         return 1
 
 
-class FakeService:
-    def __init__(self) -> None:
-        self.run_tick_calls: list[tuple[str, object]] = []
+class FakePlan:
+    def __init__(self, interval_seconds: float = 7.5) -> None:
+        self.interval_seconds = interval_seconds
+        self.tick_calls: list[str] = []
 
-    async def run_tick_isolated(self, run_id: str, engine) -> None:
-        self.run_tick_calls.append((run_id, engine))
+        async def tick_callback(run_id: str) -> None:
+            self.tick_calls.append(run_id)
+
+        self.tick_callback = tick_callback
+
+
+class FakeBootstrapper:
+    def __init__(self, plan: FakePlan) -> None:
+        self.plan = plan
+        self.prepare_calls: list[str] = []
+
+    async def prepare(self, session, run):
+        self.prepare_calls.append(run.id)
+        return self.plan
 
 
 @pytest.mark.asyncio
@@ -100,48 +108,16 @@ async def test_ensure_run_started_warms_pool_and_registers_tick_callback(db_sess
     await db_session.commit()
 
     scheduler = FakeScheduler(running=False)
-    pool = FakePool()
-    created_registry_paths: list[object] = []
-    created_runtimes: list[tuple[object, object]] = []
-    created_services: list[FakeService] = []
-    scenario = object()
-    fake_engine = object()
+    plan = FakePlan(interval_seconds=7.5)
+    bootstrapper = FakeBootstrapper(plan)
 
-    class FakeRegistry:
-        def __init__(self, path) -> None:
-            created_registry_paths.append(path)
-
-    class FakeRuntime:
-        def __init__(self, registry, connection_pool) -> None:
-            created_runtimes.append((registry, connection_pool))
-
-    def fake_build_scenario(scenario_type: str):
-        assert scenario_type == "truman_world"
-        return scenario
-
-    def fake_create_for_scheduler(agent_runtime, scenario):
-        assert scenario is not None
-        service = FakeService()
-        created_services.append(service)
-        return service
+    class FakeBootstrapperFactory:
+        def __call__(self):
+            return bootstrapper
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(run_lifecycle_module, "get_scheduler", lambda: scheduler)
-    monkeypatch.setattr(
-        run_lifecycle_module, "get_settings", lambda: type("S", (), {"project_root": tmp_path})()
-    )
-    monkeypatch.setattr(run_lifecycle_module, "get_connection_pool", lambda: _return_async(pool))
-    monkeypatch.setattr(run_lifecycle_module, "AgentRegistry", FakeRegistry)
-    monkeypatch.setattr(run_lifecycle_module, "AgentRuntime", FakeRuntime)
-    monkeypatch.setattr(
-        run_lifecycle_module.SimulationService, "build_scenario", fake_build_scenario
-    )
-    monkeypatch.setattr(
-        run_lifecycle_module.SimulationService,
-        "create_for_scheduler",
-        fake_create_for_scheduler,
-    )
-    monkeypatch.setattr(run_lifecycle_module, "async_engine", fake_engine)
+    monkeypatch.setattr(run_lifecycle_module, "RunExecutionBootstrapper", FakeBootstrapperFactory())
     try:
         updated = await run_lifecycle_module.ensure_run_started(db_session, run)
         callback = scheduler.started[0][2]
@@ -150,17 +126,11 @@ async def test_ensure_run_started_warms_pool_and_registers_tick_callback(db_sess
         monkeypatch.undo()
 
     assert updated.status == "running"
-    assert created_registry_paths == [tmp_path / "agents"]
-    assert len(created_runtimes) == 1
-    assert created_runtimes[0][1] is pool
-    assert pool.warmup_calls == [
-        ["run-lifecycle-2:spouse", "run-lifecycle-2:run-lifecycle-2-bob"]
-    ] or pool.warmup_calls == [["run-lifecycle-2:run-lifecycle-2-bob", "run-lifecycle-2:spouse"]]
+    assert bootstrapper.prepare_calls == ["run-lifecycle-2"]
     assert scheduler.started
     assert scheduler.started[0][0] == "run-lifecycle-2"
-    assert scheduler.started[0][1] == 5.0
-    assert len(created_services) == 1
-    assert created_services[0].run_tick_calls == [("run-lifecycle-2", fake_engine)]
+    assert scheduler.started[0][1] == 7.5
+    assert plan.tick_calls == ["run-lifecycle-2"]
 
 
 @pytest.mark.asyncio
@@ -170,39 +140,17 @@ async def test_ensure_run_started_skips_warmup_when_run_has_no_agents(db_session
     await db_session.commit()
 
     scheduler = FakeScheduler(running=False)
-    pool = FakePool()
-
-    class FakeRegistry:
-        def __init__(self, path) -> None:
-            self.path = path
-
-    class FakeRuntime:
-        def __init__(self, registry, connection_pool) -> None:
-            self.registry = registry
-            self.connection_pool = connection_pool
+    bootstrapper = FakeBootstrapper(FakePlan(interval_seconds=3.0))
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(run_lifecycle_module, "get_scheduler", lambda: scheduler)
-    monkeypatch.setattr(
-        run_lifecycle_module, "get_settings", lambda: type("S", (), {"project_root": tmp_path})()
-    )
-    monkeypatch.setattr(run_lifecycle_module, "get_connection_pool", lambda: _return_async(pool))
-    monkeypatch.setattr(run_lifecycle_module, "AgentRegistry", FakeRegistry)
-    monkeypatch.setattr(run_lifecycle_module, "AgentRuntime", FakeRuntime)
-    monkeypatch.setattr(
-        run_lifecycle_module.SimulationService, "build_scenario", lambda _: object()
-    )
-    monkeypatch.setattr(
-        run_lifecycle_module.SimulationService,
-        "create_for_scheduler",
-        lambda agent_runtime, scenario: FakeService(),
-    )
+    monkeypatch.setattr(run_lifecycle_module, "RunExecutionBootstrapper", lambda: bootstrapper)
     try:
         await run_lifecycle_module.ensure_run_started(db_session, run)
     finally:
         monkeypatch.undo()
 
-    assert pool.warmup_calls == []
+    assert bootstrapper.prepare_calls == ["run-lifecycle-3"]
     assert len(scheduler.started) == 1
 
 

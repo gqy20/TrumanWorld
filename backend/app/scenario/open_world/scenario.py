@@ -30,6 +30,7 @@ class OpenWorldScenario(Scenario):
         return OpenWorldScenario(session)
 
     def configure_runtime(self, agent_runtime) -> None:
+        agent_runtime.configure_allowed_actions(self.allowed_actions())
         return None
 
     def configure_agent_context(self, context_builder) -> None:
@@ -69,8 +70,14 @@ class OpenWorldScenario(Scenario):
     async def build_director_plan(self, run_id: str, agents: list[Agent]):
         return None
 
+    async def persist_director_plan(self, run_id: str, plan) -> None:
+        return None
+
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:
         return merge_agent_profile(agent.profile or {})
+
+    def allowed_actions(self) -> list[str]:
+        return ["move", "talk", "work", "rest"]
 
     def fallback_intent(
         self,

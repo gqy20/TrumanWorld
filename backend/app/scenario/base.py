@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.agent.runtime import AgentRuntime
+    from app.director.types import DirectorPlan
     from app.store.models import Agent, Event, SimulationRun
 
 
@@ -49,7 +50,15 @@ class Scenario(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def persist_director_plan(self, run_id: str, plan: "DirectorPlan | None") -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:
+        raise NotImplementedError
+
+    @abstractmethod
+    def allowed_actions(self) -> list[str]:
         raise NotImplementedError
 
     @abstractmethod

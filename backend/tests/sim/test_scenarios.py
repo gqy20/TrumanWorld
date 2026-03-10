@@ -5,6 +5,7 @@ import pytest
 from app.agent.context_builder import ContextBuilder
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
+from app.scenario.factory import create_scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
 from app.scenario.truman_world.scenario import TrumanWorldScenario
 from app.store.models import Event, SimulationRun
@@ -95,3 +96,41 @@ async def test_open_world_scenario_seed_is_minimal(db_session):
     assessment = scenario.assess(run_id=run.id, current_tick=0, agents=agents, events=[])
     assert assessment.continuity_risk == "stable"
     assert assessment.suspicion_level == "low"
+
+
+@pytest.mark.asyncio
+async def test_open_world_scenario_persist_director_plan_is_noop(db_session):
+    scenario = OpenWorldScenario(db_session)
+
+    await scenario.persist_director_plan("run-open-world", None)
+
+
+def test_scenario_factory_returns_expected_implementation(db_session):
+    assert isinstance(create_scenario("open_world", db_session), OpenWorldScenario)
+    assert isinstance(create_scenario("truman_world", db_session), TrumanWorldScenario)
+    assert isinstance(create_scenario(None, db_session), TrumanWorldScenario)
+
+
+def test_scenario_configures_runtime_allowed_actions(tmp_path):
+    agent_dir = tmp_path / "demo_agent"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: demo_agent",
+                "name: Demo Agent",
+                "occupation: resident",
+                "home: demo_home",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
+
+    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
+    scenario = create_scenario("open_world")
+    scenario.configure_runtime(runtime)
+
+    invocation = runtime.prepare_reactor("demo_agent", world={"current_goal": "rest"})
+
+    assert invocation.allowed_actions == scenario.allowed_actions()

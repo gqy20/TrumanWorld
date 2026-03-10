@@ -8,7 +8,6 @@ from app.agent.context_builder import ContextBuilder
 from app.agent.providers import (
     AgentDecisionProvider,
     ClaudeSDKDecisionProvider,
-    HeuristicDecisionProvider,
     RuntimeDecision,
 )
 from app.agent.planner import Planner
@@ -256,6 +255,7 @@ async def test_heuristic_provider_returns_rest_for_talk_goal(runtime: AgentRunti
     # Heuristic no longer handles talk — only move:xxx is handled; everything else falls back to rest
     assert intent.action_type == "rest"
 
+
 @pytest.mark.asyncio
 async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: AgentRuntime):
     invocation = runtime.prepare_reactor(
@@ -450,7 +450,6 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
     assert "message" not in result.payload
 
     get_settings.cache_clear()
-
 
 
 @pytest.mark.asyncio

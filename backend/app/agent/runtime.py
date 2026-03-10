@@ -75,7 +75,11 @@ class AgentRuntime:
         self.context_builder = context_builder or ContextBuilder()
         self.prompt_loader = prompt_loader or PromptLoader()
         self._connection_pool = connection_pool
+        self._allowed_actions = ["move", "talk", "work", "rest"]
         self.decision_provider = decision_provider or self._build_default_provider()
+
+    def configure_allowed_actions(self, allowed_actions: list[str]) -> None:
+        self._allowed_actions = list(allowed_actions)
 
     def _build_default_provider(self) -> AgentDecisionProvider:
         settings = get_settings()
@@ -126,7 +130,7 @@ class AgentRuntime:
             recent_events=recent_events,
         )
         base_prompt = self.registry.get_prompt(agent_id)
-        allowed_actions = ["move", "talk", "work", "rest"]
+        allowed_actions = list(self._allowed_actions)
         prompt = self.prompt_loader.render_decision_prompt(
             base_prompt or "",
             context=context,
@@ -304,4 +308,3 @@ class AgentRuntime:
         if parsed is None:
             logger.warning(f"{task} could not parse JSON for {agent_id}: {result_text[:200]}")
         return parsed
-

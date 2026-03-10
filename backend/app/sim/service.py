@@ -20,14 +20,12 @@ from app.director.observer import DirectorAssessment
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
-from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.truman_world.scenario import TrumanWorldScenario
+from app.scenario.factory import create_scenario
 from app.scenario.types import (
     get_agent_config_id,
     get_world_role,
 )
 from app.scenario.truman_world.types import (
-    DirectorGuidance,
     get_director_guidance,
 )
 from app.sim.action_resolver import ActionIntent
@@ -73,26 +71,28 @@ class SimulationService:
 
     def __init__(
         self,
-        session: AsyncSession,
+        session: AsyncSession | None,
         agent_runtime: AgentRuntime | None = None,
         agents_root: Path | None = None,
         scenario: Scenario | None = None,
     ) -> None:
         self.session = session
-        self.run_repo = RunRepository(session)
-        self.agent_repo = AgentRepository(session)
-        self.location_repo = LocationRepository(session)
-        self.event_repo = EventRepository(session)
-        self.director_memory_repo = DirectorMemoryRepository(session)
-        self._context_builder = ContextBuilder(session)
-        self._persistence = PersistenceManager(session)
+        self.run_repo = RunRepository(session) if session is not None else None
+        self.agent_repo = AgentRepository(session) if session is not None else None
+        self.location_repo = LocationRepository(session) if session is not None else None
+        self.event_repo = EventRepository(session) if session is not None else None
+        self.director_memory_repo = (
+            DirectorMemoryRepository(session) if session is not None else None
+        )
+        self._context_builder = ContextBuilder(session) if session is not None else None
+        self._persistence = PersistenceManager(session) if session is not None else None
         # Track whether a scenario was explicitly injected (e.g. in tests).
         # When True, run_tick will NOT override _scenario based on run.scenario_type.
         self._injected_scenario: bool = scenario is not None
         self._scenario = (
             scenario.with_session(session)
             if scenario is not None
-            else self.build_scenario("truman_world", session)
+            else create_scenario("truman_world", session)
         )
         settings = get_settings()
         self.agent_runtime = agent_runtime or AgentRuntime(
@@ -100,17 +100,8 @@ class SimulationService:
         )
         self._scenario.configure_runtime(self.agent_runtime)
 
-    @staticmethod
-    def build_scenario(
-        scenario_type: str | None,
-        session: AsyncSession | None = None,
-    ) -> Scenario:
-        if scenario_type == "open_world":
-            return OpenWorldScenario(session)
-        return TrumanWorldScenario(session)
-
     def _configure_scenario(self, scenario_type: str | None) -> Scenario:
-        self._scenario = self.build_scenario(scenario_type, self.session)
+        self._scenario = create_scenario(scenario_type, self.session)
         self._scenario.configure_runtime(self.agent_runtime)
         return self._scenario
 
@@ -127,28 +118,55 @@ class SimulationService:
         agent_runtime: AgentRuntime,
         scenario: Scenario | None = None,
     ) -> "SimulationService":
-        """Create a SimulationService instance for scheduler use.
-
-        This factory method creates a service instance that is not bound
-        to a specific database session. It should only be used with
-        run_tick_isolated() method which manages its own sessions.
-        """
-        instance = cls.__new__(cls)
-        instance.session = None  # type: ignore[assignment]
-        instance.agent_runtime = agent_runtime
-        instance._context_builder = None  # type: ignore[assignment]
-        instance._persistence = None  # type: ignore[assignment]
-        instance._scenario = (
-            scenario.with_session(None)
-            if scenario is not None
-            else cls.build_scenario("truman_world")
+        return cls(
+            session=None,
+            agent_runtime=agent_runtime,
+            scenario=(
+                scenario.with_session(None)
+                if scenario is not None
+                else create_scenario("truman_world")
+            ),
         )
-        instance._injected_scenario = scenario is not None
-        instance._scenario.configure_runtime(agent_runtime)
-        return instance
+
+    def _require_session_bound(self) -> AsyncSession:
+        if self.session is None:
+            msg = "SimulationService is not bound to a database session"
+            raise RuntimeError(msg)
+        return self.session
+
+    def _require_run_repo(self) -> RunRepository:
+        if self.run_repo is None:
+            msg = "SimulationService requires a bound RunRepository"
+            raise RuntimeError(msg)
+        return self.run_repo
+
+    def _require_agent_repo(self) -> AgentRepository:
+        if self.agent_repo is None:
+            msg = "SimulationService requires a bound AgentRepository"
+            raise RuntimeError(msg)
+        return self.agent_repo
+
+    def _require_event_repo(self) -> EventRepository:
+        if self.event_repo is None:
+            msg = "SimulationService requires a bound EventRepository"
+            raise RuntimeError(msg)
+        return self.event_repo
+
+    def _require_context_builder(self) -> ContextBuilder:
+        if self._context_builder is None:
+            msg = "SimulationService requires a bound ContextBuilder"
+            raise RuntimeError(msg)
+        return self._context_builder
+
+    def _require_persistence(self) -> PersistenceManager:
+        if self._persistence is None:
+            msg = "SimulationService requires a bound PersistenceManager"
+            raise RuntimeError(msg)
+        return self._persistence
 
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
-        run = await self.run_repo.get(run_id)
+        run_repo = self._require_run_repo()
+        run = await run_repo.get(run_id)
         if run is None:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
@@ -161,8 +179,8 @@ class SimulationService:
         runner.tick_no = run.current_tick
         result = runner.tick(intents)
 
-        await self._persistence.persist_agent_locations(run_id, world)
-        await self.run_repo.update_tick(run, result.tick_no)
+        await self._require_persistence().persist_agent_locations(run_id, world)
+        await run_repo.update_tick(run, result.tick_no)
         await self._persist_tick_events(run_id, result)
         return result
 
@@ -190,7 +208,7 @@ class SimulationService:
             if run is None:
                 msg = f"Run not found: {run_id}"
                 raise ValueError(msg)
-            scenario = self.build_scenario(run.scenario_type, read_session)
+            scenario = create_scenario(run.scenario_type, read_session)
             scenario.configure_runtime(self.agent_runtime)
             loaded = await load_tick_data(
                 session=read_session,
@@ -201,7 +219,7 @@ class SimulationService:
             world = loaded.world
             agent_data = loaded.agent_data
             director_plan = loaded.director_plan
-        self._scenario = self.build_scenario(run.scenario_type)
+        self._scenario = create_scenario(run.scenario_type)
         self._scenario.configure_runtime(self.agent_runtime)
 
         # Phase 2: Prepare intents (SDK calls happen here, no active session)
@@ -226,13 +244,10 @@ class SimulationService:
             await self._scenario.with_session(write_session).update_state_from_events(
                 run_id, persisted_events
             )
-            # Persist director plan generated in Phase 1 (read_session context)
-            # This avoids greenlet conflicts from writing inside read_session.
             if director_plan is not None:
                 try:
                     write_scenario = self._scenario.with_session(write_session)
-                    if hasattr(write_scenario, "persist_director_plan"):
-                        await write_scenario.persist_director_plan(run_id, director_plan)
+                    await write_scenario.persist_director_plan(run_id, director_plan)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(f"Failed to persist director plan for run {run_id}: {exc}")
             # Persist LLM call records (独立 session，失败不影响主流程)
@@ -408,20 +423,20 @@ class SimulationService:
             for item in result.rejected
         )
         if events:
-            persisted = await self.event_repo.create_many(events)
-            await self._persistence.persist_tick_memories(run_id, persisted)
-            await self._persistence.persist_tick_relationships(run_id, persisted)
+            persisted = await self._require_event_repo().create_many(events)
+            await self._require_persistence().persist_tick_memories(run_id, persisted)
+            await self._require_persistence().persist_tick_relationships(run_id, persisted)
             await self._scenario.update_state_from_events(run_id, persisted)
 
     async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
-        agents = await self.agent_repo.list_for_run(run_id)
+        agents = await self._require_agent_repo().list_for_run(run_id)
         intents: list[ActionIntent] = []
-        truman_suspicion_score = self._context_builder.extract_truman_suspicion_from_agents(
-            agents, world
+        truman_suspicion_score = (
+            self._require_context_builder().extract_truman_suspicion_from_agents(agents, world)
         )
         plan = await self._scenario.build_director_plan(run_id, agents)
         agent_recent_events = await build_agent_recent_events(
-            session=self.session,
+            session=self._require_session_bound(),
             run_id=run_id,
             agents=list(agents),
             agent_states=world.agents,
@@ -477,18 +492,18 @@ class SimulationService:
         director_guidance = get_director_guidance(profile)
 
         world_ctx = build_agent_world_context(
-                world=world,
-                current_goal=current_goal,
-                current_location_id=current_location_id,
-                home_location_id=home_location_id,
-                nearby_agent_id=nearby_agent_id,
-                current_status=current_status,
-                truman_suspicion_score=truman_suspicion_score,
-                world_role=get_world_role(profile),
-                director_guidance=director_guidance,
-                workplace_location_id=workplace_location_id,
-                current_plan=current_plan,
-            )
+            world=world,
+            current_goal=current_goal,
+            current_location_id=current_location_id,
+            home_location_id=home_location_id,
+            nearby_agent_id=nearby_agent_id,
+            current_status=current_status,
+            truman_suspicion_score=truman_suspicion_score,
+            world_role=get_world_role(profile),
+            director_guidance=director_guidance,
+            workplace_location_id=workplace_location_id,
+            current_plan=current_plan,
+        )
         inject_profile_fields_into_context(world_ctx, profile)
         intent = await self.agent_runtime.react(
             runtime_agent_id,
@@ -518,13 +533,13 @@ class SimulationService:
         by converting the event into a DirectorPlan and saving it to
         DirectorMemory, ensuring consistent handling and execution tracking.
         """
-        run = await self.run_repo.get(run_id)
+        run = await self._require_run_repo().get(run_id)
         if run is None:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
 
         # 1. Get all agents and find Truman
-        agents = await self.agent_repo.list_for_run(run_id)
+        agents = await self._require_agent_repo().list_for_run(run_id)
         truman = next(
             (a for a in agents if get_world_role(a.profile) == "truman"),
             None,
@@ -545,6 +560,9 @@ class SimulationService:
             raise ValueError(msg)
 
         # 3. Save to DirectorMemory (unified storage with automatic interventions)
+        if self.director_memory_repo is None:
+            msg = "SimulationService requires a bound DirectorMemoryRepository"
+            raise RuntimeError(msg)
         await self.director_memory_repo.create(
             run_id=run_id,
             tick_no=run.current_tick,
@@ -573,10 +591,10 @@ class SimulationService:
         event.location_id = location_id
         event.importance = importance
         event.visibility = "system"
-        await self.event_repo.create(event)
+        await self._require_event_repo().create(event)
 
     async def observe_run(self, run_id: str, event_limit: int = 20) -> DirectorAssessment:
-        run = await self.run_repo.get(run_id)
+        run = await self._require_run_repo().get(run_id)
         if run is None:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
@@ -584,21 +602,20 @@ class SimulationService:
         return await self._scenario.observe_run(run_id, event_limit=event_limit)
 
     async def seed_demo_run(self, run_id: str) -> None:
-        run = await self.run_repo.get(run_id)
+        run = await self._require_run_repo().get(run_id)
         if run is None:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
         self._configure_scenario_for_run(run)
 
-        existing_agents = await self.agent_repo.list_for_run(run_id)
+        existing_agents = await self._require_agent_repo().list_for_run(run_id)
         if existing_agents:
             return
         await self._scenario.seed_demo_run(run)
 
     async def _load_world(self, run_id: str, tick_minutes: int) -> WorldState:
-        run = await self.run_repo.get(run_id)
+        run = await self._require_run_repo().get(run_id)
         if run is None:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
-        return await self._context_builder.load_world(run_id, run, tick_minutes)
-
+        return await self._require_context_builder().load_world(run_id, run, tick_minutes)

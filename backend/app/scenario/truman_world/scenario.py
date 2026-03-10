@@ -35,6 +35,7 @@ class TrumanWorldScenario(Scenario):
         return TrumanWorldScenario(session)
 
     def configure_runtime(self, agent_runtime: AgentRuntime) -> None:
+        agent_runtime.configure_allowed_actions(self.allowed_actions())
         self.coordinator.configure_runtime(agent_runtime)
         self.configure_agent_context(agent_runtime.context_builder)
 
@@ -75,6 +76,9 @@ class TrumanWorldScenario(Scenario):
 
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:
         return self.coordinator.merge_agent_profile(agent, plan)
+
+    def allowed_actions(self) -> list[str]:
+        return ["move", "talk", "work", "rest"]
 
     def fallback_intent(
         self,

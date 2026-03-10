@@ -1,4 +1,3 @@
-
 import pytest
 
 from app.agent.providers import AgentDecisionProvider, RuntimeDecision
@@ -69,8 +68,14 @@ class FakeScenario(Scenario):
     async def build_director_plan(self, run_id: str, agents: list[Agent]):
         return None
 
+    async def persist_director_plan(self, run_id: str, plan) -> None:
+        return None
+
     def merge_agent_profile(self, agent: Agent, plan) -> dict:
         return dict(agent.profile or {})
+
+    def allowed_actions(self) -> list[str]:
+        return ["move", "talk", "work", "rest"]
 
     def fallback_intent(
         self,

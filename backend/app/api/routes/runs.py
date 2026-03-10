@@ -30,6 +30,7 @@ from app.api.schemas.simulation import (
 )
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
+from app.scenario.factory import create_scenario
 from app.scenario.truman_world.rules import load_world_config
 from app.scenario.truman_world.types import get_agent_config_id
 from app.sim.context import get_run_world_time
@@ -174,7 +175,7 @@ async def create_run(
         logger.debug(f"Seeding demo data for run {created.id}")
         service = SimulationService(
             session,
-            scenario=SimulationService.build_scenario(created.scenario_type, session),
+            scenario=create_scenario(created.scenario_type, session),
         )
         await service.seed_demo_run(created.id)
         logger.info(f"Demo data seeded for run {created.id}")
