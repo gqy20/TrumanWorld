@@ -120,7 +120,7 @@ db-start:
 			-e POSTGRES_PASSWORD=$(DB_PASSWORD) \
 			-e POSTGRES_DB=$(DB_NAME) \
 			-p $(DB_PORT):5432 \
-			postgres:18.3; \
+			postgres:17.7; \
 		echo "等待数据库启动..."; \
 		sleep 3; \
 	fi

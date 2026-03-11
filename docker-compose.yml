@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:18.3
+    image: postgres:17.7
     container_name: trumanworld-db
     restart: unless-stopped
     environment:

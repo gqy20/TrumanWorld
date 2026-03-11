@@ -1,0 +1,15 @@
+[build]
+builder = "RAILPACK"
+buildCommand = "cd backend && uv sync --frozen"
+watchPatterns = [
+  "/backend/**",
+  "/agents/**",
+]
+
+[deploy]
+preDeployCommand = "cd backend && uv run alembic upgrade head"
+startCommand = "cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
