@@ -61,9 +61,6 @@ out/
 coverage/
 *.tsbuildinfo
 
-# Frontend generated files (synced from agents/)
-frontend/public/agents/
-
 # Deployment / containers
 .docker/
 

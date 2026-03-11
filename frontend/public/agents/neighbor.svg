@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Lauren - 自由职业者，紫色系，文艺 -->
+  <defs>
+    <linearGradient id="lauren-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="50" cy="50" r="48" fill="url(#lauren-bg)"/>
+
+  <!-- 长发 -->
+  <ellipse cx="50" cy="38" rx="26" ry="22" fill="#4a3728"/>
+  <path d="M24 40 Q20 60, 28 75" stroke="#4a3728" stroke-width="10" fill="none"/>
+  <path d="M76 40 Q80 60, 72 75" stroke="#4a3728" stroke-width="10" fill="none"/>
+  <path d="M28 50 Q25 70, 30 85" stroke="#4a3728" stroke-width="8" fill="none"/>
+  <path d="M72 50 Q75 70, 70 85" stroke="#4a3728" stroke-width="8" fill="none"/>
+
+  <!-- 脸 -->
+  <ellipse cx="50" cy="44" rx="16" ry="14" fill="#f5d0b5"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="44" cy="42" rx="3" ry="3.5" fill="#2d2d2d"/>
+  <ellipse cx="56" cy="42" rx="3" ry="3.5" fill="#2d2d2d"/>
+  <circle cx="45" cy="41" r="1" fill="white"/>
+  <circle cx="57" cy="41" r="1" fill="white"/>
+
+  <!-- 眼镜 -->
+  <rect x="37" y="37" width="12" height="10" rx="2" fill="none" stroke="#374151" stroke-width="1.5"/>
+  <rect x="51" y="37" width="12" height="10" rx="2" fill="none" stroke="#374151" stroke-width="1.5"/>
+  <line x1="49" y1="42" x2="51" y2="42" stroke="#374151" stroke-width="1.5"/>
+  <line x1="37" y1="42" x2="32" y2="40" stroke="#374151" stroke-width="1.5"/>
+  <line x1="63" y1="42" x2="68" y2="40" stroke="#374151" stroke-width="1.5"/>
+
+  <!-- 微笑 -->
+  <path d="M46 52 Q50 55, 54 52" stroke="#c47a6a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- 围巾/休闲装 -->
+  <path d="M30 100 L38 70 L50 74 L62 70 L70 100" fill="#7c3aed"/>
+  <path d="M38 70 Q50 65, 62 70" stroke="#a855f7" stroke-width="3" fill="none"/>
+</svg>

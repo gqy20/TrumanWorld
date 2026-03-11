@@ -33,6 +33,10 @@ export function WorldStatusBar() {
   const isRunning = world?.run.status === "running";
   const startedAt = world?.run.started_at;
   const elapsedBase = world?.run.elapsed_seconds ?? 0;
+  const simDay =
+    world == null
+      ? 1
+      : Math.floor(((world.run.current_tick ?? 0) * (world.run.tick_minutes ?? 5)) / 1440) + 1;
 
   useEffect(() => {
     // world 尚未加载，跳过
@@ -118,7 +122,7 @@ export function WorldStatusBar() {
       {/* 模拟时间 - 移到暂停按钮左侧 */}
       <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600">
         {world.world_clock
-          ? `第${world.world_clock.day}天 ${world.world_clock.weekday_name_cn} ${world.world_clock.time}`
+          ? `第${simDay}天 ${world.world_clock.weekday_name_cn} ${world.world_clock.time}`
           : `模拟时间 ${formatSimTime(world)}`}
       </span>
 

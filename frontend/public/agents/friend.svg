@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Marlon - 办公室同事，绿色系，友善 -->
+  <defs>
+    <linearGradient id="marlon-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="50" cy="50" r="48" fill="url(#marlon-bg)"/>
+
+  <!-- 头发 -->
+  <ellipse cx="50" cy="30" rx="22" ry="16" fill="#3d2914"/>
+  <path d="M30 32 Q35 28, 40 32" stroke="#3d2914" stroke-width="4" fill="none"/>
+  <path d="M45 28 Q50 24, 55 28" stroke="#3d2914" stroke-width="4" fill="none"/>
+  <path d="M60 32 Q65 28, 70 32" stroke="#3d2914" stroke-width="4" fill="none"/>
+
+  <!-- 脸 -->
+  <ellipse cx="50" cy="42" rx="18" ry="16" fill="#d4a574"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="43" cy="40" rx="3.5" ry="3" fill="#2d2d2d"/>
+  <ellipse cx="57" cy="40" rx="3.5" ry="3" fill="#2d2d2d"/>
+  <circle cx="44" cy="39" r="1" fill="white"/>
+  <circle cx="58" cy="39" r="1" fill="white"/>
+
+  <!-- 友善的眉毛 -->
+  <path d="M38 36 Q43 34, 48 36" stroke="#3d2914" stroke-width="2" fill="none"/>
+  <path d="M52 36 Q57 34, 62 36" stroke="#3d2914" stroke-width="2" fill="none"/>
+
+  <!-- 鼻子 -->
+  <ellipse cx="50" cy="46" rx="3" ry="2" fill="#c4956a"/>
+
+  <!-- 大大的微笑 -->
+  <path d="M42 52 Q50 60, 58 52" stroke="#a67c52" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- 衬衫 -->
+  <path d="M30 100 L35 70 L50 75 L65 70 L70 100" fill="#f0f0f0"/>
+
+  <!-- 领带 -->
+  <rect x="47" y="68" width="6" height="15" fill="#16a34a"/>
+  <polygon points="50,83 45,100 55,100" fill="#16a34a"/>
+
+  <!-- 西装外套 -->
+  <path d="M28 100 L32 72 L35 70 L35 100" fill="#374151"/>
+  <path d="M72 100 L68 72 L65 70 L65 100" fill="#374151"/>
+</svg>

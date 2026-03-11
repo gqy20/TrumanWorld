@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Truman - 主角，保险职员，蓝色系 -->
+  <defs>
+    <linearGradient id="truman-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="50" cy="50" r="48" fill="url(#truman-bg)"/>
+
+  <!-- 头发 -->
+  <ellipse cx="50" cy="32" rx="22" ry="18" fill="#4a3728"/>
+
+  <!-- 脸 -->
+  <ellipse cx="50" cy="42" rx="18" ry="16" fill="#f5d0b5"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="43" cy="40" rx="3" ry="3.5" fill="#2d2d2d"/>
+  <ellipse cx="57" cy="40" rx="3" ry="3.5" fill="#2d2d2d"/>
+  <circle cx="44" cy="39" r="1" fill="white"/>
+  <circle cx="58" cy="39" r="1" fill="white"/>
+
+  <!-- 眉毛 -->
+  <path d="M39 35 Q43 33, 47 35" stroke="#4a3728" stroke-width="1.5" fill="none"/>
+  <path d="M53 35 Q57 33, 61 35" stroke="#4a3728" stroke-width="1.5" fill="none"/>
+
+  <!-- 鼻子 -->
+  <path d="M50 42 L48 48 L52 48" stroke="#d4a88d" stroke-width="1" fill="none"/>
+
+  <!-- 微笑 -->
+  <path d="M44 53 Q50 58, 56 53" stroke="#c47a6a" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- 衬衫领子 -->
+  <path d="M35 70 L50 62 L65 70" fill="white" stroke="#e5e5e5" stroke-width="1"/>
+
+  <!-- 西装 -->
+  <path d="M30 100 L35 70 L50 75 L65 70 L70 100" fill="#1e3a5f"/>
+
+  <!-- 领带 -->
+  <path d="M47 62 L50 80 L53 62 L50 65 Z" fill="#1d4ed8"/>
+</svg>

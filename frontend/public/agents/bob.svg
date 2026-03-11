@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Bob - 蓝色系，沉稳 -->
+  <defs>
+    <linearGradient id="bob-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="50" cy="50" r="48" fill="url(#bob-bg)"/>
+
+  <!-- 头发（短发） -->
+  <ellipse cx="50" cy="30" rx="21" ry="14" fill="#2d2d2d"/>
+  <rect x="29" y="28" width="42" height="10" rx="3" fill="#2d2d2d"/>
+
+  <!-- 脸 -->
+  <ellipse cx="50" cy="44" rx="17" ry="16" fill="#f5d0b5"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="43" cy="42" rx="3" ry="3" fill="#2d2d2d"/>
+  <ellipse cx="57" cy="42" rx="3" ry="3" fill="#2d2d2d"/>
+  <circle cx="44" cy="41" r="1" fill="white"/>
+  <circle cx="58" cy="41" r="1" fill="white"/>
+
+  <!-- 眉毛 -->
+  <path d="M38 38 Q43 36, 48 38" stroke="#2d2d2d" stroke-width="2" fill="none"/>
+  <path d="M52 38 Q57 36, 62 38" stroke="#2d2d2d" stroke-width="2" fill="none"/>
+
+  <!-- 腮红 -->
+  <ellipse cx="36" cy="48" rx="4" ry="2" fill="#fca5a5" opacity="0.4"/>
+  <ellipse cx="64" cy="48" rx="4" ry="2" fill="#fca5a5" opacity="0.4"/>
+
+  <!-- 微笑 -->
+  <path d="M43 53 Q50 59, 57 53" stroke="#c47a6a" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- 衬衫 -->
+  <path d="M30 100 L35 70 L50 76 L65 70 L70 100" fill="#dbeafe"/>
+  <path d="M44 70 L50 76 L56 70" fill="#bfdbfe"/>
+
+  <!-- 领带 -->
+  <path d="M47 70 L50 84 L53 70" fill="#1d4ed8"/>
+</svg>

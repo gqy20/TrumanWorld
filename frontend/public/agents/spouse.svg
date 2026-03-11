@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Meryl - 医院工作人员，粉色系，温暖 -->
+  <defs>
+    <linearGradient id="meryl-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#db2777"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="50" cy="50" r="48" fill="url(#meryl-bg)"/>
+
+  <!-- 头发 -->
+  <ellipse cx="50" cy="30" rx="24" ry="20" fill="#5c4033"/>
+  <path d="M26 35 Q30 50, 28 55" stroke="#5c4033" stroke-width="8" fill="none"/>
+  <path d="M74 35 Q70 50, 72 55" stroke="#5c4033" stroke-width="8" fill="none"/>
+
+  <!-- 脸 -->
+  <ellipse cx="50" cy="42" rx="17" ry="15" fill="#f5d0b5"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="43" cy="40" rx="3" ry="3.5" fill="#2d2d2d"/>
+  <ellipse cx="57" cy="40" rx="3" ry="3.5" fill="#2d2d2d"/>
+  <circle cx="44" cy="39" r="1" fill="white"/>
+  <circle cx="58" cy="39" r="1" fill="white"/>
+
+  <!-- 眼睫毛 -->
+  <path d="M40 37 L41 35 M42 36 L42 34 M44 36 L45 34" stroke="#2d2d2d" stroke-width="0.8"/>
+  <path d="M60 37 L59 35 M58 36 L58 34 M56 36 L55 34" stroke="#2d2d2d" stroke-width="0.8"/>
+
+  <!-- 腮红 -->
+  <ellipse cx="36" cy="47" rx="4" ry="2" fill="#fca5a5" opacity="0.5"/>
+  <ellipse cx="64" cy="47" rx="4" ry="2" fill="#fca5a5" opacity="0.5"/>
+
+  <!-- 微笑 -->
+  <path d="M45 52 Q50 56, 55 52" stroke="#c47a6a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- 护士服 -->
+  <path d="M30 100 L35 68 L50 72 L65 68 L70 100" fill="white"/>
+
+  <!-- 护士帽 -->
+  <rect x="38" y="20" width="24" height="10" rx="2" fill="white"/>
+  <circle cx="50" cy="25" r="3" fill="#ec4899"/>
+</svg>
