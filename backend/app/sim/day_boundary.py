@@ -256,6 +256,9 @@ async def run_morning_planning(
                     content=content,
                     summary=intention or f"今日计划已制定（{today.isoformat()}）",
                     importance=0.6,
+                    event_importance=0.6,
+                    self_relevance=1.0,
+                    belief_confidence=1.0,
                     metadata_json={
                         "plan": new_plan,
                         "intention": intention,
@@ -362,6 +365,9 @@ async def run_evening_reflection(
                     content=content,
                     summary=summary,
                     importance=0.7,
+                    event_importance=0.7,
+                    self_relevance=1.0,
+                    belief_confidence=1.0,
                     emotional_valence=_mood_to_valence(mood),
                     metadata_json={
                         "mood": mood,

@@ -19,9 +19,9 @@ EVENT_IMPORTANCE_DEFAULTS: dict[str, float] = {
     "director_broadcast": 0.85,
     "power_outage": 0.80,
     "talk": 0.55,
-    "talk_rejected": 0.45,
-    "work_rejected": 0.40,
-    "move_rejected": 0.40,
+    "talk_rejected": 0.32,
+    "work_rejected": 0.22,
+    "move_rejected": 0.18,
     "work": 0.20,
     "move": 0.08,
     "rest": 0.03,
@@ -59,9 +59,6 @@ def calculate_event_importance(
 
     if is_first_interaction:
         importance += 0.10
-
-    if event_type.endswith("_rejected"):
-        importance += 0.05
 
     return _clamp(importance)
 

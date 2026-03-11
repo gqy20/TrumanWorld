@@ -51,6 +51,16 @@ class TestCalculateEventImportance:
         importance = calculate_event_importance("unknown_type", {})
         assert importance == 0.3
 
+    def test_rejected_talk_is_no_longer_scored_as_near_long_term(self):
+        """Rejected talk should be notable but clearly below successful talk."""
+        importance = calculate_event_importance("talk_rejected", {})
+        assert importance == 0.32
+
+    def test_rejected_move_stays_close_to_minor_interruption(self):
+        """Rejected move should not outrank meaningful social memories."""
+        importance = calculate_event_importance("move_rejected", {})
+        assert importance == 0.18
+
     def test_emotional_content_increases_importance(self):
         """Talk with emotional content should have increased importance."""
         normal_importance = calculate_event_importance("talk", {"message": "你好"})

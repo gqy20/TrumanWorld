@@ -153,6 +153,47 @@ async def test_simulation_service_persists_tick_and_events(db_session):
 
 
 @pytest.mark.asyncio
+async def test_simulation_service_deduplicates_consecutive_work_memories(db_session):
+    run = SimulationRun(
+        id="run-service-work-dedup", name="service", status="running", current_tick=0, tick_minutes=5
+    )
+    office = Location(
+        id="loc-office-dedup",
+        run_id="run-service-work-dedup",
+        name="Office",
+        location_type="office",
+        capacity=2,
+    )
+    alice = Agent(
+        id="alice-work-dedup",
+        run_id="run-service-work-dedup",
+        name="Alice",
+        occupation="resident",
+        home_location_id=office.id,
+        current_location_id=office.id,
+        personality={},
+        profile={"workplace_location_id": office.id},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, office, alice])
+    await db_session.commit()
+
+    service = SimulationService(db_session)
+    for _ in range(3):
+        await service.run_tick(
+            "run-service-work-dedup",
+            [ActionIntent(agent_id="alice-work-dedup", action_type="work")],
+        )
+
+    memories = await AgentRepository(db_session).list_recent_memories("alice-work-dedup", limit=10)
+    worked_memories = [memory for memory in memories if memory.summary == "Worked"]
+
+    assert len(worked_memories) == 1
+
+
+@pytest.mark.asyncio
 async def test_simulation_service_persists_rejected_events(db_session):
     run = SimulationRun(
         id="run-service-2", name="service", status="running", current_tick=0, tick_minutes=5

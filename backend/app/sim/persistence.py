@@ -30,6 +30,10 @@ if TYPE_CHECKING:
     from app.store.models import Agent
 
 
+ROUTINE_MEMORY_EVENT_TYPES = {"work", "rest"}
+ROUTINE_MEMORY_LOOKBACK_TICKS = 3
+
+
 class PersistenceManager:
     """Manages persistence of simulation tick results.
 
@@ -127,6 +131,7 @@ class PersistenceManager:
         agent_map = {a.id: a for a in agents_list}
         agent_name_map = {a.id: a.name for a in agents_list}
         location_name_map = {loc.id: loc.name for loc in locations_list}
+        recent_routine_signatures = await self._load_recent_routine_memory_signatures(run_id, events)
         memories: list[Memory] = []
         for event in events:
             if event.event_type.endswith("_rejected") or event.actor_agent_id is None:
@@ -135,6 +140,13 @@ class PersistenceManager:
             for agent_id, content, summary, related_agent_id in self._build_memory_records(
                 event, agent_name_map, location_name_map
             ):
+                signature = self._routine_memory_signature(
+                    agent_id=agent_id,
+                    event=event,
+                    summary=summary,
+                )
+                if signature and signature in recent_routine_signatures:
+                    continue
                 perspective = self._determine_perspective(event, agent_id)
                 relationship_strength = await self._relationship_strength(
                     run_id=run_id,
@@ -172,6 +184,8 @@ class PersistenceManager:
                         metadata_json={"event_type": event.event_type},
                     )
                 )
+                if signature:
+                    recent_routine_signatures.add(signature)
 
         if memories:
             await self.memory_repo.create_many(memories)
@@ -193,6 +207,11 @@ class PersistenceManager:
         agent_map = {a.id: a for a in agents}
         agent_name_map = {a.id: a.name for a in agents}
         location_name_map = {loc.id: loc.name for loc in locations}
+        recent_routine_signatures = await self._load_recent_routine_memory_signatures_with_session(
+            session=session,
+            run_id=run_id,
+            events=events,
+        )
 
         memories: list[Memory] = []
         for event in events:
@@ -202,6 +221,13 @@ class PersistenceManager:
             for agent_id, content, summary, related_agent_id in self._build_memory_records(
                 event, agent_name_map, location_name_map
             ):
+                signature = self._routine_memory_signature(
+                    agent_id=agent_id,
+                    event=event,
+                    summary=summary,
+                )
+                if signature and signature in recent_routine_signatures:
+                    continue
                 perspective = self._determine_perspective(event, agent_id)
                 relationship_strength = await self._relationship_strength_with_repo(
                     rel_repo=rel_repo,
@@ -240,6 +266,8 @@ class PersistenceManager:
                         metadata_json={"event_type": event.event_type},
                     )
                 )
+                if signature:
+                    recent_routine_signatures.add(signature)
 
         if memories:
             memory_repo = MemoryRepository(session)
@@ -454,6 +482,64 @@ class PersistenceManager:
             return 0.0
         components = [relation.familiarity, max(relation.trust, 0.0), max(relation.affinity, 0.0)]
         return sum(components) / len(components)
+
+    async def _load_recent_routine_memory_signatures(
+        self,
+        run_id: str,
+        events: list[Event],
+    ) -> set[tuple[str, str, str, str | None]]:
+        return await self._load_recent_routine_memory_signatures_with_session(
+            session=self.session,
+            run_id=run_id,
+            events=events,
+        )
+
+    async def _load_recent_routine_memory_signatures_with_session(
+        self,
+        *,
+        session: AsyncSession,
+        run_id: str,
+        events: list[Event],
+    ) -> set[tuple[str, str, str, str | None]]:
+        if not events:
+            return set()
+
+        min_tick = min(event.tick_no for event in events)
+        from sqlalchemy import select
+
+        result = await session.execute(
+            select(Memory)
+            .where(
+                Memory.run_id == run_id,
+                Memory.tick_no >= max(0, min_tick - ROUTINE_MEMORY_LOOKBACK_TICKS),
+            )
+            .order_by(Memory.tick_no.desc())
+        )
+        signatures: set[tuple[str, str, str, str | None]] = set()
+        for memory in result.scalars().all():
+            event_type = str((memory.metadata_json or {}).get("event_type") or "")
+            if event_type not in ROUTINE_MEMORY_EVENT_TYPES:
+                continue
+            signatures.add(
+                (
+                    memory.agent_id,
+                    event_type,
+                    memory.summary or "",
+                    memory.location_id,
+                )
+            )
+        return signatures
+
+    @staticmethod
+    def _routine_memory_signature(
+        *,
+        agent_id: str,
+        event: Event,
+        summary: str,
+    ) -> tuple[str, str, str, str | None] | None:
+        if event.event_type not in ROUTINE_MEMORY_EVENT_TYPES:
+            return None
+        return (agent_id, event.event_type, summary, event.location_id)
 
 
 # ─── Schedule-based goal helpers ─────────────────────────────────────────────
