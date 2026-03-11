@@ -83,7 +83,7 @@ class AgentRuntime:
 
     def _build_default_provider(self) -> AgentDecisionProvider:
         settings = get_settings()
-        if settings.agent_provider == "claude":
+        if settings.agent_provider == "anthropic":
             return ClaudeSDKDecisionProvider(settings, connection_pool=self._connection_pool)
         return HeuristicDecisionProvider()
 
@@ -256,8 +256,8 @@ class AgentRuntime:
     ) -> dict | None:
         """Call the LLM with the given prompt and extract JSON from the response."""
         settings = get_settings()
-        if settings.agent_provider != "claude":
-            logger.debug(f"Skipping {task} for {agent_id}: provider is not claude")
+        if settings.agent_provider != "anthropic":
+            logger.debug(f"Skipping {task} for {agent_id}: provider is not anthropic")
             return None
         if shutil.which("claude") is None:
             logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")

@@ -1,8 +1,7 @@
 import {
   getRunResult,
-  listRunsResult,
+  fetchApiResult,
   getTimelineResult,
-  createRun,
   createRunResult,
   startRunResult,
   pauseRunResult,
@@ -67,14 +66,14 @@ describe('API', () => {
     })
   })
 
-  describe('listRunsResult', () => {
+  describe('fetchApiResult', () => {
     it('returns request_failed on non-404 error', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
       } as Response)
 
-      const result = await listRunsResult()
+      const result = await fetchApiResult<RunSummary[]>('/api/runs')
       expect(result).toEqual({
         data: null,
         error: 'request_failed',
@@ -120,15 +119,16 @@ describe('API', () => {
     })
   })
 
-  describe('createRun', () => {
-    it('posts with correct body', async () => {
+  describe('createRunResult', () => {
+    it('posts with correct body and returns result payload', async () => {
       const mockResponse = { id: '1', name: 'Test', status: 'created', scenario_type: 'open_world' }
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: async () => mockResponse,
       } as Response)
 
-      const result = await createRun('Test', 'open_world', true, 10)
+      const result = await createRunResult('Test', 'open_world', true, 10)
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/runs'),
         expect.objectContaining({
@@ -141,21 +141,13 @@ describe('API', () => {
           }),
         })
       )
-      expect(result).toEqual(mockResponse)
+      expect(result).toEqual({
+        data: mockResponse,
+        error: null,
+        status: 200,
+      })
     })
 
-    it('returns null on error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-      } as Response)
-
-      const result = await createRun('Test')
-      expect(result).toBeNull()
-    })
-  })
-
-  describe('createRunResult', () => {
     it('returns detailed error metadata', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,

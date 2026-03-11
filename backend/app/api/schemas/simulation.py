@@ -35,6 +35,12 @@ class ValidationErrorResponse(BaseModel):
     detail: list[ValidationErrorDetail]
 
 
+class HealthResponse(BaseModel):
+    """健康检查响应"""
+
+    status: str = Field(..., description="服务状态", examples=["ok"])
+
+
 # Common response definitions for reuse in route decorators
 COMMON_RESPONSES = {
     400: {

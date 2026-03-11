@@ -112,33 +112,6 @@ async function fetchResult<T>(path: string): Promise<ApiResult<T>> {
   return fetchResultUrl<T>(buildApiUrl(path));
 }
 
-async function safePost<T>(path: string, body: unknown, fallback: T): Promise<T> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(buildApiUrl(path), {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return fallback;
-    }
-
-    return (await response.json()) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 async function postResult<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   try {
     const controller = new AbortController();
@@ -180,10 +153,6 @@ async function postResult<T>(path: string, body: unknown): Promise<ApiResult<T>>
 
 export async function getRunResult(runId: string): Promise<ApiResult<RunSummary>> {
   return fetchResult<RunSummary>(`/runs/${runId}`);
-}
-
-export async function listRunsResult(): Promise<ApiResult<RunSummary[]>> {
-  return fetchResult<RunSummary[]>("/runs");
 }
 
 export async function getTimelineResult(
@@ -248,24 +217,6 @@ export async function listAgentsResult(
   runId: string,
 ): Promise<ApiResult<{ run_id: string; agents: AgentSummary[] }>> {
   return fetchResult<{ run_id: string; agents: AgentSummary[] }>(`/runs/${runId}/agents`);
-}
-
-export async function createRun(
-  name: string,
-  scenarioType = "truman_world",
-  seedDemo = true,
-  tickMinutes = 5,
-): Promise<CreateRunResponse | null> {
-  return safePost<CreateRunResponse | null>(
-    "/runs",
-    {
-      name,
-      scenario_type: scenarioType,
-      seed_demo: seedDemo,
-      tick_minutes: tickMinutes,
-    },
-    null,
-  );
 }
 
 export async function createRunResult(

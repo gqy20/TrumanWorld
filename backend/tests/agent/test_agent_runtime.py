@@ -273,8 +273,10 @@ async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: Ag
     assert intent.action_type == "rest"
 
 
-def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+def test_runtime_selects_claude_provider_from_anthropic_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
     get_settings.cache_clear()
 
     agent_dir = tmp_path / "demo_agent"
@@ -320,7 +322,7 @@ def test_claude_provider_builds_options_with_system_prompt(tmp_path: Path):
     assert options.system_prompt == build_system_prompt()
 
 
-def test_runtime_selects_claude_provider_from_legacy_env(
+def test_runtime_keeps_anthropic_provider_name_in_settings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
@@ -348,7 +350,7 @@ def test_runtime_selects_claude_provider_from_legacy_env(
     )
 
     settings = get_settings()
-    assert settings.agent_provider == "claude"
+    assert settings.agent_provider == "anthropic"
     assert settings.agent_model == "legacy-model"
     assert isinstance(runtime.decision_provider, ClaudeSDKDecisionProvider)
 
@@ -362,7 +364,7 @@ async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: 
     This behavior allows the simulation to continue gracefully when
     the SDK call is cancelled (e.g., scheduler shutdown).
     """
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
 
@@ -394,7 +396,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     """When LLM omits message, decide_intent accepts the empty value without injecting a default."""
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
 
@@ -454,7 +456,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
 
 @pytest.mark.asyncio
 async def test_claude_provider_fails_fast_when_cli_missing(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: None)
     get_settings.cache_clear()
 

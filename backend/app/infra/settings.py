@@ -50,8 +50,6 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def normalize_agent_settings(self) -> "Settings":
-        if self.agent_provider == "anthropic":
-            self.agent_provider = "claude"
         if self.agent_model is None and self.anthropic_model is not None:
             self.agent_model = self.anthropic_model
         return self
