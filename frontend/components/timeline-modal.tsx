@@ -258,7 +258,7 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="full"
+      variant="fullscreen"
       showCloseButton={false}
       title="🎬 事件回放"
       subtitle="按 tick 回放事件流，适合复盘剧情节点和角色行为链路"

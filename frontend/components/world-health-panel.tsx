@@ -18,7 +18,7 @@ import { getDirectorMemoriesResult, getSystemMetrics, getSystemOverview } from "
 import type { WorldSnapshot } from "@/lib/types";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
-import { Modal } from "@/components/modal";
+import { Modal, WorkspaceModalShell } from "@/components/modal";
 import { useUiSearchParams } from "@/lib/ui-url-state";
 
 interface WorldHealthPanelProps {
@@ -416,7 +416,7 @@ function SystemStatusModal({
         <Modal
           isOpen={isOpen}
           onClose={onClose}
-          size="xl"
+          variant="workspace"
           showCloseButton={false}
           title="系统状态"
           subtitle="查看运行时资源消耗和累计调用统计"
@@ -424,8 +424,9 @@ function SystemStatusModal({
           {!metrics && !overview ? (
             <div className="py-8 text-center text-sm text-slate-400">指标加载中</div>
           ) : (
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              <div className="flex w-72 shrink-0 flex-col border-r border-slate-100 bg-slate-50/50">
+            <WorkspaceModalShell
+              sidebar={
+                <>
                 <div className="border-b border-slate-100 p-4">
                   <h3 className="text-sm font-semibold text-slate-700">🖥️ 资源摘要</h3>
                   <div className="mt-3 rounded-2xl bg-white p-4 shadow-xs">
@@ -486,9 +487,10 @@ function SystemStatusModal({
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="min-w-0 flex-1 overflow-y-auto bg-white p-6">
+                </>
+              }
+              contentClassName="overflow-y-auto p-6"
+            >
                 {selectedSection === "overview" && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
@@ -599,8 +601,7 @@ function SystemStatusModal({
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
+            </WorkspaceModalShell>
           )}
         </Modal>
       )}
@@ -719,7 +720,7 @@ interface ActivityDetailModalProps {
 
 function ActivityDetailModal({ isOpen, onClose, title, agents }: ActivityDetailModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md" showCloseButton={false} title={title}>
+    <Modal isOpen={isOpen} onClose={onClose} variant="panel" showCloseButton={false} title={title}>
       <div className="max-h-[60vh] overflow-y-auto">
         {agents.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-400">暂无{title}的智能体</p>
@@ -1057,19 +1058,15 @@ function DirectorInterventionModal({
         <Modal
           isOpen={isOpen}
           onClose={onClose}
-          size="xl"
+          variant="workspace"
           showCloseButton={false}
-          title="导演干预控制台"
+          title="🎬 导演干预控制台"
           subtitle="管理导演注入，并观察其待消费、已消费与过期状态"
         >
-
-            {/* 主体：左右两列 */}
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              {/* 左侧：导演干预 + 导航 + 消费率 */}
-              <div className="flex w-72 shrink-0 flex-col border-r border-slate-100 bg-slate-50/50">
-                {/* 导演干预表单 */}
+            <WorkspaceModalShell
+              sidebar={
+                <>
                 <div className="border-b border-slate-100 p-4">
-                  <h3 className="mb-3 text-sm font-semibold text-slate-700">🎬 导演干预</h3>
                   <DirectorEventForm
                     runId={runId}
                     onInjected={handleInjected}
@@ -1140,10 +1137,9 @@ function DirectorInterventionModal({
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* 右侧：明细列表 */}
-              <div className="flex-1 overflow-auto px-6 py-5">
+                </>
+              }
+            >
                 <div className="mb-4 flex items-center gap-2">
                   <span className="text-lg font-semibold text-ink">
                     {selectedFilter === "all" && "全部干预"}
@@ -1187,8 +1183,7 @@ function DirectorInterventionModal({
                     ))
                   )}
                 </div>
-              </div>
-            </div>
+            </WorkspaceModalShell>
         </Modal>
       )}
     </AnimatePresence>

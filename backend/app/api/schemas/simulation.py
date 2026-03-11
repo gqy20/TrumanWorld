@@ -265,6 +265,7 @@ class AgentMemoryResponse(BaseModel):
     importance: float | None = Field(None, description="重要性", ge=0, le=1)
     event_importance: float | None = Field(None, description="事件客观显著性", ge=0, le=1)
     self_relevance: float | None = Field(None, description="主体相关性", ge=0, le=1)
+    streak_count: int = Field(1, description="连续重复次数", ge=1)
     related_agent_id: str | None = Field(None, description="关联 agent ID")
     related_agent_name: str | None = Field(None, description="关联 agent 名称")
 

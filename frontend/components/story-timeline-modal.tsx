@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { StoryChapter, StoryEvent } from "@/lib/world-insights";
-import { Modal } from "@/components/modal";
+import { Modal, WorkspaceModalShell } from "@/components/modal";
 
 interface StoryTimelineModalProps {
   isOpen: boolean;
@@ -42,12 +42,13 @@ export function StoryTimelineModal({ isOpen, onClose, chapters }: StoryTimelineM
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="lg"
+      variant="workspace"
       title="📖 完整故事时间线"
       subtitle={`共 ${stats.totalEvents} 个事件 · ${chapters.length} 个时段`}
     >
-      {/* 统计栏 */}
-      <div className="flex items-center gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-3">
+      <WorkspaceModalShell
+        toolbar={
+          <div className="flex items-center gap-4">
             <StatBadge
               icon="💬"
               label="对话"
@@ -82,24 +83,22 @@ export function StoryTimelineModal({ isOpen, onClose, chapters }: StoryTimelineM
               </button>
             )}
           </div>
-
-          {/* 时间线内容 */}
-          <div className="flex-1 overflow-auto px-6 py-4">
-            <div className="relative">
-              {/* 时间线中轴线 */}
-              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200" />
-
-              <div className="space-y-6">
-                {filteredChapters.map((chapter, index) => (
-                  <TimelineChapter
-                    key={chapter.id}
-                    chapter={chapter}
-                    isFirst={index === 0}
-                  />
-                ))}
-              </div>
-            </div>
+        }
+        contentClassName="overflow-auto px-6 py-4"
+      >
+        <div className="relative">
+          <div className="absolute bottom-0 left-6 top-0 w-0.5 bg-slate-200" />
+          <div className="space-y-6">
+            {filteredChapters.map((chapter, index) => (
+              <TimelineChapter
+                key={chapter.id}
+                chapter={chapter}
+                isFirst={index === 0}
+              />
+            ))}
           </div>
+        </div>
+      </WorkspaceModalShell>
     </Modal>
   );
 }
@@ -219,5 +218,3 @@ function TimelineEventItem({ event }: { event: StoryEvent }) {
     </div>
   );
 }
-
-

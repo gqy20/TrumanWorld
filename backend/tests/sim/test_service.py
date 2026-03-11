@@ -153,7 +153,7 @@ async def test_simulation_service_persists_tick_and_events(db_session):
 
 
 @pytest.mark.asyncio
-async def test_simulation_service_deduplicates_consecutive_work_memories(db_session):
+async def test_simulation_service_aggregates_consecutive_work_memories_into_streak(db_session):
     run = SimulationRun(
         id="run-service-work-dedup", name="service", status="running", current_tick=0, tick_minutes=5
     )
@@ -191,6 +191,11 @@ async def test_simulation_service_deduplicates_consecutive_work_memories(db_sess
     worked_memories = [memory for memory in memories if memory.summary == "Worked"]
 
     assert len(worked_memories) == 1
+    assert worked_memories[0].streak_count == 3
+    assert worked_memories[0].last_tick_no == 3
+    assert worked_memories[0].tick_no == 3
+    assert worked_memories[0].content == "Worked during 3 consecutive ticks."
+    assert worked_memories[0].memory_category == "medium_term"
 
 
 @pytest.mark.asyncio
@@ -842,8 +847,8 @@ async def test_talk_memories_use_subjective_importance_per_agent(db_session):
     assert len(alice_memories) == 1
     assert len(bob_memories) == 1
     assert alice_memories[0].importance < bob_memories[0].importance
-    assert alice_memories[0].memory_category == "long_term"
-    assert bob_memories[0].memory_category == "long_term"
+    assert alice_memories[0].memory_category == "medium_term"
+    assert bob_memories[0].memory_category == "medium_term"
     assert alice_memories[0].self_relevance < bob_memories[0].self_relevance
 
 

@@ -362,6 +362,9 @@ export default async function AgentPage({ params }: AgentPageProps) {
                             </div>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-slate-500">
+                            {(memory.streak_count ?? 1) > 1 ? (
+                              <span>连续 {memory.streak_count} 次</span>
+                            ) : null}
                             <span>事件显著性 {formatAgentScore(memory.event_importance)}</span>
                             <span>主体相关性 {formatAgentScore(memory.self_relevance)}</span>
                           </div>

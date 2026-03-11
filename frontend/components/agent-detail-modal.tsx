@@ -70,7 +70,13 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
   if (loading) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} size="xl" showCloseButton={false} title="智能体详情">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        variant="inspector"
+        showCloseButton={false}
+        title="智能体详情"
+      >
         <div className="flex h-64 items-center justify-center text-slate-400">
           <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-moss" />
           加载中...
@@ -81,7 +87,13 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
   if (error || !agent) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} size="md" showCloseButton={false} title="智能体详情">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        variant="panel"
+        showCloseButton={false}
+        title="智能体详情"
+      >
         <div className="flex h-64 items-center justify-center text-amber-600">
           ⚠️ {error || "未找到智能体"}
         </div>
@@ -99,7 +111,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="full"
+      variant="inspector"
       showCloseButton={false}
       title="智能体详情"
     >
@@ -274,6 +286,9 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                   >
                     <p className="text-sm text-slate-700">{memory.content}</p>
                     <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400">
+                      {(memory.streak_count ?? 1) > 1 && (
+                        <span>连续 {memory.streak_count} 次</span>
+                      )}
                       <span>重要度: {formatAgentScore(memory.importance)}</span>
                       <span>事件显著性: {formatAgentScore(memory.event_importance)}</span>
                       <span>主体相关性: {formatAgentScore(memory.self_relevance)}</span>

@@ -253,6 +253,7 @@ export type AgentMemory = {
   importance?: number;
   event_importance?: number;
   self_relevance?: number;
+  streak_count?: number;
   related_agent_id?: string;
   related_agent_name?: string;
   created_at?: string;

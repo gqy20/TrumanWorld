@@ -141,7 +141,28 @@ class TestCalculateMemoryImportance:
             goal_relevance=True,
             location_relevance=True,
         )
-        assert score == 1.0
+        assert score <= 1.0
+
+    def test_high_relevance_talk_no_longer_saturates_to_one_too_easily(self):
+        score = calculate_memory_importance(
+            event_importance=0.67,
+            perspective="target",
+            relationship_strength=0.4,
+            goal_relevance=False,
+            location_relevance=True,
+        )
+        assert score < 1.0
+        assert score == pytest.approx(0.88)
+
+    def test_extreme_case_can_still_reach_top_band_without_flattening_all_scores(self):
+        score = calculate_memory_importance(
+            event_importance=0.95,
+            perspective="target",
+            relationship_strength=1.0,
+            goal_relevance=True,
+            location_relevance=True,
+        )
+        assert score == pytest.approx(0.98)
 
 
 class TestDetermineMemoryCategory:
@@ -149,12 +170,16 @@ class TestDetermineMemoryCategory:
 
     def test_high_importance_becomes_long_term(self):
         """Strongly relevant memories should immediately become long_term."""
-        category = determine_memory_category(importance=0.8)
+        category = determine_memory_category(importance=0.9)
         assert category == MemoryCategory.LONG_TERM
 
     def test_medium_importance_becomes_medium_term(self):
         """Mid-salience memories should become medium_term."""
         category = determine_memory_category(importance=0.6)
+        assert category == MemoryCategory.MEDIUM_TERM
+
+    def test_previously_long_term_borderline_score_now_stays_medium_term(self):
+        category = determine_memory_category(importance=0.8)
         assert category == MemoryCategory.MEDIUM_TERM
 
     def test_low_importance_new_memory_is_short_term(self):

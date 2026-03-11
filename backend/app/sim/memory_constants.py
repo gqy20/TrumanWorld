@@ -40,6 +40,15 @@ def _clamp(score: float) -> float:
     return round(min(1.0, max(0.0, score)), 2)
 
 
+def _compress_high_importance(score: float) -> float:
+    """Avoid saturating most strong social memories at 1.0."""
+    if score <= 0.75:
+        return score
+    if score <= 0.95:
+        return 0.75 + (score - 0.75) * 0.5
+    return 0.85 + (score - 0.95) * 0.2
+
+
 def calculate_event_importance(
     event_type: str,
     payload: dict | None = None,
@@ -79,6 +88,7 @@ def calculate_memory_importance(
         score += 0.10
     if location_relevance:
         score += 0.05
+    score = _compress_high_importance(score)
     return _clamp(score)
 
 
@@ -89,7 +99,7 @@ def determine_memory_category(
     tick_minutes: int = 5,
 ) -> str:
     """Determine the time layer for a memory."""
-    if importance >= 0.75:
+    if importance >= 0.85:
         return MemoryCategory.LONG_TERM
     if importance >= 0.45:
         return MemoryCategory.MEDIUM_TERM

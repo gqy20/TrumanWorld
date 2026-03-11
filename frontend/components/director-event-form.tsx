@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { injectDirectorEventResult } from "@/lib/api";
 
@@ -83,8 +83,10 @@ export function DirectorEventForm({
   const [locationId, setLocationId] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const eventOption = EVENT_OPTIONS.find((item) => item.value === eventType) ?? EVENT_OPTIONS[0];
   const presets = PRESET_MESSAGES[eventType] ?? PRESET_MESSAGES.broadcast;
+  const selectedLocation = locations.find((l) => l.id === locationId);
   const isSubmitDisabled = isPending || (eventOption.needsLocation && !locationId);
 
   return (
@@ -158,10 +160,10 @@ export function DirectorEventForm({
                         setLocationId("");
                       }
                     }}
-                    className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition ${
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                       isActive
                         ? `border-transparent bg-gradient-to-r ${option.accent} text-white shadow-sm`
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
                     }`}
                   >
                     {option.label}
@@ -220,64 +222,59 @@ export function DirectorEventForm({
               })}
             </div>
           )}
-          <div className="rounded-[20px] border border-slate-200/80 bg-slate-50/80 px-4 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex h-8 items-center rounded-full bg-gradient-to-r px-3 text-xs font-semibold text-white shadow-sm ${eventOption.accent}`}>
-                {eventOption.label}
-              </span>
-              <span className="text-xs text-slate-500">
-                {eventOption.needsLocation ? "需要指定地点后才可注入" : "无需地点，可直接作为全局提示注入"}
-              </span>
-            </div>
-            <p className={`mt-2 text-xs leading-5 text-slate-500 ${compact ? "line-clamp-2" : ""}`}>
-              {eventOption.hint}
-            </p>
-          </div>
         </div>
         {eventOption.needsLocation && (
           <div className="space-y-2">
-            <label className="block">
-              <span className="text-sm font-medium text-slate-600">影响地点</span>
-            </label>
-            <div className="relative">
-              <select
-                value={locationId}
-                onChange={(event) => setLocationId(event.target.value)}
-                className="w-full appearance-none rounded-[20px] border border-slate-200/90 bg-white px-4 py-3 pr-12 text-sm text-slate-700 outline-hidden transition hover:border-slate-300 focus:border-moss focus:ring-4 focus:ring-moss/10"
-              >
-                <option value="">选择地点</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500">影响地点</span>
+              {selectedLocation && (
+                <span className="text-xs text-slate-400">{selectedLocation.name}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {locations.map((location) => {
+                const isActive = location.id === locationId;
+                return (
+                  <button
+                    key={location.id}
+                    type="button"
+                    onClick={() => setLocationId(location.id)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      isActive
+                        ? "border-transparent bg-slate-700 text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    }`}
+                  >
                     {location.name}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
-                <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-                  <path
-                    d="M5 7.5L10 12.5L15 7.5"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
+                  </button>
+                );
+              })}
+              {locations.length === 0 && (
+                <span className="text-xs text-slate-400">暂无可用地点</span>
+              )}
             </div>
           </div>
         )}
-        {!compact && (
-          <label className="block">
-            <span className="text-sm font-medium text-slate-600">事件内容</span>
-          </label>
-        )}
-        <textarea
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          rows={compact ? 2 : 4}
-          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed outline-hidden transition placeholder:text-slate-400 hover:border-slate-300 focus:border-moss focus:ring-2 focus:ring-moss/10"
-          placeholder={eventOption.placeholder}
-        />
+        <div className="relative">
+          {compact && (
+            <span className="absolute left-3 top-2 text-[10px] font-medium text-slate-400 select-none pointer-events-none">
+              内容
+            </span>
+          )}
+          {!compact && (
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">事件内容</label>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            rows={compact ? 2 : 4}
+            className={`w-full resize-none rounded-xl border border-slate-200 bg-white text-sm leading-relaxed outline-hidden transition placeholder:text-slate-400 hover:border-slate-300 focus:border-moss focus:ring-2 focus:ring-moss/10 ${
+              compact ? "px-3 pt-5 pb-2" : "px-3 py-2"
+            }`}
+            placeholder={eventOption.placeholder}
+          />
+        </div>
       </div>
 
       {/* 预设按钮（紧凑模式） */}
@@ -288,7 +285,7 @@ export function DirectorEventForm({
               key={preset}
               type="button"
               onClick={() => setMessage(preset)}
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 transition hover:border-moss hover:bg-moss/5 hover:text-moss"
+              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500 transition hover:border-moss/40 hover:bg-moss/5 hover:text-moss"
             >
               {preset}
             </button>
@@ -301,12 +298,16 @@ export function DirectorEventForm({
         <button
           type="submit"
           disabled={isSubmitDisabled}
-          className={`rounded-full bg-ember font-medium text-white shadow-xs transition hover:bg-ember/90 hover:shadow-sm disabled:opacity-60 ${compact ? "px-4 py-1.5 text-xs" : "px-6 py-2.5 text-sm"}`}
+          className={`rounded-full bg-ember font-medium text-white shadow-xs transition hover:bg-ember/90 hover:shadow-sm disabled:opacity-50 ${
+            compact ? "flex-1 py-2 text-xs" : "px-6 py-2.5 text-sm"
+          }`}
         >
           {isPending ? "注入中..." : "注入事件"}
         </button>
         {statusMessage && (
-          <span className={`text-xs font-medium ${statusMessage === "已注入" ? "text-emerald-600" : "text-red-500"}`}>
+          <span className={`text-xs font-medium ${
+            statusMessage === "已注入" ? "text-emerald-600" : "text-red-500"
+          }`}>
             {statusMessage === "已注入" ? "✓ " : "✗ "}{statusMessage}
           </span>
         )}

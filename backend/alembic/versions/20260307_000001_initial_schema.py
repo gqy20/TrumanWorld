@@ -155,6 +155,8 @@ def upgrade() -> None:
         sa.Column("self_relevance", sa.Float(), nullable=False, server_default="0"),
         sa.Column("belief_confidence", sa.Float(), nullable=False, server_default="1"),
         sa.Column("emotional_valence", sa.Float(), nullable=False, server_default="0"),
+        sa.Column("streak_count", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column("last_tick_no", sa.Integer(), nullable=True),
         sa.Column("retrieval_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("last_accessed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(

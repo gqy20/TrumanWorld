@@ -46,48 +46,48 @@ export function LocationDetailModal({
   if (!isOpen || !location) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md" showCloseButton={false}>
-      {/* 自定义头部 */}
-      <div className="flex items-center justify-between border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-6 py-4">
-        <div>
-          <h2 className="text-xl font-semibold text-ink">{location.name}</h2>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      variant="panel"
+      showCloseButton={false}
+      title={location.name}
+      headerActions={
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              const currentIndex = world.locations.findIndex((l) => l.id === locationId);
+              const prevIndex = currentIndex > 0 ? currentIndex - 1 : world.locations.length - 1;
+              onLocationChange(world.locations[prevIndex].id);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-moss hover:text-moss"
+            title="上一个地点"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="px-2 text-xs text-slate-500">
+            {world.locations.findIndex((l) => l.id === locationId) + 1} / {world.locations.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const currentIndex = world.locations.findIndex((l) => l.id === locationId);
+              const nextIndex = currentIndex < world.locations.length - 1 ? currentIndex + 1 : 0;
+              onLocationChange(world.locations[nextIndex].id);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-moss hover:text-moss"
+            title="下一个地点"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                const currentIndex = world.locations.findIndex((l) => l.id === locationId);
-                const prevIndex = currentIndex > 0 ? currentIndex - 1 : world.locations.length - 1;
-                onLocationChange(world.locations[prevIndex].id);
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-moss hover:text-moss"
-              title="上一个地点"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span className="px-2 text-xs text-slate-500">
-              {world.locations.findIndex((l) => l.id === locationId) + 1} / {world.locations.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const currentIndex = world.locations.findIndex((l) => l.id === locationId);
-                const nextIndex = currentIndex < world.locations.length - 1 ? currentIndex + 1 : 0;
-                onLocationChange(world.locations[nextIndex].id);
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-moss hover:text-moss"
-              title="下一个地点"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+      }
+    >
 
         <div className="grid grid-cols-3 gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-3">
           <div className="text-center">

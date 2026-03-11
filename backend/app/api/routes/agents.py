@@ -155,6 +155,7 @@ async def get_agent(
                 importance=memory.importance,
                 event_importance=memory.event_importance,
                 self_relevance=memory.self_relevance,
+                streak_count=memory.streak_count or 1,
                 related_agent_id=memory.related_agent_id,
                 related_agent_name=(
                     agent_name_map.get(memory.related_agent_id, memory.related_agent_id)

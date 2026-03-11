@@ -135,6 +135,8 @@ class Memory(Base):
     self_relevance: Mapped[float] = mapped_column(Float, default=0.0)
     belief_confidence: Mapped[float] = mapped_column(Float, default=1.0)
     emotional_valence: Mapped[float] = mapped_column(Float, default=0.0)
+    streak_count: Mapped[int] = mapped_column(Integer, default=1)
+    last_tick_no: Mapped[int | None] = mapped_column(Integer)
     retrieval_count: Mapped[int] = mapped_column(Integer, default=0)
     last_accessed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     related_agent_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id"))

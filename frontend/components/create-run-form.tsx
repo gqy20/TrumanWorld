@@ -108,18 +108,22 @@ export function CreateRunForm() {
           </button>
         </div>
         {/* 时间速度选择器 */}
-        <select
-          value={tickMinutes}
-          onChange={(e) => setTickMinutes(Number(e.target.value))}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-hidden focus:border-moss focus:ring-2 focus:ring-moss/20"
-        >
-          <option value={1}>1分钟/tick</option>
-          <option value={5}>5分钟/tick</option>
-          <option value={10}>10分钟/tick</option>
-          <option value={15}>15分钟/tick</option>
-          <option value={30}>30分钟/tick</option>
-          <option value={60}>60分钟/tick</option>
-        </select>
+        <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
+          {([5, 15, 30, 60] as const).map((min) => (
+            <button
+              key={min}
+              type="button"
+              onClick={() => setTickMinutes(min)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                tickMinutes === min
+                  ? "bg-white text-slate-700 shadow-xs"
+                  : "text-slate-400 hover:bg-white/60 hover:text-slate-600"
+              }`}
+            >
+              {min}m
+            </button>
+          ))}
+        </div>
         <button
           type="submit"
           disabled={isPending}

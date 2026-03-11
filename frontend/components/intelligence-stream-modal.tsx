@@ -14,7 +14,7 @@ import { getRunEventsResult } from "@/lib/api";
 import { EVENT_FILTERS } from "@/lib/constants";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
-import { Modal } from "@/components/modal";
+import { Modal, WorkspaceModalShell } from "@/components/modal";
 
 type LocationFilter = string | null;
 
@@ -110,79 +110,88 @@ export function IntelligenceStreamModal({
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg" showCloseButton={false}>
-        {/* Header */}
-        <div className="border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-ink">世界情报流</h2>
-              <p className="text-sm text-slate-500">实时事件监控中心</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Event type filter */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="flex gap-1">
-              {EVENT_FILTERS.map((filter) => {
-                const active = filter.id === eventFilter;
-                return (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    onClick={() => setEventFilter(filter.id)}
-                    className={`rounded-full px-3 py-1.5 text-xs transition ${
-                      active
-                        ? "bg-ink text-white"
-                        : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="h-4 w-px bg-slate-200" />
-            <div className="flex flex-wrap gap-1">
-              <button
-                type="button"
-                onClick={() => setLocationFilter(null)}
-                className={`rounded-full px-3 py-1.5 text-xs transition ${
-                  locationFilter === null
-                    ? "bg-moss text-white"
-                    : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
-                }`}
-              >
-                全部地点
-              </button>
-              {world.locations.map((loc) => (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      variant="workspace"
+      title="世界情报流"
+      subtitle="实时事件监控中心"
+    >
+      <WorkspaceModalShell
+        toolbar={
+          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            {EVENT_FILTERS.map((filter) => {
+              const active = filter.id === eventFilter;
+              return (
                 <button
-                  key={loc.id}
+                  key={filter.id}
                   type="button"
-                  onClick={() => setLocationFilter(loc.id === locationFilter ? null : loc.id)}
+                  onClick={() => setEventFilter(filter.id)}
                   className={`rounded-full px-3 py-1.5 text-xs transition ${
-                    locationFilter === loc.id
-                      ? "border border-moss/40 bg-moss/20 text-moss"
+                    active
+                      ? "bg-ink text-white"
                       : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
                   }`}
                 >
-                  {loc.name}
+                  {filter.label}
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </div>
-
-        {/* Stats bar */}
-        <div className="grid grid-cols-4 gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-3">
+          <div className="h-4 w-px bg-slate-200" />
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => setLocationFilter(null)}
+              className={`rounded-full px-3 py-1.5 text-xs transition ${
+                locationFilter === null
+                  ? "bg-moss text-white"
+                  : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
+              }`}
+            >
+              全部地点
+            </button>
+            {world.locations.map((loc) => (
+              <button
+                key={loc.id}
+                type="button"
+                onClick={() => setLocationFilter(loc.id === locationFilter ? null : loc.id)}
+                className={`rounded-full px-3 py-1.5 text-xs transition ${
+                  locationFilter === loc.id
+                    ? "border border-moss/40 bg-moss/20 text-moss"
+                    : "border border-slate-200 bg-white text-slate-500 hover:border-moss hover:text-moss"
+                }`}
+              >
+                {loc.name}
+              </button>
+            ))}
+          </div>
+          </div>
+        }
+        footer={
+          <div className="flex items-center justify-between text-sm text-slate-500">
+            <span>
+              显示 {visibleEvents.length} 条
+              {eventFilter !== "all" || locationFilter ? (
+                <span className="ml-1 text-slate-400">（已筛选 / 共 {allEvents.length} 条）</span>
+              ) : null}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent("openTimelineModal"));
+              }}
+              className="text-moss hover:underline"
+            >
+              查看完整时间线 →
+            </button>
+          </div>
+        }
+        contentClassName="overflow-y-auto bg-slate-50/30 p-6"
+      >
+        <div className="grid grid-cols-4 gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
           {[
             { label: "全量事件", value: allEvents.length },
             { label: "当前 Tick", value: world.run.current_tick ?? 0 },
@@ -195,9 +204,7 @@ export function IntelligenceStreamModal({
             </div>
           ))}
         </div>
-
-        {/* Event list */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/30 p-6">
+        <div className="mt-4">
           {isLoading ? (
             <LoadingState message="加载全量事件中..." size="sm" />
           ) : loadError ? (
@@ -236,29 +243,7 @@ export function IntelligenceStreamModal({
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="border-t border-slate-100 bg-white px-6 py-3">
-          <div className="flex items-center justify-between text-sm text-slate-500">
-            <span>
-              显示 {visibleEvents.length} 条
-              {eventFilter !== "all" || locationFilter ? (
-                <span className="ml-1 text-slate-400">（已筛选 / 共 {allEvents.length} 条）</span>
-              ) : null}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                // 通过事件通知 world-canvas 打开 timeline modal
-                window.dispatchEvent(new CustomEvent("openTimelineModal"));
-              }}
-              className="text-moss hover:underline"
-            >
-              查看完整时间线 →
-            </button>
-          </div>
-        </div>
+      </WorkspaceModalShell>
     </Modal>
   );
 }

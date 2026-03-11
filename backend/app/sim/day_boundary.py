@@ -11,13 +11,14 @@ before the sleep jump at 23:00 (see world.py advance_tick).
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import select
 
 from app.infra.logging import get_logger
+from app.sim.memory_constants import MemoryCategory, should_consolidate_memory
 from app.store.models import Agent, Event, Memory
 from app.store.repositories import AgentRepository, MemoryRepository
 
@@ -383,6 +384,12 @@ async def run_evening_reflection(
 
         if memories_to_create:
             await memory_repo.create_many(memories_to_create)
+        await _promote_memories_after_reflection(
+            write_session,
+            run_id=run_id,
+            tick_no=tick_no,
+            tick_minutes=world.tick_minutes,
+        )
         await write_session.commit()
 
 
@@ -396,3 +403,41 @@ def _mood_to_valence(mood: str) -> float:
         "anxious": -0.5,
         "lonely": -0.6,
     }.get(mood, 0.0)
+
+
+async def _promote_memories_after_reflection(
+    session: "AsyncSession",
+    *,
+    run_id: str,
+    tick_no: int,
+    tick_minutes: int,
+) -> None:
+    result = await session.execute(
+        select(Memory).where(
+            Memory.run_id == run_id,
+            Memory.memory_type == "episodic_short",
+            Memory.memory_category.in_([MemoryCategory.SHORT_TERM, MemoryCategory.MEDIUM_TERM]),
+        )
+    )
+    memories = result.scalars().all()
+
+    for memory in memories:
+        current_category = memory.memory_category or MemoryCategory.SHORT_TERM
+        if current_category == MemoryCategory.SHORT_TERM and (memory.streak_count or 1) >= 3:
+            memory.memory_category = MemoryCategory.MEDIUM_TERM
+            continue
+
+        reference_tick = memory.last_tick_no or memory.tick_no or 0
+        tick_age = max(0, tick_no - reference_tick)
+        if should_consolidate_memory(
+            current_category=current_category,
+            importance=memory.importance or 0.0,
+            access_count=memory.retrieval_count or 0,
+            tick_age=tick_age,
+            tick_minutes=tick_minutes,
+        ):
+            if current_category == MemoryCategory.SHORT_TERM:
+                memory.memory_category = MemoryCategory.MEDIUM_TERM
+            elif current_category == MemoryCategory.MEDIUM_TERM:
+                memory.memory_category = MemoryCategory.LONG_TERM
+                memory.consolidated_at = datetime.now(UTC)

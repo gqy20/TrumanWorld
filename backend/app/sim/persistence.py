@@ -131,8 +131,8 @@ class PersistenceManager:
         agent_map = {a.id: a for a in agents_list}
         agent_name_map = {a.id: a.name for a in agents_list}
         location_name_map = {loc.id: loc.name for loc in locations_list}
-        recent_routine_signatures = await self._load_recent_routine_memory_signatures(run_id, events)
         memories: list[Memory] = []
+        updated_routine_memory = False
         for event in events:
             if event.event_type.endswith("_rejected") or event.actor_agent_id is None:
                 continue
@@ -140,12 +140,15 @@ class PersistenceManager:
             for agent_id, content, summary, related_agent_id in self._build_memory_records(
                 event, agent_name_map, location_name_map
             ):
-                signature = self._routine_memory_signature(
+                routine_memory = await self._find_routine_memory_to_extend(
+                    run_id=run_id,
                     agent_id=agent_id,
                     event=event,
                     summary=summary,
                 )
-                if signature and signature in recent_routine_signatures:
+                if routine_memory is not None:
+                    self._extend_routine_memory(routine_memory, event)
+                    updated_routine_memory = True
                     continue
                 perspective = self._determine_perspective(event, agent_id)
                 relationship_strength = await self._relationship_strength(
@@ -178,17 +181,19 @@ class PersistenceManager:
                         importance=memory_importance,
                         event_importance=event.importance,
                         self_relevance=self._perspective_relevance(perspective),
+                        streak_count=1,
+                        last_tick_no=event.tick_no,
                         related_agent_id=related_agent_id,
                         location_id=event.location_id,
                         source_event_id=event.id,
                         metadata_json={"event_type": event.event_type},
                     )
                 )
-                if signature:
-                    recent_routine_signatures.add(signature)
 
         if memories:
             await self.memory_repo.create_many(memories)
+        elif updated_routine_memory:
+            await self.session.commit()
 
     async def persist_tick_memories_with_session(
         self,
@@ -207,13 +212,8 @@ class PersistenceManager:
         agent_map = {a.id: a for a in agents}
         agent_name_map = {a.id: a.name for a in agents}
         location_name_map = {loc.id: loc.name for loc in locations}
-        recent_routine_signatures = await self._load_recent_routine_memory_signatures_with_session(
-            session=session,
-            run_id=run_id,
-            events=events,
-        )
-
         memories: list[Memory] = []
+        updated_routine_memory = False
         for event in events:
             if event.event_type.endswith("_rejected") or event.actor_agent_id is None:
                 continue
@@ -221,12 +221,16 @@ class PersistenceManager:
             for agent_id, content, summary, related_agent_id in self._build_memory_records(
                 event, agent_name_map, location_name_map
             ):
-                signature = self._routine_memory_signature(
+                routine_memory = await self._find_routine_memory_to_extend_with_session(
+                    session=session,
+                    run_id=run_id,
                     agent_id=agent_id,
                     event=event,
                     summary=summary,
                 )
-                if signature and signature in recent_routine_signatures:
+                if routine_memory is not None:
+                    self._extend_routine_memory(routine_memory, event)
+                    updated_routine_memory = True
                     continue
                 perspective = self._determine_perspective(event, agent_id)
                 relationship_strength = await self._relationship_strength_with_repo(
@@ -260,18 +264,20 @@ class PersistenceManager:
                         importance=memory_importance,
                         event_importance=event.importance,
                         self_relevance=self._perspective_relevance(perspective),
+                        streak_count=1,
+                        last_tick_no=event.tick_no,
                         related_agent_id=related_agent_id,
                         location_id=event.location_id,
                         source_event_id=event.id,
                         metadata_json={"event_type": event.event_type},
                     )
                 )
-                if signature:
-                    recent_routine_signatures.add(signature)
 
         if memories:
             memory_repo = MemoryRepository(session)
             await memory_repo.create_many(memories)
+        elif updated_routine_memory:
+            await session.commit()
 
     async def persist_tick_relationships(self, run_id: str, events: list[Event]) -> None:
         """Persist relationships from talk events."""
@@ -483,63 +489,53 @@ class PersistenceManager:
         components = [relation.familiarity, max(relation.trust, 0.0), max(relation.affinity, 0.0)]
         return sum(components) / len(components)
 
-    async def _load_recent_routine_memory_signatures(
+    async def _find_routine_memory_to_extend(
         self,
+        *,
         run_id: str,
-        events: list[Event],
-    ) -> set[tuple[str, str, str, str | None]]:
-        return await self._load_recent_routine_memory_signatures_with_session(
+        agent_id: str,
+        event: Event,
+        summary: str,
+    ) -> Memory | None:
+        return await self._find_routine_memory_to_extend_with_session(
             session=self.session,
             run_id=run_id,
-            events=events,
+            agent_id=agent_id,
+            event=event,
+            summary=summary,
         )
 
-    async def _load_recent_routine_memory_signatures_with_session(
+    async def _find_routine_memory_to_extend_with_session(
         self,
         *,
         session: AsyncSession,
         run_id: str,
-        events: list[Event],
-    ) -> set[tuple[str, str, str, str | None]]:
-        if not events:
-            return set()
-
-        min_tick = min(event.tick_no for event in events)
-        from sqlalchemy import select
-
-        result = await session.execute(
-            select(Memory)
-            .where(
-                Memory.run_id == run_id,
-                Memory.tick_no >= max(0, min_tick - ROUTINE_MEMORY_LOOKBACK_TICKS),
-            )
-            .order_by(Memory.tick_no.desc())
-        )
-        signatures: set[tuple[str, str, str, str | None]] = set()
-        for memory in result.scalars().all():
-            event_type = str((memory.metadata_json or {}).get("event_type") or "")
-            if event_type not in ROUTINE_MEMORY_EVENT_TYPES:
-                continue
-            signatures.add(
-                (
-                    memory.agent_id,
-                    event_type,
-                    memory.summary or "",
-                    memory.location_id,
-                )
-            )
-        return signatures
-
-    @staticmethod
-    def _routine_memory_signature(
-        *,
         agent_id: str,
         event: Event,
         summary: str,
-    ) -> tuple[str, str, str, str | None] | None:
+    ) -> Memory | None:
         if event.event_type not in ROUTINE_MEMORY_EVENT_TYPES:
             return None
-        return (agent_id, event.event_type, summary, event.location_id)
+        return await MemoryRepository(session).find_recent_routine_memory(
+            run_id=run_id,
+            agent_id=agent_id,
+            summary=summary,
+            location_id=event.location_id,
+            since_tick=max(0, event.tick_no - ROUTINE_MEMORY_LOOKBACK_TICKS),
+        )
+
+    @staticmethod
+    def _extend_routine_memory(memory: Memory, event: Event) -> None:
+        next_streak = (memory.streak_count or 1) + 1
+        memory.streak_count = next_streak
+        memory.last_tick_no = event.tick_no
+        memory.tick_no = event.tick_no
+        if next_streak >= 3:
+            memory.memory_category = "medium_term"
+        if memory.summary == "Worked":
+            memory.content = f"Worked during {next_streak} consecutive ticks."
+        elif memory.summary == "Rested":
+            memory.content = f"Rested during {next_streak} consecutive ticks."
 
 
 # ─── Schedule-based goal helpers ─────────────────────────────────────────────
