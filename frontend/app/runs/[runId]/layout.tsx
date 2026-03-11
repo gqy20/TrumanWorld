@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { WorldProvider } from "@/components/world-context";
+import { SleepAnimationWrapper } from "@/components/sleep-animation-wrapper";
 import { getWorldResult } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function RunLayout({ children, params }: RunLayoutProps) {
 
   return (
     <WorldProvider runId={runId} initialData={initialData}>
-      {children}
+      <SleepAnimationWrapper>{children}</SleepAnimationWrapper>
     </WorldProvider>
   );
 }

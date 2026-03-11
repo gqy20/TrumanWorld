@@ -146,7 +146,7 @@ async def test_simulation_service_persists_tick_and_events(db_session):
     assert events[0].event_type == "move"
     assert events[0].actor_agent_id == "alice"
     assert events[0].payload["to_location_id"] == "loc-park"
-    assert result.world_time == "2026-03-02T07:05:00+00:00"
+    assert result.world_time == "2026-03-02T06:05:00+00:00"
     assert len(memories) == 1
     assert memories[0].summary == "Moved to Park"
     assert memories[0].source_event_id == events[0].id

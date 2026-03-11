@@ -2,7 +2,10 @@
 
 Triggered once per day at the morning/night time-period transitions.
 - morning (06:00): each agent runs the Planner to build today's plan
-- night   (22:00): each agent runs the Reflector to write a day summary
+- night   (21:55): each agent runs the Reflector to write a day summary
+
+Note: Reflector triggers at 21:55 instead of 22:00 to ensure it runs
+before the sleep jump at 23:00 (see world.py advance_tick).
 """
 
 from __future__ import annotations
@@ -40,8 +43,12 @@ def should_run_planner(world: "WorldState") -> bool:
 
 
 def should_run_reflector(world: "WorldState") -> bool:
-    """Return True when the world just entered night (22:00 hour)."""
-    return world.current_time.hour == 22 and world.current_time.minute < world.tick_minutes
+    """Return True when the world is at 21:55-21:59.
+
+    Note: Triggered at 21:55 instead of 22:00 to ensure reflection runs
+    before the sleep jump at 23:00 (world.py advance_tick).
+    """
+    return world.current_time.hour == 21 and 55 <= world.current_time.minute < 55 + world.tick_minutes
 
 
 async def has_plan_for_today(

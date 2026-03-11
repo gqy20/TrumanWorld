@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from app.store.models import Agent, Event, SimulationRun
 
 
-DEFAULT_WORLD_START_TIME = datetime(2026, 3, 2, 7, 0, tzinfo=UTC)
+DEFAULT_WORLD_START_TIME = datetime(2026, 3, 2, 6, 0, tzinfo=UTC)
 
 
 class ContextBuilder:
