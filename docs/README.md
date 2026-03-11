@@ -21,8 +21,8 @@
 
 ### 我想了解产品方向
 
-1. 看 [product/PRD.md](product/PRD.md)
-2. 看 [product/FEATURE_WORLD_2D_SCENE.md](product/FEATURE_WORLD_2D_SCENE.md)
+1. 看 [product/FEATURE_WORLD_2D_SCENE.md](product/FEATURE_WORLD_2D_SCENE.md)
+2. 如需历史基线，补看 [references/PRD.md](references/PRD.md)
 
 ### 我想做技术决策
 
