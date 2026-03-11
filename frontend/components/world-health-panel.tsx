@@ -49,19 +49,21 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
   const isSystemExpanded = modal === "system";
   const { refresh } = useWorld();
   const { data: systemMetrics } = useSWR<SystemMetrics | null>(
-    isSystemExpanded ? "/metrics" : null,
+    "/metrics",
     getSystemMetrics,
     {
-      refreshInterval: 5000,
+      refreshInterval: isSystemExpanded ? 5000 : 0,
       revalidateOnFocus: false,
+      revalidateIfStale: isSystemExpanded,
     },
   );
   const { data: systemOverview } = useSWR<SystemOverview | null>(
-    isSystemExpanded ? "/system/overview" : null,
+    "/system/overview",
     getSystemOverview,
     {
-      refreshInterval: 5000,
+      refreshInterval: isSystemExpanded ? 5000 : 0,
       revalidateOnFocus: false,
+      revalidateIfStale: isSystemExpanded,
     },
   );
 

@@ -50,13 +50,30 @@ def build_name_maps(agents, locations) -> tuple[dict[str, str], dict[str, str]]:
 def enrich_event_payload(
     event, agent_name_map: dict[str, str], location_name_map: dict[str, str]
 ) -> dict:
+    """Ensure all name fields are present in event payload.
+
+    This is the single authoritative layer that guarantees readable names in
+    every event payload sent to the frontend.  action_resolver may optionally
+    inline names at write-time (faster), but this function always fills any
+    gaps so historical data and all event types are handled uniformly.
+    """
     payload = dict(event.payload or {})
+    # Actor / target names
     if event.actor_agent_id and "actor_name" not in payload:
         payload["actor_name"] = agent_name_map.get(event.actor_agent_id, event.actor_agent_id)
     if event.target_agent_id and "target_name" not in payload:
         payload["target_name"] = agent_name_map.get(event.target_agent_id, event.target_agent_id)
+    # Current/origin location name
     if event.location_id and "location_name" not in payload:
         payload["location_name"] = location_name_map.get(event.location_id, event.location_id)
+    # Destination location name (move events)
+    to_loc_id = payload.get("to_location_id")
+    if to_loc_id and "to_location_name" not in payload:
+        payload["to_location_name"] = location_name_map.get(str(to_loc_id), str(to_loc_id))
+    # Origin location name (move events — for "A → B" display)
+    from_loc_id = payload.get("from_location_id")
+    if from_loc_id and "from_location_name" not in payload:
+        payload["from_location_name"] = location_name_map.get(str(from_loc_id), str(from_loc_id))
     return payload
 
 

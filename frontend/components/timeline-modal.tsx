@@ -542,7 +542,11 @@ function EventCard({ event }: EventCardProps) {
   const meta = getEventMeta(event.event_type);
   const description = describeTimelineEvent(event);
   const actorName = event.payload.actor_name;
-  const locationName = event.payload.location_name;
+  // 移动事件显示目的地，其他事件显示当前所在位置
+  const locationName =
+    event.event_type === "move"
+      ? (event.payload.to_location_name ?? event.payload.location_name)
+      : event.payload.location_name;
 
   return (
     <div className="rounded-xl border border-white bg-white p-3 shadow-xs transition hover:shadow-md">
