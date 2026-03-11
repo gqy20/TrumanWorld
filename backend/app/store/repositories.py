@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, and_, case, or_, select
+from sqlalchemy import Select, and_, case, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.store.models import (
@@ -68,6 +68,18 @@ class RunRepository:
         return run
 
     async def delete(self, run: SimulationRun) -> None:
+        await self.session.delete(run)
+        await self.session.commit()
+
+    async def delete_with_related(self, run: SimulationRun) -> None:
+        run_id = run.id
+        await self.session.execute(delete(Relationship).where(Relationship.run_id == run_id))
+        await self.session.execute(delete(Memory).where(Memory.run_id == run_id))
+        await self.session.execute(delete(DirectorMemory).where(DirectorMemory.run_id == run_id))
+        await self.session.execute(delete(Event).where(Event.run_id == run_id))
+        await self.session.execute(delete(LlmCall).where(LlmCall.run_id == run_id))
+        await self.session.execute(delete(Agent).where(Agent.run_id == run_id))
+        await self.session.execute(delete(Location).where(Location.run_id == run_id))
         await self.session.delete(run)
         await self.session.commit()
 

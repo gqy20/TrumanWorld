@@ -26,6 +26,48 @@ from app.store.repositories import (
 router = APIRouter()
 
 
+def serialize_director_memory(
+    memory,
+    *,
+    current_tick: int,
+    agent_name_map: dict[str, str],
+    location_name_map: dict[str, str],
+    manual_goals: set[str],
+) -> DirectorMemoryResponse:
+    target_cast_ids = json.loads(memory.target_cast_ids) if memory.target_cast_ids else []
+    location_hint = memory.metadata_json.get("location_hint") if memory.metadata_json else None
+    if memory.was_executed:
+        delivery_status = "consumed"
+    elif memory.scene_goal in manual_goals and current_tick > memory.tick_no + 5:
+        delivery_status = "expired"
+    else:
+        delivery_status = "queued"
+
+    return DirectorMemoryResponse(
+        id=memory.id,
+        tick_no=memory.tick_no,
+        scene_goal=memory.scene_goal,
+        priority=memory.priority,
+        urgency=memory.urgency,
+        message_hint=memory.message_hint,
+        target_agent_id=memory.target_agent_id,
+        target_agent_name=agent_name_map.get(memory.target_agent_id) if memory.target_agent_id else None,
+        target_cast_ids=target_cast_ids,
+        target_cast_names=[agent_name_map.get(agent_id, agent_id) for agent_id in target_cast_ids],
+        location_hint=location_hint,
+        location_name=location_name_map.get(location_hint) if location_hint else None,
+        reason=memory.reason,
+        was_executed=memory.was_executed,
+        delivery_status=delivery_status,
+        effectiveness_score=memory.effectiveness_score,
+        trigger_suspicion_score=memory.trigger_suspicion_score,
+        trigger_continuity_risk=memory.trigger_continuity_risk,
+        cooldown_ticks=memory.cooldown_ticks,
+        cooldown_until_tick=memory.cooldown_until_tick,
+        created_at=memory.created_at,
+    )
+
+
 @router.get(
     "/{run_id}/director/observation",
     response_model=DirectorObservationResponse,
@@ -85,43 +127,18 @@ async def get_director_memories(
     location_name_map = {location.id: location.name for location in locations}
     manual_goals = {"gather", "activity", "shutdown", "weather_change"}
 
-    def serialize_memory(memory) -> DirectorMemoryResponse:
-        target_cast_ids = json.loads(memory.target_cast_ids) if memory.target_cast_ids else []
-        location_hint = memory.metadata_json.get("location_hint") if memory.metadata_json else None
-        if memory.was_executed:
-            delivery_status = "consumed"
-        elif memory.scene_goal in manual_goals and run.current_tick > memory.tick_no + 5:
-            delivery_status = "expired"
-        else:
-            delivery_status = "queued"
-
-        return DirectorMemoryResponse(
-            id=memory.id,
-            tick_no=memory.tick_no,
-            scene_goal=memory.scene_goal,
-            priority=memory.priority,
-            urgency=memory.urgency,
-            message_hint=memory.message_hint,
-            target_agent_id=memory.target_agent_id,
-            target_agent_name=agent_name_map.get(memory.target_agent_id) if memory.target_agent_id else None,
-            target_cast_ids=target_cast_ids,
-            target_cast_names=[agent_name_map.get(agent_id, agent_id) for agent_id in target_cast_ids],
-            location_hint=location_hint,
-            location_name=location_name_map.get(location_hint) if location_hint else None,
-            reason=memory.reason,
-            was_executed=memory.was_executed,
-            delivery_status=delivery_status,
-            effectiveness_score=memory.effectiveness_score,
-            trigger_suspicion_score=memory.trigger_suspicion_score,
-            trigger_continuity_risk=memory.trigger_continuity_risk,
-            cooldown_ticks=memory.cooldown_ticks,
-            cooldown_until_tick=memory.cooldown_until_tick,
-            created_at=memory.created_at,
-        )
-
     return DirectorMemoriesResponse(
         run_id=str(run_id),
-        memories=[serialize_memory(memory) for memory in memories],
+        memories=[
+            serialize_director_memory(
+                memory,
+                current_tick=run.current_tick,
+                agent_name_map=agent_name_map,
+                location_name_map=location_name_map,
+                manual_goals=manual_goals,
+            )
+            for memory in memories
+        ],
         total=len(memories),
     )
 

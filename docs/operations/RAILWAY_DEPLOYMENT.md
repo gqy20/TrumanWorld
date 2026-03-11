@@ -44,7 +44,7 @@ TRUMANWORLD_CORS_ALLOWED_ORIGINS=["https://${{Frontend.RAILWAY_PUBLIC_DOMAIN}}"]
 按需补充：
 
 ```env
-TRUMANWORLD_AGENT_PROVIDER=anthropic
+TRUMANWORLD_AGENT_PROVIDER=claude
 TRUMANWORLD_ANTHROPIC_API_KEY=你的_key
 TRUMANWORLD_AGENT_MODEL=你的模型名
 TRUMANWORLD_DIRECTOR_AGENT_ENABLED=true
@@ -177,7 +177,7 @@ railway variable set --service backend \
 
 ```bash
 railway variable set --service backend \
-  TRUMANWORLD_AGENT_PROVIDER=anthropic \
+  TRUMANWORLD_AGENT_PROVIDER=claude \
   TRUMANWORLD_AGENT_MODEL='your-model' \
   TRUMANWORLD_DIRECTOR_AGENT_ENABLED=true \
   TRUMANWORLD_DIRECTOR_AGENT_MODEL='your-director-model'

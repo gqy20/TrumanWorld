@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas.simulation import (
@@ -19,7 +19,7 @@ from app.scenario.factory import create_scenario
 from app.sim.run_lifecycle import ensure_run_started, pause_run_execution
 from app.sim.scheduler import get_scheduler
 from app.sim.service import SimulationService
-from app.store.models import Agent, DirectorMemory, Event, LlmCall, Location, Memory, Relationship, SimulationRun
+from app.store.models import Agent, Event, Location, SimulationRun
 from app.store.repositories import RunRepository
 
 router = APIRouter()
@@ -72,20 +72,6 @@ async def cleanup_run_runtime_resources(run_id: str) -> None:
 
     pool = await get_connection_pool()
     await pool.cleanup_run(run_id)
-
-
-async def delete_run_records(session: AsyncSession, run: SimulationRun) -> None:
-    run_id = run.id
-    await session.execute(delete(Relationship).where(Relationship.run_id == run_id))
-    await session.execute(delete(Memory).where(Memory.run_id == run_id))
-    await session.execute(delete(DirectorMemory).where(DirectorMemory.run_id == run_id))
-    await session.execute(delete(Event).where(Event.run_id == run_id))
-    await session.execute(delete(LlmCall).where(LlmCall.run_id == run_id))
-    await session.execute(delete(Agent).where(Agent.run_id == run_id))
-    await session.execute(delete(Location).where(Location.run_id == run_id))
-
-    repo = RunRepository(session)
-    await repo.delete(run)
 
 
 @router.post(
@@ -324,6 +310,6 @@ async def delete_run(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
-    await delete_run_records(session, run)
+    await repo.delete_with_related(run)
     logger.info(f"Run deleted: {run_id}")
     return StatusResponse(run_id=run_id_str, status="deleted")

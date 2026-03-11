@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     anthropic_api_key: str | None = None
     anthropic_base_url: str | None = None
-    agent_provider: str = "heuristic"
+    agent_provider: Literal["heuristic", "claude"] = "heuristic"
     agent_model: str | None = None
     agent_budget_usd: float = 1.0
     anthropic_model: str | None = None

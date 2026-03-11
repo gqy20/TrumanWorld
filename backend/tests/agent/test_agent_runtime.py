@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 import app.agent.providers as provider_module
 from app.agent.context_builder import ContextBuilder
@@ -273,10 +274,10 @@ async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: Ag
     assert intent.action_type == "rest"
 
 
-def test_runtime_selects_claude_provider_from_anthropic_env(
+def test_runtime_selects_claude_provider_from_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()
 
     agent_dir = tmp_path / "demo_agent"
@@ -322,37 +323,12 @@ def test_claude_provider_builds_options_with_system_prompt(tmp_path: Path):
     assert options.system_prompt == build_system_prompt()
 
 
-def test_runtime_keeps_anthropic_provider_name_in_settings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_runtime_rejects_legacy_anthropic_provider_value(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
-    monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_MODEL", "legacy-model")
     get_settings.cache_clear()
 
-    agent_dir = tmp_path / "demo_agent"
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: demo_agent",
-                "name: Demo Agent",
-                "occupation: resident",
-                "home: demo_home",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
-
-    runtime = AgentRuntime(
-        registry=AgentRegistry(tmp_path),
-        context_builder=ContextBuilder(),
-    )
-
-    settings = get_settings()
-    assert settings.agent_provider == "anthropic"
-    assert settings.agent_model == "legacy-model"
-    assert isinstance(runtime.decision_provider, ClaudeSDKDecisionProvider)
+    with pytest.raises(ValidationError):
+        get_settings()
 
     get_settings.cache_clear()
 
@@ -364,7 +340,7 @@ async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: 
     This behavior allows the simulation to continue gracefully when
     the SDK call is cancelled (e.g., scheduler shutdown).
     """
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
 
@@ -396,7 +372,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     """When LLM omits message, decide_intent accepts the empty value without injecting a default."""
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
 
@@ -456,7 +432,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
 
 @pytest.mark.asyncio
 async def test_claude_provider_fails_fast_when_cli_missing(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: None)
     get_settings.cache_clear()
 

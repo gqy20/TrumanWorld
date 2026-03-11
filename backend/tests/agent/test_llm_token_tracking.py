@@ -61,7 +61,7 @@ def agent_runtime_claude_provider(tmp_path: Path):
     """Create an AgentRuntime with Claude provider for testing LLM calls."""
     # Set up environment for Claude provider
     original_env = os.environ.get("TRUMANWORLD_AGENT_PROVIDER")
-    os.environ["TRUMANWORLD_AGENT_PROVIDER"] = "anthropic"
+    os.environ["TRUMANWORLD_AGENT_PROVIDER"] = "claude"
 
     # Clear settings cache
     from app.infra.settings import get_settings
@@ -145,7 +145,7 @@ class TestPlannerTokenTracking:
 
         # Create mock settings
         mock_settings = MagicMock(spec=Settings)
-        mock_settings.agent_provider = "anthropic"
+        mock_settings.agent_provider = "claude"
         mock_settings.agent_model = "claude-sonnet-4-20250514"
         mock_settings.anthropic_api_key = "test-key"
         mock_settings.anthropic_base_url = None
@@ -235,7 +235,7 @@ class TestReflectorTokenTracking:
 
         # Create mock settings
         mock_settings = MagicMock(spec=Settings)
-        mock_settings.agent_provider = "anthropic"
+        mock_settings.agent_provider = "claude"
         mock_settings.agent_model = "claude-sonnet-4-20250514"
         mock_settings.anthropic_api_key = "test-key"
         mock_settings.anthropic_base_url = None
