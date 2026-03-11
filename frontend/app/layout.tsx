@@ -12,9 +12,18 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const runtimeConfig = {
+    apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "",
+  };
+
   return (
     <html lang="zh-CN">
       <body className="h-screen overflow-hidden">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__TRUMANWORLD_CONFIG__ = ${JSON.stringify(runtimeConfig)};`,
+          }}
+        />
         <AppShell>{children}</AppShell>
       </body>
     </html>

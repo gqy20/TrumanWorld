@@ -38,11 +38,24 @@ export type ApiResult<T> = {
   status: number | null;
 };
 
+declare global {
+  interface Window {
+    __TRUMANWORLD_CONFIG__?: {
+      apiBaseUrl?: string;
+    };
+  }
+}
+
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:18080/api";
 
 function resolveApiBaseUrl() {
+  const runtimeBaseUrl =
+    typeof window !== "undefined"
+      ? window.__TRUMANWORLD_CONFIG__?.apiBaseUrl?.replace(/\/$/, "")
+      : undefined;
   const publicBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
-  return publicBaseUrl ?? DEFAULT_API_BASE_URL;
+
+  return runtimeBaseUrl ?? publicBaseUrl ?? DEFAULT_API_BASE_URL;
 }
 
 export function getApiBaseUrl() {
