@@ -36,6 +36,7 @@ async def list_agents(
     run_id: UUID,
     session: AsyncSession = Depends(get_db_session),
 ) -> AgentsListResponse:
+    logger.debug(f"Listing agents for run {run_id}")
     run_repo = RunRepository(session)
     run = await run_repo.get(str(run_id))
     if run is None:
@@ -43,6 +44,7 @@ async def list_agents(
 
     repo = AgentRepository(session)
     agents = await repo.list_for_run(str(run_id))
+    logger.debug(f"Retrieved {len(agents)} agents for run {run_id}")
 
     return AgentsListResponse(
         run_id=str(run_id),
@@ -86,6 +88,7 @@ async def get_agent(
     agent_id: str,
     session: AsyncSession = Depends(get_db_session),
 ) -> AgentDetailResponse:
+    logger.debug(f"Getting agent details: run_id={run_id}, agent_id={agent_id}")
     run_repo = RunRepository(session)
     run = await run_repo.get(str(run_id))
     if run is None:
@@ -94,6 +97,7 @@ async def get_agent(
     repo = AgentRepository(session)
     agent = await repo.get(agent_id)
     if agent is None or agent.run_id != str(run_id):
+        logger.warning(f"Agent not found: run_id={run_id}, agent_id={agent_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     # Build name maps for friendly display
@@ -170,4 +174,8 @@ async def get_agent(
             )
             for relation in relationships
         ],
+    )
+    logger.debug(
+        f"Agent details retrieved: run_id={run_id}, agent_id={agent_id}, "
+        f"memories={len(memories)}, events={len(recent_events)}, relationships={len(relationships)}"
     )

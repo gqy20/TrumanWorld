@@ -136,6 +136,7 @@ class SimulationService:
 
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
         started_at = perf_counter()
+        logger.debug(f"Starting tick for run {run_id}")
         run_repo = self._require_run_repo()
         try:
             run = await run_repo.get(run_id)
@@ -156,12 +157,15 @@ class SimulationService:
             await self._require_persistence().persist_agent_locations(run_id, world)
             await run_repo.update_tick(run, result.tick_no)
             await self._persist_tick_events(run_id, result)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Tick failed for run {run_id}: {e}")
             observe_tick(
                 mode="inline", status="error", duration_seconds=perf_counter() - started_at
             )
             raise
-        observe_tick(mode="inline", status="success", duration_seconds=perf_counter() - started_at)
+        duration = perf_counter() - started_at
+        logger.debug(f"Tick completed for run {run_id}: tick_no={result.tick_no}, duration={duration:.3f}s")
+        observe_tick(mode="inline", status="success", duration_seconds=duration)
         return result
 
     async def run_tick_isolated(
@@ -221,6 +225,7 @@ class SimulationService:
         return await self._scenario.observe_run(run_id, event_limit=event_limit)
 
     async def seed_demo_run(self, run_id: str) -> None:
+        logger.info(f"Seeding demo run {run_id}")
         run = await self._require_run_repo().get(run_id)
         if run is None:
             msg = f"Run not found: {run_id}"
@@ -229,8 +234,10 @@ class SimulationService:
 
         existing_agents = await self._require_agent_repo().list_for_run(run_id)
         if existing_agents:
+            logger.debug(f"Demo run {run_id} already has agents, skipping seed")
             return
         await self._scenario.seed_demo_run(run)
+        logger.info(f"Demo run {run_id} seeded successfully")
 
     async def _load_world(self, run_id: str, tick_minutes: int) -> WorldState:
         run = await self._require_run_repo().get(run_id)

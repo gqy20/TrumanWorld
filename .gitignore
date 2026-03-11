@@ -41,7 +41,8 @@ pip-wheel-metadata/
 
 # Logs / runtime artifacts
 *.log
-logs/
+logs/*
+!logs/.gitkeep
 tmp/
 temp/
 *.pid

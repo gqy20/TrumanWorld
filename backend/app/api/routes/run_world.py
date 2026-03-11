@@ -22,6 +22,7 @@ from app.api.schemas.simulation import (
     WorldSnapshotRunResponse,
 )
 from app.infra.db import get_db_session
+from app.infra.logging import get_logger
 from app.api.routes.runs import build_run_payload, get_required_run
 from app.scenario.truman_world.rules import load_world_config
 from app.scenario.truman_world.types import get_agent_config_id
@@ -35,6 +36,7 @@ from app.store.repositories import (
 )
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 def build_name_maps(agents, locations) -> tuple[dict[str, str], dict[str, str]]:
@@ -253,6 +255,7 @@ async def get_timeline(
     order_desc: bool = False,
     session: AsyncSession = Depends(get_db_session),
 ) -> TimelineResponse:
+    logger.debug(f"Getting timeline for run {run_id}, tick_range=[{tick_from}, {tick_to}], limit={limit}")
     run = await get_required_run(session, run_id)
 
     agent_repo = AgentRepository(session)
@@ -293,6 +296,7 @@ async def get_timeline(
 
     current_world_time = get_run_world_time(run)
 
+    logger.debug(f"Timeline retrieved for run {run_id}: total={total}, filtered={len(events)}")
     return TimelineResponse(
         run_id=str(run_id),
         total=total,
@@ -333,6 +337,7 @@ async def get_run_events(
     since_tick: int | None = None,
     session: AsyncSession = Depends(get_db_session),
 ) -> WorldEventsResponse:
+    logger.debug(f"Getting events for run {run_id}, type={event_type}, limit={limit}, since_tick={since_tick}")
     await get_required_run(session, run_id)
 
     agent_repo = AgentRepository(session)
@@ -361,6 +366,7 @@ async def get_run_events(
         build_world_event_response(event, agent_name_map, location_name_map) for event in events
     ]
     latest_tick = max((event.tick_no for event in events), default=0)
+    logger.debug(f"Events retrieved for run {run_id}: total={len(result_events)}, latest_tick={latest_tick}")
     return WorldEventsResponse(
         run_id=str(run_id),
         events=result_events,
@@ -383,6 +389,7 @@ async def get_world_snapshot(
     run_id: UUID,
     session: AsyncSession = Depends(get_db_session),
 ) -> WorldSnapshotResponse:
+    logger.debug(f"Getting world snapshot for run {run_id}")
     run = await get_required_run(session, run_id)
 
     agent_repo = AgentRepository(session)
@@ -435,6 +442,11 @@ async def get_world_snapshot(
     world_time = get_run_world_time(run)
     agent_name_map, location_name_map = build_name_maps(agents, locations)
 
+    logger.debug(
+        f"World snapshot retrieved for run {run_id}: "
+        f"agents={len(agents)}, locations={len(locations)}, events={len(events)}, "
+        f"director_stats={director_executed}/{director_total}"
+    )
     return WorldSnapshotResponse(
         run=build_run_snapshot(run),
         world_clock=build_world_clock(world_time),

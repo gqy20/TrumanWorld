@@ -195,13 +195,16 @@ dev: check-ports db-start db-migrate sync-agent-logos
 docker-dev:
 	@mkdir -p $(LOGS_DIR)
 	@LOG_TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
+	LOG_FILE_BACKEND="$(CURDIR)/$(LOGS_DIR)/docker_$${LOG_TIMESTAMP}_backend.log"; \
+	LOG_FILE_FRONTEND="$(CURDIR)/$(LOGS_DIR)/docker_$${LOG_TIMESTAMP}_frontend.log"; \
 	echo ""; \
 	echo "🐳 启动 Truman World Docker 开发环境..."; \
 	echo "================================"; \
 	echo "日志目录: $(LOGS_DIR)/"; \
-	echo "日志文件: docker_$${LOG_TIMESTAMP}.log"; \
+	echo "后端日志: docker_$${LOG_TIMESTAMP}_backend.log"; \
+	echo "前端日志: docker_$${LOG_TIMESTAMP}_frontend.log"; \
 	echo "================================"; \
-	docker-compose up --build 2>&1 | tee $(LOGS_DIR)/docker_$${LOG_TIMESTAMP}.log
+	docker-compose up --build 2>&1 | tee >(grep -E "(backend|trumanworld-backend|INFO:|ERROR:|WARNING:|DEBUG:)" > "$${LOG_FILE_BACKEND}") >(grep -E "(frontend|trumanworld-front|Next.js|GET|POST|PUT|DELETE|PATCH)" > "$${LOG_FILE_FRONTEND}")
 
 # 停止并移除 Docker 容器（保留数据卷）
 docker-down:
@@ -214,3 +217,16 @@ docker-clean:
 	@echo "🗑️  清理 Docker 环境（容器 + 数据卷）..."
 	@docker-compose down -v --remove-orphans
 	@echo "✅ Docker 环境已清理"
+
+# 清理日志文件（保留最近 7 天）
+clean-logs:
+	@echo "🧹 清理日志文件..."
+	@find $(LOGS_DIR) -name "*.log" -type f -mtime +7 -delete 2>/dev/null || true
+	@find $(LOGS_DIR) -name "*.sql" -type f -mtime +7 -delete 2>/dev/null || true
+	@echo "✅ 已清理 7 天前的日志文件"
+
+# 清理所有日志文件（谨慎使用）
+clean-logs-all:
+	@echo "🗑️  清理所有日志文件..."
+	@rm -f $(LOGS_DIR)/*.log $(LOGS_DIR)/*.sql 2>/dev/null || true
+	@echo "✅ 已清理所有日志文件"

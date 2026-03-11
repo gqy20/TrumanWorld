@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from app.infra.logging import debug, error, info
+from app.infra.logging import debug, error, info, warning
 
 
 @dataclass
@@ -31,10 +31,11 @@ class SimulationScheduler:
         """Start automatic tick advancement for a run."""
         async with self._lock:
             if run_id in self._scheduled:
-                info(f"Run {run_id} already scheduled, stopping first")
+                existing = self._scheduled[run_id]
+                info(f"Run {run_id} already scheduled (interval={existing.interval_seconds}s), restarting")
                 await self._stop_run_locked(run_id)
 
-            info(f"Starting scheduler for run {run_id} with interval {interval_seconds}s")
+            info(f"Starting scheduler for run {run_id} with interval={interval_seconds}s, active_runs={len(self._scheduled)}")
             scheduled = ScheduledRun(
                 run_id=run_id,
                 interval_seconds=interval_seconds,
@@ -62,14 +63,14 @@ class SimulationScheduler:
         """Internal method to stop a run (must hold lock)."""
         scheduled = self._scheduled.pop(run_id, None)
         if scheduled and scheduled.task:
-            info(f"Stopping scheduler for run {run_id}")
+            info(f"Stopping scheduler for run {run_id}, remaining_runs={len(self._scheduled)}")
             scheduled.task.cancel()
             # Await the task to properly handle cancellation
             # Use timeout to avoid blocking forever if LLM call is stuck
             try:
                 await asyncio.wait_for(asyncio.shield(scheduled.task), timeout=2.0)
             except asyncio.TimeoutError:
-                info(f"Task for run {run_id} did not cancel within 2s, continuing")
+                warning(f"Task for run {run_id} did not cancel within 2s, continuing")
             except asyncio.CancelledError:
                 pass
             except RuntimeError as e:
