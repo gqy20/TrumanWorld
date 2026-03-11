@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
 import time
 from dataclasses import dataclass
 
@@ -276,6 +278,7 @@ class AgentConnectionPool:
             self._pool.clear()
 
         logger.info("All connections closed")
+        _kill_orphan_sdk_processes()
 
     @property
     def size(self) -> int:
@@ -329,6 +332,48 @@ class AgentConnectionPool:
         if cleaned > 0:
             logger.info(f"Cleaned up {cleaned} connections for run {run_id}")
         return cleaned
+
+
+def _kill_orphan_sdk_processes() -> None:
+    """强杀所有残留的 Claude SDK 子进程。
+
+    根因分析：
+    1. SDK close() 先发 SIGTERM，但 anyio TaskGroup 取消会将 process.wait() 中断，
+       被 suppress(Exception) 吞掉，没有等到进程真正退出就返回。
+    2. claude CLI 是 Node.js 进程，收到 SIGTERM 后需要 3~8 秒做优雅退出
+       （保存 session、关闭 LSP、flush BigQuery metrics 等）。
+    3. 父进程不等就退出，claude 子进程成为孤儿进程继续运行。
+
+    此函数在连接池关闭后作为最后一道保险，直接发 SIGKILL 强杀。
+    注意：进程此时已在处理第一个 SIGTERM，再发 SIGTERM 无效，必须用 SIGKILL。
+    进程查找用 /proc/pid/cmdline 而非 pgrep -f，因为 pgrep 对超长命令行（>128 字节）匹配失败。
+    """
+    marker = "claude_agent_sdk/_bundled/claude"
+    self_pid = os.getpid()
+    killed = []
+    try:
+        for entry in os.scandir("/proc"):
+            if not entry.name.isdigit():
+                continue
+            pid = int(entry.name)
+            if pid == self_pid:
+                continue
+            try:
+                cmdline_path = f"/proc/{entry.name}/cmdline"
+                with open(cmdline_path, "rb") as f:
+                    cmdline = f.read()
+                if marker.encode() in cmdline:
+                    try:
+                        os.kill(pid, signal.SIGKILL)  # SIGKILL: 进程已在处理 SIGTERM，必须强杀
+                        killed.append(pid)
+                    except ProcessLookupError:
+                        pass
+            except (FileNotFoundError, PermissionError, ValueError):
+                continue
+        if killed:
+            logger.info(f"SIGKILL sent to {len(killed)} orphan SDK process(es): {killed}")
+    except Exception as e:
+        logger.warning(f"Failed to kill orphan SDK processes: {e}")
 
 
 # ============ 全局连接池单例 ============
