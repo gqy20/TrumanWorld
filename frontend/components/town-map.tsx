@@ -345,10 +345,7 @@ export function TownMap({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45 }}
+    <div
       className={`flex h-full min-h-[460px] flex-col rounded-[28px] border p-4 shadow-xs backdrop-blur-sm transition-colors duration-1000 ${
         timeStyle.isDark
           ? "border-slate-700/50 bg-slate-800/80"
@@ -513,7 +510,7 @@ export function TownMap({
           )}
 
           {linkCoordinates.map((link) => (
-            <motion.line
+            <line
               key={`${link.source.id}-${link.target.id}`}
               x1={link.source.svgX}
               y1={link.source.svgY}
@@ -522,9 +519,6 @@ export function TownMap({
               stroke="rgba(148,163,184,0.45)"
               strokeWidth="2"
               strokeDasharray="7 8"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ duration: 0.6 }}
             />
           ))}
 
@@ -554,11 +548,8 @@ export function TownMap({
             const hasHeat = node.heat > glowThreshold;
 
             return (
-              <motion.g
+              <g
                 key={node.id}
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", stiffness: 260, damping: 24 }}
                 data-map-interactive="true"
                 role="button"
                 tabIndex={0}
@@ -589,7 +580,6 @@ export function TownMap({
                     r={outerRadius + 15 * NODE_SCALE + node.heat * 20 * NODE_SCALE}
                     fill={heatLevel.glowColor}
                     filter={node.heat > 0.6 ? "url(#heatGlowStrong)" : "url(#heatGlow)"}
-                    initial={{ opacity: 0 }}
                     animate={{
                       opacity: [0.4 + node.heat * 0.3, 0.6 + node.heat * 0.3, 0.4 + node.heat * 0.3],
                       scale: [1, 1.05, 1]
@@ -625,7 +615,6 @@ export function TownMap({
                     stroke={heatLevel.color}
                     strokeWidth={2 + node.heat * 2}
                     strokeDasharray={`${node.heat * 20} ${(1 - node.heat) * 20}`}
-                    initial={{ opacity: 0, rotate: 0 }}
                     animate={{
                       opacity: 0.6 + node.heat * 0.4,
                       rotate: 360
@@ -736,11 +725,8 @@ export function TownMap({
                   const hasLogo = !!agent.config_id;
 
                   return (
-                    <motion.g
+                    <g
                       key={agent.id}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: "spring", stiffness: 320, damping: 22, delay: index * 0.03 }}
                       data-map-interactive="true"
                       role="button"
                       tabIndex={0}
@@ -812,10 +798,10 @@ export function TownMap({
                           </text>
                         </>
                       )}
-                    </motion.g>
+                    </g>
                   );
                 })}
-              </motion.g>
+              </g>
             );
           })}
         </svg>
@@ -830,6 +816,6 @@ export function TownMap({
           </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

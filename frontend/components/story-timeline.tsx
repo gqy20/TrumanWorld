@@ -157,8 +157,8 @@ function ChapterCard({
             <div className="border-t border-slate-100 px-2.5 pb-2.5">
               {/* 事件列表 - 更紧凑 */}
               <div className="mt-2 space-y-1">
-                {chapter.events.map((event, idx) => (
-                  <CompactEventItem key={event.id} event={event} index={idx} />
+                {chapter.events.map((event) => (
+                  <CompactEventItem key={event.id} event={event} />
                 ))}
               </div>
 
@@ -221,10 +221,9 @@ function CompactHighlightBadge({ highlight }: CompactHighlightBadgeProps) {
 
 interface CompactEventItemProps {
   event: StoryEvent;
-  index: number;
 }
 
-function CompactEventItem({ event, index }: CompactEventItemProps) {
+function CompactEventItem({ event }: CompactEventItemProps) {
   // 根据类型决定展示样式
   const isLowImportance = event.type === "work" || event.type === "rest";
 
@@ -240,26 +239,16 @@ function CompactEventItem({ event, index }: CompactEventItemProps) {
   // 低重要性事件：单行展示
   if (isLowImportance) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: index * 0.03 }}
-        className="flex items-center gap-2 rounded-r border-l-2 border-slate-200 py-1 pl-2 pr-2 text-xs text-slate-500"
-      >
+      <div className="flex items-center gap-2 rounded-r border-l-2 border-slate-200 py-1 pl-2 pr-2 text-xs text-slate-500">
         <span className="text-xs opacity-70">{event.icon}</span>
         <span className="truncate">{event.description}</span>
-      </motion.div>
+      </div>
     );
   }
 
   // 高重要性事件：保留一定视觉层次
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -5 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className={`flex items-start gap-2 rounded-r-lg border-l-2 py-1.5 pl-2.5 pr-2 ${typeClasses[event.type]}`}
-    >
+    <div className={`flex items-start gap-2 rounded-r-lg border-l-2 py-1.5 pl-2.5 pr-2 ${typeClasses[event.type]}`}>
       <span className="text-sm">{event.icon}</span>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-slate-700 leading-tight">{event.description}</p>
@@ -271,7 +260,7 @@ function CompactEventItem({ event, index }: CompactEventItemProps) {
         )}
       </div>
       <span className="text-[10px] text-slate-400 shrink-0">{event.time}</span>
-    </motion.div>
+    </div>
   );
 }
 

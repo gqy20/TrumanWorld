@@ -24,6 +24,7 @@ import {
   locationBeat,
   locationTone,
 } from "@/lib/world-utils";
+import { useUiSearchParams } from "@/lib/ui-url-state";
 
 type Props = {
   runId: string;
@@ -31,19 +32,23 @@ type Props = {
 
 export function WorldCanvas({ runId }: Props) {
   const { world } = useWorld();
+  const { searchParams, replaceSearchParams } = useUiSearchParams();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
-  const [isStreamExpanded, setIsStreamExpanded] = useState(false);
-  const [isLocationExpanded, setIsLocationExpanded] = useState(false);
-  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
-  const [isAgentExpanded, setIsAgentExpanded] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  const modal = searchParams.get("modal");
+  const selectedAgentId = searchParams.get("agent");
+  const selectedLocationIdFromQuery = searchParams.get("loc");
+  const isStreamExpanded = modal === "stream";
+  const isLocationExpanded = modal === "location";
+  const isTimelineExpanded = modal === "timeline";
+  const isAgentExpanded = modal === "agent" && Boolean(selectedAgentId);
 
   // 监听打开时间线弹窗的事件
   useEffect(() => {
-    const handleOpenTimeline = () => setIsTimelineExpanded(true);
+    const handleOpenTimeline = () => replaceSearchParams({ modal: "timeline" });
     window.addEventListener("openTimelineModal", handleOpenTimeline);
     return () => window.removeEventListener("openTimelineModal", handleOpenTimeline);
-  }, []);
+  }, [replaceSearchParams]);
 
   // 计算世界洞察数据
   const { healthMetrics, storyChapters } = useMemo(() => {
@@ -60,10 +65,19 @@ export function WorldCanvas({ runId }: Props) {
     if (!world || world.locations.length === 0) {
       return;
     }
-    setHighlightedLocationId((current) =>
-      current && world.locations.some((location) => location.id === current) ? current : world.locations[0].id,
-    );
-  }, [world]);
+    const queryLocationId =
+      selectedLocationIdFromQuery &&
+      world.locations.some((location) => location.id === selectedLocationIdFromQuery)
+        ? selectedLocationIdFromQuery
+        : null;
+
+    setHighlightedLocationId((current) => {
+      if (queryLocationId) return queryLocationId;
+      return current && world.locations.some((location) => location.id === current)
+        ? current
+        : world.locations[0].id;
+    });
+  }, [world, selectedLocationIdFromQuery]);
 
   const { agentNameMap } = useMemo(() => {
     if (!world) {
@@ -99,10 +113,10 @@ export function WorldCanvas({ runId }: Props) {
             highlightedLocationId={highlightedLocationId}
             onLocationClick={(locationId) => {
               setHighlightedLocationId(locationId);
+              replaceSearchParams({ loc: locationId });
             }}
             onAgentClick={(agentId) => {
-              setSelectedAgentId(agentId);
-              setIsAgentExpanded(true);
+              replaceSearchParams({ modal: "agent", agent: agentId });
             }}
           />
         </div>
@@ -131,7 +145,12 @@ export function WorldCanvas({ runId }: Props) {
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => setIsLocationExpanded(true)}
+                  onClick={() =>
+                    replaceSearchParams({
+                      modal: "location",
+                      loc: selectedLocation?.id ?? null,
+                    })
+                  }
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-xs transition hover:border-moss hover:text-moss"
                   title="放大查看地点详情"
                 >
@@ -179,7 +198,7 @@ export function WorldCanvas({ runId }: Props) {
           {world && (
             <IntelligenceStreamModal
               isOpen={isStreamExpanded}
-              onClose={() => setIsStreamExpanded(false)}
+              onClose={() => replaceSearchParams({ modal: null })}
               world={world}
               runId={runId}
               maxEvents={world.health_metrics_config?.ui_intelligence_stream_max_events}
@@ -191,10 +210,13 @@ export function WorldCanvas({ runId }: Props) {
           {world && selectedLocation && (
             <LocationDetailModal
               isOpen={isLocationExpanded}
-              onClose={() => setIsLocationExpanded(false)}
+              onClose={() => replaceSearchParams({ modal: null })}
               world={world}
               locationId={selectedLocation.id}
-              onLocationChange={(locId) => setHighlightedLocationId(locId)}
+              onLocationChange={(locId) => {
+                setHighlightedLocationId(locId);
+                replaceSearchParams({ modal: "location", loc: locId });
+              }}
               runId={runId}
             />
           )}
@@ -204,14 +226,14 @@ export function WorldCanvas({ runId }: Props) {
         <div className="flex h-full min-h-0 flex-col">
           <StoryTimeline
             chapters={storyChapters}
-            onExpand={() => setIsTimelineExpanded(true)}
+            onExpand={() => replaceSearchParams({ modal: "timeline" })}
           />
         </div>
 
         {/* 事件回放弹窗 */}
         <TimelineModal
           isOpen={isTimelineExpanded}
-          onClose={() => setIsTimelineExpanded(false)}
+          onClose={() => replaceSearchParams({ modal: null })}
           runId={runId}
         />
 
@@ -219,7 +241,7 @@ export function WorldCanvas({ runId }: Props) {
         {selectedAgentId && (
           <AgentDetailModal
             isOpen={isAgentExpanded}
-            onClose={() => setIsAgentExpanded(false)}
+            onClose={() => replaceSearchParams({ modal: null, agent: null })}
             runId={runId}
             agentId={selectedAgentId}
           />

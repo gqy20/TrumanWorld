@@ -19,6 +19,7 @@ import type { WorldSnapshot } from "@/lib/types";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
 import { Modal } from "@/components/modal";
+import { useUiSearchParams } from "@/lib/ui-url-state";
 
 interface WorldHealthPanelProps {
   metrics: WorldHealthMetrics;
@@ -36,29 +37,31 @@ interface ActivityModalState {
 }
 
 export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProps) {
-  const [isDirectorExpanded, setIsDirectorExpanded] = useState(false);
-  const [isSystemExpanded, setIsSystemExpanded] = useState(false);
+  const { searchParams, replaceSearchParams } = useUiSearchParams();
   const [activityModal, setActivityModal] = useState<ActivityModalState>({
     isOpen: false,
     type: null,
     title: "",
     agents: [],
   });
+  const modal = searchParams.get("modal");
+  const isDirectorExpanded = modal === "director";
+  const isSystemExpanded = modal === "system";
   const { refresh } = useWorld();
   const { data: systemMetrics } = useSWR<SystemMetrics | null>(
-    "/metrics",
+    isSystemExpanded ? "/metrics" : null,
     getSystemMetrics,
     {
       refreshInterval: 5000,
-      revalidateOnFocus: true,
+      revalidateOnFocus: false,
     },
   );
   const { data: systemOverview } = useSWR<SystemOverview | null>(
-    "/system/overview",
+    isSystemExpanded ? "/system/overview" : null,
     getSystemOverview,
     {
       refreshInterval: 5000,
-      revalidateOnFocus: true,
+      revalidateOnFocus: false,
     },
   );
 
@@ -149,11 +152,11 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
         <SystemStatusPanel
           overview={systemOverview}
           metrics={systemMetrics}
-          onClick={() => setIsSystemExpanded(true)}
+          onClick={() => replaceSearchParams({ modal: "system" })}
         />
         <SystemStatusModal
           isOpen={isSystemExpanded}
-          onClose={() => setIsSystemExpanded(false)}
+          onClose={() => replaceSearchParams({ modal: null })}
           overview={systemOverview}
           metrics={systemMetrics}
         />
@@ -163,11 +166,11 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
       <div className="mt-4">
         <DirectorStats
           stats={metrics.directorStats}
-          onClick={() => setIsDirectorExpanded(true)}
+          onClick={() => replaceSearchParams({ modal: "director" })}
         />
         <DirectorInterventionModal
           isOpen={isDirectorExpanded}
-          onClose={() => setIsDirectorExpanded(false)}
+          onClose={() => replaceSearchParams({ modal: null })}
           stats={metrics.directorStats}
           runId={runId}
           onInjected={refresh}
@@ -784,9 +787,9 @@ function MetricBar({
       {/* 进度条 */}
       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
         <motion.div
-          initial={{ width: 0 }}
+          initial={false}
           animate={{ width: `${value}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
           className={`h-full rounded-full ${scoreBgColor}`}
         />
       </div>
@@ -1124,9 +1127,9 @@ function DirectorInterventionModal({
                     </div>
                     <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100">
                       <motion.div
-                        initial={{ width: 0 }}
+                        initial={false}
                         animate={{ width: `${stats.executionRate}%` }}
-                        transition={{ duration: 0.5 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                         className={`h-full rounded-full ${hasIssue ? "bg-amber-500" : "bg-emerald-500"}`}
                       />
                     </div>

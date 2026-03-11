@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, type ApiResult } from "@/lib/api";
 import type { WorldSnapshot } from "@/lib/types";
+import { useUiSearchParams } from "@/lib/ui-url-state";
 
 type WorldContextValue = {
   runId: string;
@@ -54,6 +55,9 @@ type Props = {
 
 export function WorldProvider({ runId, initialData, children }: Props) {
   const [isClient, setIsClient] = useState(false);
+  const { searchParams } = useUiSearchParams();
+  const activeModal = searchParams.get("modal");
+  const pausePolling = activeModal !== null;
 
   useEffect(() => {
     setIsClient(true);
@@ -68,7 +72,8 @@ export function WorldProvider({ runId, initialData, children }: Props) {
         error: null,
         status: initialData ? 200 : null,
       },
-      refreshInterval: (snapshot) => (snapshot?.data?.run.status === "running" ? 5000 : 0),
+      refreshInterval: (snapshot) =>
+        pausePolling ? 0 : snapshot?.data?.run.status === "running" ? 5000 : 0,
       revalidateOnFocus: false,
       revalidateOnMount: true,
       // Keep previous data during revalidation to prevent full-screen flash

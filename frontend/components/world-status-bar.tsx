@@ -154,7 +154,7 @@ export function WorldStatusBar() {
         {isRunning ? "暂停" : "启动"}
       </button>
 
-      <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-sm text-white">
+      <span className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-sm text-white tabular-nums">
         <span
           className={`h-2 w-2 rounded-full ${isValidating ? "animate-pulse bg-emerald-300" : isRunning ? "bg-emerald-400" : "bg-slate-300"}`}
         />
@@ -163,7 +163,7 @@ export function WorldStatusBar() {
 
       {/* Wall-clock elapsed time — only shown while running or just paused */}
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
+        className={`inline-flex min-w-[6.5rem] items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm tabular-nums ${
           isRunning
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
             : "border-slate-200 bg-slate-50 text-slate-400"
@@ -190,7 +190,7 @@ export function WorldStatusBar() {
         const totalM = (totalTokens / 1_000_000).toFixed(2);
         return (
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm text-violet-700"
+            className="inline-flex min-w-[8.5rem] items-center justify-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm text-violet-700 tabular-nums"
             title={`Input: ${(stats.total_input_tokens ?? 0).toLocaleString()} | Output: ${(stats.total_output_tokens ?? 0).toLocaleString()} | Cache Read: ${(stats.total_cache_read_tokens ?? 0).toLocaleString()} | Cache Create: ${(stats.total_cache_creation_tokens ?? 0).toLocaleString()}`}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5 shrink-0">
@@ -206,7 +206,7 @@ export function WorldStatusBar() {
       <button
         type="button"
         onClick={refresh}
-        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition hover:border-moss hover:text-moss"
+        className="min-w-[4.75rem] rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition hover:border-moss hover:text-moss"
       >
         刷新
       </button>

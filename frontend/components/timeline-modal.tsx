@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/modal";
 import { getApiBaseUrl } from "@/lib/api";
 import type { AgentSummary, TimelineEvent, TimelineResponse } from "@/lib/types";
@@ -74,7 +74,13 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const timelineRef = useRef<TimelineResponse | null>(null);
+
+  useEffect(() => {
+    timelineRef.current = timeline;
+  }, [timeline]);
 
   // 加载角色列表
   useEffect(() => {
@@ -87,7 +93,12 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
 
   const fetchTimeline = useCallback(
     async (appliedFilters: Filters, orderDesc: boolean = true) => {
-      setLoading(true);
+      const hasExistingData = timelineRef.current !== null;
+      if (hasExistingData) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       try {
         const url = buildTimelineUrl(getApiBaseUrl(), runId, appliedFilters, PAGE_SIZE, 0, orderDesc);
@@ -97,9 +108,12 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
         setTimeline(data);
       } catch (e) {
         setError(e instanceof Error ? e.message : "加载失败");
-        setTimeline(null);
+        if (!hasExistingData) {
+          setTimeline(null);
+        }
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
     },
     [runId],
@@ -313,15 +327,40 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
                 <span className="text-slate-300">·</span>
                 每 Tick {timeline.run_info.tick_minutes} 分钟
               </div>
+              {isRefreshing ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-500">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-moss" />
+                  刷新中
+                </span>
+              ) : null}
             </div>
           )}
 
           {/* 事件列表 */}
           <div className="flex-1 overflow-y-auto p-4">
             {loading ? (
-              <div className="flex h-64 items-center justify-center text-slate-400">
-                <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-moss" />
-                加载中...
+              <div className="space-y-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="h-6 w-20 animate-pulse rounded-lg bg-slate-200" />
+                      <div className="h-4 w-40 animate-pulse rounded bg-slate-100" />
+                    </div>
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((__, innerIndex) => (
+                        <div key={innerIndex} className="rounded-xl border border-white bg-white p-3 shadow-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 animate-pulse rounded-full bg-slate-100" />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="h-4 w-3/4 animate-pulse rounded bg-slate-100" />
+                              <div className="h-3 w-1/3 animate-pulse rounded bg-slate-50" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : error ? (
               <div className="flex h-64 items-center justify-center text-amber-600">

@@ -1,9 +1,11 @@
 "use client";
 
 import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, type ApiResult } from "@/lib/api";
 import type { RunSummary } from "@/lib/types";
+import { useUiSearchParams } from "@/lib/ui-url-state";
 
 type RunsContextValue = {
   runs: RunSummary[];
@@ -20,8 +22,12 @@ type RunsProviderProps = {
 };
 
 export function RunsProvider({ children, initialResult }: RunsProviderProps) {
+  const pathname = usePathname();
+  const { searchParams } = useUiSearchParams();
+  const isWorldPage = pathname.includes("/world");
+  const hasActiveModal = searchParams.get("modal") !== null;
   const { data, mutate } = useSWR<ApiResult<RunSummary[]>>(buildApiUrl("/runs"), fetchApiResult, {
-    refreshInterval: 10000,
+    refreshInterval: isWorldPage && hasActiveModal ? 0 : 10000,
     fallbackData: initialResult,
   });
 
