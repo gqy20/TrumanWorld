@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     anthropic_model: str | None = None
     log_level: str = "INFO"
     project_root: Path = PROJECT_ROOT
+    claude_sdk_isolated_home_enabled: bool = True
+    claude_sdk_home_dir: Path | None = None
 
     # 导演智能体配置（实验性功能）
     director_auto_intervention_enabled: bool = False
@@ -54,6 +56,8 @@ class Settings(BaseSettings):
     def normalize_agent_settings(self) -> "Settings":
         if self.agent_model is None and self.anthropic_model is not None:
             self.agent_model = self.anthropic_model
+        if self.claude_sdk_home_dir is None:
+            self.claude_sdk_home_dir = self.project_root / ".claude-sdk-home"
         return self
 
 

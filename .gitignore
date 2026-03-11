@@ -67,3 +67,7 @@ coverage/
 
 # Misc caches
 .cache/
+
+# Local Claude runtime state
+.claude/
+.claude-sdk-home/

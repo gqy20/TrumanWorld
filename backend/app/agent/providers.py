@@ -12,6 +12,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from claude_agent_sdk.types import McpSdkServerConfig
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
+from app.agent.sdk_options import build_sdk_options
 from app.agent.system_prompt import build_system_prompt
 from app.infra.logging import get_logger
 from app.infra.settings import Settings
@@ -168,12 +169,6 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         runtime_ctx: "RuntimeContext | None" = None,
     ) -> ClaudeAgentOptions:
         """Build SDK options for a single invocation."""
-        env = {}
-        if self.settings.anthropic_api_key:
-            env["ANTHROPIC_API_KEY"] = self.settings.anthropic_api_key
-        if self.settings.anthropic_base_url:
-            env["ANTHROPIC_BASE_URL"] = self.settings.anthropic_base_url
-
         # Note: output_format is not supported by MiniMax API
         budget = (
             invocation.max_budget_usd
@@ -189,12 +184,12 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
             if session_id:
                 logger.debug(f"Auto-resuming session {session_id} for pool_key: {pool_key}")
 
-        options = ClaudeAgentOptions(
+        options = build_sdk_options(
+            self.settings,
             max_turns=invocation.max_turns,
             max_budget_usd=budget,
             model=self.settings.agent_model,
             cwd=str(self.settings.project_root),
-            env=env,
             system_prompt=build_system_prompt(),
             resume=session_id,  # 恢复之前的 session
         )

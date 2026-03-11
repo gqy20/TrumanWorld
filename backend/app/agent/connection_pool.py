@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
+from app.agent.sdk_options import build_sdk_options
 from app.agent.system_prompt import build_system_prompt
 from app.infra.logging import get_logger
 from app.infra.settings import Settings
@@ -74,18 +75,12 @@ class AgentConnectionPool:
 
     def _build_base_options(self) -> ClaudeAgentOptions:
         """构建基础 SDK 选项"""
-        env = {}
-        if self.settings.anthropic_api_key:
-            env["ANTHROPIC_API_KEY"] = self.settings.anthropic_api_key
-        if self.settings.anthropic_base_url:
-            env["ANTHROPIC_BASE_URL"] = self.settings.anthropic_base_url
-
-        return ClaudeAgentOptions(
+        return build_sdk_options(
+            self.settings,
             max_turns=3,  # 决策任务通常只需 1-3 轮
             max_budget_usd=self.settings.agent_budget_usd,
             model=self.settings.agent_model,
             cwd=str(self.settings.project_root),
-            env=env,
             system_prompt=build_system_prompt(),
             permission_mode="bypassPermissions",
         )

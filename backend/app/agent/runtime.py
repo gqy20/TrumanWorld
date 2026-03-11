@@ -265,20 +265,15 @@ class AgentRuntime:
 
         from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
-        env: dict[str, str] = {}
-        if settings.anthropic_api_key:
-            env["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-        if settings.anthropic_base_url:
-            env["ANTHROPIC_BASE_URL"] = settings.anthropic_base_url
-
+        from app.agent.sdk_options import build_sdk_options
         from app.agent.system_prompt import build_system_prompt
 
-        options = ClaudeAgentOptions(
+        options = build_sdk_options(
+            settings,
             max_turns=4,
             max_budget_usd=0.05,
             model=settings.agent_model,
             cwd=str(settings.project_root),
-            env=env,
             system_prompt=build_system_prompt(),
         )
 

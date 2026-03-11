@@ -215,16 +215,9 @@ class DirectorAgent:
         Uses the same LLM infrastructure as agent decisions.
         Uses configuration from director.yml for LLM parameters.
         """
-        from claude_agent_sdk import ClaudeAgentOptions
+        from app.agent.sdk_options import build_sdk_options
 
         logger.debug("DirectorAgent calling LLM for decision")
-
-        # Build environment for SDK
-        env = {}
-        if self.settings.anthropic_api_key:
-            env["ANTHROPIC_API_KEY"] = self.settings.anthropic_api_key
-        if self.settings.anthropic_base_url:
-            env["ANTHROPIC_BASE_URL"] = self.settings.anthropic_base_url
 
         # Check if Claude CLI is available
         import shutil
@@ -235,12 +228,12 @@ class DirectorAgent:
 
         # Build options from configuration
         llm_config = self._config.llm
-        options = ClaudeAgentOptions(
+        options = build_sdk_options(
+            self.settings,
             max_turns=llm_config.max_turns,
             max_budget_usd=llm_config.max_budget_usd,
             model=self._model,
             cwd=str(self.settings.project_root),
-            env=env,
             system_prompt="You are the Director of a simulation. You make decisions about when and how to intervene.",
         )
 
