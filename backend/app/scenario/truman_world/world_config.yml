@@ -249,7 +249,7 @@ ui_config:
   # 情报流弹窗 - 事件加载配置
   intelligence_stream:
     max_events_load: 500       # 一次性加载的最大事件数
-    poll_interval_ms: 5000     # 轮询间隔（毫秒）
+    poll_interval_ms: 3000     # 轮询间隔（毫秒）
 
   # 导演干预面板 - 记忆加载配置
   director_panel:

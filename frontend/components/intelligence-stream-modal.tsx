@@ -41,6 +41,8 @@ export function IntelligenceStreamModal({
   const [allEvents, setAllEvents] = useState<WorldEvent[]>(world.recent_events);
   // Track known event ids to avoid replacing the whole list on every poll tick
   const knownIdsRef = useRef<Set<string>>(new Set(world.recent_events.map((e) => e.id)));
+  // Track latest tick for incremental queries
+  const latestTickRef = useRef<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // Prevent duplicate in-flight requests within the same open session
@@ -53,11 +55,17 @@ export function IntelligenceStreamModal({
     const isFirstLoad = knownIdsRef.current.size === 0;
     if (isFirstLoad) setIsLoading(true);
     setLoadError(false);
-    const result = await getRunEventsResult(runId, undefined, maxEvents ?? 500);
+    // Incremental query: pass since_tick for non-first loads (unless forced)
+    const sinceTick = force ? undefined : (isFirstLoad ? undefined : latestTickRef.current);
+    const result = await getRunEventsResult(runId, undefined, maxEvents ?? 500, sinceTick);
     if (isFirstLoad) setIsLoading(false);
     isLoadingRef.current = false;
     if (result.data) {
       const incoming = result.data.events;
+      // Update latest tick from response for next incremental query
+      if (result.data.latest_tick != null) {
+        latestTickRef.current = result.data.latest_tick;
+      }
       // Only update state when there are genuinely new events to avoid re-render flicker
       const newEvents = incoming.filter((e) => !knownIdsRef.current.has(e.id));
       if (newEvents.length > 0 || knownIdsRef.current.size === 0) {
@@ -71,12 +79,13 @@ export function IntelligenceStreamModal({
     }
   }, [runId, maxEvents, world.recent_events]);
 
-  // Reset known-ids whenever the modal is freshly opened so a full reload occurs
+  // Reset known-ids and latest tick whenever the modal is freshly opened so a full reload occurs
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       // Fresh open: clear cache so first poll does a full replace
       knownIdsRef.current = new Set();
+      latestTickRef.current = 0;
       setAllEvents(world.recent_events);
     }
     prevIsOpenRef.current = isOpen;

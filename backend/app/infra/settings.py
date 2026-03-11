@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     director_agent_enabled: bool = True
     director_agent_model: str | None = None
     director_decision_interval: int = 1
-    scheduler_interval_seconds: float = 5.0
+    scheduler_interval_seconds: float = 1.0
 
     cors_allowed_origins: list[str] = Field(
         default_factory=lambda: [

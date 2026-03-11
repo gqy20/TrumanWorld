@@ -42,6 +42,105 @@ async def test_event_repository_orders_events_by_tick_desc(db_session):
     assert [event.id for event in events] == ["event-b", "event-a", "event-c"]
 
 
+# ============================================================
+# EventRepository Incremental Query Tests
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_event_repository_list_for_run_with_since_tick(db_session):
+    """list_for_run 支持 since_tick 参数，只返回指定 tick 之后的事件。"""
+    run = SimulationRun(id="run-incremental", name="incremental", status="running")
+    db_session.add(run)
+    db_session.add_all(
+        [
+            Event(id="ev-tick-1", run_id="run-incremental", tick_no=1, event_type="move", payload={}),
+            Event(id="ev-tick-2", run_id="run-incremental", tick_no=2, event_type="talk", payload={}),
+            Event(id="ev-tick-3", run_id="run-incremental", tick_no=3, event_type="work", payload={}),
+            Event(id="ev-tick-5", run_id="run-incremental", tick_no=5, event_type="talk", payload={}),
+        ]
+    )
+    await db_session.commit()
+
+    repo = EventRepository(db_session)
+
+    # since_tick=2 只返回 tick > 2 的事件
+    events = await repo.list_for_run("run-incremental", since_tick=2)
+    tick_nos = [e.tick_no for e in events]
+    assert all(t > 2 for t in tick_nos)
+    assert len(events) == 2
+
+
+@pytest.mark.asyncio
+async def test_event_repository_list_for_run_since_tick_excludes_equal(db_session):
+    """since_tick 是排他边界，不包含等于 since_tick 的事件。"""
+    run = SimulationRun(id="run-exclusive", name="exclusive", status="running")
+    db_session.add(run)
+    db_session.add_all(
+        [
+            Event(id="ev-eq-1", run_id="run-exclusive", tick_no=5, event_type="move", payload={}),
+            Event(id="ev-eq-2", run_id="run-exclusive", tick_no=5, event_type="talk", payload={}),
+            Event(id="ev-eq-3", run_id="run-exclusive", tick_no=6, event_type="work", payload={}),
+        ]
+    )
+    await db_session.commit()
+
+    repo = EventRepository(db_session)
+    events = await repo.list_for_run("run-exclusive", since_tick=5)
+
+    # tick_no=5 的事件应该被排除
+    tick_nos = [e.tick_no for e in events]
+    assert 5 not in tick_nos
+    assert 6 in tick_nos
+
+
+@pytest.mark.asyncio
+async def test_event_repository_list_for_run_since_tick_none_returns_all(db_session):
+    """since_tick=None 时返回全部事件（向后兼容）。"""
+    run = SimulationRun(id="run-none", name="none", status="running")
+    db_session.add(run)
+    db_session.add_all(
+        [
+            Event(id="ev-none-1", run_id="run-none", tick_no=1, event_type="move", payload={}),
+            Event(id="ev-none-2", run_id="run-none", tick_no=2, event_type="talk", payload={}),
+        ]
+    )
+    await db_session.commit()
+
+    repo = EventRepository(db_session)
+    events = await repo.list_for_run("run-none", since_tick=None)
+
+    assert len(events) == 2
+
+
+@pytest.mark.asyncio
+async def test_event_repository_list_for_run_since_tick_respects_limit(db_session):
+    """since_tick 和 limit 同时生效。"""
+    run = SimulationRun(id="run-limit", name="limit", status="running")
+    db_session.add(run)
+    # 创建 10 个事件，tick 11-20
+    db_session.add_all(
+        [
+            Event(
+                id=f"ev-limit-{i}",
+                run_id="run-limit",
+                tick_no=10 + i,
+                event_type="talk" if i % 2 == 0 else "move",
+                payload={},
+            )
+            for i in range(1, 11)
+        ]
+    )
+    await db_session.commit()
+
+    repo = EventRepository(db_session)
+    # since_tick=15, limit=2
+    events = await repo.list_for_run("run-limit", since_tick=15, limit=2)
+
+    assert len(events) == 2
+    assert all(e.tick_no > 15 for e in events)
+
+
 @pytest.mark.asyncio
 async def test_relationship_repository_upserts_and_clamps_values(db_session):
     run = SimulationRun(id="run-repo-3", name="relations", status="running")

@@ -146,7 +146,9 @@ class EventRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list_for_run(self, run_id: str, limit: int = 50) -> Sequence[Event]:
+    async def list_for_run(
+        self, run_id: str, limit: int = 50, since_tick: int | None = None
+    ) -> Sequence[Event]:
         # Priority ordering mirrors list_recent_events: talk/move surface before
         # work/rest noise so the world snapshot always contains meaningful events.
         event_priority = case(
@@ -160,6 +162,9 @@ class EventRepository:
             .order_by(event_priority, Event.tick_no.desc(), Event.created_at.desc())
             .limit(limit)
         )
+        # 增量查询：只获取指定 tick 之后的事件
+        if since_tick is not None:
+            stmt = stmt.where(Event.tick_no > since_tick)
         result = await self.session.execute(stmt)
         return result.scalars().all()
 

@@ -551,12 +551,13 @@ async def get_timeline(
     "/{run_id}/events",
     response_model=WorldEventsResponse,
     summary="获取全量事件",
-    description="获取 run 的全量历史事件，包含富字段（actor_name, location_name 等），支持按事件类型过滤",
+    description="获取 run 的全量历史事件，包含富字段（actor_name, location_name 等），支持按事件类型过滤和增量查询（since_tick）",
 )
 async def get_run_events(
     run_id: UUID,
     event_type: str | None = None,
     limit: int = 500,
+    since_tick: int | None = None,
     session: AsyncSession = Depends(get_db_session),
 ) -> WorldEventsResponse:
     run_repo = RunRepository(session)
@@ -571,7 +572,7 @@ async def get_run_events(
     agents, locations, events = await asyncio.gather(
         agent_repo.list_for_run(str(run_id)),
         location_repo.list_for_run(str(run_id)),
-        event_repo.list_for_run(str(run_id), limit=limit),
+        event_repo.list_for_run(str(run_id), limit=limit, since_tick=since_tick),
     )
 
     agent_name_map = {agent.id: agent.name for agent in agents}
@@ -608,10 +609,14 @@ async def get_run_events(
         for event in events
     ]
 
+    # 计算返回事件中的最大 tick，供增量查询使用
+    latest_tick = max((e.tick_no for e in events), default=0)
+
     return WorldEventsResponse(
         run_id=str(run_id),
         events=result_events,
         total=len(result_events),
+        latest_tick=latest_tick,
     )
 
 

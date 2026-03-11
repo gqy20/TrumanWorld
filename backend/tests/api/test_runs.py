@@ -447,6 +447,134 @@ async def test_get_run_events_supports_category_filters(client, db_session):
     assert [event["id"] for event in activity.json()["events"]] == ["event-rest"]
 
 
+# ============================================================
+# Events Incremental Query Tests
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_events_incremental_query_with_since_tick(client, db_session):
+    """测试 since_tick 参数只返回指定 tick 之后的事件。"""
+    create_response = await client.post("/api/runs", json={"name": "incremental-test"})
+    run_id = create_response.json()["id"]
+
+    # 手动插入不同 tick 的事件
+    db_session.add_all(
+        [
+            Event(
+                id="inc-event-1",
+                run_id=run_id,
+                tick_no=1,
+                event_type="talk",
+                payload={"msg": "tick 1"},
+            ),
+            Event(
+                id="inc-event-2",
+                run_id=run_id,
+                tick_no=2,
+                event_type="move",
+                payload={"msg": "tick 2"},
+            ),
+            Event(
+                id="inc-event-3",
+                run_id=run_id,
+                tick_no=5,
+                event_type="talk",
+                payload={"msg": "tick 5"},
+            ),
+            Event(
+                id="inc-event-4",
+                run_id=run_id,
+                tick_no=7,
+                event_type="rest",
+                payload={"msg": "tick 7"},
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    # 查询 tick > 2 的事件
+    response = await client.get(f"/api/runs/{run_id}/events", params={"since_tick": 2})
+    assert response.status_code == 200
+    data = response.json()
+    tick_nos = [e["tick_no"] for e in data["events"]]
+
+    # 只应该返回 tick 5 和 7
+    assert all(t > 2 for t in tick_nos)
+    assert 1 not in tick_nos
+    assert 2 not in tick_nos
+
+
+@pytest.mark.asyncio
+async def test_events_incremental_query_returns_latest_tick(client, db_session):
+    """测试响应中包含 latest_tick 字段，供前端下次查询使用。"""
+    create_response = await client.post("/api/runs", json={"name": "latest-tick-test"})
+    run_id = create_response.json()["id"]
+
+    db_session.add_all(
+        [
+            Event(
+                id="lt-event-1",
+                run_id=run_id,
+                tick_no=1,
+                event_type="talk",
+                payload={},
+            ),
+            Event(
+                id="lt-event-2",
+                run_id=run_id,
+                tick_no=5,
+                event_type="move",
+                payload={},
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await client.get(f"/api/runs/{run_id}/events")
+    assert response.status_code == 200
+    data = response.json()
+
+    # latest_tick 应该是最大 tick_no
+    assert "latest_tick" in data
+    assert data["latest_tick"] == 5
+
+
+@pytest.mark.asyncio
+async def test_events_incremental_query_empty_since_tick(client, db_session):
+    """测试 since_tick 超过当前最大 tick 时返回空列表。"""
+    create_response = await client.post("/api/runs", json={"name": "empty-incremental"})
+    run_id = create_response.json()["id"]
+
+    db_session.add_all(
+        [
+            Event(
+                id="empty-event-1",
+                run_id=run_id,
+                tick_no=1,
+                event_type="talk",
+                payload={},
+            ),
+            Event(
+                id="empty-event-2",
+                run_id=run_id,
+                tick_no=2,
+                event_type="move",
+                payload={},
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    # since_tick=100 超过了最大 tick 2
+    response = await client.get(f"/api/runs/{run_id}/events", params={"since_tick": 100})
+    assert response.status_code == 200
+    data = response.json()
+
+    assert len(data["events"]) == 0
+    assert data["total"] == 0
+
+
 class _FakePool:
     def __init__(self) -> None:
         self.cleaned_runs: list[str] = []

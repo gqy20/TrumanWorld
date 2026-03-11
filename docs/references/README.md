@@ -11,7 +11,8 @@
 
 当前文档：
 
-- [MVP_ARCHITECTURE.md](MVP_ARCHITECTURE.md)
+- [PRD.md](PRD.md) - 产品需求文档（历史基线）
+- [MVP_ARCHITECTURE.md](MVP_ARCHITECTURE.md) - MVP 架构设计（历史基线）
 - [BUILD_VS_BUY.md](BUILD_VS_BUY.md)
 - [ESTIMATE.md](ESTIMATE.md)
 - [SCENARIOS.md](SCENARIOS.md)

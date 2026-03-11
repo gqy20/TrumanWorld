@@ -46,7 +46,7 @@ declare global {
   }
 }
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:18080/api";
+const DEFAULT_API_BASE_URL = "/api";
 
 function resolveApiBaseUrl() {
   const runtimeBaseUrl =
@@ -248,10 +248,12 @@ export async function getRunEventsResult(
   runId: string,
   eventType?: string,
   limit = 500,
-): Promise<ApiResult<{ run_id: string; events: WorldEvent[]; total: number }>> {
+  sinceTick?: number,
+): Promise<ApiResult<{ run_id: string; events: WorldEvent[]; total: number; latest_tick: number }>> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (eventType) params.set("event_type", eventType);
-  return fetchResult<{ run_id: string; events: WorldEvent[]; total: number }>(
+  if (sinceTick != null) params.set("since_tick", String(sinceTick));
+  return fetchResult<{ run_id: string; events: WorldEvent[]; total: number; latest_tick: number }>(
     `/runs/${runId}/events?${params.toString()}`,
   );
 }

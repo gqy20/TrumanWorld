@@ -35,6 +35,7 @@ class WorldEventsResponse(BaseModel):
     run_id: str
     events: list[WorldEventResponse]
     total: int
+    latest_tick: int = 0  # 当前返回事件中的最大 tick，供增量查询使用
 
 
 class TimelineRunInfo(BaseModel):
