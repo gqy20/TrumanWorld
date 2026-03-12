@@ -1,9 +1,12 @@
 import pytest
 
-from app.agent.runtime import RuntimeInvocation
+from app.agent.registry import AgentRegistry
+from app.agent.runtime import AgentRuntime, RuntimeInvocation
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_provider import HeuristicDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+from app.infra.settings import get_settings
 from app.scenario.base import Scenario
 from app.director.service import DirectorEventService
 from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
@@ -19,6 +22,19 @@ from app.store.repositories import (
     LlmCallRepository,
     RunRepository,
 )
+
+
+class FakeLangGraphStructuredModel:
+    def __init__(self, response: dict) -> None:
+        self.response = response
+        self.prompts: list[str] = []
+
+    def with_structured_output(self, schema):
+        return self
+
+    async def ainvoke(self, prompt: str):
+        self.prompts.append(prompt)
+        return dict(self.response)
 
 
 class RecordingDecisionProvider(AgentDecisionProvider):
@@ -359,6 +375,95 @@ async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_sess
     assert len(events) == 1
     assert events[0].event_type == "move"
     assert recording_provider.agent_ids == ["alice"]
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_runs_tick_with_langgraph_backend(db_session, tmp_path, monkeypatch):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "langgraph")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_MODEL", "langgraph-smoke-model")
+    monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_API_KEY", "langgraph-smoke-key")
+    get_settings.cache_clear()
+    try:
+        run = SimulationRun(
+            id="run-service-langgraph",
+            name="service",
+            status="running",
+            current_tick=1,
+            tick_minutes=5,
+        )
+        home = Location(
+            id="loc-home-langgraph",
+            run_id="run-service-langgraph",
+            name="Home",
+            location_type="home",
+            capacity=2,
+        )
+        square = Location(
+            id="loc-square-langgraph",
+            run_id="run-service-langgraph",
+            name="Square",
+            location_type="square",
+            capacity=2,
+        )
+        agent_dir = tmp_path / "alice_langgraph"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "agent.yml").write_text(
+            "\n".join(
+                [
+                    "id: alice_langgraph",
+                    "name: Alice",
+                    "occupation: resident",
+                    "home: loc-home-langgraph",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+
+        alice = Agent(
+            id="run-service-langgraph-alice",
+            run_id="run-service-langgraph",
+            name="Alice",
+            occupation="resident",
+            home_location_id="loc-home-langgraph",
+            current_location_id="loc-home-langgraph",
+            current_goal="move:loc-square-langgraph",
+            personality={},
+            profile={"agent_config_id": "alice_langgraph"},
+            status={},
+            current_plan={},
+        )
+
+        db_session.add_all([run, home, square, alice])
+        await db_session.commit()
+
+        runtime = AgentRuntime(registry=AgentRegistry(tmp_path))
+        assert isinstance(runtime.backend, LangGraphAgentBackend)
+        runtime.backend._decision_model = FakeLangGraphStructuredModel(
+            {
+                "action_type": "move",
+                "target_location_id": "loc-square-langgraph",
+                "payload": {"source": "langgraph-smoke"},
+            }
+        )
+
+        service = SimulationService(db_session, agent_runtime=runtime, agents_root=tmp_path)
+        result = await service.run_tick("run-service-langgraph")
+
+        event_repo = EventRepository(db_session)
+        events = await event_repo.list_for_run("run-service-langgraph")
+        agent_repo = AgentRepository(db_session)
+        updated_agent = await agent_repo.get("run-service-langgraph-alice")
+
+        assert result.tick_no == 2
+        assert len(result.accepted) == 1
+        assert result.accepted[0].action_type == "move"
+        assert len(events) == 1
+        assert events[0].event_type == "move"
+        assert updated_agent is not None
+        assert updated_agent.current_location_id == "loc-square-langgraph"
+    finally:
+        get_settings.cache_clear()
 
 
 @pytest.mark.asyncio
