@@ -34,7 +34,7 @@ class CognitionRegistry:
         if agent_backend == "claude_sdk":
             return ClaudeSdkAgentBackend(self._settings, connection_pool=self._claude_pool)
         if agent_backend == "langgraph":
-            return LangGraphAgentBackend()
+            return LangGraphAgentBackend(self._settings)
         return HeuristicAgentBackend()
 
     def build_director_backend(self):
