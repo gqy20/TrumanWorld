@@ -25,13 +25,7 @@ class CognitionRegistry:
         self._claude_pool: AgentConnectionPool | None = None
 
     def build_agent_backend(self):
-        agent_backend = getattr(self._settings, "agent_backend", None)
-        if agent_backend is None:
-            agent_backend = (
-                "claude_sdk"
-                if getattr(self._settings, "agent_provider", "heuristic") == "claude"
-                else "heuristic"
-            )
+        agent_backend = self._settings.agent_backend or "heuristic"
         if agent_backend == "claude_sdk":
             return ClaudeSdkAgentBackend(self._settings, connection_pool=self._claude_pool)
         if agent_backend == "langgraph":
@@ -39,13 +33,7 @@ class CognitionRegistry:
         return HeuristicAgentBackend()
 
     def build_director_backend(self):
-        director_backend = getattr(self._settings, "director_backend", None)
-        if director_backend is None:
-            director_backend = (
-                "claude_sdk"
-                if getattr(self._settings, "director_agent_enabled", False)
-                else "heuristic"
-            )
+        director_backend = self._settings.director_backend or "heuristic"
         if director_backend == "claude_sdk":
             return ClaudeSdkDirectorBackend()
         if director_backend == "langgraph":

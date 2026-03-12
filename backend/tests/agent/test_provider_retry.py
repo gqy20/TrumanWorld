@@ -45,7 +45,7 @@ def _make_result_message(result: str, is_error: bool = False):
 
 
 def _make_provider(monkeypatch) -> ClaudeSDKDecisionProvider:
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "claude_sdk")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
     return ClaudeSDKDecisionProvider(get_settings())

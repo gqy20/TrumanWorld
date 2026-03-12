@@ -279,7 +279,7 @@ async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: Ag
 
 
 def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "claude_sdk")
     get_settings.cache_clear()
 
     agent_dir = tmp_path / "demo_agent"
@@ -374,7 +374,7 @@ async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: 
     This behavior allows the simulation to continue gracefully when
     the SDK call is cancelled (e.g., scheduler shutdown).
     """
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "claude_sdk")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
 
@@ -406,7 +406,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     """When LLM omits message, decide_intent accepts the empty value without injecting a default."""
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "claude_sdk")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
 
@@ -466,7 +466,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
 
 @pytest.mark.asyncio
 async def test_claude_provider_fails_fast_when_cli_missing(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "claude_sdk")
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: None)
     get_settings.cache_clear()
 

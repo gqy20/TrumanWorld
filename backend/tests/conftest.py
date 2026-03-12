@@ -52,8 +52,8 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(autouse=True)
-def default_agent_provider(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "heuristic")
+def default_agent_backend(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "heuristic")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

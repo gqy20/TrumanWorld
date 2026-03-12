@@ -62,9 +62,9 @@ def agent_runtime_with_mock_provider(tmp_path: Path):
 @pytest.fixture
 def agent_runtime_claude_provider(tmp_path: Path):
     """Create an AgentRuntime with Claude provider for testing LLM calls."""
-    # Set up environment for Claude provider
-    original_env = os.environ.get("TRUMANWORLD_AGENT_PROVIDER")
-    os.environ["TRUMANWORLD_AGENT_PROVIDER"] = "claude"
+    # Set up environment for Claude backend
+    original_env = os.environ.get("TRUMANWORLD_AGENT_BACKEND")
+    os.environ["TRUMANWORLD_AGENT_BACKEND"] = "claude_sdk"
 
     # Clear settings cache
     from app.infra.settings import get_settings
@@ -86,9 +86,9 @@ def agent_runtime_claude_provider(tmp_path: Path):
 
     # Restore environment
     if original_env is None:
-        os.environ.pop("TRUMANWORLD_AGENT_PROVIDER", None)
+        os.environ.pop("TRUMANWORLD_AGENT_BACKEND", None)
     else:
-        os.environ["TRUMANWORLD_AGENT_PROVIDER"] = original_env
+        os.environ["TRUMANWORLD_AGENT_BACKEND"] = original_env
     get_settings.cache_clear()
 
 
@@ -148,7 +148,7 @@ class TestPlannerTokenTracking:
 
         # Create mock settings
         mock_settings = MagicMock(spec=Settings)
-        mock_settings.agent_provider = "claude"
+        mock_settings.agent_backend = "claude_sdk"
         mock_settings.agent_model = "claude-sonnet-4-20250514"
         mock_settings.anthropic_api_key = "test-key"
         mock_settings.anthropic_base_url = None
@@ -238,7 +238,7 @@ class TestReflectorTokenTracking:
 
         # Create mock settings
         mock_settings = MagicMock(spec=Settings)
-        mock_settings.agent_provider = "claude"
+        mock_settings.agent_backend = "claude_sdk"
         mock_settings.agent_model = "claude-sonnet-4-20250514"
         mock_settings.anthropic_api_key = "test-key"
         mock_settings.anthropic_base_url = None
