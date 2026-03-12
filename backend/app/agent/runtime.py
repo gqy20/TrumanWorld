@@ -263,7 +263,7 @@ class AgentRuntime:
             logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")
             return None
 
-        from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
+        from claude_agent_sdk import ResultMessage, query
 
         from app.agent.sdk_options import build_sdk_options
         from app.agent.system_prompt import build_system_prompt

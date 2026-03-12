@@ -64,9 +64,7 @@ class TestCalculateEventImportance:
     def test_emotional_content_increases_importance(self):
         """Talk with emotional content should have increased importance."""
         normal_importance = calculate_event_importance("talk", {"message": "你好"})
-        emotional_importance = calculate_event_importance(
-            "talk", {"message": "我真的很喜欢你"}
-        )
+        emotional_importance = calculate_event_importance("talk", {"message": "我真的很喜欢你"})
         assert emotional_importance > normal_importance
 
     def test_long_conversation_increases_importance(self):

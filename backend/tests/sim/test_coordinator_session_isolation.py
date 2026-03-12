@@ -261,9 +261,7 @@ async def test_manual_director_plan_is_marked_executed_only_in_write_phase(db_se
     )
 
     memory = (
-        await db_session.execute(
-            select(DirectorMemory).where(DirectorMemory.run_id == run_id)
-        )
+        await db_session.execute(select(DirectorMemory).where(DirectorMemory.run_id == run_id))
     ).scalar_one()
     assert memory.was_executed is False
 
@@ -366,7 +364,7 @@ async def test_build_director_plan_returns_none_when_auto_intervention_disabled(
 @pytest.mark.asyncio
 async def test_run_planner_if_needed_returns_false_outside_morning():
     """非清晨时段调用 run_planner_if_needed 应返回 False，不触发 Planner。"""
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import MagicMock
     from datetime import datetime
     from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
     from app.sim.world import WorldState

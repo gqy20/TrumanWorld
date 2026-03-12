@@ -34,7 +34,10 @@ async def test_openapi_documents_core_response_models(client):
     assert response.status_code == 200
     document = response.json()
 
-    assert _response_ref(document, "/api/health", "get", "200") == "#/components/schemas/HealthResponse"
+    assert (
+        _response_ref(document, "/api/health", "get", "200")
+        == "#/components/schemas/HealthResponse"
+    )
     assert _response_ref(document, "/api/system/overview", "get", "200") == (
         "#/components/schemas/SystemOverviewResponse"
     )

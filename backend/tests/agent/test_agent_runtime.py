@@ -274,9 +274,7 @@ async def test_runtime_rest_when_work_goal_has_no_valid_work_context(runtime: Ag
     assert intent.action_type == "rest"
 
 
-def test_runtime_selects_claude_provider_from_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()
 

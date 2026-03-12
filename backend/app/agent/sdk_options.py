@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from claude_agent_sdk import ClaudeAgentOptions
 
 from app.infra.settings import Settings

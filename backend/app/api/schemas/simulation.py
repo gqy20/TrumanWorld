@@ -142,7 +142,9 @@ class RunResponse(RunBaseResponse):
 
 
 class StatusResponse(BaseModel):
-    run_id: str = Field(..., description="运行 ID", examples=["550e8400-e29b-41d4-a716-446655440000"])
+    run_id: str = Field(
+        ..., description="运行 ID", examples=["550e8400-e29b-41d4-a716-446655440000"]
+    )
     status: str = Field(..., description="操作状态", examples=["success", "error"])
 
 
@@ -153,10 +155,12 @@ class RunDetailResponse(RunBaseResponse):
 class DirectorEventRequest(BaseModel):
     """导演事件注入请求"""
 
-    event_type: Literal["activity", "shutdown", "broadcast", "weather_change", "power_outage"] = Field(
-        ...,
-        description="事件类型",
-        examples=["activity", "shutdown", "broadcast", "weather_change", "power_outage"],
+    event_type: Literal["activity", "shutdown", "broadcast", "weather_change", "power_outage"] = (
+        Field(
+            ...,
+            description="事件类型",
+            examples=["activity", "shutdown", "broadcast", "weather_change", "power_outage"],
+        )
     )
     payload: dict = Field(
         default_factory=dict,
@@ -206,8 +210,12 @@ class WorldEventsResponse(BaseModel):
 class TimelineRunInfo(BaseModel):
     current_tick: int = Field(..., description="当前 tick", examples=[100])
     tick_minutes: int = Field(..., description="每 tick 分钟数", examples=[5])
-    world_start_iso: str = Field(..., description="世界开始时间 ISO", examples=["2024-03-15T06:00:00"])
-    current_world_time_iso: str = Field(..., description="当前世界时间 ISO", examples=["2024-03-15T14:30:00"])
+    world_start_iso: str = Field(
+        ..., description="世界开始时间 ISO", examples=["2024-03-15T06:00:00"]
+    )
+    current_world_time_iso: str = Field(
+        ..., description="当前世界时间 ISO", examples=["2024-03-15T14:30:00"]
+    )
 
 
 class TimelineResponse(BaseModel):
@@ -222,9 +230,13 @@ class DirectorObservationResponse(BaseModel):
     run_id: str = Field(..., description="运行 ID")
     current_tick: int = Field(..., description="当前 tick")
     truman_agent_id: str | None = Field(None, description="Truman agent ID")
-    truman_suspicion_score: float = Field(..., description="怀疑度分数", ge=0, le=1, examples=[0.35])
+    truman_suspicion_score: float = Field(
+        ..., description="怀疑度分数", ge=0, le=1, examples=[0.35]
+    )
     suspicion_level: str = Field(..., description="怀疑级别", examples=["low", "medium", "high"])
-    continuity_risk: str = Field(..., description="连续性风险", examples=["stable", "warning", "critical"])
+    continuity_risk: str = Field(
+        ..., description="连续性风险", examples=["stable", "warning", "critical"]
+    )
     focus_agent_ids: list[str] = Field(default_factory=list, description="关注 agent IDs")
     notes: list[str] = Field(default_factory=list, description="观察笔记")
 
@@ -258,8 +270,12 @@ class AgentEventResponse(BaseModel):
 
 class AgentMemoryResponse(BaseModel):
     id: str = Field(..., description="记忆 ID")
-    memory_type: str = Field(..., description="记忆类型", examples=["recent", "episodic", "reflection"])
-    memory_category: str = Field(..., description="记忆层级", examples=["short_term", "medium_term", "long_term"])
+    memory_type: str = Field(
+        ..., description="记忆类型", examples=["recent", "episodic", "reflection"]
+    )
+    memory_category: str = Field(
+        ..., description="记忆层级", examples=["short_term", "medium_term", "long_term"]
+    )
     summary: str | None = Field(None, description="记忆摘要")
     content: str = Field(..., description="记忆内容")
     importance: float | None = Field(None, description="重要性", ge=0, le=1)
@@ -276,7 +292,9 @@ class AgentRelationshipResponse(BaseModel):
     familiarity: float = Field(..., description="熟悉度", ge=0, le=1, examples=[0.75])
     trust: float = Field(..., description="信任度", ge=-1, le=1, examples=[0.6])
     affinity: float = Field(..., description="亲和力", ge=-1, le=1, examples=[0.5])
-    relation_type: str = Field(..., description="关系类型", examples=["friend", "colleague", "stranger"])
+    relation_type: str = Field(
+        ..., description="关系类型", examples=["friend", "colleague", "stranger"]
+    )
 
 
 class AgentDetailResponse(BaseModel):
@@ -291,7 +309,9 @@ class AgentDetailResponse(BaseModel):
     profile: dict = Field(default_factory=dict, description="档案信息")
     recent_events: list[AgentEventResponse] = Field(default_factory=list, description="最近事件")
     memories: list[AgentMemoryResponse] = Field(default_factory=list, description="记忆列表")
-    relationships: list[AgentRelationshipResponse] = Field(default_factory=list, description="关系网络")
+    relationships: list[AgentRelationshipResponse] = Field(
+        default_factory=list, description="关系网络"
+    )
 
 
 class WorldClockResponse(BaseModel):
@@ -390,7 +410,9 @@ class DirectorMemoryResponse(BaseModel):
     location_name: str | None = Field(None, description="地点名称")
     reason: str | None = Field(None, description="原因说明")
     was_executed: bool = Field(..., description="是否已被本轮 tick 消费")
-    delivery_status: str = Field(..., description="投递状态", examples=["queued", "consumed", "expired"])
+    delivery_status: str = Field(
+        ..., description="投递状态", examples=["queued", "consumed", "expired"]
+    )
     effectiveness_score: float | None = Field(None, description="效果分数", ge=0, le=1)
     trigger_suspicion_score: float = Field(0.0, description="触发怀疑度", ge=0, le=1)
     trigger_continuity_risk: str = Field("stable", description="触发连续性风险")

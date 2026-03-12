@@ -36,10 +36,14 @@ class SimulationScheduler:
         async with self._lock:
             if run_id in self._scheduled:
                 existing = self._scheduled[run_id]
-                info(f"Run {run_id} already scheduled (interval={existing.interval_seconds}s), restarting")
+                info(
+                    f"Run {run_id} already scheduled (interval={existing.interval_seconds}s), restarting"
+                )
                 await self._stop_run_locked(run_id)
 
-            info(f"Starting scheduler for run {run_id} with interval={interval_seconds}s, active_runs={len(self._scheduled)}")
+            info(
+                f"Starting scheduler for run {run_id} with interval={interval_seconds}s, active_runs={len(self._scheduled)}"
+            )
             scheduled = ScheduledRun(
                 run_id=run_id,
                 interval_seconds=interval_seconds,

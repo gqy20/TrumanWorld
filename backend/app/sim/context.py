@@ -13,7 +13,10 @@ from typing import TYPE_CHECKING
 from app.scenario.truman_world.rules import load_world_config
 from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.event_utils import format_event_for_context
-from app.sim.runtime_context_utils import build_agent_world_context, extract_truman_suspicion_from_agent_data
+from app.sim.runtime_context_utils import (
+    build_agent_world_context,
+    extract_truman_suspicion_from_agent_data,
+)
 from app.sim.world_queries import find_nearby_agent, get_agent
 from app.sim.world import AgentState, LocationState, WorldState
 from app.store.repositories import AgentRepository, EventRepository, LocationRepository

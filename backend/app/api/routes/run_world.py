@@ -273,7 +273,9 @@ async def get_timeline(
     order_desc: bool = False,
     session: AsyncSession = Depends(get_db_session),
 ) -> TimelineResponse:
-    logger.debug(f"Getting timeline for run {run_id}, tick_range=[{tick_from}, {tick_to}], limit={limit}")
+    logger.debug(
+        f"Getting timeline for run {run_id}, tick_range=[{tick_from}, {tick_to}], limit={limit}"
+    )
     run = await get_required_run(session, run_id)
 
     agent_repo = AgentRepository(session)
@@ -355,7 +357,9 @@ async def get_run_events(
     since_tick: int | None = None,
     session: AsyncSession = Depends(get_db_session),
 ) -> WorldEventsResponse:
-    logger.debug(f"Getting events for run {run_id}, type={event_type}, limit={limit}, since_tick={since_tick}")
+    logger.debug(
+        f"Getting events for run {run_id}, type={event_type}, limit={limit}, since_tick={since_tick}"
+    )
     await get_required_run(session, run_id)
 
     agent_repo = AgentRepository(session)
@@ -384,7 +388,9 @@ async def get_run_events(
         build_world_event_response(event, agent_name_map, location_name_map) for event in events
     ]
     latest_tick = max((event.tick_no for event in events), default=0)
-    logger.debug(f"Events retrieved for run {run_id}: total={len(result_events)}, latest_tick={latest_tick}")
+    logger.debug(
+        f"Events retrieved for run {run_id}: total={len(result_events)}, latest_tick={latest_tick}"
+    )
     return WorldEventsResponse(
         run_id=str(run_id),
         events=result_events,
@@ -416,7 +422,15 @@ async def get_world_pulse(
     director_memory_repo = DirectorMemoryRepository(session)
     llm_call_repo = LlmCallRepository(session)
 
-    agents, locations, events, director_total, director_executed, all_time_event_counts, token_totals = await asyncio.gather(
+    (
+        agents,
+        locations,
+        events,
+        director_total,
+        director_executed,
+        all_time_event_counts,
+        token_totals,
+    ) = await asyncio.gather(
         agent_repo.list_for_run(str(run_id)),
         location_repo.list_for_run(str(run_id)),
         event_repo.list_for_run(str(run_id), limit=120),
@@ -445,7 +459,9 @@ async def get_world_pulse(
         director_stats=WorldDirectorStatsResponse(
             total=director_total,
             executed=director_executed,
-            execution_rate=round((director_executed / director_total) * 100) if director_total > 0 else 0,
+            execution_rate=round((director_executed / director_total) * 100)
+            if director_total > 0
+            else 0,
         ),
         daily_stats=WorldDailyStatsResponse(
             talk_count=all_time_event_counts.get("talk", 0),
@@ -483,7 +499,15 @@ async def get_world_snapshot(
     director_memory_repo = DirectorMemoryRepository(session)
     llm_call_repo = LlmCallRepository(session)
 
-    agents, locations, events, director_total, director_executed, all_time_event_counts, token_totals = await asyncio.gather(
+    (
+        agents,
+        locations,
+        events,
+        director_total,
+        director_executed,
+        all_time_event_counts,
+        token_totals,
+    ) = await asyncio.gather(
         agent_repo.list_for_run(str(run_id)),
         location_repo.list_for_run(str(run_id)),
         event_repo.list_for_run(str(run_id), limit=120),
@@ -518,7 +542,9 @@ async def get_world_snapshot(
             y=location.y,
             capacity=location.capacity,
             occupants=[
-                agent_summaries[agent.id] for agent in agents if agent.current_location_id == location.id
+                agent_summaries[agent.id]
+                for agent in agents
+                if agent.current_location_id == location.id
             ],
         )
         for location in locations
@@ -544,7 +570,9 @@ async def get_world_snapshot(
         director_stats=WorldDirectorStatsResponse(
             total=director_total,
             executed=director_executed,
-            execution_rate=round((director_executed / director_total) * 100) if director_total > 0 else 0,
+            execution_rate=round((director_executed / director_total) * 100)
+            if director_total > 0
+            else 0,
         ),
         daily_stats=WorldDailyStatsResponse(
             talk_count=all_time_event_counts.get("talk", 0),

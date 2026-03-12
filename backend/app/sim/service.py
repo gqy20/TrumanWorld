@@ -182,7 +182,9 @@ class SimulationService:
             )
             raise
         duration = perf_counter() - started_at
-        logger.debug(f"Tick completed for run {run_id}: tick_no={result.tick_no}, duration={duration:.3f}s")
+        logger.debug(
+            f"Tick completed for run {run_id}: tick_no={result.tick_no}, duration={duration:.3f}s"
+        )
         observe_tick(mode="inline", status="success", duration_seconds=duration)
         return result
 

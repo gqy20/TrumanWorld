@@ -155,7 +155,11 @@ async def test_simulation_service_persists_tick_and_events(db_session):
 @pytest.mark.asyncio
 async def test_simulation_service_aggregates_consecutive_work_memories_into_streak(db_session):
     run = SimulationRun(
-        id="run-service-work-dedup", name="service", status="running", current_tick=0, tick_minutes=5
+        id="run-service-work-dedup",
+        name="service",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
     )
     office = Location(
         id="loc-office-dedup",

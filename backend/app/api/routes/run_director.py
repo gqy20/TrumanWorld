@@ -51,7 +51,9 @@ def serialize_director_memory(
         urgency=memory.urgency,
         message_hint=memory.message_hint,
         target_agent_id=memory.target_agent_id,
-        target_agent_name=agent_name_map.get(memory.target_agent_id) if memory.target_agent_id else None,
+        target_agent_name=agent_name_map.get(memory.target_agent_id)
+        if memory.target_agent_id
+        else None,
         target_cast_ids=target_cast_ids,
         target_cast_names=[agent_name_map.get(agent_id, agent_id) for agent_id in target_cast_ids],
         location_hint=location_hint,

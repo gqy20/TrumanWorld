@@ -456,7 +456,10 @@ class PersistenceManager:
             return False
         return bool(
             event.location_id
-            and (event.location_id == agent.current_location_id or event.location_id == agent.home_location_id)
+            and (
+                event.location_id == agent.current_location_id
+                or event.location_id == agent.home_location_id
+            )
         )
 
     async def _relationship_strength(

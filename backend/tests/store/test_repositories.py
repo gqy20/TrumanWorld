@@ -54,10 +54,18 @@ async def test_event_repository_list_for_run_with_since_tick(db_session):
     db_session.add(run)
     db_session.add_all(
         [
-            Event(id="ev-tick-1", run_id="run-incremental", tick_no=1, event_type="move", payload={}),
-            Event(id="ev-tick-2", run_id="run-incremental", tick_no=2, event_type="talk", payload={}),
-            Event(id="ev-tick-3", run_id="run-incremental", tick_no=3, event_type="work", payload={}),
-            Event(id="ev-tick-5", run_id="run-incremental", tick_no=5, event_type="talk", payload={}),
+            Event(
+                id="ev-tick-1", run_id="run-incremental", tick_no=1, event_type="move", payload={}
+            ),
+            Event(
+                id="ev-tick-2", run_id="run-incremental", tick_no=2, event_type="talk", payload={}
+            ),
+            Event(
+                id="ev-tick-3", run_id="run-incremental", tick_no=3, event_type="work", payload={}
+            ),
+            Event(
+                id="ev-tick-5", run_id="run-incremental", tick_no=5, event_type="talk", payload={}
+            ),
         ]
     )
     await db_session.commit()

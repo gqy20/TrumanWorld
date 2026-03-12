@@ -426,7 +426,9 @@ class MemoryRepository:
                 Memory.run_id == run_id,
                 Memory.agent_id == agent_id,
                 Memory.summary == summary,
-                Memory.location_id.is_(location_id) if location_id is None else Memory.location_id == location_id,
+                Memory.location_id.is_(location_id)
+                if location_id is None
+                else Memory.location_id == location_id,
                 Memory.metadata_json["event_type"].as_string().in_(["work", "rest"]),
                 Memory.tick_no >= since_tick,
             )

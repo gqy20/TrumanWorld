@@ -368,7 +368,9 @@ async def test_advance_run_tick_for_empty_run_skips_sleep_hours(client, db_sessi
 
 
 @pytest.mark.asyncio
-async def test_advance_run_tick_triggers_morning_planner(client, db_session: AsyncSession, monkeypatch):
+async def test_advance_run_tick_triggers_morning_planner(
+    client, db_session: AsyncSession, monkeypatch
+):
     run_id = "00000000-0000-0000-0000-000000000303"
     db_session.add(
         SimulationRun(
@@ -387,7 +389,9 @@ async def test_advance_run_tick_triggers_morning_planner(client, db_session: Asy
     async def fake_run_morning_planning(*, run_id: str, tick_no: int, world, engine, agent_runtime):
         calls.append((run_id, tick_no))
 
-    monkeypatch.setattr(day_boundary_coordinator_module, "run_morning_planning", fake_run_morning_planning)
+    monkeypatch.setattr(
+        day_boundary_coordinator_module, "run_morning_planning", fake_run_morning_planning
+    )
 
     tick_response = await client.post(f"/api/runs/{run_id}/tick")
 
@@ -397,7 +401,9 @@ async def test_advance_run_tick_triggers_morning_planner(client, db_session: Asy
 
 
 @pytest.mark.asyncio
-async def test_advance_run_tick_triggers_evening_reflector(client, db_session: AsyncSession, monkeypatch):
+async def test_advance_run_tick_triggers_evening_reflector(
+    client, db_session: AsyncSession, monkeypatch
+):
     run_id = "00000000-0000-0000-0000-000000000304"
     db_session.add(
         SimulationRun(
@@ -413,7 +419,9 @@ async def test_advance_run_tick_triggers_evening_reflector(client, db_session: A
 
     calls: list[tuple[str, int]] = []
 
-    async def fake_run_evening_reflection(*, run_id: str, tick_no: int, world, engine, agent_runtime):
+    async def fake_run_evening_reflection(
+        *, run_id: str, tick_no: int, world, engine, agent_runtime
+    ):
         calls.append((run_id, tick_no))
 
     monkeypatch.setattr(
@@ -1030,7 +1038,9 @@ async def test_inject_director_event_rejects_unknown_location_id(client):
 
 
 @pytest.mark.asyncio
-async def test_inject_power_outage_persists_world_effect_and_public_timeline_event(client, db_session):
+async def test_inject_power_outage_persists_world_effect_and_public_timeline_event(
+    client, db_session
+):
     create_response = await client.post("/api/runs", json={"name": "director-run-power"})
     run_id = create_response.json()["id"]
 
