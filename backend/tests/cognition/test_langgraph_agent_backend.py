@@ -207,3 +207,27 @@ def test_langgraph_backend_builds_default_model_from_langgraph_settings() -> Non
     assert captured["api_key"] == "langgraph-key"
     assert captured["base_url"] == "https://proxy.invalid/anthropic"
     assert captured["temperature"] == 0
+
+
+def test_langgraph_backend_builds_default_model_from_shared_env_fields() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    settings = Settings(
+        agent_backend="langgraph",
+        agent_model="shared-agent-model",
+        anthropic_api_key="shared-anthropic-key",
+        anthropic_base_url="https://shared.invalid/anthropic",
+    )
+    captured: dict = {}
+
+    class FakeChatAnthropic:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+    with patch("langchain_anthropic.ChatAnthropic", FakeChatAnthropic):
+        backend = LangGraphAgentBackend(settings=settings)
+
+    assert backend._decision_model is not None
+    assert captured["model"] == "shared-agent-model"
+    assert captured["api_key"] == "shared-anthropic-key"
+    assert captured["base_url"] == "https://shared.invalid/anthropic"

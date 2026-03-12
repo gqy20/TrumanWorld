@@ -300,6 +300,38 @@ def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: p
     get_settings.cache_clear()
 
 
+def test_runtime_selects_langgraph_backend_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "langgraph")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_MODEL", "claude-test")
+    monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_API_KEY", "test-key")
+    get_settings.cache_clear()
+
+    agent_dir = tmp_path / "demo_agent"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: demo_agent",
+                "name: Demo Agent",
+                "occupation: resident",
+                "home: demo_home",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
+
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        context_builder=ContextBuilder(),
+    )
+
+    assert runtime.backend.__class__.__name__ == "LangGraphAgentBackend"
+    assert runtime.decision_provider is None
+
+    get_settings.cache_clear()
+
+
 def test_claude_provider_builds_options_with_system_prompt(tmp_path: Path):
     settings = get_settings()
     provider = ClaudeSDKDecisionProvider(settings)
