@@ -579,9 +579,9 @@ Recommended order for the first real refactor:
 
 To reduce migration risk:
 
-- keep current `agent_provider` config temporarily
-- map `agent_provider=claude` -> `agent_backend=claude_sdk`
-- map `agent_provider=heuristic` -> `agent_backend=heuristic`
+- remove legacy `agent_provider`
+- standardize all runtime selection on `agent_backend`
+- standardize director selection on `director_backend`
 - emit a warning when old config is used
 
 This keeps rollout incremental and avoids breaking existing deployments.

@@ -358,7 +358,7 @@ def test_claude_provider_builds_options_with_system_prompt(tmp_path: Path):
 
 
 def test_runtime_rejects_legacy_anthropic_provider_value(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "anthropic")
+    monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "anthropic")
     get_settings.cache_clear()
 
     with pytest.raises(ValidationError):

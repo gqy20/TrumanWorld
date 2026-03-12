@@ -47,7 +47,6 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
     settings = Settings(
         agent_backend="heuristic",
         director_backend="langgraph",
-        director_agent_enabled=True,
         langgraph_model="claude-test",
         langgraph_api_key="langgraph-key",
     )

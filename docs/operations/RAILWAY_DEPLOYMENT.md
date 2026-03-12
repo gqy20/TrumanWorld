@@ -44,18 +44,18 @@ TRUMANWORLD_CORS_ALLOWED_ORIGINS=["https://${{Frontend.RAILWAY_PUBLIC_DOMAIN}}"]
 按需补充：
 
 ```env
-TRUMANWORLD_AGENT_PROVIDER=claude
+TRUMANWORLD_AGENT_BACKEND=claude_sdk
 TRUMANWORLD_ANTHROPIC_API_KEY=你的_key
 TRUMANWORLD_AGENT_MODEL=你的模型名
-TRUMANWORLD_DIRECTOR_AGENT_ENABLED=true
+TRUMANWORLD_DIRECTOR_BACKEND=claude_sdk
 TRUMANWORLD_DIRECTOR_AGENT_MODEL=你的导演模型名
 ```
 
 如果你暂时只想验证链路，不想消耗 LLM 额度，可以先这样：
 
 ```env
-TRUMANWORLD_AGENT_PROVIDER=heuristic
-TRUMANWORLD_DIRECTOR_AGENT_ENABLED=false
+TRUMANWORLD_AGENT_BACKEND=heuristic
+TRUMANWORLD_DIRECTOR_BACKEND=heuristic
 ```
 
 说明：
@@ -177,9 +177,9 @@ railway variable set --service backend \
 
 ```bash
 railway variable set --service backend \
-  TRUMANWORLD_AGENT_PROVIDER=claude \
+  TRUMANWORLD_AGENT_BACKEND=claude_sdk \
   TRUMANWORLD_AGENT_MODEL='your-model' \
-  TRUMANWORLD_DIRECTOR_AGENT_ENABLED=true \
+  TRUMANWORLD_DIRECTOR_BACKEND=claude_sdk \
   TRUMANWORLD_DIRECTOR_AGENT_MODEL='your-director-model'
 ```
 
@@ -193,8 +193,8 @@ printf '%s' 'YOUR_ANTHROPIC_API_KEY' | railway variable set --service backend TR
 
 ```bash
 railway variable set --service backend \
-  TRUMANWORLD_AGENT_PROVIDER=heuristic \
-  TRUMANWORLD_DIRECTOR_AGENT_ENABLED=false
+  TRUMANWORLD_AGENT_BACKEND=heuristic \
+  TRUMANWORLD_DIRECTOR_BACKEND=heuristic
 ```
 
 ### 5. 配 frontend 变量

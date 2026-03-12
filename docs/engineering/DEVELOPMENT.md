@@ -53,7 +53,7 @@ cp frontend/.env.local.example frontend/.env.local
 
 ```bash
 # 可选：使用 heuristic provider 跑通仿真闭环
-TRUMANWORLD_AGENT_PROVIDER=heuristic
+TRUMANWORLD_AGENT_BACKEND=heuristic
 
 # 如需 Claude 决策层，再配置：
 # TRUMANWORLD_ANTHROPIC_API_KEY=sk-ant-xxx

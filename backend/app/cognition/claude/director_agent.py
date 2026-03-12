@@ -66,7 +66,7 @@ class DirectorAgent:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self._config = load_director_config()
-        self._enabled = self._config.enabled and self.settings.director_agent_enabled
+        self._enabled = self._config.enabled and self.settings.director_backend == "claude_sdk"
         self._decision_interval = self._config.decision_interval
         self._model = (
             self._config.llm.model
@@ -84,7 +84,7 @@ class DirectorAgent:
 
     def reload_config(self) -> None:
         self._config = load_director_config(force_reload=True)
-        self._enabled = self._config.enabled and self.settings.director_agent_enabled
+        self._enabled = self._config.enabled and self.settings.director_backend == "claude_sdk"
         self._decision_interval = self._config.decision_interval
         self._model = (
             self._config.llm.model

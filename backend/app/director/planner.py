@@ -30,7 +30,7 @@ class DirectorPlanner:
     - break_isolation: 打破 Truman 长时间独处
     - rejection_recovery: 处理连续被拒绝的场景
 
-    实验性功能：当 director_agent_enabled=true 时，优先使用LLM智能决策
+    实验性功能：当 director_backend != heuristic 时，优先使用 LLM 智能决策
 
     性能优化：
     - 导演决策与 tick 执行并行（非阻塞）

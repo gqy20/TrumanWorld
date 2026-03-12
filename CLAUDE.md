@@ -182,7 +182,7 @@ TRUMANWORLD_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/t
 TRUMANWORLD_REDIS_URL=redis://localhost:6379/0
 TRUMANWORLD_ANTHROPIC_API_KEY=<your-key>
 TRUMANWORLD_ANTHROPIC_BASE_URL=
-TRUMANWORLD_AGENT_PROVIDER=heuristic
+TRUMANWORLD_AGENT_BACKEND=heuristic
 TRUMANWORLD_AGENT_MODEL=
 TRUMANWORLD_CORS_ALLOWED_ORIGINS=["http://127.0.0.1:13000","http://localhost:13000"]
 TRUMANWORLD_LOG_LEVEL=INFO
@@ -191,7 +191,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18080/api
 
 Key variables:
 - `TRUMANWORLD_ANTHROPIC_API_KEY`: Required for Claude cognition
-- `TRUMANWORLD_AGENT_PROVIDER`: `heuristic` (rule-based) or `claude` (LLM-driven)
+- `TRUMANWORLD_AGENT_BACKEND`: `heuristic`, `claude_sdk`, or `langgraph`
 - `TRUMANWORLD_CORS_ALLOWED_ORIGINS`: Must include frontend URL
 
 ## Coding Style

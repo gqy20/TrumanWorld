@@ -22,8 +22,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     anthropic_api_key: str | None = None
     anthropic_base_url: str | None = None
-    agent_provider: Literal["heuristic", "claude"] = "heuristic"
-    agent_backend: Literal["heuristic", "claude_sdk", "langgraph"] | None = None
+    agent_backend: Literal["heuristic", "claude_sdk", "langgraph"] = "heuristic"
     agent_model: str | None = None
     agent_budget_usd: float = 1.0
     langgraph_model: str | None = None
@@ -38,8 +37,7 @@ class Settings(BaseSettings):
 
     # 导演智能体配置（实验性功能）
     director_auto_intervention_enabled: bool = False
-    director_agent_enabled: bool = True
-    director_backend: Literal["heuristic", "claude_sdk", "langgraph"] | None = None
+    director_backend: Literal["heuristic", "claude_sdk", "langgraph"] = "claude_sdk"
     director_agent_model: str | None = None
     director_decision_interval: int = 1
     scheduler_interval_seconds: float = 1.0
@@ -70,12 +68,6 @@ class Settings(BaseSettings):
             self.langgraph_api_key = self.anthropic_api_key
         if self.langgraph_base_url is None and self.anthropic_base_url is not None:
             self.langgraph_base_url = self.anthropic_base_url
-        if self.agent_backend is None:
-            self.agent_backend = "claude_sdk" if self.agent_provider == "claude" else "heuristic"
-        if self.director_backend is None:
-            self.director_backend = (
-                "claude_sdk" if self.director_agent_enabled else "heuristic"
-            )
         if self.claude_sdk_home_dir is None:
             self.claude_sdk_home_dir = self.project_root / ".claude-sdk-home"
         return self

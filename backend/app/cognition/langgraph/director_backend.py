@@ -25,16 +25,20 @@ class LangGraphDirectorBackend:
     ) -> None:
         self._settings = settings or get_settings()
         self._agent = DirectorAgent(self._settings)
+        self._enabled = self._agent._config.enabled and self._settings.director_backend == "langgraph"
+        self._decision_interval = self._agent._config.decision_interval
         self._text_model = text_model or self._build_default_model()
 
     def is_enabled(self) -> bool:
-        return self._agent.is_enabled()
+        return self._enabled
 
     def should_decide(self, tick_no: int) -> bool:
-        return self._agent.should_decide(tick_no)
+        if not self._enabled:
+            return False
+        return tick_no % self._decision_interval == 0
 
     async def propose_intervention(self, invocation: DirectorDecisionInvocation):
-        if not self._agent.is_enabled() or self._text_model is None:
+        if not self._enabled or self._text_model is None:
             return None
 
         context = invocation.context
