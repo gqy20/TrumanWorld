@@ -6,7 +6,7 @@ LOGS_DIR := logs
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos
+.PHONY: install backend-install frontend-install backend-dev frontend-dev lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -43,6 +43,9 @@ format:
 
 test:
 	cd $(BACKEND_DIR) && uv run pytest
+
+benchmark-reactor-pool:
+	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo
 
 migrate:
 	cd $(BACKEND_DIR) && uv run alembic upgrade head

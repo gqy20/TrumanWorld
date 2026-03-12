@@ -408,3 +408,8 @@ async def close_connection_pool() -> None:
         await _global_pool.close_all()
         _global_pool = None
         logger.info("Global connection pool closed")
+
+
+def peek_connection_pool() -> AgentConnectionPool | None:
+    """Return the global pool if it already exists, without creating one."""
+    return _global_pool

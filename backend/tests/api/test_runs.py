@@ -51,6 +51,9 @@ async def test_metrics_endpoint_exposes_runtime_metrics(client):
     assert "trumanworld_tick_total" in body
     assert "trumanworld_tick_duration_seconds" in body
     assert "trumanworld_active_runs" in body
+    assert "trumanworld_claude_reactor_pool_enabled" in body
+    assert "trumanworld_claude_reactor_pool_size" in body
+    assert "trumanworld_claude_reactor_pool_active" in body
     assert "process_resident_memory_bytes" in body
 
 

@@ -12,6 +12,8 @@ from prometheus_client import (
     generate_latest,
 )
 
+from app.agent.connection_pool import peek_connection_pool
+from app.infra.settings import get_settings
 from app.sim.scheduler import get_scheduler
 
 
@@ -40,6 +42,35 @@ ACTIVE_RUNS = Gauge(
     registry=REGISTRY,
 )
 ACTIVE_RUNS.set_function(lambda: get_scheduler().running_count())
+
+CLAUDE_REACTOR_POOL_ENABLED = Gauge(
+    "trumanworld_claude_reactor_pool_enabled",
+    "Whether Claude reactor pooling is enabled in configuration (1=true, 0=false).",
+    registry=REGISTRY,
+)
+CLAUDE_REACTOR_POOL_ENABLED.set_function(
+    lambda: 1.0 if bool(getattr(get_settings(), "claude_sdk_reactor_pool_enabled", True)) else 0.0
+)
+
+CLAUDE_REACTOR_POOL_SIZE = Gauge(
+    "trumanworld_claude_reactor_pool_size",
+    "Current number of pooled Claude reactor clients.",
+    registry=REGISTRY,
+)
+CLAUDE_REACTOR_POOL_SIZE.set_function(
+    lambda: float(peek_connection_pool().size) if peek_connection_pool() is not None else 0.0
+)
+
+CLAUDE_REACTOR_POOL_ACTIVE = Gauge(
+    "trumanworld_claude_reactor_pool_active",
+    "Current number of active Claude reactor clients in use.",
+    registry=REGISTRY,
+)
+CLAUDE_REACTOR_POOL_ACTIVE.set_function(
+    lambda: float(peek_connection_pool().active_count)
+    if peek_connection_pool() is not None
+    else 0.0
+)
 
 LLM_CALL_TOTAL = Counter(
     "trumanworld_llm_call_total",
