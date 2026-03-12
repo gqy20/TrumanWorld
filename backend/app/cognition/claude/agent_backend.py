@@ -4,9 +4,9 @@ import shutil
 from dataclasses import dataclass
 from typing import Any
 
-from app.agent.connection_pool import AgentConnectionPool
 from app.agent.prompt_loader import PromptLoader
 from app.agent.providers import ClaudeSDKDecisionProvider
+from app.cognition.claude.connection_pool import AgentConnectionPool
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -126,7 +126,7 @@ class ClaudeSdkAgentBackend:
 
         from claude_agent_sdk import ResultMessage, query
 
-        from app.agent.sdk_options import build_sdk_options
+        from app.cognition.claude.sdk_options import build_sdk_options
         from app.agent.system_prompt import build_system_prompt
 
         options = build_sdk_options(

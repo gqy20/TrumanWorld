@@ -215,7 +215,7 @@ class DirectorAgent:
         Uses the same LLM infrastructure as agent decisions.
         Uses configuration from director.yml for LLM parameters.
         """
-        from app.agent.sdk_options import build_sdk_options
+        from app.cognition.claude.sdk_options import build_sdk_options
 
         logger.debug("DirectorAgent calling LLM for decision")
 

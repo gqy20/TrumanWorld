@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-from app.agent.sdk_options import build_sdk_options
+from app.cognition.claude.sdk_options import build_sdk_options
 from app.agent.system_prompt import build_system_prompt
 from app.infra.logging import get_logger
 from app.infra.settings import Settings

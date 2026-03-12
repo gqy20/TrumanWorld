@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from app.agent.connection_pool import AgentConnectionPool, close_connection_pool, get_connection_pool
 from app.cognition.claude.agent_backend import ClaudeSdkAgentBackend
+from app.cognition.claude.connection_pool import (
+    AgentConnectionPool,
+    close_connection_pool,
+    get_connection_pool,
+)
 from app.cognition.claude.director_backend import ClaudeSdkDirectorBackend
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.cognition.heuristic.director_backend import HeuristicDirectorBackend

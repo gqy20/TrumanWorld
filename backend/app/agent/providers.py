@@ -12,7 +12,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from claude_agent_sdk.types import McpSdkServerConfig
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-from app.agent.sdk_options import build_sdk_options
+from app.cognition.claude.sdk_options import build_sdk_options
 from app.agent.system_prompt import build_system_prompt
 from app.infra.logging import get_logger
 from app.infra.settings import Settings
