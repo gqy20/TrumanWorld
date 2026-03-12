@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.cognition.types import DirectorDecisionInvocation
-from app.director.agent import DirectorAgent
+from app.cognition.claude.director_agent import DirectorAgent
 
 
 class ClaudeSdkDirectorBackend:

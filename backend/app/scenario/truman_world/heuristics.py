@@ -6,7 +6,7 @@ This module is kept as a compatibility shim; build_truman_world_decision always 
 
 from __future__ import annotations
 
-from app.agent.providers import RuntimeDecision
+from app.cognition.claude.decision_utils import RuntimeDecision
 from app.sim.types import RuntimeWorldContext
 
 

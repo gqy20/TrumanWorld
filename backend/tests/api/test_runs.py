@@ -2,8 +2,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import app.agent.connection_pool as connection_pool_module
 import app.api.routes.system as system_route
+import app.api.routes.runs as runs_route
 import app.sim.day_boundary_coordinator as day_boundary_coordinator_module
 from app.store.models import (
     Agent,
@@ -770,6 +770,15 @@ class _FakePool:
         return 1
 
 
+class _FakeCognitionRegistry:
+    def __init__(self) -> None:
+        self.cleaned_runs: list[str] = []
+
+    async def cleanup_run(self, run_id: str) -> int:
+        self.cleaned_runs.append(run_id)
+        return 1
+
+
 @pytest.mark.asyncio
 async def test_get_world_snapshot_returns_locations_agents_and_public_events(client):
     create_response = await client.post("/api/runs", json={"name": "world-run"})
@@ -1087,9 +1096,11 @@ async def test_delete_run_removes_related_records_and_cleans_pool(
     client, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ):
     run_id = "00000000-0000-0000-0000-000000000204"
-    fake_pool = _FakePool()
+    fake_registry = _FakeCognitionRegistry()
     monkeypatch.setattr(
-        connection_pool_module, "get_connection_pool", lambda: _return_async(fake_pool)
+        runs_route,
+        "get_cognition_registry",
+        lambda: fake_registry,
     )
 
     db_session.add_all(
@@ -1174,7 +1185,7 @@ async def test_delete_run_removes_related_records_and_cleans_pool(
 
     assert response.status_code == 200
     assert response.json() == {"run_id": run_id, "status": "deleted"}
-    assert fake_pool.cleaned_runs == [run_id]
+    assert fake_registry.cleaned_runs == [run_id]
     assert await db_session.get(SimulationRun, run_id) is None
     assert await db_session.get(Agent, "agent-delete-a") is None
     assert await db_session.get(Location, "loc-delete") is None
@@ -1188,17 +1199,15 @@ async def test_delete_run_removes_related_records_and_cleans_pool(
 async def test_delete_run_returns_404_for_missing_run_and_still_cleans_runtime_resources(
     client, monkeypatch: pytest.MonkeyPatch
 ):
-    fake_pool = _FakePool()
+    fake_registry = _FakeCognitionRegistry()
     monkeypatch.setattr(
-        connection_pool_module, "get_connection_pool", lambda: _return_async(fake_pool)
+        runs_route,
+        "get_cognition_registry",
+        lambda: fake_registry,
     )
 
     response = await client.delete("/api/runs/00000000-0000-0000-0000-000000000208")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Run not found"
-    assert fake_pool.cleaned_runs == ["00000000-0000-0000-0000-000000000208"]
-
-
-async def _return_async(value):
-    return value
+    assert fake_registry.cleaned_runs == ["00000000-0000-0000-0000-000000000208"]

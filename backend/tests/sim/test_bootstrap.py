@@ -15,6 +15,18 @@ class FakePool:
         return len(agent_ids)
 
 
+class FakeCognitionRegistry:
+    def __init__(self) -> None:
+        self.warmup_calls: list[tuple[object, str]] = []
+        self.cleanup_idle_calls = 0
+
+    async def warmup_for_run(self, session, run_id: str) -> None:
+        self.warmup_calls.append((session, run_id))
+
+    async def cleanup_idle(self) -> None:
+        self.cleanup_idle_calls += 1
+
+
 class FakeService:
     def __init__(self) -> None:
         self.run_tick_calls: list[tuple[str, object]] = []
@@ -58,9 +70,9 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
     )
     await db_session.commit()
 
-    pool = FakePool()
+    cognition_registry = FakeCognitionRegistry()
     created_registry_paths: list[object] = []
-    created_runtimes: list[tuple[object, object]] = []
+    created_runtimes: list[tuple[object, object, object]] = []
     created_services: list[FakeService] = []
     fake_engine = object()
     scenario = object()
@@ -70,8 +82,8 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
             created_registry_paths.append(path)
 
     class FakeRuntime:
-        def __init__(self, registry, connection_pool) -> None:
-            created_runtimes.append((registry, connection_pool))
+        def __init__(self, registry, cognition_registry) -> None:
+            created_runtimes.append((registry, cognition_registry, self))
 
     def fake_create_scenario(scenario_type: str):
         assert scenario_type == "truman_world"
@@ -92,7 +104,11 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
             {"project_root": tmp_path, "scheduler_interval_seconds": 7.5},
         )(),
     )
-    monkeypatch.setattr(bootstrap_module, "get_connection_pool", lambda: _return_async(pool))
+    monkeypatch.setattr(
+        bootstrap_module,
+        "get_cognition_registry",
+        lambda: cognition_registry,
+    )
     monkeypatch.setattr(bootstrap_module, "AgentRegistry", FakeRegistry)
     monkeypatch.setattr(bootstrap_module, "AgentRuntime", FakeRuntime)
     monkeypatch.setattr(bootstrap_module, "create_scenario", fake_create_scenario)
@@ -111,13 +127,9 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
     assert plan.interval_seconds == 7.5
     assert created_registry_paths == [tmp_path / "agents"]
     assert len(created_runtimes) == 1
-    assert created_runtimes[0][1] is pool
-    assert pool.warmup_calls == [
-        [
-            "run-bootstrap-1:run-bootstrap-1-bob",
-            "run-bootstrap-1:spouse",
-        ]
-    ]
+    assert created_runtimes[0][1] is cognition_registry
+    assert cognition_registry.warmup_calls == [(db_session, "run-bootstrap-1")]
+    assert cognition_registry.cleanup_idle_calls == 1
     assert len(created_services) == 1
     assert created_services[0].run_tick_calls == [("run-bootstrap-1", fake_engine)]
 
@@ -128,16 +140,16 @@ async def test_bootstrapper_skips_warmup_when_run_has_no_agents(db_session, tmp_
     db_session.add(run)
     await db_session.commit()
 
-    pool = FakePool()
+    cognition_registry = FakeCognitionRegistry()
 
     class FakeRegistry:
         def __init__(self, path) -> None:
             self.path = path
 
     class FakeRuntime:
-        def __init__(self, registry, connection_pool) -> None:
+        def __init__(self, registry, cognition_registry) -> None:
             self.registry = registry
-            self.connection_pool = connection_pool
+            self.cognition_registry = cognition_registry
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
@@ -149,7 +161,11 @@ async def test_bootstrapper_skips_warmup_when_run_has_no_agents(db_session, tmp_
             {"project_root": tmp_path, "scheduler_interval_seconds": 5.0},
         )(),
     )
-    monkeypatch.setattr(bootstrap_module, "get_connection_pool", lambda: _return_async(pool))
+    monkeypatch.setattr(
+        bootstrap_module,
+        "get_cognition_registry",
+        lambda: cognition_registry,
+    )
     monkeypatch.setattr(bootstrap_module, "AgentRegistry", FakeRegistry)
     monkeypatch.setattr(bootstrap_module, "AgentRuntime", FakeRuntime)
     monkeypatch.setattr(bootstrap_module, "create_scenario", lambda _: object())
@@ -164,7 +180,7 @@ async def test_bootstrapper_skips_warmup_when_run_has_no_agents(db_session, tmp_
         monkeypatch.undo()
 
     assert plan.interval_seconds == 5.0
-    assert pool.warmup_calls == []
+    assert cognition_registry.warmup_calls == [(db_session, "run-bootstrap-2")]
 
 
 @pytest.mark.asyncio
@@ -178,17 +194,17 @@ async def test_bootstrapper_skips_pool_setup_when_reactor_pool_disabled(db_sessi
             self.path = path
 
     class FakeRuntime:
-        def __init__(self, registry, connection_pool=None) -> None:
+        def __init__(self, registry, cognition_registry=None) -> None:
             self.registry = registry
-            self.connection_pool = connection_pool
+            self.cognition_registry = cognition_registry
 
     monkeypatch = pytest.MonkeyPatch()
-    get_pool_calls = 0
+    cognition_registry = FakeCognitionRegistry()
 
-    async def fake_get_connection_pool():
-        nonlocal get_pool_calls
-        get_pool_calls += 1
-        raise AssertionError("get_connection_pool should not be called when pool is disabled")
+    async def fake_warmup_for_run(session, run_id: str) -> None:
+        raise AssertionError("warmup_for_run should not be called when pool is disabled")
+
+    cognition_registry.warmup_for_run = fake_warmup_for_run  # type: ignore[method-assign]
 
     monkeypatch.setattr(
         bootstrap_module,
@@ -203,7 +219,11 @@ async def test_bootstrapper_skips_pool_setup_when_reactor_pool_disabled(db_sessi
             },
         )(),
     )
-    monkeypatch.setattr(bootstrap_module, "get_connection_pool", fake_get_connection_pool)
+    monkeypatch.setattr(
+        bootstrap_module,
+        "get_cognition_registry",
+        lambda: cognition_registry,
+    )
     monkeypatch.setattr(bootstrap_module, "AgentRegistry", FakeRegistry)
     monkeypatch.setattr(bootstrap_module, "AgentRuntime", FakeRuntime)
     monkeypatch.setattr(bootstrap_module, "create_scenario", lambda _: object())
@@ -218,8 +238,3 @@ async def test_bootstrapper_skips_pool_setup_when_reactor_pool_disabled(db_sessi
         monkeypatch.undo()
 
     assert plan.interval_seconds == 5.0
-    assert get_pool_calls == 0
-
-
-async def _return_async(value):
-    return value

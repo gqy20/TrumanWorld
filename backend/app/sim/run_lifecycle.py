@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.connection_pool import get_connection_pool
-from app.infra.settings import get_settings
+from app.cognition.registry import get_cognition_registry
 from app.infra.logging import get_logger
 from app.sim.bootstrap import RunExecutionBootstrapper
 from app.sim.scheduler import get_scheduler
@@ -40,9 +39,4 @@ async def pause_run_execution(run_id: str) -> None:
     scheduler = get_scheduler()
     logger.info(f"Pause run requested for {run_id}, stopping scheduler")
     await scheduler.stop_run(run_id)
-
-    if not bool(getattr(get_settings(), "claude_sdk_reactor_pool_enabled", True)):
-        return
-
-    pool = await get_connection_pool()
-    await pool.cleanup_run(run_id)
+    await get_cognition_registry().cleanup_run(run_id)

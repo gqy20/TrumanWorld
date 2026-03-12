@@ -15,19 +15,20 @@ async def test_lifespan_shutdown_stops_scheduler_and_closes_connection_pool(monk
         async def stop_all(self) -> None:
             calls.append("scheduler.stop_all")
 
-    async def fake_close_connection_pool() -> None:
-        calls.append("connection_pool.close")
+    class FakeCognitionRegistry:
+        async def cleanup(self) -> None:
+            calls.append("connection_pool.close")
 
     monkeypatch.setattr(main_module, "get_db_session_context", lambda: _empty_session_context())
 
     import app.sim.scheduler as scheduler_module
-    import app.agent.connection_pool as connection_pool_module
+    import app.cognition.registry as cognition_registry_module
 
     monkeypatch.setattr(scheduler_module, "get_scheduler", lambda: FakeScheduler())
     monkeypatch.setattr(
-        connection_pool_module,
-        "close_connection_pool",
-        fake_close_connection_pool,
+        cognition_registry_module,
+        "get_cognition_registry",
+        lambda: FakeCognitionRegistry(),
     )
 
     app = SimpleNamespace()

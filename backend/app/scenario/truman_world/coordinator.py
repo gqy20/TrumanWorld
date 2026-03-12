@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from app.agent.providers import HeuristicDecisionProvider
+from app.cognition.claude.decision_provider import HeuristicDecisionProvider
 from app.director.observer import DirectorAssessment, DirectorObserver
 from app.director.planner import DirectorPlanner
 from app.director.types import DirectorPlan

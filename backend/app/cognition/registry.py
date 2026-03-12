@@ -7,6 +7,7 @@ from app.cognition.claude.connection_pool import (
     AgentConnectionPool,
     close_connection_pool,
     get_connection_pool,
+    peek_connection_pool,
 )
 from app.cognition.claude.director_backend import ClaudeSdkDirectorBackend
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
@@ -67,6 +68,15 @@ class CognitionRegistry:
     async def cleanup_idle(self) -> None:
         if self._claude_pool is not None:
             await self._claude_pool.cleanup_idle()
+
+    async def cleanup_run(self, run_id: str) -> int:
+        if not bool(getattr(self._settings, "claude_sdk_reactor_pool_enabled", True)):
+            return 0
+        if self._claude_pool is None:
+            self._claude_pool = peek_connection_pool()
+        if self._claude_pool is None:
+            return 0
+        return await self._claude_pool.cleanup_run(run_id)
 
 
 @lru_cache(maxsize=1)

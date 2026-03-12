@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.agent.providers import HeuristicDecisionProvider
+from app.cognition.claude.decision_provider import HeuristicDecisionProvider
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,

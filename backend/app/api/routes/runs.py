@@ -13,7 +13,7 @@ from app.api.schemas.simulation import (
     StatusResponse,
     TickResponse,
 )
-from app.infra.settings import get_settings
+from app.cognition.registry import get_cognition_registry
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
 from app.scenario.factory import create_scenario
@@ -68,14 +68,7 @@ async def start_run_and_refresh(session: AsyncSession, run: SimulationRun) -> Ru
 async def cleanup_run_runtime_resources(run_id: str) -> None:
     scheduler = get_scheduler()
     await scheduler.stop_run(run_id)
-
-    if not bool(getattr(get_settings(), "claude_sdk_reactor_pool_enabled", True)):
-        return
-
-    from app.agent.connection_pool import get_connection_pool
-
-    pool = await get_connection_pool()
-    await pool.cleanup_run(run_id)
+    await get_cognition_registry().cleanup_run(run_id)
 
 
 @router.post(

@@ -42,9 +42,9 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Failed to stop scheduler on shutdown: {e}")
 
     try:
-        from app.agent.connection_pool import close_connection_pool
+        from app.cognition.registry import get_cognition_registry
 
-        await close_connection_pool()
+        await get_cognition_registry().cleanup()
     except Exception as e:
         logger.warning(f"Failed to close connection pool on shutdown: {e}")
 

@@ -30,6 +30,16 @@ class FakePool:
         return 1
 
 
+class FakeCognitionRegistry:
+    def __init__(self, cleanup_result: int = 1) -> None:
+        self.cleanup_calls: list[str] = []
+        self.cleanup_result = cleanup_result
+
+    async def cleanup_run(self, run_id: str) -> int:
+        self.cleanup_calls.append(run_id)
+        return self.cleanup_result
+
+
 class FakePlan:
     def __init__(self, interval_seconds: float = 7.5) -> None:
         self.interval_seconds = interval_seconds
@@ -157,37 +167,35 @@ async def test_ensure_run_started_skips_warmup_when_run_has_no_agents(db_session
 @pytest.mark.asyncio
 async def test_pause_run_execution_stops_scheduler_and_cleans_pool():
     scheduler = FakeScheduler(running=True)
-    pool = FakePool()
+    cognition_registry = FakeCognitionRegistry()
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(run_lifecycle_module, "get_scheduler", lambda: scheduler)
-    monkeypatch.setattr(run_lifecycle_module, "get_connection_pool", lambda: _return_async(pool))
+    monkeypatch.setattr(
+        run_lifecycle_module,
+        "get_cognition_registry",
+        lambda: cognition_registry,
+    )
     try:
         await run_lifecycle_module.pause_run_execution("run-lifecycle-4")
     finally:
         monkeypatch.undo()
 
     assert scheduler.stopped == ["run-lifecycle-4"]
-    assert pool.cleanup_calls == ["run-lifecycle-4"]
+    assert cognition_registry.cleanup_calls == ["run-lifecycle-4"]
 
 
 @pytest.mark.asyncio
 async def test_pause_run_execution_skips_pool_cleanup_when_reactor_pool_disabled():
     scheduler = FakeScheduler(running=True)
+    cognition_registry = FakeCognitionRegistry(cleanup_result=0)
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(run_lifecycle_module, "get_scheduler", lambda: scheduler)
     monkeypatch.setattr(
         run_lifecycle_module,
-        "get_settings",
-        lambda: type("S", (), {"claude_sdk_reactor_pool_enabled": False})(),
-    )
-    monkeypatch.setattr(
-        run_lifecycle_module,
-        "get_connection_pool",
-        lambda: (_ for _ in ()).throw(
-            AssertionError("get_connection_pool should not be called when pool is disabled")
-        ),
+        "get_cognition_registry",
+        lambda: cognition_registry,
     )
     try:
         await run_lifecycle_module.pause_run_execution("run-lifecycle-5")
@@ -195,7 +203,4 @@ async def test_pause_run_execution_skips_pool_cleanup_when_reactor_pool_disabled
         monkeypatch.undo()
 
     assert scheduler.stopped == ["run-lifecycle-5"]
-
-
-async def _return_async(value):
-    return value
+    assert cognition_registry.cleanup_calls == ["run-lifecycle-5"]

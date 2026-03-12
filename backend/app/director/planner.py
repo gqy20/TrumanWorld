@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from app.cognition.interfaces import DirectorCognitionBackend
 from app.cognition.registry import get_cognition_registry
+from app.cognition.claude.director_agent import DirectorContext
 from app.cognition.types import DirectorDecisionInvocation
-from app.director.agent import DirectorContext
 from app.director.observer import DirectorAssessment
 from app.director.strategy_engine import StrategyExecutor
 from app.director.types import DirectorPlan

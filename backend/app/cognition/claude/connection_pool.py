@@ -3,6 +3,7 @@ from app.agent.connection_pool import (
     PooledClient,
     close_connection_pool,
     get_connection_pool,
+    peek_connection_pool,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "PooledClient",
     "close_connection_pool",
     "get_connection_pool",
+    "peek_connection_pool",
 ]
