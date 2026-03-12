@@ -5,6 +5,7 @@ from time import perf_counter
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import RetryPolicy
 from pydantic import BaseModel, Field
 
 from app.cognition.types import (
@@ -53,7 +54,11 @@ class LangGraphAgentBackend:
         self._settings = settings or get_settings()
         self._decision_model = decision_model or self._build_default_model()
         graph = StateGraph(_DecisionState, context_schema=_DecisionContext)
-        graph.add_node("model_decide", self._model_decide_node)
+        graph.add_node(
+            "model_decide",
+            self._model_decide_node,
+            retry_policy=self._build_model_retry_policy(),
+        )
         graph.add_node("fallback_decide", self._fallback_decide_node)
         graph.add_conditional_edges(
             START,
@@ -72,10 +77,18 @@ class LangGraphAgentBackend:
         invocation: AgentActionInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> AgentDecisionResult:
-        state = await self._graph.ainvoke(
-            {"invocation": invocation, "result": None, "use_model": self._decision_model is not None},
-            context={"runtime_ctx": runtime_ctx},
-        )
+        try:
+            state = await self._graph.ainvoke(
+                {
+                    "invocation": invocation,
+                    "result": None,
+                    "use_model": self._decision_model is not None,
+                },
+                context={"runtime_ctx": runtime_ctx},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
+            return self._heuristic_decision(invocation)
         return state["result"] or AgentDecisionResult(action_type="rest")
 
     async def plan_day(
@@ -102,18 +115,14 @@ class LangGraphAgentBackend:
     ) -> _DecisionState:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
-
-        try:
-            structured_model = self._decision_model.with_structured_output(_StructuredDecision)
-            started_at = perf_counter()
-            response = await structured_model.ainvoke(self._build_model_prompt(invocation))
-            duration_ms = int((perf_counter() - started_at) * 1000)
-            result = self._coerce_model_result(response, invocation.allowed_actions)
-            if result is not None:
-                self._maybe_record_usage(runtime_ctx, invocation, response, duration_ms)
-                return {"invocation": invocation, "result": result, "use_model": True}
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
+        structured_model = self._decision_model.with_structured_output(_StructuredDecision)
+        started_at = perf_counter()
+        response = await structured_model.ainvoke(self._build_model_prompt(invocation))
+        duration_ms = int((perf_counter() - started_at) * 1000)
+        result = self._coerce_model_result(response, invocation.allowed_actions)
+        if result is not None:
+            self._maybe_record_usage(runtime_ctx, invocation, response, duration_ms)
+            return {"invocation": invocation, "result": result, "use_model": True}
 
         return {
             "invocation": invocation,
@@ -162,6 +171,12 @@ class LangGraphAgentBackend:
         if self._settings.langgraph_base_url:
             model_kwargs["base_url"] = self._settings.langgraph_base_url
         return ChatAnthropic(**model_kwargs)
+
+    def _build_model_retry_policy(self) -> RetryPolicy:
+        return RetryPolicy(
+            max_attempts=2,
+            retry_on=lambda exc: isinstance(exc, RuntimeError),
+        )
 
     def _build_model_prompt(self, invocation: AgentActionInvocation) -> str:
         context_json = json.dumps(invocation.context, ensure_ascii=False, sort_keys=True)

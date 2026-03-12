@@ -128,6 +128,45 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
     assert result.target_location_id == "town-square"
 
 
+async def test_langgraph_backend_retries_transient_model_failures() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    class FlakyStructuredModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, prompt: str):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("temporary model failure")
+            return {
+                "action_type": "talk",
+                "target_agent_id": "bob",
+                "message": "Retry succeeded.",
+            }
+
+    model = FlakyStructuredModel()
+    backend = LangGraphAgentBackend(decision_model=model)
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={"world": {"current_goal": "talk", "nearby_agent_id": "bob"}},
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    result = await backend.decide_action(invocation)
+
+    assert model.calls == 2
+    assert result.action_type == "talk"
+    assert result.target_agent_id == "bob"
+    assert result.message == "Retry succeeded."
+
+
 async def test_langgraph_backend_rejects_invalid_talk_without_message() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
