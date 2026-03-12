@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.cognition.claude.decision_provider import HeuristicDecisionProvider
+from app.cognition.claude.decision_provider import HeuristicDecisionHook, HeuristicDecisionProvider
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -28,6 +28,10 @@ class _InvocationAdapter:
 class HeuristicAgentBackend:
     def __init__(self, provider: HeuristicDecisionProvider | None = None) -> None:
         self._provider = provider or HeuristicDecisionProvider()
+
+    def set_decision_hook(self, decision_hook: HeuristicDecisionHook | None) -> None:
+        if hasattr(self._provider, "set_decision_hook"):
+            self._provider.set_decision_hook(decision_hook)
 
     async def decide_action(
         self,

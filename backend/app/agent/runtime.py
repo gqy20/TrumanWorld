@@ -12,7 +12,6 @@ from app.agent.context_builder import ContextBuilder
 from app.agent.prompt_loader import PromptLoader
 from app.agent.registry import AgentRegistry
 from app.cognition.claude.connection_pool import AgentConnectionPool
-from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.cognition.interfaces import AgentCognitionBackend
 from app.cognition.registry import CognitionRegistry
 from app.cognition.types import (
@@ -33,48 +32,6 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 __all__ = ["AgentRuntime", "RuntimeContext", "RuntimeInvocation", "shutil"]
-
-
-class _ProviderBackedAgentBackend:
-    def __init__(self, provider: Any) -> None:
-        self._provider = provider
-
-    async def decide_action(
-        self,
-        invocation: AgentActionInvocation,
-        runtime_ctx: BackendExecutionContext | None = None,
-    ):
-        adapted_invocation = type(
-            "ProviderInvocation",
-            (),
-            {
-                "agent_id": invocation.agent_id,
-                "task": "reactor",
-                "prompt": invocation.prompt,
-                "context": invocation.context,
-                "max_turns": invocation.max_turns,
-                "max_budget_usd": invocation.max_budget_usd,
-                "allowed_actions": list(invocation.allowed_actions),
-                "run_id": runtime_ctx.run_id if runtime_ctx else None,
-                "session_id": None,
-            },
-        )()
-        decision = await self._provider.decide(adapted_invocation, runtime_ctx=runtime_ctx)
-        return decision
-
-    async def plan_day(
-        self,
-        invocation: PlanningInvocation,
-        runtime_ctx: BackendExecutionContext | None = None,
-    ) -> dict | None:
-        return None
-
-    async def reflect_day(
-        self,
-        invocation: ReflectionInvocation,
-        runtime_ctx: BackendExecutionContext | None = None,
-    ) -> dict | None:
-        return None
 
 
 class RuntimeInvocation(BaseModel):
@@ -117,7 +74,6 @@ class AgentRuntime:
         context_builder: ContextBuilder | None = None,
         prompt_loader: PromptLoader | None = None,
         backend: AgentCognitionBackend | None = None,
-        decision_provider: Any | None = None,
         connection_pool: AgentConnectionPool | None = None,
         cognition_registry: CognitionRegistry | None = None,
     ) -> None:
@@ -127,28 +83,10 @@ class AgentRuntime:
         self._connection_pool = connection_pool
         self._cognition_registry = cognition_registry
         self._allowed_actions = ["move", "talk", "work", "rest"]
-        self._decision_provider: Any | None = None
-        if decision_provider is not None:
-            self.decision_provider = decision_provider
-        else:
-            self.backend = backend or self._build_default_backend()
-            self._decision_provider = getattr(self.backend, "_provider", None)
+        self.backend = backend or self._build_default_backend()
 
     def configure_allowed_actions(self, allowed_actions: list[str]) -> None:
         self._allowed_actions = list(allowed_actions)
-
-    @property
-    def decision_provider(self) -> Any | None:
-        return self._decision_provider
-
-    @decision_provider.setter
-    def decision_provider(self, provider: Any | None) -> None:
-        self._decision_provider = provider
-        self.backend = (
-            _ProviderBackedAgentBackend(provider)
-            if provider is not None
-            else HeuristicAgentBackend()
-        )
 
     def _build_default_backend(self) -> AgentCognitionBackend:
         settings = get_settings()

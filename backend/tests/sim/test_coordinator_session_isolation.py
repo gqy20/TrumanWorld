@@ -162,9 +162,9 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
     """
     from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionType
 
-    from app.cognition.claude.decision_provider import HeuristicDecisionProvider
     from app.agent.registry import AgentRegistry
     from app.agent.runtime import AgentRuntime
+    from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
     from app.sim.service import SimulationService
 
     import tempfile
@@ -208,7 +208,7 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
             (agent_dir / "prompt.md").write_text(f"# {agent_name}\nBase prompt", encoding="utf-8")
 
         registry = AgentRegistry(tmp_path)
-        runtime = AgentRuntime(registry=registry, decision_provider=HeuristicDecisionProvider())
+        runtime = AgentRuntime(registry=registry, backend=HeuristicAgentBackend())
         service = SimulationService.create_for_scheduler(runtime)
         monkey_settings = get_settings()
         original = monkey_settings.director_auto_intervention_enabled

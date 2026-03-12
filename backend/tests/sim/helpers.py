@@ -6,6 +6,7 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.store.models import Agent, Location, SimulationRun
 
 
@@ -72,5 +73,5 @@ def build_rest_runtime(tmp_path: Path) -> AgentRuntime:
     (agent_dir / "prompt.md").write_text("# Clock Tester\nBase prompt", encoding="utf-8")
     return AgentRuntime(
         registry=AgentRegistry(tmp_path),
-        decision_provider=RestOnlyDecisionProvider(),
+        backend=HeuristicAgentBackend(RestOnlyDecisionProvider()),
     )

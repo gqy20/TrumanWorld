@@ -14,6 +14,7 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.infra.db import Base
 from app.infra.settings import get_settings
 from app.sim.action_resolver import ActionIntent
@@ -159,7 +160,7 @@ async def test_postgres_run_tick_isolated_persists_llm_calls(postgres_session, t
 
     runtime = AgentRuntime(
         registry=AgentRegistry(tmp_path),
-        decision_provider=TokenProvider(),
+        backend=HeuristicAgentBackend(TokenProvider()),
     )
     result = await SimulationService.create_for_scheduler(runtime).run_tick_isolated(run.id, engine)
     totals = await LlmCallRepository(session).get_token_totals(run.id)

@@ -10,10 +10,11 @@ from app.agent.reactor import Reactor
 from app.agent.reflector import Reflector
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
+from app.cognition.claude.agent_backend import ClaudeSdkAgentBackend
+from app.cognition.types import AgentDecisionResult
 from app.agent.system_prompt import build_system_prompt
 import app.cognition.claude.decision_provider as provider_module
-from app.cognition.claude.decision_provider import AgentDecisionProvider, ClaudeSDKDecisionProvider
-from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
 from app.infra.settings import get_settings
 from app.scenario.truman_world.scenario import TrumanWorldScenario
 
@@ -49,13 +50,19 @@ def runtime(tmp_path: Path) -> AgentRuntime:
     return runtime
 
 
-class StubDecisionProvider(AgentDecisionProvider):
-    async def decide(self, invocation, runtime_ctx=None):
-        return RuntimeDecision(
+class StubDecisionBackend:
+    async def decide_action(self, invocation, runtime_ctx=None):
+        return AgentDecisionResult(
             action_type="talk",
             target_agent_id="bob",
-            payload={"intent_source": invocation.task},
+            payload={"intent_source": "reactor"},
         )
+
+    async def plan_day(self, invocation, runtime_ctx=None):
+        return None
+
+    async def reflect_day(self, invocation, runtime_ctx=None):
+        return None
 
 
 def test_runtime_prepare_planner(runtime: AgentRuntime):
@@ -224,7 +231,7 @@ async def test_runtime_decide_intent_uses_provider(tmp_path: Path):
     runtime = AgentRuntime(
         registry=AgentRegistry(tmp_path),
         context_builder=ContextBuilder(),
-        decision_provider=StubDecisionProvider(),
+        backend=StubDecisionBackend(),
     )
 
     invocation = runtime.prepare_reactor("demo_agent", world={"current_goal": "talk"})
@@ -295,7 +302,7 @@ def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: p
         context_builder=ContextBuilder(),
     )
 
-    assert isinstance(runtime.decision_provider, ClaudeSDKDecisionProvider)
+    assert isinstance(runtime.backend, ClaudeSdkAgentBackend)
 
     get_settings.cache_clear()
 
@@ -327,7 +334,7 @@ def test_runtime_selects_langgraph_backend_from_env(tmp_path: Path, monkeypatch:
     )
 
     assert runtime.backend.__class__.__name__ == "LangGraphAgentBackend"
-    assert runtime.decision_provider is None
+    assert runtime.backend.__class__.__name__ == "LangGraphAgentBackend"
 
     get_settings.cache_clear()
 
@@ -434,7 +441,7 @@ async def test_runtime_decide_intent_accepts_empty_message_when_llm_omits_it(
     runtime = AgentRuntime(
         registry=AgentRegistry(tmp_path),
         context_builder=ContextBuilder(),
-        decision_provider=ClaudeSDKDecisionProvider(get_settings()),
+        backend=ClaudeSdkAgentBackend(get_settings()),
     )
 
     invocation = runtime.prepare_reactor(

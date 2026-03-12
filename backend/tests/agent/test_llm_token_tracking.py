@@ -19,6 +19,7 @@ from app.agent.runtime import AgentRuntime, RuntimeContext
 from app.cognition.claude.agent_backend import ClaudeSdkAgentBackend
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 
 
 class TokenCapturingProvider(AgentDecisionProvider):
@@ -54,7 +55,7 @@ def agent_runtime_with_mock_provider(tmp_path: Path):
 
     registry = AgentRegistry(tmp_path)
     provider = TokenCapturingProvider()
-    runtime = AgentRuntime(registry=registry, decision_provider=provider)
+    runtime = AgentRuntime(registry=registry, backend=HeuristicAgentBackend(provider))
     return runtime, provider
 
 

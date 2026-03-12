@@ -3,8 +3,8 @@ import pytest
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
 from app.cognition.claude.decision_provider import AgentDecisionProvider
-from app.cognition.claude.decision_provider import HeuristicDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
@@ -362,7 +362,7 @@ async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_sess
 
     recording_provider = RecordingDecisionProvider()
     runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
-    runtime.decision_provider = recording_provider
+    runtime.backend = HeuristicAgentBackend(recording_provider)
     service = SimulationService(db_session, agent_runtime=runtime, agents_root=tmp_path)
     result = await service.run_tick("run-service-profile")
 
@@ -527,7 +527,7 @@ async def test_simulation_service_uses_world_role_and_clock_in_runtime_context(
 
     recording_provider = RecordingDecisionProvider()
     runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
-    runtime.decision_provider = recording_provider
+    runtime.backend = HeuristicAgentBackend(recording_provider)
     service = SimulationService(db_session, agent_runtime=runtime, agents_root=tmp_path)
 
     result = await service.run_tick("run-service-role-clock")
@@ -623,7 +623,7 @@ async def test_simulation_service_includes_director_system_events_for_cast_recen
 
     capturing_provider = ContextCapturingDecisionProvider()
     runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
-    runtime.decision_provider = capturing_provider
+    runtime.backend = HeuristicAgentBackend(capturing_provider)
     service = SimulationService(db_session, agent_runtime=runtime, agents_root=tmp_path)
 
     await service.run_tick(run.id)
@@ -1018,7 +1018,7 @@ async def test_run_tick_isolated_with_separate_sessions(db_session):
     (agent_dir / "prompt.md").write_text("# Test")
 
     registry = AgentRegistry(tmp_path)
-    runtime = AgentRuntime(registry=registry, decision_provider=HeuristicDecisionProvider())
+    runtime = AgentRuntime(registry=registry, backend=HeuristicAgentBackend())
     service = SimulationService.create_for_scheduler(runtime)
 
     # Run the isolated tick
@@ -1105,7 +1105,7 @@ async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db
     (agent_dir / "prompt.md").write_text("# Test")
 
     registry = AgentRegistry(tmp_path)
-    runtime = AgentRuntime(registry=registry, decision_provider=HeuristicDecisionProvider())
+    runtime = AgentRuntime(registry=registry, backend=HeuristicAgentBackend())
     service = SimulationService.create_for_scheduler(runtime)
 
     result = await service.run_tick_isolated(
@@ -1199,7 +1199,7 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
     )
     runtime = AgentRuntime(
         registry=AgentRegistry(tmp_path),
-        decision_provider=provider,
+        backend=HeuristicAgentBackend(provider),
     )
     orchestrator = TickOrchestrator(
         agent_runtime=runtime,
@@ -1295,7 +1295,7 @@ async def test_run_tick_isolated_persists_llm_calls(db_session):
         usage={"input_tokens": 111, "output_tokens": 222, "cache_read_input_tokens": 33},
         cost=0.015,
     )
-    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), decision_provider=provider)
+    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend(provider))
     service = SimulationService.create_for_scheduler(runtime)
 
     result = await service.run_tick_isolated(run_id, engine)
