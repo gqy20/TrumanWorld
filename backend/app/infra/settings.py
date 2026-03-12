@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     agent_backend: Literal["heuristic", "claude_sdk", "langgraph"] | None = None
     agent_model: str | None = None
     agent_budget_usd: float = 1.0
+    langgraph_model: str | None = None
+    langgraph_api_key: str | None = None
+    langgraph_base_url: str | None = None
     anthropic_model: str | None = None
     log_level: str = "INFO"
     project_root: Path = PROJECT_ROOT
@@ -61,6 +64,12 @@ class Settings(BaseSettings):
     def normalize_agent_settings(self) -> "Settings":
         if self.agent_model is None and self.anthropic_model is not None:
             self.agent_model = self.anthropic_model
+        if self.langgraph_model is None and self.agent_model is not None:
+            self.langgraph_model = self.agent_model
+        if self.langgraph_api_key is None and self.anthropic_api_key is not None:
+            self.langgraph_api_key = self.anthropic_api_key
+        if self.langgraph_base_url is None and self.anthropic_base_url is not None:
+            self.langgraph_base_url = self.anthropic_base_url
         if self.agent_backend is None:
             self.agent_backend = "claude_sdk" if self.agent_provider == "claude" else "heuristic"
         if self.director_backend is None:

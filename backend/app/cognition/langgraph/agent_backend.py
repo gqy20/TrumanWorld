@@ -29,8 +29,11 @@ class _StructuredDecision(BaseModel):
 
 class _DecisionState(TypedDict):
     invocation: AgentActionInvocation
-    runtime_ctx: BackendExecutionContext | None
     result: AgentDecisionResult | None
+
+
+class _DecisionContext(TypedDict):
+    runtime_ctx: BackendExecutionContext | None
 
 
 class LangGraphAgentBackend:
@@ -47,7 +50,7 @@ class LangGraphAgentBackend:
     ) -> None:
         self._settings = settings or get_settings()
         self._decision_model = decision_model or self._build_default_model()
-        graph = StateGraph(_DecisionState)
+        graph = StateGraph(_DecisionState, context_schema=_DecisionContext)
         graph.add_node("decide", self._decide_node)
         graph.add_edge(START, "decide")
         graph.add_edge("decide", END)
@@ -59,7 +62,8 @@ class LangGraphAgentBackend:
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> AgentDecisionResult:
         state = await self._graph.ainvoke(
-            {"invocation": invocation, "runtime_ctx": runtime_ctx, "result": None}
+            {"invocation": invocation, "result": None},
+            context={"runtime_ctx": runtime_ctx},
         )
         return state["result"] or AgentDecisionResult(action_type="rest")
 
@@ -77,13 +81,17 @@ class LangGraphAgentBackend:
     ) -> dict | None:
         return None
 
-    async def _decide_node(self, state: _DecisionState) -> _DecisionState:
+    async def _decide_node(
+        self,
+        state: _DecisionState,
+        runtime: Any,
+    ) -> _DecisionState:
         invocation = state["invocation"]
-        runtime_ctx = state["runtime_ctx"]
+        runtime_ctx = runtime.context.get("runtime_ctx")
 
         heuristic_result = self._heuristic_decision(invocation)
         if self._decision_model is None:
-            return {"invocation": invocation, "runtime_ctx": runtime_ctx, "result": heuristic_result}
+            return {"invocation": invocation, "result": heuristic_result}
 
         try:
             structured_model = self._decision_model.with_structured_output(_StructuredDecision)
@@ -91,11 +99,11 @@ class LangGraphAgentBackend:
             result = self._coerce_model_result(response, invocation.allowed_actions)
             if result is not None:
                 self._maybe_record_usage(runtime_ctx, invocation, response)
-                return {"invocation": invocation, "runtime_ctx": runtime_ctx, "result": result}
+                return {"invocation": invocation, "result": result}
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
 
-        return {"invocation": invocation, "runtime_ctx": runtime_ctx, "result": heuristic_result}
+        return {"invocation": invocation, "result": heuristic_result}
 
     def _heuristic_decision(self, invocation: AgentActionInvocation) -> AgentDecisionResult:
         world = invocation.context.get("world", {})
@@ -117,18 +125,18 @@ class LangGraphAgentBackend:
         return AgentDecisionResult(action_type="rest")
 
     def _build_default_model(self) -> Any | None:
-        if not self._settings.agent_model or not self._settings.anthropic_api_key:
+        if not self._settings.langgraph_model or not self._settings.langgraph_api_key:
             return None
 
         from langchain_anthropic import ChatAnthropic
 
         model_kwargs: dict[str, Any] = {
-            "model": self._settings.agent_model,
-            "api_key": self._settings.anthropic_api_key,
+            "model": self._settings.langgraph_model,
+            "api_key": self._settings.langgraph_api_key,
             "temperature": 0,
         }
-        if self._settings.anthropic_base_url:
-            model_kwargs["base_url"] = self._settings.anthropic_base_url
+        if self._settings.langgraph_base_url:
+            model_kwargs["base_url"] = self._settings.langgraph_base_url
         return ChatAnthropic(**model_kwargs)
 
     def _build_model_prompt(self, invocation: AgentActionInvocation) -> str:
