@@ -14,10 +14,11 @@ import asyncio
 import os
 
 from claude_agent_sdk import ResultMessage
-from app.cognition.claude.agent_backend import ClaudeSdkAgentBackend
-from app.agent.runtime import AgentRuntime, RuntimeContext
 from app.agent.registry import AgentRegistry
-from app.agent.providers import AgentDecisionProvider, RuntimeDecision
+from app.agent.runtime import AgentRuntime, RuntimeContext
+from app.cognition.claude.agent_backend import ClaudeSdkAgentBackend
+from app.cognition.claude.decision_provider import AgentDecisionProvider
+from app.cognition.claude.decision_utils import RuntimeDecision
 
 
 class TokenCapturingProvider(AgentDecisionProvider):

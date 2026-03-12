@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 import pytest
-import app.agent.providers as provider_module
-from app.agent.providers import ClaudeSDKDecisionProvider
 from app.agent.runtime import RuntimeInvocation
+import app.cognition.claude.decision_provider as provider_module
+from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
 from app.infra.settings import get_settings
 
 

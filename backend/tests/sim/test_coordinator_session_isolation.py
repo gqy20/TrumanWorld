@@ -162,7 +162,7 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
     """
     from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionType
 
-    from app.agent.providers import HeuristicDecisionProvider
+    from app.cognition.claude.decision_provider import HeuristicDecisionProvider
     from app.agent.registry import AgentRegistry
     from app.agent.runtime import AgentRuntime
     from app.sim.service import SimulationService

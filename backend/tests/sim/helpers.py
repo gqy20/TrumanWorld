@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.agent.providers import AgentDecisionProvider, RuntimeDecision
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
+from app.cognition.claude.decision_provider import AgentDecisionProvider
+from app.cognition.claude.decision_utils import RuntimeDecision
 from app.store.models import Agent, Location, SimulationRun
 
 

@@ -10,9 +10,10 @@ import pytest_asyncio
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.agent.providers import AgentDecisionProvider, RuntimeDecision
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
+from app.cognition.claude.decision_provider import AgentDecisionProvider
+from app.cognition.claude.decision_utils import RuntimeDecision
 from app.infra.db import Base
 from app.infra.settings import get_settings
 from app.sim.action_resolver import ActionIntent

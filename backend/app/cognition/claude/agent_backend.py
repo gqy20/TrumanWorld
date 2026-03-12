@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.agent.prompt_loader import PromptLoader
-from app.agent.providers import ClaudeSDKDecisionProvider
 from app.cognition.claude.connection_pool import AgentConnectionPool
+from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
 from app.cognition.claude.decision_utils import clean_response_text
 from app.cognition.claude.free_text_utils import run_text_query
 from app.cognition.types import (

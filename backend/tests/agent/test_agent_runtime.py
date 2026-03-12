@@ -4,21 +4,18 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-import app.agent.providers as provider_module
 from app.agent.context_builder import ContextBuilder
-from app.agent.providers import (
-    AgentDecisionProvider,
-    ClaudeSDKDecisionProvider,
-    RuntimeDecision,
-)
 from app.agent.planner import Planner
 from app.agent.reactor import Reactor
 from app.agent.reflector import Reflector
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
-from app.scenario.truman_world.scenario import TrumanWorldScenario
 from app.agent.system_prompt import build_system_prompt
+import app.cognition.claude.decision_provider as provider_module
+from app.cognition.claude.decision_provider import AgentDecisionProvider, ClaudeSDKDecisionProvider
+from app.cognition.claude.decision_utils import RuntimeDecision
 from app.infra.settings import get_settings
+from app.scenario.truman_world.scenario import TrumanWorldScenario
 
 
 @pytest.fixture

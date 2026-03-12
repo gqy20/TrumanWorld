@@ -1,7 +1,9 @@
 import pytest
 
-from app.agent.providers import AgentDecisionProvider, RuntimeDecision
 from app.agent.runtime import RuntimeInvocation
+from app.cognition.claude.decision_provider import AgentDecisionProvider
+from app.cognition.claude.decision_provider import HeuristicDecisionProvider
+from app.cognition.claude.decision_utils import RuntimeDecision
 from app.scenario.base import Scenario
 from app.director.service import DirectorEventService
 from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
@@ -865,7 +867,6 @@ async def test_run_tick_isolated_with_separate_sessions(db_session):
     which is where greenlet conflicts can occur with anyio-based SDKs.
     """
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-    from app.agent.providers import HeuristicDecisionProvider
     from app.agent.runtime import AgentRuntime
     from app.agent.registry import AgentRegistry
     from pathlib import Path
@@ -950,7 +951,6 @@ async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db
 
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-    from app.agent.providers import HeuristicDecisionProvider
     from app.agent.registry import AgentRegistry
     from app.agent.runtime import AgentRuntime
     from app.sim.context import get_run_world_time
