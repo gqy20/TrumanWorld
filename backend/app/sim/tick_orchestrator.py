@@ -96,8 +96,22 @@ class TickOrchestrator:
         tick_no: int = 0,
     ) -> tuple[list["ActionIntent"], list[LlmCall]]:
         collector = LlmCallCollector()
+        concurrency_limit = self.agent_runtime.decision_concurrency_limit()
+        semaphore = (
+            asyncio.Semaphore(concurrency_limit)
+            if isinstance(concurrency_limit, int) and concurrency_limit > 0
+            else None
+        )
 
         async def decide_for_agent(agent_snapshot: AgentDecisionSnapshot) -> ActionIntent | None:
+            if semaphore is None:
+                return await _decide_for_agent_inner(agent_snapshot)
+            async with semaphore:
+                return await _decide_for_agent_inner(agent_snapshot)
+
+        async def _decide_for_agent_inner(
+            agent_snapshot: AgentDecisionSnapshot,
+        ) -> ActionIntent | None:
             agent_id = agent_snapshot.id
             state = get_agent(world, agent_id)
             if state is None:

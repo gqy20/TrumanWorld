@@ -42,7 +42,17 @@ async def test_langgraph_backend_decides_move_for_direct_goal() -> None:
 async def test_langgraph_backend_falls_back_to_rest_without_directive() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
-    backend = LangGraphAgentBackend()
+    backend = LangGraphAgentBackend(
+        settings=Settings(
+            agent_backend="langgraph",
+            langgraph_model=None,
+            langgraph_api_key=None,
+            langgraph_base_url=None,
+            agent_model=None,
+            anthropic_api_key=None,
+            anthropic_base_url=None,
+        )
+    )
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
@@ -57,10 +67,10 @@ async def test_langgraph_backend_falls_back_to_rest_without_directive() -> None:
     assert result.action_type == "rest"
 
 
-async def test_langgraph_backend_uses_structured_model_decision() -> None:
+async def test_langgraph_backend_prefers_text_json_by_default() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
-    class FakeStructuredModel:
+    class FakeTextFirstModel:
         def __init__(self) -> None:
             self.prompts: list[str] = []
             self.structured_calls: list[dict] = []
@@ -73,18 +83,16 @@ async def test_langgraph_backend_uses_structured_model_decision() -> None:
 
         async def ainvoke(self, prompt: str):
             self.prompts.append(prompt)
-            return {
-                "raw": {},
-                "parsed": {
-                    "action_type": "talk",
-                    "target_agent_id": "bob",
-                    "message": "Morning, Bob.",
-                    "payload": {"source": "langgraph-model"},
-                },
-                "parsing_error": None,
+            return """
+            {
+              "action_type": "talk",
+              "target_agent_id": "bob",
+              "message": "Morning, Bob.",
+              "payload": {"source": "langgraph-model"}
             }
+            """
 
-    model = FakeStructuredModel()
+    model = FakeTextFirstModel()
     backend = LangGraphAgentBackend(decision_model=model)
     invocation = AgentActionInvocation(
         agent_id="alice",
@@ -102,22 +110,67 @@ async def test_langgraph_backend_uses_structured_model_decision() -> None:
     assert result.message == "Morning, Bob."
     assert result.payload == {"source": "langgraph-model"}
     assert model.prompts
+    assert model.structured_calls == []
+    assert "Pick the next action." in model.prompts[0]
+
+
+async def test_langgraph_backend_uses_structured_model_when_explicitly_enabled() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    settings = Settings(
+        agent_backend="langgraph",
+        langgraph_reactor_structured_enabled=True,
+    )
+
+    class FakeStructuredModel:
+        def __init__(self) -> None:
+            self.structured_calls: list[dict] = []
+
+        def with_structured_output(self, schema, *, method=None, include_raw=False):
+            self.structured_calls.append(
+                {"schema": schema, "method": method, "include_raw": include_raw}
+            )
+            return self
+
+        async def ainvoke(self, prompt: str):
+            return {
+                "raw": {},
+                "parsed": {
+                    "action_type": "talk",
+                    "target_agent_id": "bob",
+                    "message": "Structured path works.",
+                },
+                "parsing_error": None,
+            }
+
+    model = FakeStructuredModel()
+    backend = LangGraphAgentBackend(settings=settings, decision_model=model)
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={"world": {"current_goal": "talk", "nearby_agent_id": "bob"}},
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    result = await backend.decide_action(invocation)
+
+    assert result.action_type == "talk"
+    assert result.target_agent_id == "bob"
+    assert result.message == "Structured path works."
     assert model.structured_calls[0]["method"] == "json_schema"
     assert model.structured_calls[0]["include_raw"] is True
-    assert "Pick the next action." in model.prompts[0]
 
 
 async def test_langgraph_backend_falls_back_when_model_errors() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
-    class FailingStructuredModel:
-        def with_structured_output(self, schema):
-            return self
-
+    class FailingModel:
         async def ainvoke(self, prompt: str):
             raise RuntimeError("model unavailable")
 
-    backend = LangGraphAgentBackend(decision_model=FailingStructuredModel())
+    backend = LangGraphAgentBackend(decision_model=FailingModel())
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
@@ -141,6 +194,11 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
 async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_fails() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
+    settings = Settings(
+        agent_backend="langgraph",
+        langgraph_reactor_structured_enabled=True,
+    )
+
     class TextJsonFallbackModel:
         def __init__(self) -> None:
             self.calls = 0
@@ -161,7 +219,7 @@ async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_
             }
             """
 
-    backend = LangGraphAgentBackend(decision_model=TextJsonFallbackModel())
+    backend = LangGraphAgentBackend(settings=settings, decision_model=TextJsonFallbackModel())
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
@@ -180,6 +238,10 @@ async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_
 
 async def test_langgraph_backend_retries_transient_model_failures() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+    settings = Settings(
+        agent_backend="langgraph",
+        langgraph_reactor_structured_enabled=True,
+    )
 
     class FlakyStructuredModel:
         def __init__(self) -> None:
@@ -199,7 +261,7 @@ async def test_langgraph_backend_retries_transient_model_failures() -> None:
             }
 
     model = FlakyStructuredModel()
-    backend = LangGraphAgentBackend(decision_model=model)
+    backend = LangGraphAgentBackend(settings=settings, decision_model=model)
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",

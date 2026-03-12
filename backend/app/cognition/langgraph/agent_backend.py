@@ -129,9 +129,10 @@ class LangGraphAgentBackend:
     ) -> _DecisionState:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
-        result = await self._run_structured_reactor_decision(invocation, runtime_ctx)
-        if result is not None:
-            return {"invocation": invocation, "result": result, "use_model": True}
+        if self._settings.langgraph_reactor_structured_enabled:
+            result = await self._run_structured_reactor_decision(invocation, runtime_ctx)
+            if result is not None:
+                return {"invocation": invocation, "result": result, "use_model": True}
 
         result = await self._run_text_reactor_decision(invocation, runtime_ctx)
         if result is not None:
@@ -184,6 +185,10 @@ class LangGraphAgentBackend:
         if self._settings.langgraph_base_url:
             model_kwargs["base_url"] = self._settings.langgraph_base_url
         return ChatAnthropic(**model_kwargs)
+
+    def decision_concurrency_limit(self) -> int | None:
+        limit = self._settings.langgraph_reactor_max_concurrency
+        return limit if limit > 0 else None
 
     async def _run_text_task(
         self,

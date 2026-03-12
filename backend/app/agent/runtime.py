@@ -94,6 +94,14 @@ class AgentRuntime:
             return True
         return False
 
+    def decision_concurrency_limit(self) -> int | None:
+        limit_getter = getattr(self.backend, "decision_concurrency_limit", None)
+        if callable(limit_getter):
+            limit = limit_getter()
+            if isinstance(limit, int) and limit > 0:
+                return limit
+        return None
+
     def _build_default_backend(self) -> AgentCognitionBackend:
         settings = get_settings()
         cognition_registry = self._cognition_registry or CognitionRegistry(settings)

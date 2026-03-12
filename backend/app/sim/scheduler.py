@@ -14,7 +14,9 @@ class ScheduledRun:
     interval_seconds: float
     callback: Callable[[str], Awaitable[None]]
     task: asyncio.Task | None = None
+    callback_task: asyncio.Task | None = None
     consecutive_errors: int = 0
+    stop_requested: bool = False
     on_max_errors: Callable[[str], Awaitable[None]] | None = field(default=None, repr=False)
 
 
@@ -71,6 +73,10 @@ class SimulationScheduler:
     async def _stop_run_locked(self, run_id: str) -> None:
         """Internal method to stop a run (must hold lock)."""
         scheduled = self._scheduled.pop(run_id, None)
+        if scheduled is not None:
+            scheduled.stop_requested = True
+        if scheduled and scheduled.callback_task and not scheduled.callback_task.done():
+            scheduled.callback_task.cancel()
         if scheduled and scheduled.task:
             info(f"Stopping scheduler for run {run_id}, remaining_runs={len(self._scheduled)}")
             scheduled.task.cancel()
@@ -108,12 +114,17 @@ class SimulationScheduler:
         while True:
             try:
                 await asyncio.sleep(interval_seconds)
+                scheduled = self._scheduled.get(run_id)
+                if scheduled is None or scheduled.stop_requested:
+                    info(f"Tick loop stopping before next tick for run {run_id}")
+                    break
                 tick_count += 1
                 debug(f"Auto-advancing tick #{tick_count} for run {run_id}")
 
                 # Run callback in a separate task to isolate errors and cancellation
                 # Use shield to protect from external cancellation during database operations
                 task = asyncio.create_task(callback(run_id))
+                scheduled.callback_task = task
                 try:
                     await task
                     consecutive_errors = 0  # 成功清零错误计数
@@ -126,6 +137,7 @@ class SimulationScheduler:
                     except asyncio.CancelledError:
                         pass
                     info(f"Tick callback cancelled for run {run_id} (tick #{tick_count})")
+                    raise
                 except RuntimeError as e:
                     # Handle claude_agent_sdk anyio cancel scope errors
                     if "cancel scope" in str(e).lower():
@@ -137,6 +149,9 @@ class SimulationScheduler:
                     error(f"Error in tick callback for run {run_id}: {e}")
                     consecutive_errors += 1
                     # Continue running despite callback errors
+                finally:
+                    if scheduled.callback_task is task:
+                        scheduled.callback_task = None
 
                 # 连续失败超过阈値时自动暂停
                 if max_errors > 0 and consecutive_errors >= max_errors:

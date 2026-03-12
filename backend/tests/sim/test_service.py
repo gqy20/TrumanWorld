@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
@@ -1240,6 +1241,111 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
     import shutil
 
     shutil.rmtree(tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_prepare_intents_from_data_respects_runtime_concurrency_limit(db_session):
+    from app.agent.registry import AgentRegistry
+    from app.agent.runtime import AgentRuntime
+    from app.sim.types import AgentDecisionSnapshot
+    from app.sim.world import WorldState
+    import tempfile
+    from pathlib import Path
+    from datetime import datetime, timezone
+    import shutil
+
+    run_id = "run-concurrency-limit-1"
+    run = SimulationRun(
+        id=run_id, name="concurrency-limit", status="running", current_tick=1, tick_minutes=5
+    )
+    agents = [
+        Agent(
+            id=f"agent-limit-{i}",
+            run_id=run_id,
+            name=f"Agent {i}",
+            occupation="resident",
+            personality={},
+            profile={},
+            status={},
+            current_plan={},
+        )
+        for i in range(3)
+    ]
+    db_session.add(run)
+    db_session.add_all(agents)
+    await db_session.commit()
+
+    tmp_path = Path(tempfile.mkdtemp())
+    try:
+        for agent in agents:
+            agent_dir = tmp_path / agent.id
+            agent_dir.mkdir(parents=True)
+            (agent_dir / "agent.yml").write_text(
+                f"id: {agent.id}\nname: {agent.name}\noccupation: resident\nhome: loc-1\n",
+                encoding="utf-8",
+            )
+            (agent_dir / "prompt.md").write_text("# Prompt\nBase prompt", encoding="utf-8")
+
+        class SlowProvider(AgentDecisionProvider):
+            def __init__(self) -> None:
+                self.in_flight = 0
+                self.max_in_flight = 0
+
+            async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
+                self.in_flight += 1
+                self.max_in_flight = max(self.max_in_flight, self.in_flight)
+                try:
+                    await asyncio.sleep(0.05)
+                    return RuntimeDecision(action_type="rest")
+                finally:
+                    self.in_flight -= 1
+
+        class LimitedBackend(HeuristicAgentBackend):
+            def __init__(self, provider: AgentDecisionProvider) -> None:
+                super().__init__(provider)
+
+            def decision_concurrency_limit(self) -> int:
+                return 1
+
+        provider = SlowProvider()
+        runtime = AgentRuntime(
+            registry=AgentRegistry(tmp_path),
+            backend=LimitedBackend(provider),
+        )
+        orchestrator = TickOrchestrator(
+            agent_runtime=runtime,
+            scenario=FakeScenario(),
+        )
+
+        world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
+        snapshots: list[AgentDecisionSnapshot] = []
+        for agent in agents:
+            world.agents[agent.id] = type(
+                "S", (), {"id": agent.id, "status": {}, "location_id": "loc-1"}
+            )()
+            snapshots.append(
+                AgentDecisionSnapshot(
+                    id=agent.id,
+                    current_goal="rest",
+                    current_location_id="loc-1",
+                    home_location_id="loc-1",
+                    profile={},
+                    recent_events=[],
+                )
+            )
+
+        intents, _ = await orchestrator.prepare_intents_from_data(
+            world=world,
+            agent_data=snapshots,
+            engine=None,
+            run_id=run_id,
+            tick_no=1,
+        )
+
+        assert len(intents) == 3
+        assert provider.max_in_flight == 1
+    finally:
+        shutil.rmtree(tmp_path)
 
 
 @pytest.mark.asyncio

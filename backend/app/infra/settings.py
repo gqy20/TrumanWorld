@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     langgraph_model: str | None = None
     langgraph_api_key: str | None = None
     langgraph_base_url: str | None = None
+    langgraph_reactor_structured_enabled: bool = False
+    langgraph_reactor_max_concurrency: int = 2
     anthropic_model: str | None = None
     log_level: str = "INFO"
     project_root: Path = PROJECT_ROOT
