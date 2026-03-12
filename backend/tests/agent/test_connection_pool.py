@@ -10,8 +10,8 @@ os.environ.pop("CLAUDECODE", None)
 
 pytest.importorskip("claude_agent_sdk")
 
-import app.agent.connection_pool as connection_pool_module
-from app.agent.connection_pool import (
+import app.cognition.claude.connection_pool as connection_pool_module
+from app.cognition.claude.connection_pool import (
     AgentConnectionPool,
     PooledClient,
     close_connection_pool,

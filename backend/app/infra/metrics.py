@@ -12,7 +12,7 @@ from prometheus_client import (
     generate_latest,
 )
 
-from app.agent.connection_pool import peek_connection_pool
+from app.cognition.claude.connection_pool import peek_connection_pool
 from app.infra.settings import get_settings
 from app.sim.scheduler import get_scheduler
 

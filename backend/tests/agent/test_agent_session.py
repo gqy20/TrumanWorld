@@ -267,7 +267,7 @@ async def test_provider_auto_resumes_from_pool_session(monkeypatch: pytest.Monke
 
     直接测试 _build_sdk_options 方法，验证它能从连接池获取 session_id。
     """
-    from app.agent.connection_pool import AgentConnectionPool, PooledClient
+    from app.cognition.claude.connection_pool import AgentConnectionPool, PooledClient
 
     monkeypatch.setenv("TRUMANWORLD_AGENT_PROVIDER", "claude")
     get_settings.cache_clear()

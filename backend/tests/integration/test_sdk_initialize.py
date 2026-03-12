@@ -24,7 +24,7 @@ pytest.importorskip("claude_agent_sdk")
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-from app.agent.sdk_options import build_sdk_options
+from app.cognition.claude.sdk_options import build_sdk_options
 from app.infra.settings import get_settings
 
 

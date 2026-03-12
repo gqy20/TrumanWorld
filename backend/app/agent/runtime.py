@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from app.agent.config_loader import AgentConfig
-from app.agent.connection_pool import AgentConnectionPool
 from app.agent.context_builder import ContextBuilder
 from app.agent.prompt_loader import PromptLoader
 from app.agent.registry import AgentRegistry
+from app.cognition.claude.connection_pool import AgentConnectionPool
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.cognition.interfaces import AgentCognitionBackend
 from app.cognition.registry import CognitionRegistry
