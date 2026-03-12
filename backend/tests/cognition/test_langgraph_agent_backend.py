@@ -128,6 +128,67 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
     assert result.target_location_id == "town-square"
 
 
+async def test_langgraph_backend_rejects_invalid_talk_without_message() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    class InvalidTalkModel:
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, prompt: str):
+            return {
+                "action_type": "talk",
+                "target_agent_id": "bob",
+            }
+
+    backend = LangGraphAgentBackend(decision_model=InvalidTalkModel())
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={"world": {"current_goal": "talk", "nearby_agent_id": "bob"}},
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    result = await backend.decide_action(invocation)
+
+    assert result.action_type == "rest"
+
+
+async def test_langgraph_backend_rejects_invalid_move_without_target() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    class InvalidMoveModel:
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, prompt: str):
+            return {
+                "action_type": "move",
+            }
+
+    backend = LangGraphAgentBackend(decision_model=InvalidMoveModel())
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={
+            "world": {
+                "current_goal": "move:town-square",
+                "known_location_ids": ["town-square", "home"],
+            }
+        },
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    result = await backend.decide_action(invocation)
+
+    assert result.action_type == "move"
+    assert result.target_location_id == "town-square"
+
+
 async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 

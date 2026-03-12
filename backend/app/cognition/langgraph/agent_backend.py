@@ -30,6 +30,7 @@ class _StructuredDecision(BaseModel):
 class _DecisionState(TypedDict):
     invocation: AgentActionInvocation
     result: AgentDecisionResult | None
+    use_model: bool
 
 
 class _DecisionContext(TypedDict):
@@ -51,9 +52,18 @@ class LangGraphAgentBackend:
         self._settings = settings or get_settings()
         self._decision_model = decision_model or self._build_default_model()
         graph = StateGraph(_DecisionState, context_schema=_DecisionContext)
-        graph.add_node("decide", self._decide_node)
-        graph.add_edge(START, "decide")
-        graph.add_edge("decide", END)
+        graph.add_node("model_decide", self._model_decide_node)
+        graph.add_node("fallback_decide", self._fallback_decide_node)
+        graph.add_conditional_edges(
+            START,
+            self._route_start,
+            {
+                "model_decide": "model_decide",
+                "fallback_decide": "fallback_decide",
+            },
+        )
+        graph.add_edge("model_decide", END)
+        graph.add_edge("fallback_decide", END)
         self._graph = graph.compile()
 
     async def decide_action(
@@ -62,7 +72,7 @@ class LangGraphAgentBackend:
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> AgentDecisionResult:
         state = await self._graph.ainvoke(
-            {"invocation": invocation, "result": None},
+            {"invocation": invocation, "result": None, "use_model": self._decision_model is not None},
             context={"runtime_ctx": runtime_ctx},
         )
         return state["result"] or AgentDecisionResult(action_type="rest")
@@ -81,7 +91,10 @@ class LangGraphAgentBackend:
     ) -> dict | None:
         return None
 
-    async def _decide_node(
+    def _route_start(self, state: _DecisionState) -> str:
+        return "model_decide" if state["use_model"] else "fallback_decide"
+
+    async def _model_decide_node(
         self,
         state: _DecisionState,
         runtime: Any,
@@ -89,21 +102,29 @@ class LangGraphAgentBackend:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
 
-        heuristic_result = self._heuristic_decision(invocation)
-        if self._decision_model is None:
-            return {"invocation": invocation, "result": heuristic_result}
-
         try:
             structured_model = self._decision_model.with_structured_output(_StructuredDecision)
             response = await structured_model.ainvoke(self._build_model_prompt(invocation))
             result = self._coerce_model_result(response, invocation.allowed_actions)
             if result is not None:
                 self._maybe_record_usage(runtime_ctx, invocation, response)
-                return {"invocation": invocation, "result": result}
+                return {"invocation": invocation, "result": result, "use_model": True}
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
 
-        return {"invocation": invocation, "result": heuristic_result}
+        return {
+            "invocation": invocation,
+            "result": self._heuristic_decision(invocation),
+            "use_model": True,
+        }
+
+    def _fallback_decide_node(self, state: _DecisionState) -> _DecisionState:
+        invocation = state["invocation"]
+        return {
+            "invocation": invocation,
+            "result": self._heuristic_decision(invocation),
+            "use_model": False,
+        }
 
     def _heuristic_decision(self, invocation: AgentActionInvocation) -> AgentDecisionResult:
         world = invocation.context.get("world", {})
@@ -160,6 +181,14 @@ class LangGraphAgentBackend:
             return None
         if allowed_actions and action_type not in allowed_actions:
             return None
+        if action_type == "move" and not data.get("target_location_id"):
+            return None
+        if action_type == "talk":
+            if not data.get("target_agent_id"):
+                return None
+            message = data.get("message")
+            if not isinstance(message, str) or not message.strip():
+                return None
         return AgentDecisionResult(
             action_type=action_type,
             target_location_id=data.get("target_location_id"),
