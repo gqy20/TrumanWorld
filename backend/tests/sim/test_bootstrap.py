@@ -167,5 +167,59 @@ async def test_bootstrapper_skips_warmup_when_run_has_no_agents(db_session, tmp_
     assert pool.warmup_calls == []
 
 
+@pytest.mark.asyncio
+async def test_bootstrapper_skips_pool_setup_when_reactor_pool_disabled(db_session, tmp_path):
+    run = SimulationRun(id="run-bootstrap-3", name="demo", status="running")
+    db_session.add(run)
+    await db_session.commit()
+
+    class FakeRegistry:
+        def __init__(self, path) -> None:
+            self.path = path
+
+    class FakeRuntime:
+        def __init__(self, registry, connection_pool=None) -> None:
+            self.registry = registry
+            self.connection_pool = connection_pool
+
+    monkeypatch = pytest.MonkeyPatch()
+    get_pool_calls = 0
+
+    async def fake_get_connection_pool():
+        nonlocal get_pool_calls
+        get_pool_calls += 1
+        raise AssertionError("get_connection_pool should not be called when pool is disabled")
+
+    monkeypatch.setattr(
+        bootstrap_module,
+        "get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "project_root": tmp_path,
+                "scheduler_interval_seconds": 5.0,
+                "claude_sdk_reactor_pool_enabled": False,
+            },
+        )(),
+    )
+    monkeypatch.setattr(bootstrap_module, "get_connection_pool", fake_get_connection_pool)
+    monkeypatch.setattr(bootstrap_module, "AgentRegistry", FakeRegistry)
+    monkeypatch.setattr(bootstrap_module, "AgentRuntime", FakeRuntime)
+    monkeypatch.setattr(bootstrap_module, "create_scenario", lambda _: object())
+    monkeypatch.setattr(
+        bootstrap_module.SimulationService,
+        "create_for_scheduler",
+        lambda agent_runtime, scenario: FakeService(),
+    )
+    try:
+        plan = await bootstrap_module.RunExecutionBootstrapper().prepare(db_session, run)
+    finally:
+        monkeypatch.undo()
+
+    assert plan.interval_seconds == 5.0
+    assert get_pool_calls == 0
+
+
 async def _return_async(value):
     return value

@@ -171,5 +171,31 @@ async def test_pause_run_execution_stops_scheduler_and_cleans_pool():
     assert pool.cleanup_calls == ["run-lifecycle-4"]
 
 
+@pytest.mark.asyncio
+async def test_pause_run_execution_skips_pool_cleanup_when_reactor_pool_disabled():
+    scheduler = FakeScheduler(running=True)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(run_lifecycle_module, "get_scheduler", lambda: scheduler)
+    monkeypatch.setattr(
+        run_lifecycle_module,
+        "get_settings",
+        lambda: type("S", (), {"claude_sdk_reactor_pool_enabled": False})(),
+    )
+    monkeypatch.setattr(
+        run_lifecycle_module,
+        "get_connection_pool",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("get_connection_pool should not be called when pool is disabled")
+        ),
+    )
+    try:
+        await run_lifecycle_module.pause_run_execution("run-lifecycle-5")
+    finally:
+        monkeypatch.undo()
+
+    assert scheduler.stopped == ["run-lifecycle-5"]
+
+
 async def _return_async(value):
     return value

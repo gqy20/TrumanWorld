@@ -48,6 +48,8 @@ class CognitionRegistry:
     async def warmup_for_run(self, session, run_id: str) -> None:
         if self._settings.agent_backend != "claude_sdk":
             return
+        if not bool(getattr(self._settings, "claude_sdk_reactor_pool_enabled", True)):
+            return
         if self._claude_pool is None:
             self._claude_pool = await get_connection_pool()
 

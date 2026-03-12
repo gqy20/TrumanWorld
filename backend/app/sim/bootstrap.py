@@ -32,15 +32,17 @@ class RunExecutionBootstrapper:
     async def prepare(self, session: AsyncSession, run: SimulationRun) -> RunExecutionPlan:
         settings = get_settings()
         registry = AgentRegistry(settings.project_root / "agents")
-        pool = await get_connection_pool()
-        await self._warm_connection_pool(session, run.id, pool)
+        pool = None
+        if bool(getattr(settings, "claude_sdk_reactor_pool_enabled", True)):
+            pool = await get_connection_pool()
+            await self._warm_connection_pool(session, run.id, pool)
         agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
         scenario = create_scenario(run.scenario_type)
 
         async def tick_callback(run_id: str) -> None:
             service = SimulationService.create_for_scheduler(agent_runtime, scenario=scenario)
             await service.run_tick_isolated(run_id, async_engine)
-            if hasattr(pool, "cleanup_idle"):
+            if pool is not None and hasattr(pool, "cleanup_idle"):
                 await pool.cleanup_idle()
 
         async def on_max_errors(run_id: str) -> None:

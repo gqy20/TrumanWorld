@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     project_root: Path = PROJECT_ROOT
     claude_sdk_isolated_home_enabled: bool = True
     claude_sdk_home_dir: Path | None = None
+    claude_sdk_reactor_pool_enabled: bool = True
 
     # 导演智能体配置（实验性功能）
     director_auto_intervention_enabled: bool = False
