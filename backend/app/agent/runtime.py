@@ -88,6 +88,12 @@ class AgentRuntime:
     def configure_allowed_actions(self, allowed_actions: list[str]) -> None:
         self._allowed_actions = list(allowed_actions)
 
+    def configure_fallback_decision_hook(self, decision_hook: Any) -> bool:
+        if hasattr(self.backend, "set_decision_hook"):
+            self.backend.set_decision_hook(decision_hook)
+            return True
+        return False
+
     def _build_default_backend(self) -> AgentCognitionBackend:
         settings = get_settings()
         cognition_registry = self._cognition_registry or CognitionRegistry(settings)

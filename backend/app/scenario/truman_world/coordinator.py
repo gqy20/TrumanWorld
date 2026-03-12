@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.director.observer import DirectorAssessment, DirectorObserver
 from app.director.planner import DirectorPlanner
 from app.director.types import DirectorPlan
@@ -303,9 +302,7 @@ class TrumanWorldCoordinator:
         return merge_scenario_agent_profile(agent.profile or {}, guidance)
 
     def configure_runtime(self, agent_runtime) -> None:
-        backend = getattr(agent_runtime, "backend", None)
-        if isinstance(backend, HeuristicAgentBackend):
-            backend.set_decision_hook(self.build_runtime_decision)
+        agent_runtime.configure_fallback_decision_hook(self.build_runtime_decision)
 
     def build_runtime_decision(
         self,

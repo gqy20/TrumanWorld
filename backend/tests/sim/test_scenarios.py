@@ -45,6 +45,50 @@ def test_truman_world_scenario_configures_runtime_context(tmp_path):
     assert "director_hint" not in invocation.context["world"]
 
 
+def test_truman_world_scenario_registers_fallback_hook_on_runtime(tmp_path):
+    agent_dir = tmp_path / "demo_agent"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: demo_agent",
+                "name: Demo Agent",
+                "occupation: resident",
+                "home: demo_home",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
+
+    class HookAwareBackend:
+        def __init__(self) -> None:
+            self.hook = None
+
+        def set_decision_hook(self, decision_hook) -> None:
+            self.hook = decision_hook
+
+        async def decide_action(self, invocation, runtime_ctx=None):
+            raise NotImplementedError
+
+        async def plan_day(self, invocation, runtime_ctx=None):
+            return None
+
+        async def reflect_day(self, invocation, runtime_ctx=None):
+            return None
+
+    backend = HookAwareBackend()
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        context_builder=ContextBuilder(),
+        backend=backend,
+    )
+
+    TrumanWorldScenario().configure_runtime(runtime)
+
+    assert backend.hook is not None
+
+
 @pytest.mark.asyncio
 async def test_truman_world_scenario_seed_and_state_update(db_session):
     run = SimulationRun(id="run-scenario-seed", name="scenario-seed", status="running")
