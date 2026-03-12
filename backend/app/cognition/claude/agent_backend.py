@@ -1,0 +1,177 @@
+from __future__ import annotations
+
+import shutil
+from dataclasses import dataclass
+from typing import Any
+
+from app.agent.connection_pool import AgentConnectionPool
+from app.agent.prompt_loader import PromptLoader
+from app.agent.providers import ClaudeSDKDecisionProvider
+from app.cognition.types import (
+    AgentActionInvocation,
+    AgentDecisionResult,
+    BackendExecutionContext,
+    PlanningInvocation,
+    ReflectionInvocation,
+)
+from app.infra.logging import get_logger
+from app.infra.settings import Settings
+
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class _RuntimeContextAdapter:
+    run_id: str | None = None
+    enable_memory_tools: bool = True
+    on_llm_call: Any | None = None
+    memory_cache: Any | None = None
+
+
+class _RuntimeInvocationAdapter:
+    def __init__(
+        self,
+        invocation: AgentActionInvocation,
+        run_id: str | None,
+    ) -> None:
+        self.agent_id = invocation.agent_id
+        self.task = "reactor"
+        self.prompt = invocation.prompt
+        self.context = invocation.context
+        self.max_turns = invocation.max_turns
+        self.max_budget_usd = invocation.max_budget_usd
+        self.allowed_actions = list(invocation.allowed_actions)
+        self.run_id = run_id
+        self.session_id = None
+
+
+class ClaudeSdkAgentBackend:
+    def __init__(
+        self,
+        settings: Settings,
+        connection_pool: AgentConnectionPool | None = None,
+    ) -> None:
+        self._settings = settings
+        self._provider = ClaudeSDKDecisionProvider(settings, connection_pool=connection_pool)
+
+    @staticmethod
+    def _to_runtime_context(
+        runtime_ctx: BackendExecutionContext | None,
+    ) -> _RuntimeContextAdapter | None:
+        if runtime_ctx is None:
+            return None
+        return _RuntimeContextAdapter(
+            run_id=runtime_ctx.run_id,
+            enable_memory_tools=runtime_ctx.enable_memory_tools,
+            on_llm_call=runtime_ctx.on_llm_call,
+            memory_cache=runtime_ctx.memory_cache,
+        )
+
+    async def decide_action(
+        self,
+        invocation: AgentActionInvocation,
+        runtime_ctx: BackendExecutionContext | None = None,
+    ) -> AgentDecisionResult:
+        runtime_invocation = _RuntimeInvocationAdapter(
+            invocation,
+            run_id=runtime_ctx.run_id if runtime_ctx else None,
+        )
+        decision = await self._provider.decide(
+            runtime_invocation,
+            runtime_ctx=self._to_runtime_context(runtime_ctx),
+        )
+        return AgentDecisionResult(
+            action_type=decision.action_type,
+            target_location_id=decision.target_location_id,
+            target_agent_id=decision.target_agent_id,
+            message=decision.message,
+            payload=dict(decision.payload),
+        )
+
+    async def plan_day(
+        self,
+        invocation: PlanningInvocation,
+        runtime_ctx: BackendExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        return await self._run_free_text_llm(
+            agent_id=invocation.agent_id,
+            task="planner",
+            prompt=invocation.prompt,
+            runtime_ctx=runtime_ctx,
+        )
+
+    async def reflect_day(
+        self,
+        invocation: ReflectionInvocation,
+        runtime_ctx: BackendExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        return await self._run_free_text_llm(
+            agent_id=invocation.agent_id,
+            task="reflector",
+            prompt=invocation.prompt,
+            runtime_ctx=runtime_ctx,
+        )
+
+    async def _run_free_text_llm(
+        self,
+        agent_id: str,
+        task: str,
+        prompt: str,
+        runtime_ctx: BackendExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        if shutil.which("claude") is None:
+            logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")
+            return None
+
+        from claude_agent_sdk import ResultMessage, query
+
+        from app.agent.sdk_options import build_sdk_options
+        from app.agent.system_prompt import build_system_prompt
+
+        options = build_sdk_options(
+            self._settings,
+            max_turns=4,
+            max_budget_usd=0.05,
+            model=self._settings.agent_model,
+            cwd=str(self._settings.project_root),
+            system_prompt=build_system_prompt(),
+        )
+
+        full_prompt = f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。"
+
+        result_text: str | None = None
+        gen = None
+        try:
+            gen = query(prompt=full_prompt, options=options)
+            async for message in gen:
+                if isinstance(message, ResultMessage):
+                    if message.is_error:
+                        logger.warning(f"{task} LLM error for {agent_id}: {message.result}")
+                        return None
+                    if runtime_ctx and runtime_ctx.on_llm_call:
+                        runtime_ctx.on_llm_call(
+                            agent_id=agent_id,
+                            task_type=task,
+                            usage=message.usage,
+                            total_cost_usd=message.total_cost_usd,
+                            duration_ms=message.duration_ms,
+                        )
+                    result_text = message.result
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"{task} LLM call failed for {agent_id}: {exc}")
+            return None
+        finally:
+            if gen is not None:
+                try:
+                    await gen.aclose()
+                except RuntimeError:
+                    pass
+
+        if not result_text:
+            return None
+
+        parsed = PromptLoader.extract_json_from_text(result_text)
+        if parsed is None:
+            logger.warning(f"{task} could not parse JSON for {agent_id}: {result_text[:200]}")
+        return parsed

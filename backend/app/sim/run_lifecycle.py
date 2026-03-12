@@ -21,12 +21,14 @@ async def ensure_run_started(session: AsyncSession, run: SimulationRun) -> Simul
         return run
 
     plan = await RunExecutionBootstrapper().prepare(session, run)
-    await scheduler.start_run(
-        run.id,
-        interval_seconds=plan.interval_seconds,
-        callback=plan.tick_callback,
-        on_max_errors=plan.on_max_errors,
-    )
+    start_kwargs = {
+        "interval_seconds": plan.interval_seconds,
+        "callback": plan.tick_callback,
+    }
+    on_max_errors = getattr(plan, "on_max_errors", None)
+    if on_max_errors is not None:
+        start_kwargs["on_max_errors"] = on_max_errors
+    await scheduler.start_run(run.id, **start_kwargs)
 
     if run.status != "running":
         return await RunRepository(session).update_status(run, "running")

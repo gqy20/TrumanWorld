@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from app.director.agent import DirectorAgent, DirectorContext
+from app.cognition.interfaces import DirectorCognitionBackend
+from app.cognition.registry import get_cognition_registry
+from app.cognition.types import DirectorDecisionInvocation
+from app.director.agent import DirectorContext
 from app.director.observer import DirectorAssessment
 from app.director.strategy_engine import StrategyExecutor
 from app.director.types import DirectorPlan
@@ -34,8 +37,8 @@ class DirectorPlanner:
     - 可配置决策间隔（默认 5 tick）
     """
 
-    def __init__(self) -> None:
-        self._agent = DirectorAgent()
+    def __init__(self, backend: DirectorCognitionBackend | None = None) -> None:
+        self._backend = backend or get_cognition_registry().build_director_backend()
         self._strategy_executor = StrategyExecutor()
         self._pending_decision: asyncio.Task[DirectorPlan | None] | None = None
         self._last_decision_tick: int = 0
@@ -98,7 +101,7 @@ class DirectorPlanner:
             # 如果决策还在进行中，继续执行规则决策（不阻塞）
 
         # 实验性功能：启动 LLM 智能决策（异步，不阻塞）
-        if self._agent.is_enabled() and self._agent.should_decide(current_tick):
+        if self._backend.is_enabled() and self._backend.should_decide(current_tick):
             if self._pending_decision is None and current_tick > self._last_decision_tick:
                 # 在 create_task 之前，将 ORM Agent 对象序列化为纯 dict
                 # 必须在这里（session 仍活着时）读取属性，避免后台 Task 在 session
@@ -124,7 +127,13 @@ class DirectorPlanner:
                     world_time=world_time,
                 )
                 self._pending_decision = asyncio.create_task(
-                    self._agent.decide(context, recent_goals)
+                    self._backend.propose_intervention(
+                        DirectorDecisionInvocation(
+                            prompt="",
+                            context=context,
+                            recent_goals=recent_goals,
+                        )
+                    )
                 )
                 logger.debug(f"DirectorAgent started async decision at tick {current_tick}")
 

@@ -33,16 +33,15 @@ class RunExecutionBootstrapper:
         settings = get_settings()
         registry = AgentRegistry(settings.project_root / "agents")
         pool = await get_connection_pool()
-
         await self._warm_connection_pool(session, run.id, pool)
-
         agent_runtime = AgentRuntime(registry=registry, connection_pool=pool)
         scenario = create_scenario(run.scenario_type)
 
         async def tick_callback(run_id: str) -> None:
             service = SimulationService.create_for_scheduler(agent_runtime, scenario=scenario)
             await service.run_tick_isolated(run_id, async_engine)
-            await pool.cleanup_idle()
+            if hasattr(pool, "cleanup_idle"):
+                await pool.cleanup_idle()
 
         async def on_max_errors(run_id: str) -> None:
             """连续失败超过阈值时自动暂停 run，更新数据库状态。"""
@@ -67,8 +66,5 @@ class RunExecutionBootstrapper:
         pool_keys = sorted(
             {f"{run_id}:{get_agent_config_id(agent.profile) or agent.id}" for agent in agents}
         )
-        if not pool_keys:
-            return
-
-        logger.info(f"Warming up connection pool for run {run_id}: {pool_keys}")
-        await pool.warmup(pool_keys)
+        if pool_keys:
+            await pool.warmup(pool_keys)

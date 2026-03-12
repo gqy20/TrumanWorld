@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_base_url: str | None = None
     agent_provider: Literal["heuristic", "claude"] = "heuristic"
+    agent_backend: Literal["heuristic", "claude_sdk", "langgraph"] | None = None
     agent_model: str | None = None
     agent_budget_usd: float = 1.0
     anthropic_model: str | None = None
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
     # 导演智能体配置（实验性功能）
     director_auto_intervention_enabled: bool = False
     director_agent_enabled: bool = True
+    director_backend: Literal["heuristic", "claude_sdk", "langgraph"] | None = None
     director_agent_model: str | None = None
     director_decision_interval: int = 1
     scheduler_interval_seconds: float = 1.0
@@ -58,6 +60,12 @@ class Settings(BaseSettings):
     def normalize_agent_settings(self) -> "Settings":
         if self.agent_model is None and self.anthropic_model is not None:
             self.agent_model = self.anthropic_model
+        if self.agent_backend is None:
+            self.agent_backend = "claude_sdk" if self.agent_provider == "claude" else "heuristic"
+        if self.director_backend is None:
+            self.director_backend = (
+                "claude_sdk" if self.director_agent_enabled else "heuristic"
+            )
         if self.claude_sdk_home_dir is None:
             self.claude_sdk_home_dir = self.project_root / ".claude-sdk-home"
         return self
