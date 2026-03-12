@@ -39,6 +39,9 @@ from app.store.repositories import (
 router = APIRouter()
 logger = get_logger(__name__)
 
+DEFAULT_TIMELINE_LIMIT = 500
+WORLD_RECENT_EVENT_LIMIT = 60
+
 
 def build_name_maps(agents, locations) -> tuple[dict[str, str], dict[str, str]]:
     return (
@@ -268,7 +271,7 @@ async def get_timeline(
     world_datetime_to: str | None = None,
     event_type: str | None = None,
     agent_id: str | None = None,
-    limit: int = 2000,
+    limit: int = DEFAULT_TIMELINE_LIMIT,
     offset: int = 0,
     order_desc: bool = False,
     session: AsyncSession = Depends(get_db_session),
@@ -283,8 +286,8 @@ async def get_timeline(
     event_repo = EventRepository(session)
 
     agents, locations = await asyncio.gather(
-        agent_repo.list_for_run(str(run_id)),
-        location_repo.list_for_run(str(run_id)),
+        agent_repo.list_names_for_run(str(run_id)),
+        location_repo.list_names_for_run(str(run_id)),
     )
     agent_name_map, location_name_map = build_name_maps(agents, locations)
     world_start = resolve_world_start(run)
@@ -303,7 +306,7 @@ async def get_timeline(
                 resolved_agent_id = agent.id
                 break
 
-    events, total = await event_repo.list_timeline_events(
+    events, total = await event_repo.list_timeline_api_rows(
         run_id=str(run_id),
         tick_from=resolved_tick_from,
         tick_to=resolved_tick_to,
@@ -366,9 +369,9 @@ async def get_run_events(
     location_repo = LocationRepository(session)
     event_repo = EventRepository(session)
     agents, locations, events = await asyncio.gather(
-        agent_repo.list_for_run(str(run_id)),
-        location_repo.list_for_run(str(run_id)),
-        event_repo.list_for_run(str(run_id), limit=limit, since_tick=since_tick),
+        agent_repo.list_names_for_run(str(run_id)),
+        location_repo.list_names_for_run(str(run_id)),
+        event_repo.list_api_rows_for_run(str(run_id), limit=limit, since_tick=since_tick),
     )
 
     agent_name_map, location_name_map = build_name_maps(agents, locations)
@@ -431,9 +434,9 @@ async def get_world_pulse(
         all_time_event_counts,
         token_totals,
     ) = await asyncio.gather(
-        agent_repo.list_for_run(str(run_id)),
-        location_repo.list_for_run(str(run_id)),
-        event_repo.list_for_run(str(run_id), limit=120),
+        agent_repo.list_names_for_run(str(run_id)),
+        location_repo.list_names_for_run(str(run_id)),
+        event_repo.list_api_rows_for_run(str(run_id), limit=WORLD_RECENT_EVENT_LIMIT),
         director_memory_repo.count_for_run(str(run_id)),
         director_memory_repo.count_executed_for_run(str(run_id)),
         event_repo.count_events_by_type(
@@ -508,9 +511,9 @@ async def get_world_snapshot(
         all_time_event_counts,
         token_totals,
     ) = await asyncio.gather(
-        agent_repo.list_for_run(str(run_id)),
-        location_repo.list_for_run(str(run_id)),
-        event_repo.list_for_run(str(run_id), limit=120),
+        agent_repo.list_world_rows_for_run(str(run_id)),
+        location_repo.list_world_rows_for_run(str(run_id)),
+        event_repo.list_api_rows_for_run(str(run_id), limit=WORLD_RECENT_EVENT_LIMIT),
         director_memory_repo.count_for_run(str(run_id)),
         director_memory_repo.count_executed_for_run(str(run_id)),
         event_repo.count_events_by_type(

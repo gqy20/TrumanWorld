@@ -42,6 +42,7 @@ class RunExecutionBootstrapper:
         async def tick_callback(run_id: str) -> None:
             service = SimulationService.create_for_scheduler(agent_runtime, scenario=scenario)
             await service.run_tick_isolated(run_id, async_engine)
+            await pool.cleanup_idle()
 
         async def on_max_errors(run_id: str) -> None:
             """连续失败超过阈值时自动暂停 run，更新数据库状态。"""

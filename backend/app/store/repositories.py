@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from collections.abc import Sequence
 from uuid import uuid4
 
@@ -19,6 +20,53 @@ from app.store.models import (
     Relationship,
     SimulationRun,
 )
+
+
+@dataclass(slots=True)
+class AgentNameRow:
+    id: str
+    name: str
+
+
+@dataclass(slots=True)
+class AgentWorldRow:
+    id: str
+    name: str
+    occupation: str | None
+    current_goal: str | None
+    current_location_id: str | None
+    profile: dict
+
+
+@dataclass(slots=True)
+class LocationNameRow:
+    id: str
+    name: str
+
+
+@dataclass(slots=True)
+class LocationWorldRow:
+    id: str
+    name: str
+    location_type: str | None
+    x: int
+    y: int
+    capacity: int
+
+
+@dataclass(slots=True)
+class EventApiRow:
+    id: str
+    tick_no: int
+    world_time: datetime | None
+    event_type: str
+    actor_agent_id: str | None
+    target_agent_id: str | None
+    location_id: str | None
+    importance: float
+    visibility: str
+    payload: dict
+    created_at: datetime
 
 
 class RunRepository:
@@ -158,6 +206,41 @@ class EventRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    @staticmethod
+    def _event_api_columns():
+        return (
+            Event.id,
+            Event.tick_no,
+            Event.world_time,
+            Event.event_type,
+            Event.actor_agent_id,
+            Event.target_agent_id,
+            Event.location_id,
+            Event.importance,
+            Event.visibility,
+            Event.payload,
+            Event.created_at,
+        )
+
+    @staticmethod
+    def _to_event_api_rows(rows) -> list[EventApiRow]:
+        return [
+            EventApiRow(
+                id=row.id,
+                tick_no=row.tick_no,
+                world_time=row.world_time,
+                event_type=row.event_type,
+                actor_agent_id=row.actor_agent_id,
+                target_agent_id=row.target_agent_id,
+                location_id=row.location_id,
+                importance=row.importance,
+                visibility=row.visibility,
+                payload=row.payload or {},
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
     async def list_for_run(
         self, run_id: str, limit: int = 50, since_tick: int | None = None
     ) -> Sequence[Event]:
@@ -179,6 +262,25 @@ class EventRepository:
             stmt = stmt.where(Event.tick_no > since_tick)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def list_api_rows_for_run(
+        self, run_id: str, limit: int = 50, since_tick: int | None = None
+    ) -> Sequence[EventApiRow]:
+        event_priority = case(
+            (Event.event_type.in_(["talk", "move"]), 0),
+            (Event.event_type.in_(["work", "rest"]), 2),
+            else_=1,
+        )
+        stmt = (
+            select(*self._event_api_columns())
+            .where(Event.run_id == run_id)
+            .order_by(event_priority, Event.tick_no.desc(), Event.created_at.desc())
+            .limit(limit)
+        )
+        if since_tick is not None:
+            stmt = stmt.where(Event.tick_no > since_tick)
+        result = await self.session.execute(stmt)
+        return self._to_event_api_rows(result.all())
 
     async def list_timeline_events(
         self,
@@ -247,6 +349,52 @@ class EventRepository:
             )
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
+
+    async def list_timeline_api_rows(
+        self,
+        run_id: str,
+        tick_from: int | None = None,
+        tick_to: int | None = None,
+        event_type: str | None = None,
+        actor_agent_id: str | None = None,
+        target_agent_id: str | None = None,
+        keyword: str | None = None,
+        limit: int = 2000,
+        offset: int = 0,
+        order_desc: bool = False,
+    ) -> tuple[Sequence[EventApiRow], int]:
+        from sqlalchemy import func as sql_func
+
+        conditions = [Event.run_id == run_id]
+
+        if tick_from is not None:
+            conditions.append(Event.tick_no >= tick_from)
+        if tick_to is not None:
+            conditions.append(Event.tick_no <= tick_to)
+        if event_type:
+            types = [t.strip() for t in event_type.split(",") if t.strip()]
+            if types:
+                conditions.append(Event.event_type.in_(types))
+        if actor_agent_id:
+            conditions.append(
+                or_(Event.actor_agent_id == actor_agent_id, Event.target_agent_id == actor_agent_id)
+            )
+
+        where_clause = and_(*conditions)
+
+        count_stmt = select(sql_func.count(Event.id)).where(where_clause)
+        count_result = await self.session.execute(count_stmt)
+        total = count_result.scalar_one() or 0
+
+        stmt = select(*self._event_api_columns()).where(where_clause)
+        if order_desc:
+            stmt = stmt.order_by(Event.tick_no.desc(), Event.created_at.desc())
+        else:
+            stmt = stmt.order_by(Event.tick_no.asc(), Event.created_at.asc())
+        stmt = stmt.limit(limit).offset(offset)
+
+        result = await self.session.execute(stmt)
+        return self._to_event_api_rows(result.all()), total
 
     async def count_events_by_type(
         self,
@@ -318,6 +466,37 @@ class AgentRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def list_names_for_run(self, run_id: str) -> Sequence[AgentNameRow]:
+        stmt = select(Agent.id, Agent.name).where(Agent.run_id == run_id).order_by(Agent.name.asc())
+        result = await self.session.execute(stmt)
+        return [AgentNameRow(id=row.id, name=row.name) for row in result.all()]
+
+    async def list_world_rows_for_run(self, run_id: str) -> Sequence[AgentWorldRow]:
+        stmt = (
+            select(
+                Agent.id,
+                Agent.name,
+                Agent.occupation,
+                Agent.current_goal,
+                Agent.current_location_id,
+                Agent.profile,
+            )
+            .where(Agent.run_id == run_id)
+            .order_by(Agent.name.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [
+            AgentWorldRow(
+                id=row.id,
+                name=row.name,
+                occupation=row.occupation,
+                current_goal=row.current_goal,
+                current_location_id=row.current_location_id,
+                profile=row.profile or {},
+            )
+            for row in result.all()
+        ]
 
     async def list_recent_memories(self, agent_id: str, limit: int = 10) -> Sequence[Memory]:
         stmt: Select[tuple[Memory]] = (
@@ -503,6 +682,41 @@ class LocationRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def list_names_for_run(self, run_id: str) -> Sequence[LocationNameRow]:
+        stmt = (
+            select(Location.id, Location.name)
+            .where(Location.run_id == run_id)
+            .order_by(Location.name.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [LocationNameRow(id=row.id, name=row.name) for row in result.all()]
+
+    async def list_world_rows_for_run(self, run_id: str) -> Sequence[LocationWorldRow]:
+        stmt = (
+            select(
+                Location.id,
+                Location.name,
+                Location.location_type,
+                Location.x,
+                Location.y,
+                Location.capacity,
+            )
+            .where(Location.run_id == run_id)
+            .order_by(Location.name.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [
+            LocationWorldRow(
+                id=row.id,
+                name=row.name,
+                location_type=row.location_type,
+                x=row.x,
+                y=row.y,
+                capacity=row.capacity,
+            )
+            for row in result.all()
+        ]
 
 
 class DirectorMemoryRepository:

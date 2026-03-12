@@ -41,7 +41,7 @@ const EMPTY_FILTERS: Filters = {
   agentId: "",
 };
 
-const PAGE_SIZE = 240;
+const PAGE_SIZE = 180;
 const INITIAL_VISIBLE_GROUPS = 8;
 const LOAD_MORE_GROUPS = 8;
 
@@ -87,6 +87,18 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   useEffect(() => {
     timelineRef.current = timeline;
   }, [timeline]);
+
+  useEffect(() => {
+    if (isOpen) return;
+    setTimeline(null);
+    setAgents([]);
+    setLoading(true);
+    setError(null);
+    setIsRefreshing(false);
+    setIsLoadingMore(false);
+    setVisibleGroupCount(INITIAL_VISIBLE_GROUPS);
+    timelineRef.current = null;
+  }, [isOpen]);
 
   // 加载角色列表
   useEffect(() => {

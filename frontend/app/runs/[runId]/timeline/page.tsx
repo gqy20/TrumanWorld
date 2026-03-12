@@ -63,7 +63,7 @@ function toTimelineFilter(filters: Filters, offset: number, orderDesc = true): T
   };
 }
 
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 250;
 
 export default function TimelinePage() {
   const { runId } = useParams<{ runId: string }>();

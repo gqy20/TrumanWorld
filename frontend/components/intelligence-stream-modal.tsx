@@ -27,6 +27,9 @@ type IntelligenceStreamModalProps = {
   pollIntervalMs?: number;
 };
 
+const DEFAULT_MAX_EVENTS = 500;
+const MAX_TRACKED_EVENT_IDS = 1000;
+
 export function IntelligenceStreamModal({
   isOpen,
   onClose,
@@ -47,6 +50,11 @@ export function IntelligenceStreamModal({
   const [loadError, setLoadError] = useState(false);
   // Prevent duplicate in-flight requests within the same open session
   const isLoadingRef = useRef(false);
+  const eventLimit = maxEvents ?? DEFAULT_MAX_EVENTS;
+
+  const trimKnownIds = useCallback((events: WorldEvent[]) => {
+    knownIdsRef.current = new Set(events.slice(0, MAX_TRACKED_EVENT_IDS).map((event) => event.id));
+  }, []);
 
   const loadAllEvents = useCallback(async (force = false) => {
     if (!force && isLoadingRef.current) return;
@@ -57,7 +65,7 @@ export function IntelligenceStreamModal({
     setLoadError(false);
     // Incremental query: pass since_tick for non-first loads (unless forced)
     const sinceTick = force ? undefined : (isFirstLoad ? undefined : latestTickRef.current);
-    const result = await getRunEventsResult(runId, undefined, maxEvents ?? 500, sinceTick);
+    const result = await getRunEventsResult(runId, undefined, eventLimit, sinceTick);
     if (isFirstLoad) setIsLoading(false);
     isLoadingRef.current = false;
     if (result.data) {
@@ -69,15 +77,30 @@ export function IntelligenceStreamModal({
       // Only update state when there are genuinely new events to avoid re-render flicker
       const newEvents = incoming.filter((e) => !knownIdsRef.current.has(e.id));
       if (newEvents.length > 0 || knownIdsRef.current.size === 0) {
-        incoming.forEach((e) => knownIdsRef.current.add(e.id));
-        setAllEvents(incoming);
+        setAllEvents((current) => {
+          const merged = force ? incoming : [...incoming, ...current];
+          const deduped: WorldEvent[] = [];
+          const seen = new Set<string>();
+          for (const event of merged) {
+            if (seen.has(event.id)) continue;
+            seen.add(event.id);
+            deduped.push(event);
+            if (deduped.length >= eventLimit) break;
+          }
+          trimKnownIds(deduped);
+          return deduped;
+        });
       }
     } else {
       setLoadError(true);
       // Fall back to latest world snapshot events
-      if (knownIdsRef.current.size === 0) setAllEvents(world.recent_events);
+      if (knownIdsRef.current.size === 0) {
+        const fallbackEvents = world.recent_events.slice(0, eventLimit);
+        trimKnownIds(fallbackEvents);
+        setAllEvents(fallbackEvents);
+      }
     }
-  }, [runId, maxEvents, world.recent_events]);
+  }, [eventLimit, runId, trimKnownIds, world.recent_events]);
 
   // Reset known-ids and latest tick whenever the modal is freshly opened so a full reload occurs
   const prevIsOpenRef = useRef(false);
@@ -86,10 +109,14 @@ export function IntelligenceStreamModal({
       // Fresh open: clear cache so first poll does a full replace
       knownIdsRef.current = new Set();
       latestTickRef.current = 0;
-      setAllEvents(world.recent_events);
+      setAllEvents(world.recent_events.slice(0, eventLimit));
+    } else if (!isOpen && prevIsOpenRef.current) {
+      knownIdsRef.current = new Set();
+      latestTickRef.current = 0;
+      setAllEvents([]);
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, world.recent_events]);
+  }, [eventLimit, isOpen, world.recent_events]);
 
   // Reload every time the modal is opened so new ticks are always reflected;
   // also poll every 5 s while open so live events appear without re-opening.

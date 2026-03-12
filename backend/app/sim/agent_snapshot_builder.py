@@ -17,6 +17,15 @@ if TYPE_CHECKING:
 from app.sim.world import AgentState, LocationState
 
 
+SHORT_TERM_LIMIT = 8
+MEDIUM_TERM_LIMIT = 10
+LONG_TERM_LIMIT = 12
+ALL_MEMORY_LIMIT = 24
+ABOUT_OTHER_AGENT_LIMIT = 4
+ABOUT_OTHER_MEMORY_LIMIT = 3
+MEMORY_CONTENT_PREVIEW_LIMIT = 160
+
+
 async def build_agent_memory_cache(
     *,
     session: "AsyncSession",
@@ -32,6 +41,8 @@ async def build_agent_memory_cache(
     - long_term: 长期记忆
     - about_others: 关于其他 agent 的记忆
     """
+    from collections import defaultdict
+
     from sqlalchemy import select
     from app.store.models import Memory, Agent
 
@@ -47,6 +58,7 @@ async def build_agent_memory_cache(
             select(Memory)
             .where(Memory.run_id == run_id, Memory.agent_id == agent_id)
             .order_by(Memory.created_at.desc())
+            .limit(ALL_MEMORY_LIMIT)
         )
         memories = result.scalars().all()
 
@@ -54,12 +66,15 @@ async def build_agent_memory_cache(
         medium_term: list[dict] = []
         long_term: list[dict] = []
         all_memories: list[dict] = []
-        about_others: dict[str, list[dict]] = {}
+        about_others: dict[str, list[dict]] = defaultdict(list)
 
-        for mem in memories:
-            mem_dict = {
+        def _serialize_memory(mem: Memory) -> dict[str, Any]:
+            content = mem.content or ""
+            if len(content) > MEMORY_CONTENT_PREVIEW_LIMIT:
+                content = f"{content[:MEMORY_CONTENT_PREVIEW_LIMIT]}..."
+            return {
                 "id": mem.id,
-                "content": mem.content,
+                "content": content,
                 "summary": mem.summary,
                 "tick_no": mem.tick_no,
                 "memory_type": mem.memory_type,
@@ -71,24 +86,35 @@ async def build_agent_memory_cache(
                 "related_agent_name": agent_names.get(mem.related_agent_id),
                 "location_id": mem.location_id,
             }
+
+        for mem in memories:
+            mem_dict = _serialize_memory(mem)
             all_memories.append(mem_dict)
             if mem.memory_category == "short_term":
-                short_term.append(mem_dict)
+                if len(short_term) < SHORT_TERM_LIMIT:
+                    short_term.append(mem_dict)
             elif mem.memory_category == "medium_term":
-                medium_term.append(mem_dict)
-            else:
+                if len(medium_term) < MEDIUM_TERM_LIMIT:
+                    medium_term.append(mem_dict)
+            elif len(long_term) < LONG_TERM_LIMIT:
                 long_term.append(mem_dict)
-            if mem.related_agent_id:
-                if mem.related_agent_id not in about_others:
-                    about_others[mem.related_agent_id] = []
+            if (
+                mem.related_agent_id
+                and (
+                    len(about_others) < ABOUT_OTHER_AGENT_LIMIT
+                    or mem.related_agent_id in about_others
+                )
+            ):
+                if len(about_others[mem.related_agent_id]) >= ABOUT_OTHER_MEMORY_LIMIT:
+                    continue
                 about_others[mem.related_agent_id].append(mem_dict)
 
         return agent_id, {
-            "short_term": short_term[:10],
-            "medium_term": medium_term[:15],
-            "long_term": long_term[:20],
-            "about_others": about_others,
-            "all": all_memories[:30],
+            "short_term": short_term,
+            "medium_term": medium_term,
+            "long_term": long_term,
+            "about_others": dict(about_others),
+            "all": all_memories,
         }
 
     results = await asyncio.gather(*[_load_one_agent_memories(a) for a in agents])

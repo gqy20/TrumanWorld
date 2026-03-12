@@ -120,8 +120,8 @@ async def get_director_memories(
     director_memory_repo = DirectorMemoryRepository(session)
 
     agents, locations, memories = await asyncio.gather(
-        agent_repo.list_for_run(str(run_id)),
-        location_repo.list_for_run(str(run_id)),
+        agent_repo.list_names_for_run(str(run_id)),
+        location_repo.list_names_for_run(str(run_id)),
         director_memory_repo.list_for_run(str(run_id), limit=limit),
     )
 

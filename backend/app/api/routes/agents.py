@@ -43,7 +43,7 @@ async def list_agents(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
     repo = AgentRepository(session)
-    agents = await repo.list_for_run(str(run_id))
+    agents = await repo.list_world_rows_for_run(str(run_id))
     logger.debug(f"Retrieved {len(agents)} agents for run {run_id}")
 
     return AgentsListResponse(
@@ -101,11 +101,11 @@ async def get_agent(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     # Build name maps for friendly display
-    all_agents = await repo.list_for_run(str(run_id))
+    all_agents = await repo.list_names_for_run(str(run_id))
     agent_name_map = {a.id: a.name for a in all_agents}
 
     location_repo = LocationRepository(session)
-    all_locations = await location_repo.list_for_run(str(run_id))
+    all_locations = await location_repo.list_names_for_run(str(run_id))
     location_name_map = {loc.id: loc.name for loc in all_locations}
 
     memories = await repo.list_recent_memories(agent_id)
