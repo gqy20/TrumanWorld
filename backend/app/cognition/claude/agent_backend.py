@@ -49,6 +49,13 @@ class _RuntimeInvocationAdapter:
 
 
 class ClaudeSdkAgentBackend:
+    """Claude adapter.
+
+    Reactor decisions may use a pooled ClaudeSDKClient when enabled.
+    Planner and reflector must remain one-shot query() calls so they do not
+    inherit long-lived client lifecycle and cross-task cancellation issues.
+    """
+
     def __init__(
         self,
         settings: Settings,
@@ -96,6 +103,8 @@ class ClaudeSdkAgentBackend:
         invocation: PlanningInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> dict[str, Any] | None:
+        # Intentionally bypass the pooled client path. Planning is low-frequency
+        # and should stay stateless even if a reactor pool is configured.
         return await self._run_free_text_llm(
             agent_id=invocation.agent_id,
             task="planner",
@@ -108,6 +117,8 @@ class ClaudeSdkAgentBackend:
         invocation: ReflectionInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> dict[str, Any] | None:
+        # Intentionally bypass the pooled client path. Reflection is a one-shot
+        # daily task and should not reuse long-lived ClaudeSDKClient sessions.
         return await self._run_free_text_llm(
             agent_id=invocation.agent_id,
             task="reflector",
@@ -122,6 +133,9 @@ class ClaudeSdkAgentBackend:
         prompt: str,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> dict[str, Any] | None:
+        # Do not route planner/reflector through ClaudeSDKDecisionProvider or the
+        # reactor connection pool. These tasks are intentionally modeled as
+        # one-shot query() calls.
         if shutil.which("claude") is None:
             logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")
             return None

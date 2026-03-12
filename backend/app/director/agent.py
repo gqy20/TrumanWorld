@@ -213,8 +213,9 @@ class DirectorAgent:
     async def _call_llm(self, prompt: str) -> str:
         """Call LLM for decision using Claude SDK.
 
-        Uses the same LLM infrastructure as agent decisions.
-        Uses configuration from director.yml for LLM parameters.
+        Uses one-shot query() calls with configuration from director.yml.
+        Director decisions must not use the reactor connection pool because
+        they are low-frequency and should stay stateless.
         """
         from app.cognition.claude.sdk_options import build_sdk_options
 

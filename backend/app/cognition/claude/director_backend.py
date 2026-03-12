@@ -5,6 +5,12 @@ from app.director.agent import DirectorAgent
 
 
 class ClaudeSdkDirectorBackend:
+    """Director cognition adapter.
+
+    Director decisions are intentionally executed as one-shot query() calls in
+    DirectorAgent rather than through the reactor connection pool.
+    """
+
     def __init__(self) -> None:
         self._agent = DirectorAgent()
 
