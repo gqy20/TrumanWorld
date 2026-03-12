@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 
 from app.director.observer import DirectorAssessment, SuspicionTrend
 from app.director.planner import DirectorPlanner
@@ -226,3 +227,79 @@ async def test_director_planner_prioritizes_rapid_rise_over_high_suspicion():
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_PREEMPTIVE_COMFORT
     assert plan.urgency == "immediate"
+
+
+@pytest.mark.asyncio
+async def test_director_planner_consumes_langgraph_backend_async_result():
+    from app.cognition.langgraph.director_backend import LangGraphDirectorBackend
+    from app.infra.settings import Settings
+
+    class FakeTextResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class FakeTextModel:
+        async def ainvoke(self, prompt: str):
+            return FakeTextResponse(
+                """
+                {
+                  "should_intervene": true,
+                  "scene_goal": "soft_check_in",
+                  "target_cast_names": ["Meryl"],
+                  "priority": "normal",
+                  "urgency": "advisory",
+                  "reasoning": "A gentle check-in keeps the scene natural.",
+                  "message_hint": "Check in with Truman naturally.",
+                  "strategy": "soft reassurance",
+                  "cooldown_ticks": 3
+                }
+                """
+            )
+
+    planner = DirectorPlanner(
+        backend=LangGraphDirectorBackend(
+            settings=Settings(
+                agent_backend="heuristic",
+                director_backend="langgraph",
+                director_agent_enabled=True,
+                langgraph_model="claude-test",
+                langgraph_api_key="langgraph-key",
+            ),
+            text_model=FakeTextModel(),
+        )
+    )
+    agents = [
+        _make_cast_agent("cast-spouse", "Meryl", "spouse"),
+        _make_truman_agent(0.1),
+    ]
+    assessment = DirectorAssessment(
+        run_id="run-1",
+        current_tick=5,
+        truman_agent_id="truman-1",
+        truman_suspicion_score=0.1,
+        suspicion_level="low",
+        continuity_risk="stable",
+        focus_agent_ids=["truman-1"],
+        notes=[],
+    )
+
+    first = await planner.build_plan(
+        assessment=assessment,
+        agents=agents,
+        current_tick=5,
+        world_time="2026-03-02T08:00:00+00:00",
+        run_id="run-1",
+    )
+    await asyncio.sleep(0)
+    second = await planner.build_plan(
+        assessment=assessment,
+        agents=agents,
+        current_tick=5,
+        world_time="2026-03-02T08:00:00+00:00",
+        run_id="run-1",
+    )
+
+    assert first is None
+    assert second is not None
+    assert second.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
+    assert second.target_cast_ids == ["cast-spouse"]

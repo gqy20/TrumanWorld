@@ -13,6 +13,7 @@ from app.cognition.claude.director_backend import ClaudeSdkDirectorBackend
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.cognition.heuristic.director_backend import HeuristicDirectorBackend
 from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+from app.cognition.langgraph.director_backend import LangGraphDirectorBackend
 from app.infra.settings import Settings, get_settings
 from app.scenario.types import get_agent_config_id
 from app.store.repositories import AgentRepository
@@ -47,6 +48,8 @@ class CognitionRegistry:
             )
         if director_backend == "claude_sdk":
             return ClaudeSdkDirectorBackend()
+        if director_backend == "langgraph":
+            return LangGraphDirectorBackend(self._settings)
         return HeuristicDirectorBackend()
 
     async def warmup_for_run(self, session, run_id: str) -> None:
