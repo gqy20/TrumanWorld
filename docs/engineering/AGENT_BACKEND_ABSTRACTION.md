@@ -149,6 +149,28 @@ LangGraph examples:
 
 This layer is allowed to be framework-specific and should not leak upward.
 
+### 5.5 Pooling Policy
+
+Connection pooling is not a universal optimization.
+
+For TrumanWorld's current Claude SDK integration:
+
+- reactor / action decision may use pooled long-lived clients
+- planner must remain a one-shot query call
+- reflector must remain a one-shot query call
+- director decision must remain a one-shot query call
+
+Reason:
+
+- `ClaudeSDKClient` carries async task-group lifecycle and session state
+- low-frequency free-text tasks do not benefit enough from pooling
+- forcing these tasks through the pool increases cancellation and cleanup risk
+
+In short:
+
+- pool only the high-frequency reactor path
+- keep planner / reflector / director stateless
+
 ## 6. Proposed Module Layout
 
 ### 6.1 New Neutral Layer
@@ -240,6 +262,9 @@ This avoids overloading the word `provider` and clarifies that the choice is now
 - evaluate whether planner/reflector should also move to LangGraph
 - add backend-specific tracing hooks
 - add integration tests to compare backend parity
+
+Planner / reflector / director should preserve one-shot execution semantics
+unless the underlying SDK/runtime guarantees safe cross-task long-lived reuse.
 
 ## 9. Minimal LangGraph Entry Point
 
