@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from app.cognition.claude.decision_utils import clean_response_text
+from app.cognition.claude.free_text_utils import run_text_query
 from app.director.observer import DirectorAssessment
 from app.director.types import DirectorPlan
 from app.infra.logging import get_logger
@@ -264,42 +265,19 @@ class DirectorAgent:
 
     async def _call_llm_internal(self, full_prompt: str, options: "ClaudeAgentOptions") -> str:
         """Internal LLM call - separated to handle SDK cleanup issues."""
-        from claude_agent_sdk import query
-
-        gen = None
         try:
-            gen = query(prompt=full_prompt, options=options)
-            async for message in gen:
-                if hasattr(message, "is_error") and message.is_error:
-                    msg = getattr(message, "result", None) or "DirectorAgent LLM call failed"
-                    raise RuntimeError(msg)
-
-                # Extract result
-                result = getattr(message, "result", None)
-                if result:
-                    text = result.strip()
-                    # Remove markdown code block markers if present
-                    if text.startswith("```"):
-                        text = re.sub(r"^```json?\n?", "", text)
-                        text = re.sub(r"\n?```$", "", text)
-                    text = text.strip()
-
-                    # Log token usage if available
-                    usage = getattr(message, "usage", None)
-                    if usage:
-                        logger.debug(f"DirectorAgent LLM usage: {usage}")
-
-                    return text
-
-            raise RuntimeError("DirectorAgent LLM returned no result")
-        finally:
-            # Properly close the async generator
-            if gen is not None:
-                try:
-                    await gen.aclose()
-                except RuntimeError:
-                    # Ignore "cancel scope in different task" errors - this is a known SDK issue
-                    pass
+            result = await run_text_query(
+                prompt=full_prompt,
+                options=options,
+                on_usage=lambda usage, _cost, _duration: logger.debug(
+                    f"DirectorAgent LLM usage: {usage}"
+                )
+                if usage
+                else None,
+            )
+            return clean_response_text(result)
+        except RuntimeError:
+            raise
 
     def _mock_llm_response(self) -> str:
         """Return a mock response for testing or when LLM is unavailable."""

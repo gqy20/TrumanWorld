@@ -7,6 +7,8 @@ from typing import Any
 from app.agent.prompt_loader import PromptLoader
 from app.agent.providers import ClaudeSDKDecisionProvider
 from app.cognition.claude.connection_pool import AgentConnectionPool
+from app.cognition.claude.decision_utils import clean_response_text
+from app.cognition.claude.free_text_utils import run_text_query
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -124,8 +126,6 @@ class ClaudeSdkAgentBackend:
             logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")
             return None
 
-        from claude_agent_sdk import ResultMessage, query
-
         from app.cognition.claude.sdk_options import build_sdk_options
         from app.agent.system_prompt import build_system_prompt
 
@@ -140,38 +140,33 @@ class ClaudeSdkAgentBackend:
 
         full_prompt = f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。"
 
-        result_text: str | None = None
-        gen = None
         try:
-            gen = query(prompt=full_prompt, options=options)
-            async for message in gen:
-                if isinstance(message, ResultMessage):
-                    if message.is_error:
-                        logger.warning(f"{task} LLM error for {agent_id}: {message.result}")
-                        return None
-                    if runtime_ctx and runtime_ctx.on_llm_call:
-                        runtime_ctx.on_llm_call(
-                            agent_id=agent_id,
-                            task_type=task,
-                            usage=message.usage,
-                            total_cost_usd=message.total_cost_usd,
-                            duration_ms=message.duration_ms,
-                        )
-                    result_text = message.result
+            result_text = await run_text_query(
+                prompt=full_prompt,
+                options=options,
+                on_usage=(
+                    lambda usage, total_cost_usd, duration_ms: runtime_ctx.on_llm_call(
+                        agent_id=agent_id,
+                        task_type=task,
+                        usage=usage,
+                        total_cost_usd=total_cost_usd,
+                        duration_ms=duration_ms,
+                    )
+                    if runtime_ctx and runtime_ctx.on_llm_call
+                    else None
+                ),
+            )
+        except RuntimeError as exc:
+            logger.warning(f"{task} LLM error for {agent_id}: {exc}")
+            return None
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"{task} LLM call failed for {agent_id}: {exc}")
             return None
-        finally:
-            if gen is not None:
-                try:
-                    await gen.aclose()
-                except RuntimeError:
-                    pass
 
         if not result_text:
             return None
 
-        parsed = PromptLoader.extract_json_from_text(result_text)
+        parsed = PromptLoader.extract_json_from_text(clean_response_text(result_text))
         if parsed is None:
             logger.warning(f"{task} could not parse JSON for {agent_id}: {result_text[:200]}")
         return parsed

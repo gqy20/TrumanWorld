@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import re
 import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -10,8 +8,12 @@ from typing import TYPE_CHECKING, Any
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from claude_agent_sdk.types import McpSdkServerConfig
-from pydantic import BaseModel, Field, ValidationError, model_validator
 
+from app.cognition.claude.decision_utils import (
+    RuntimeDecision,
+    build_decision_prompt,
+    parse_runtime_decision,
+)
 from app.cognition.claude.sdk_options import build_sdk_options
 from app.agent.system_prompt import build_system_prompt
 from app.infra.logging import get_logger
@@ -23,39 +25,6 @@ if TYPE_CHECKING:
     from app.sim.types import RuntimeWorldContext
 
 logger = get_logger(__name__)
-
-
-DECISION_OUTPUT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "action_type": {
-            "type": "string",
-            "enum": ["move", "talk", "work", "rest"],
-        },
-        "target_location_id": {"type": ["string", "null"]},
-        "target_agent_id": {"type": ["string", "null"]},
-        "message": {"type": ["string", "null"], "description": "对话消息内容（仅 talk 类型需要)"},
-        "payload": {"type": ["object", "null"]},
-    },
-    "required": ["action_type"],
-    "additionalProperties": False,
-}
-
-
-class RuntimeDecision(BaseModel):
-    action_type: str
-    target_location_id: str | None = None
-    target_agent_id: str | None = None
-    message: str | None = None
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_payload(cls, values: Any) -> Any:
-        if isinstance(values, dict) and values.get("payload") is None:
-            values["payload"] = {}
-        return values
-
 
 class AgentDecisionProvider(ABC):
     @abstractmethod
@@ -293,13 +262,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
 
         try:
             # Send query
-            json_schema = json.dumps(DECISION_OUTPUT_SCHEMA, indent=2)
-            full_prompt = f"""{invocation.prompt}
-
-重要：你必须只返回一个有效的 JSON 对象，不要有其他任何文本。JSON 格式如下:
-{json_schema}
-
-    返回 JSON，不要有 markdown 代码块标记。 """
+            full_prompt = build_decision_prompt(invocation.prompt)
 
             await client.query(full_prompt)
 
@@ -308,25 +271,10 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
                         if hasattr(block, "text") and block.text:
-                            text = block.text.strip()
-                            # Remove markdown code block markers
-                            if text.startswith("```"):
-                                text = re.sub(r"^```json?\n?", "", text)
-                                text = re.sub(r"\n?```$", "", text)
-                            text = text.strip()
-
-                            # Try to parse JSON
                             try:
-                                result_decision = RuntimeDecision.model_validate_json(text)
+                                result_decision = parse_runtime_decision(block.text)
                             except Exception:
-                                # Fallback: extract first { to last } pair
-                                start = text.find("{")
-                                end = text.rfind("}")
-                                if start != -1 and end != -1 and end > start:
-                                    json_str = text[start : end + 1]
-                                    result_decision = RuntimeDecision.model_validate_json(json_str)
-                                else:
-                                    raise ValueError("No valid JSON found in response")
+                                raise ValueError("No valid JSON found in response")
                 elif isinstance(message, ResultMessage):
                     captured_session_id = message.session_id  # 捕获 session_id
                     if message.is_error:
@@ -334,19 +282,10 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                         raise RuntimeError(msg)
                     # 如果 AssistantMessage 未能解析出决策，尝试从 ResultMessage.result 解析
                     if result_decision is None and message.result:
-                        text = message.result.strip()
-                        if text.startswith("```"):
-                            text = re.sub(r"^```json?\n?", "", text)
-                            text = re.sub(r"\n?```$", "", text)
-                        text = text.strip()
                         try:
-                            result_decision = RuntimeDecision.model_validate_json(text)
+                            result_decision = parse_runtime_decision(message.result)
                         except Exception:
-                            start = text.find("{")
-                            end = text.rfind("}")
-                            if start != -1 and end != -1 and end > start:
-                                json_str = text[start : end + 1]
-                                result_decision = RuntimeDecision.model_validate_json(json_str)
+                            pass
                     # 记录 token 消耗
                     if runtime_ctx and runtime_ctx.on_llm_call:
                         runtime_ctx.on_llm_call(
@@ -396,13 +335,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                 f"Resuming session {invocation.session_id} for agent {invocation.agent_id}"
             )
 
-        json_schema = json.dumps(DECISION_OUTPUT_SCHEMA, indent=2)
-        full_prompt = f"""{invocation.prompt}
-
-重要:你必须只返回一个有效的 JSON 对象，不要有其他任何文本。JSON 格式如下:
-{json_schema}
-
-    返回 JSON，不要有 markdown 代码块标记. """
+        full_prompt = build_decision_prompt(invocation.prompt)
 
         max_attempts = self.max_retries + 1
         last_exc: Exception | None = None
@@ -478,27 +411,12 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                         )
                     # Parse JSON from text response
                     if message.result:
-                        text = message.result.strip()
-                        # Remove markdown code block markers if present
-                        if text.startswith("```"):
-                            text = re.sub(r"^```json?\n?", "", text)
-                            text = re.sub(r"\n?```$", "", text)
-                        text = text.strip()
-                        # Try to parse as-is first
                         try:
-                            result_decision = RuntimeDecision.model_validate_json(text)
-                        except Exception:
-                            # Fallback: extract first { to last } pair
-                            start = text.find("{")
-                            end = text.rfind("}")
-                            if start != -1 and end != -1 and end > start:
-                                json_str = text[start : end + 1]
-                                result_decision = RuntimeDecision.model_validate_json(json_str)
-                            else:
-                                raise ValueError("No valid JSON found in response")
-                        except (json.JSONDecodeError, ValidationError) as exc:
-                            msg = f"Failed to parse decision JSON: {exc}"
-                            raise RuntimeError(msg) from exc
+                            result_decision = parse_runtime_decision(message.result)
+                        except ValueError:
+                            raise
+                        except RuntimeError:
+                            raise
         finally:
             # Properly close the async generator
             if gen is not None:
