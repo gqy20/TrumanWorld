@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel, Field
 
+from app.agent.prompt_loader import PromptLoader
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -50,9 +51,12 @@ class LangGraphAgentBackend:
         self,
         settings: Settings | None = None,
         decision_model: Any | None = None,
+        text_model: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._decision_model = decision_model or self._build_default_model()
+        default_model = self._build_default_model()
+        self._decision_model = decision_model or default_model
+        self._text_model = text_model or decision_model or default_model
         graph = StateGraph(_DecisionState, context_schema=_DecisionContext)
         graph.add_node(
             "model_decide",
@@ -96,14 +100,24 @@ class LangGraphAgentBackend:
         invocation: PlanningInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> dict | None:
-        return None
+        return await self._run_text_task(
+            agent_id=invocation.agent_id,
+            task="planner",
+            prompt=invocation.prompt,
+            runtime_ctx=runtime_ctx,
+        )
 
     async def reflect_day(
         self,
         invocation: ReflectionInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> dict | None:
-        return None
+        return await self._run_text_task(
+            agent_id=invocation.agent_id,
+            task="reflector",
+            prompt=invocation.prompt,
+            runtime_ctx=runtime_ctx,
+        )
 
     def _route_start(self, state: _DecisionState) -> str:
         return "model_decide" if state["use_model"] else "fallback_decide"
@@ -121,7 +135,7 @@ class LangGraphAgentBackend:
         duration_ms = int((perf_counter() - started_at) * 1000)
         result = self._coerce_model_result(response, invocation.allowed_actions)
         if result is not None:
-            self._maybe_record_usage(runtime_ctx, invocation, response, duration_ms)
+            self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", response, duration_ms)
             return {"invocation": invocation, "result": result, "use_model": True}
 
         return {
@@ -172,6 +186,35 @@ class LangGraphAgentBackend:
             model_kwargs["base_url"] = self._settings.langgraph_base_url
         return ChatAnthropic(**model_kwargs)
 
+    async def _run_text_task(
+        self,
+        *,
+        agent_id: str,
+        task: str,
+        prompt: str,
+        runtime_ctx: BackendExecutionContext | None,
+    ) -> dict[str, Any] | None:
+        if self._text_model is None:
+            return None
+        try:
+            started_at = perf_counter()
+            response = await self._text_model.ainvoke(
+                f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。"
+            )
+            duration_ms = int((perf_counter() - started_at) * 1000)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"LangGraph {task} failed for {agent_id}: {exc}")
+            return None
+
+        self._maybe_record_usage(runtime_ctx, agent_id, task, response, duration_ms)
+        content = self._extract_text_content(response)
+        if not content:
+            return None
+        parsed = PromptLoader.extract_json_from_text(content)
+        if parsed is None:
+            logger.warning(f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}")
+        return parsed
+
     def _build_model_retry_policy(self) -> RetryPolicy:
         return RetryPolicy(
             max_attempts=2,
@@ -215,10 +258,31 @@ class LangGraphAgentBackend:
             payload=dict(data.get("payload") or {}),
         )
 
+    def _extract_text_content(self, response: Any) -> str:
+        content = getattr(response, "content", response)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        parts.append(text)
+                else:
+                    text = getattr(item, "text", None)
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "\n".join(parts).strip()
+        return ""
+
     def _maybe_record_usage(
         self,
         runtime_ctx: BackendExecutionContext | None,
-        invocation: AgentActionInvocation,
+        agent_id: str,
+        task_type: str,
         response: Any,
         duration_ms: int,
     ) -> None:
@@ -230,8 +294,8 @@ class LangGraphAgentBackend:
         if usage is None:
             return
         runtime_ctx.on_llm_call(
-            agent_id=invocation.agent_id,
-            task_type="reactor",
+            agent_id=agent_id,
+            task_type=task_type,
             usage=usage,
             total_cost_usd=0.0,
             duration_ms=duration_ms,

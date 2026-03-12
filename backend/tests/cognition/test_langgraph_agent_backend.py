@@ -284,6 +284,93 @@ async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
     assert recorded[0]["duration"] > 0
 
 
+async def test_langgraph_backend_plan_day_returns_parsed_json() -> None:
+    import asyncio
+
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+    from app.cognition.types import PlanningInvocation
+
+    class FakeTextResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+            self.usage_metadata = {"input_tokens": 19, "output_tokens": 13}
+
+    class FakeTextModel:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, prompt: str):
+            self.prompts.append(prompt)
+            await asyncio.sleep(0.01)
+            return FakeTextResponse(
+                '{"morning":"work","daytime":"talk","evening":"rest","intention":"stay visible"}'
+            )
+
+    recorded: list[dict] = []
+
+    def on_llm_call(agent_id, task_type, usage, total_cost_usd, duration_ms):
+        recorded.append(
+            {
+                "agent_id": agent_id,
+                "task_type": task_type,
+                "usage": usage,
+                "cost": total_cost_usd,
+                "duration": duration_ms,
+            }
+        )
+
+    model = FakeTextModel()
+    backend = LangGraphAgentBackend(text_model=model)
+    result = await backend.plan_day(
+        PlanningInvocation(
+            agent_id="alice",
+            agent_name="Alice",
+            prompt="Return a JSON plan",
+            context={"world_time": "2026-03-02T06:00:00+00:00"},
+        ),
+        runtime_ctx=BackendExecutionContext(on_llm_call=on_llm_call),
+    )
+
+    assert result is not None
+    assert result["morning"] == "work"
+    assert model.prompts
+    assert recorded[0]["agent_id"] == "alice"
+    assert recorded[0]["task_type"] == "planner"
+    assert recorded[0]["usage"] == {"input_tokens": 19, "output_tokens": 13}
+    assert recorded[0]["cost"] == 0.0
+    assert recorded[0]["duration"] > 0
+
+
+async def test_langgraph_backend_reflect_day_returns_parsed_json() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+    from app.cognition.types import ReflectionInvocation
+
+    class FakeTextResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+            self.usage_metadata = {"input_tokens": 9, "output_tokens": 21}
+
+    class FakeTextModel:
+        async def ainvoke(self, prompt: str):
+            return FakeTextResponse(
+                '{"reflection":"Good day","mood":"calm","key_person":"bob","tomorrow_intention":"rest"}'
+            )
+
+    backend = LangGraphAgentBackend(text_model=FakeTextModel())
+    result = await backend.reflect_day(
+        ReflectionInvocation(
+            agent_id="alice",
+            agent_name="Alice",
+            prompt="Return a JSON reflection",
+            context={"world_time": "2026-03-02T22:00:00+00:00"},
+        )
+    )
+
+    assert result is not None
+    assert result["mood"] == "calm"
+    assert result["key_person"] == "bob"
+
+
 def test_langgraph_backend_builds_default_model_from_langgraph_settings() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
