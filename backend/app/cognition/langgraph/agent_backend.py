@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from time import perf_counter
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -104,10 +105,12 @@ class LangGraphAgentBackend:
 
         try:
             structured_model = self._decision_model.with_structured_output(_StructuredDecision)
+            started_at = perf_counter()
             response = await structured_model.ainvoke(self._build_model_prompt(invocation))
+            duration_ms = int((perf_counter() - started_at) * 1000)
             result = self._coerce_model_result(response, invocation.allowed_actions)
             if result is not None:
-                self._maybe_record_usage(runtime_ctx, invocation, response)
+                self._maybe_record_usage(runtime_ctx, invocation, response, duration_ms)
                 return {"invocation": invocation, "result": result, "use_model": True}
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
@@ -202,6 +205,7 @@ class LangGraphAgentBackend:
         runtime_ctx: BackendExecutionContext | None,
         invocation: AgentActionInvocation,
         response: Any,
+        duration_ms: int,
     ) -> None:
         if runtime_ctx is None or runtime_ctx.on_llm_call is None:
             return
@@ -215,5 +219,5 @@ class LangGraphAgentBackend:
             task_type="reactor",
             usage=usage,
             total_cost_usd=0.0,
-            duration_ms=0,
+            duration_ms=duration_ms,
         )

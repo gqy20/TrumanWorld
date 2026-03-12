@@ -190,6 +190,8 @@ async def test_langgraph_backend_rejects_invalid_move_without_target() -> None:
 
 
 async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
+    import asyncio
+
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
     class FakeStructuredResponse(dict):
@@ -205,6 +207,7 @@ async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
             return self
 
         async def ainvoke(self, prompt: str):
+            await asyncio.sleep(0.01)
             return FakeStructuredResponse()
 
     recorded: list[dict] = []
@@ -234,15 +237,12 @@ async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
     result = await backend.decide_action(invocation, runtime_ctx=runtime_ctx)
 
     assert result.action_type == "rest"
-    assert recorded == [
-        {
-            "agent_id": "alice",
-            "task_type": "reactor",
-            "usage": {"input_tokens": 11, "output_tokens": 7},
-            "cost": 0.0,
-            "duration": 0,
-        }
-    ]
+    assert len(recorded) == 1
+    assert recorded[0]["agent_id"] == "alice"
+    assert recorded[0]["task_type"] == "reactor"
+    assert recorded[0]["usage"] == {"input_tokens": 11, "output_tokens": 7}
+    assert recorded[0]["cost"] == 0.0
+    assert recorded[0]["duration"] > 0
 
 
 def test_langgraph_backend_builds_default_model_from_langgraph_settings() -> None:
