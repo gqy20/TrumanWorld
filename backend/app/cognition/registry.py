@@ -12,6 +12,7 @@ from app.cognition.claude.connection_pool import (
 from app.cognition.claude.director_backend import ClaudeSdkDirectorBackend
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.cognition.heuristic.director_backend import HeuristicDirectorBackend
+from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 from app.infra.settings import Settings, get_settings
 from app.scenario.types import get_agent_config_id
 from app.store.repositories import AgentRepository
@@ -32,6 +33,8 @@ class CognitionRegistry:
             )
         if agent_backend == "claude_sdk":
             return ClaudeSdkAgentBackend(self._settings, connection_pool=self._claude_pool)
+        if agent_backend == "langgraph":
+            return LangGraphAgentBackend()
         return HeuristicAgentBackend()
 
     def build_director_backend(self):

@@ -17,6 +17,7 @@ dependencies = [
     "prometheus-client>=0.22.0",
     "redis>=5.2.0",
     "claude-agent-sdk>=0.1.48",
+    "langgraph==1.0.5",
 ]
 
 [project.optional-dependencies]
