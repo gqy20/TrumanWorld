@@ -63,17 +63,25 @@ async def test_langgraph_backend_uses_structured_model_decision() -> None:
     class FakeStructuredModel:
         def __init__(self) -> None:
             self.prompts: list[str] = []
+            self.structured_calls: list[dict] = []
 
-        def with_structured_output(self, schema):
+        def with_structured_output(self, schema, *, method=None, include_raw=False):
+            self.structured_calls.append(
+                {"schema": schema, "method": method, "include_raw": include_raw}
+            )
             return self
 
         async def ainvoke(self, prompt: str):
             self.prompts.append(prompt)
             return {
-                "action_type": "talk",
-                "target_agent_id": "bob",
-                "message": "Morning, Bob.",
-                "payload": {"source": "langgraph-model"},
+                "raw": {},
+                "parsed": {
+                    "action_type": "talk",
+                    "target_agent_id": "bob",
+                    "message": "Morning, Bob.",
+                    "payload": {"source": "langgraph-model"},
+                },
+                "parsing_error": None,
             }
 
     model = FakeStructuredModel()
@@ -94,6 +102,8 @@ async def test_langgraph_backend_uses_structured_model_decision() -> None:
     assert result.message == "Morning, Bob."
     assert result.payload == {"source": "langgraph-model"}
     assert model.prompts
+    assert model.structured_calls[0]["method"] == "json_schema"
+    assert model.structured_calls[0]["include_raw"] is True
     assert "Pick the next action." in model.prompts[0]
 
 
@@ -126,6 +136,46 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
 
     assert result.action_type == "move"
     assert result.target_location_id == "town-square"
+
+
+async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_fails() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    class TextJsonFallbackModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def with_structured_output(self, schema, *, method=None, include_raw=False):
+            return self
+
+        async def ainvoke(self, prompt: str):
+            self.calls += 1
+            if self.calls == 1:
+                raise ValueError("structured output unsupported")
+            return """
+            好的，下面是结果：
+            {
+              "action_type": "talk",
+              "target_agent_id": "bob",
+              "message": "Fallback JSON works."
+            }
+            """
+
+    backend = LangGraphAgentBackend(decision_model=TextJsonFallbackModel())
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={"world": {"current_goal": "talk", "nearby_agent_id": "bob"}},
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    result = await backend.decide_action(invocation)
+
+    assert result.action_type == "talk"
+    assert result.target_agent_id == "bob"
+    assert result.message == "Fallback JSON works."
 
 
 async def test_langgraph_backend_retries_transient_model_failures() -> None:

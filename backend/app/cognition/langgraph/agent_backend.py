@@ -129,13 +129,12 @@ class LangGraphAgentBackend:
     ) -> _DecisionState:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
-        structured_model = self._decision_model.with_structured_output(_StructuredDecision)
-        started_at = perf_counter()
-        response = await structured_model.ainvoke(self._build_model_prompt(invocation))
-        duration_ms = int((perf_counter() - started_at) * 1000)
-        result = self._coerce_model_result(response, invocation.allowed_actions)
+        result = await self._run_structured_reactor_decision(invocation, runtime_ctx)
         if result is not None:
-            self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", response, duration_ms)
+            return {"invocation": invocation, "result": result, "use_model": True}
+
+        result = await self._run_text_reactor_decision(invocation, runtime_ctx)
+        if result is not None:
             return {"invocation": invocation, "result": result, "use_model": True}
 
         return {
@@ -231,6 +230,87 @@ class LangGraphAgentBackend:
             "Return only the structured action decision."
         )
 
+    async def _run_structured_reactor_decision(
+        self,
+        invocation: AgentActionInvocation,
+        runtime_ctx: BackendExecutionContext | None,
+    ) -> AgentDecisionResult | None:
+        structured_model = self._build_structured_decision_model()
+        started_at = perf_counter()
+        try:
+            response = await structured_model.ainvoke(self._build_model_prompt(invocation))
+        except RuntimeError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                f"LangGraph structured reactor decision failed for {invocation.agent_id}: {exc}"
+            )
+            return None
+
+        duration_ms = int((perf_counter() - started_at) * 1000)
+        raw_response = response.get("raw") if self._is_structured_wrapper(response) else response
+        self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", raw_response, duration_ms)
+
+        parsed = self._extract_structured_response(response)
+        if parsed is None:
+            return None
+        return self._coerce_model_result(parsed, invocation.allowed_actions)
+
+    async def _run_text_reactor_decision(
+        self,
+        invocation: AgentActionInvocation,
+        runtime_ctx: BackendExecutionContext | None,
+    ) -> AgentDecisionResult | None:
+        started_at = perf_counter()
+        try:
+            response = await self._decision_model.ainvoke(self._build_text_json_prompt(invocation))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"LangGraph text reactor decision failed for {invocation.agent_id}: {exc}")
+            return None
+
+        duration_ms = int((perf_counter() - started_at) * 1000)
+        self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", response, duration_ms)
+        content = self._extract_text_content(response)
+        if not content:
+            return None
+        parsed = PromptLoader.extract_json_from_text(content)
+        if not isinstance(parsed, dict):
+            return None
+        return self._coerce_model_result(parsed, invocation.allowed_actions)
+
+    def _build_text_json_prompt(self, invocation: AgentActionInvocation) -> str:
+        schema_json = json.dumps(_StructuredDecision.model_json_schema(), ensure_ascii=False, indent=2)
+        return (
+            f"{self._build_model_prompt(invocation)}\n\n"
+            "If native structured output is unavailable, return exactly one JSON object "
+            "matching this schema and no additional text.\n"
+            f"{schema_json}"
+        )
+
+    def _build_structured_decision_model(self) -> Any:
+        try:
+            return self._decision_model.with_structured_output(
+                _StructuredDecision,
+                method="json_schema",
+                include_raw=True,
+            )
+        except TypeError:
+            return self._decision_model.with_structured_output(_StructuredDecision)
+
+    def _is_structured_wrapper(self, response: Any) -> bool:
+        return isinstance(response, dict) and {
+            "raw",
+            "parsed",
+            "parsing_error",
+        }.issubset(response.keys())
+
+    def _extract_structured_response(self, response: Any) -> Any | None:
+        if self._is_structured_wrapper(response):
+            if response.get("parsing_error") is not None:
+                return None
+            return response.get("parsed")
+        return response
+
     def _coerce_model_result(
         self,
         response: _StructuredDecision | dict[str, Any],
@@ -287,6 +367,8 @@ class LangGraphAgentBackend:
         duration_ms: int,
     ) -> None:
         if runtime_ctx is None or runtime_ctx.on_llm_call is None:
+            return
+        if response is None:
             return
         usage = getattr(response, "usage_metadata", None)
         if usage is None and isinstance(response, dict):
