@@ -329,22 +329,26 @@ class LangGraphAgentBackend:
     def _build_model_prompt(self, invocation: AgentActionInvocation) -> str:
         context_json = json.dumps(invocation.context, ensure_ascii=False, sort_keys=True)
         allowed_actions = ", ".join(invocation.allowed_actions)
+        # Reordered: instructions + schema before context for better cache efficiency
         return (
             f"{invocation.prompt}\n\n"
-            f"Allowed actions: {allowed_actions}\n"
-            f"Agent context JSON:\n{context_json}\n\n"
-            "Return only the structured action decision."
+            f"Allowed actions: {allowed_actions}\n\n"
+            "Return only the structured action decision.\n\n"
+            f"Agent context JSON:\n{context_json}"
         )
 
     def _split_reactor_prompt(self, invocation: AgentActionInvocation) -> tuple[str, str]:
         prompt = self._build_text_json_prompt(invocation)
-        # Reactor prompt uses "Agent context JSON:" as the split point
-        # (stable: instructions + schema, dynamic: world state context)
-        marker = "Agent context JSON:"
+        # Split point: "Agent context JSON:\n" followed by the dynamic context
+        # Everything before this marker is stable (prompt, actions, instructions, schema)
+        # Everything after is dynamic (world state that changes every tick)
+        marker = "Agent context JSON:\n"
         if marker not in prompt:
             return prompt, ""
         stable_prefix, dynamic_suffix = prompt.split(marker, 1)
-        return stable_prefix.rstrip(), f"{marker}{dynamic_suffix}".strip()
+        # Include "Agent context JSON:" in stable prefix (without trailing newline)
+        # dynamic_suffix is just the context JSON
+        return (stable_prefix + "Agent context JSON:").rstrip(), dynamic_suffix.strip()
 
     def _build_reactor_messages(self, invocation: AgentActionInvocation) -> list[HumanMessage] | str:
         if not self._settings.langgraph_reactor_prompt_cache_enabled:
@@ -480,11 +484,18 @@ class LangGraphAgentBackend:
 
     def _build_text_json_prompt(self, invocation: AgentActionInvocation) -> str:
         schema_json = json.dumps(_StructuredDecision.model_json_schema(), ensure_ascii=False, indent=2)
+        context_json = json.dumps(invocation.context, ensure_ascii=False, sort_keys=True)
+        allowed_actions = ", ".join(invocation.allowed_actions)
+        # Optimized order: stable content first (prompt, actions, instructions, schema),
+        # then dynamic content (context JSON) for better prompt caching
         return (
-            f"{self._build_model_prompt(invocation)}\n\n"
+            f"{invocation.prompt}\n\n"
+            f"Allowed actions: {allowed_actions}\n\n"
+            "Return only the structured action decision.\n\n"
             "If native structured output is unavailable, return exactly one JSON object "
             "matching this schema and no additional text.\n"
-            f"{schema_json}"
+            f"{schema_json}\n\n"
+            f"Agent context JSON:\n{context_json}"
         )
 
     def _build_structured_decision_model(self) -> Any:

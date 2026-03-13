@@ -84,12 +84,14 @@ class TestReactorPromptCache:
         stable_prefix, dynamic_suffix = backend_with_cache_enabled._split_reactor_prompt(invocation)
 
         # Stable prefix should NOT contain the dynamic context
-        assert "Agent context JSON:" not in stable_prefix
         assert '"world"' not in stable_prefix
         assert '"tick"' not in stable_prefix
 
-        # Dynamic suffix should contain the marker and context
-        assert "Agent context JSON:" in dynamic_suffix
+        # Marker should be at the end of stable prefix
+        assert stable_prefix.endswith("Agent context JSON:")
+
+        # Dynamic suffix should contain only the context JSON (no marker)
+        assert dynamic_suffix.startswith("{")
         assert '"world"' in dynamic_suffix
         assert '"tick"' in dynamic_suffix
 
@@ -224,3 +226,100 @@ class TestReactorPromptCache:
         # Should still split properly
         assert isinstance(stable_prefix, str)
         assert isinstance(dynamic_suffix, str)
+
+    def test_json_schema_in_stable_prefix(
+        self, backend_with_cache_enabled: LangGraphAgentBackend
+    ) -> None:
+        """JSON schema should be in stable prefix for cache efficiency."""
+        invocation = AgentActionInvocation(
+            agent_id="alice",
+            prompt="Pick the next action.",
+            context={"world": {"tick": 1}},
+            max_turns=2,
+            max_budget_usd=0.1,
+            allowed_actions=["move", "talk", "work", "rest"],
+        )
+        stable_prefix, dynamic_suffix = backend_with_cache_enabled._split_reactor_prompt(invocation)
+
+        # JSON schema should be in stable prefix (for caching)
+        assert '"action_type"' in stable_prefix
+        assert '"type": "string"' in stable_prefix
+        assert '"properties"' in stable_prefix
+
+        # JSON schema should NOT be in dynamic suffix
+        assert '"action_type"' not in dynamic_suffix
+
+    def test_return_instructions_in_stable_prefix(
+        self, backend_with_cache_enabled: LangGraphAgentBackend
+    ) -> None:
+        """Return instructions should be in stable prefix for cache efficiency."""
+        invocation = AgentActionInvocation(
+            agent_id="alice",
+            prompt="Pick the next action.",
+            context={"world": {"tick": 1}},
+            max_turns=2,
+            max_budget_usd=0.1,
+            allowed_actions=["rest"],
+        )
+        stable_prefix, dynamic_suffix = backend_with_cache_enabled._split_reactor_prompt(invocation)
+
+        # Return instructions should be in stable prefix
+        assert "Return only the structured action decision" in stable_prefix
+        assert "If native structured output is unavailable" in stable_prefix
+
+        # These instructions should NOT be in dynamic suffix
+        assert "Return only the structured action decision" not in dynamic_suffix
+
+    def test_only_context_json_in_dynamic_suffix(
+        self, backend_with_cache_enabled: LangGraphAgentBackend
+    ) -> None:
+        """Only the context JSON should be in dynamic suffix."""
+        invocation = AgentActionInvocation(
+            agent_id="alice",
+            prompt="Pick the next action.",
+            context={"world": {"tick": 1, "current_goal": "rest"}},
+            max_turns=2,
+            max_budget_usd=0.1,
+            allowed_actions=["rest"],
+        )
+        stable_prefix, dynamic_suffix = backend_with_cache_enabled._split_reactor_prompt(invocation)
+
+        # Dynamic suffix should start with the context JSON
+        assert dynamic_suffix.startswith("{")
+        assert '"world"' in dynamic_suffix
+        assert '"tick"' in dynamic_suffix
+
+        # Dynamic suffix should NOT contain instructions or schema
+        assert "Return only" not in dynamic_suffix
+        assert "action_type" not in dynamic_suffix
+
+    def test_stable_prefix_size_is_optimized(
+        self, backend_with_cache_enabled: LangGraphAgentBackend
+    ) -> None:
+        """Stable prefix should be large enough for effective caching (target: >300 tokens)."""
+        invocation = AgentActionInvocation(
+            agent_id="alice",
+            prompt="Pick the next action. You are a helpful assistant in a simulation world.",
+            context={"world": {"tick": 1}},
+            max_turns=2,
+            max_budget_usd=0.1,
+            allowed_actions=["move", "talk", "work", "rest"],
+        )
+        stable_prefix, dynamic_suffix = backend_with_cache_enabled._split_reactor_prompt(invocation)
+
+        # Rough token estimation: chars / 4
+        stable_tokens_estimate = len(stable_prefix) // 4
+
+        # Target: stable prefix should be >250 tokens (roughly >1000 chars)
+        # This ensures JSON schema + instructions are cached
+        assert stable_tokens_estimate > 250, (
+            f"Stable prefix too small: {stable_tokens_estimate} tokens ({len(stable_prefix)} chars). "
+            f"Expected >250 tokens for effective caching."
+        )
+
+        # Dynamic suffix should be relatively small (<250 tokens)
+        dynamic_tokens_estimate = len(dynamic_suffix) // 4
+        assert dynamic_tokens_estimate < 250, (
+            f"Dynamic suffix too large: {dynamic_tokens_estimate} tokens ({len(dynamic_suffix)} chars). "
+            f"Expected <250 tokens."
+        )
