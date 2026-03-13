@@ -74,6 +74,9 @@ def format_event_for_context(
         result["conversation_event_type"] = payload["conversation_event_type"]
     if "speaker_agent_id" in payload:
         result["speaker_agent_id"] = payload["speaker_agent_id"]
+        speaker_agent_id = payload["speaker_agent_id"]
+        if speaker_agent_id in agent_states:
+            result["speaker_name"] = agent_states[speaker_agent_id].name
     if "participant_ids" in payload:
         result["participant_ids"] = payload["participant_ids"]
 

@@ -172,6 +172,7 @@ def test_format_event_for_context_uses_names_and_defaults():
         "conversation_role": "speaker",
         "conversation_event_type": "speech",
         "speaker_agent_id": "alice",
+        "speaker_name": "Alice",
         "participant_ids": ["alice", "bob", "carol"],
     }
 

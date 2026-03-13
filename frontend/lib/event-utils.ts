@@ -26,6 +26,36 @@ type EventMeta = {
   color: string;
 };
 
+function looksLikeOpaqueAgentId(value: string): boolean {
+  return /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value);
+}
+
+function resolveSpeakerLabel(
+  speakerName: unknown,
+  speakerAgentId: unknown,
+  fallback: unknown,
+  nameMap?: Record<string, string>,
+): string {
+  if (typeof speakerName === "string" && speakerName.trim().length > 0) {
+    return speakerName;
+  }
+
+  if (typeof speakerAgentId === "string" && speakerAgentId.trim().length > 0) {
+    if (nameMap && nameMap[speakerAgentId]) {
+      return nameMap[speakerAgentId];
+    }
+    if (!looksLikeOpaqueAgentId(speakerAgentId)) {
+      return speakerAgentId;
+    }
+  }
+
+  if (typeof fallback === "string" && fallback.trim().length > 0) {
+    return fallback;
+  }
+
+  return "某人";
+}
+
 const DEFAULT_EVENT_META: EventMeta = {
   icon: "✨",
   label: "未知事件",
@@ -148,17 +178,23 @@ export function describeWorldEvent(
     case EVENT_TALK:
       return `${actor} 对 ${target} 发言`;
     case EVENT_LISTEN: {
-      const speaker =
-        nameMap[String(event.payload.speaker_agent_id ?? "")] ||
-        String(event.payload.speaker_agent_id || target);
+      const speaker = resolveSpeakerLabel(
+        event.payload.speaker_name,
+        event.payload.speaker_agent_id,
+        target,
+        nameMap,
+      );
       return `${actor} 正在听 ${speaker} 说话`;
     }
     case EVENT_CONVERSATION_STARTED:
       return `${actor} 与 ${target} 开始了一段对话`;
     case EVENT_CONVERSATION_JOINED: {
-      const speaker =
-        nameMap[String(event.payload.speaker_agent_id ?? "")] ||
-        String(event.payload.speaker_agent_id || target);
+      const speaker = resolveSpeakerLabel(
+        event.payload.speaker_name,
+        event.payload.speaker_agent_id,
+        target,
+        nameMap,
+      );
       return `${actor} 加入了 ${speaker} 主导的对话`;
     }
     case EVENT_WORK:
@@ -191,7 +227,7 @@ export function describeTimelineEvent(event: Pick<TimelineEvent, "event_type" | 
   }
   if (event.event_type === EVENT_LISTEN) {
     const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
-    const speaker = String(payload.speaker_name ?? payload.speaker_agent_id ?? payload.target_name ?? "某人");
+    const speaker = resolveSpeakerLabel(payload.speaker_name, payload.speaker_agent_id, payload.target_name);
     return `${actor} 正在倾听 ${speaker}`;
   }
   if (event.event_type === EVENT_CONVERSATION_STARTED) {
@@ -201,7 +237,7 @@ export function describeTimelineEvent(event: Pick<TimelineEvent, "event_type" | 
   }
   if (event.event_type === EVENT_CONVERSATION_JOINED) {
     const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
-    const speaker = String(payload.speaker_name ?? payload.speaker_agent_id ?? payload.target_name ?? "某人");
+    const speaker = resolveSpeakerLabel(payload.speaker_name, payload.speaker_agent_id, payload.target_name);
     return `${actor} 加入了 ${speaker} 主导的对话`;
   }
   if (event.event_type === EVENT_MOVE) {
@@ -237,7 +273,7 @@ export function describeAgentEvent(event: AgentDetails["recent_events"][number])
     return `对 ${event.target_name} 发言`;
   }
   if (event.event_type === EVENT_LISTEN) {
-    return `正在倾听 ${String(event.payload.speaker_name ?? event.payload.speaker_agent_id ?? event.target_name ?? "某人")}`;
+    return `正在倾听 ${resolveSpeakerLabel(event.payload.speaker_name, event.payload.speaker_agent_id, event.target_name)}`;
   }
   if (event.event_type === EVENT_CONVERSATION_STARTED && event.target_name) {
     return `与 ${event.target_name} 开始对话`;
