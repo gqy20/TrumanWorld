@@ -9,6 +9,7 @@ from langgraph.types import RetryPolicy
 from pydantic import BaseModel, Field
 
 from app.agent.prompt_loader import PromptLoader
+from app.cognition.claude.decision_provider import HeuristicDecisionHook
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -54,6 +55,7 @@ class LangGraphAgentBackend:
         text_model: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
+        self._decision_hook: HeuristicDecisionHook | None = None
         default_model = self._build_default_model()
         self._decision_model = decision_model or default_model
         self._text_model = text_model or decision_model or default_model
@@ -76,6 +78,9 @@ class LangGraphAgentBackend:
         graph.add_edge("fallback_decide", END)
         self._graph = graph.compile()
 
+    def set_decision_hook(self, decision_hook: HeuristicDecisionHook | None) -> None:
+        self._decision_hook = decision_hook
+
     async def decide_action(
         self,
         invocation: AgentActionInvocation,
@@ -92,7 +97,7 @@ class LangGraphAgentBackend:
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
-            return self._heuristic_decision(invocation)
+            return self._fallback_decision(invocation, reason=str(exc))
         return state["result"] or AgentDecisionResult(action_type="rest")
 
     async def plan_day(
@@ -140,7 +145,10 @@ class LangGraphAgentBackend:
 
         return {
             "invocation": invocation,
-            "result": self._heuristic_decision(invocation),
+            "result": self._fallback_decision(
+                invocation,
+                reason="langgraph_unavailable",
+            ),
             "use_model": True,
         }
 
@@ -148,7 +156,10 @@ class LangGraphAgentBackend:
         invocation = state["invocation"]
         return {
             "invocation": invocation,
-            "result": self._heuristic_decision(invocation),
+            "result": self._fallback_decision(
+                invocation,
+                reason="model_disabled",
+            ),
             "use_model": False,
         }
 
@@ -169,7 +180,45 @@ class LangGraphAgentBackend:
                 target_location_id=target_location_id,
             )
 
+        if self._decision_hook is not None:
+            nearby_agent_id = world.get("nearby_agent_id")
+            current_location_id = world.get("current_location_id")
+            home_location_id = world.get("home_location_id")
+            hook_decision = self._decision_hook(
+                world=world,
+                nearby_agent_id=nearby_agent_id,
+                current_location_id=current_location_id,
+                home_location_id=home_location_id,
+                agent_id=invocation.agent_id,
+            )
+            if hook_decision is not None:
+                return AgentDecisionResult(
+                    action_type=hook_decision.action_type,
+                    target_location_id=hook_decision.target_location_id,
+                    target_agent_id=hook_decision.target_agent_id,
+                    message=hook_decision.message,
+                    payload=dict(hook_decision.payload),
+                )
+
         return AgentDecisionResult(action_type="rest")
+
+    def _fallback_decision(
+        self,
+        invocation: AgentActionInvocation,
+        *,
+        reason: str,
+    ) -> AgentDecisionResult:
+        result = self._heuristic_decision(invocation)
+        logger.warning(
+            "LangGraph reactor fallback applied for %s: action=%s target_agent_id=%s "
+            "target_location_id=%s reason=%s",
+            invocation.agent_id,
+            result.action_type,
+            result.target_agent_id,
+            result.target_location_id,
+            reason,
+        )
+        return result
 
     def _build_default_model(self) -> Any | None:
         if not self._settings.langgraph_model or not self._settings.langgraph_api_key:
@@ -208,15 +257,18 @@ class LangGraphAgentBackend:
             duration_ms = int((perf_counter() - started_at) * 1000)
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph {task} failed for {agent_id}: {exc}")
+            logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
             return None
 
         self._maybe_record_usage(runtime_ctx, agent_id, task, response, duration_ms)
         content = self._extract_text_content(response)
         if not content:
+            logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
             return None
         parsed = PromptLoader.extract_json_from_text(content)
         if parsed is None:
             logger.warning(f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}")
+            logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
         return parsed
 
     def _build_model_retry_policy(self) -> RetryPolicy:

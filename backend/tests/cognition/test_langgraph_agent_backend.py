@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from app.cognition.registry import CognitionRegistry
 from app.cognition.types import AgentActionInvocation, BackendExecutionContext
 from app.infra.settings import Settings
@@ -189,6 +191,47 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
 
     assert result.action_type == "move"
     assert result.target_location_id == "town-square"
+
+
+async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(caplog: pytest.LogCaptureFixture) -> None:
+    from app.cognition.claude.decision_utils import RuntimeDecision
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    class FailingModel:
+        async def ainvoke(self, prompt: str):
+            raise RuntimeError("connection error")
+
+    backend = LangGraphAgentBackend(decision_model=FailingModel())
+    backend.set_decision_hook(
+        lambda world, nearby_agent_id, current_location_id, home_location_id, agent_id: RuntimeDecision(
+            action_type="talk",
+            target_agent_id=nearby_agent_id,
+            message="Fallback says hi.",
+        )
+    )
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={
+            "world": {
+                "current_goal": "talk",
+                "nearby_agent_id": "bob",
+                "current_location_id": "cafe",
+                "home_location_id": "home",
+            }
+        },
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    with caplog.at_level("WARNING"):
+        result = await backend.decide_action(invocation)
+
+    assert result.action_type == "talk"
+    assert result.target_agent_id == "bob"
+    assert result.message == "Fallback says hi."
+    assert "LangGraph reactor fallback applied for alice: action=talk" in caplog.text
 
 
 async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_fails() -> None:
@@ -481,6 +524,30 @@ async def test_langgraph_backend_reflect_day_returns_parsed_json() -> None:
     assert result is not None
     assert result["mood"] == "calm"
     assert result["key_person"] == "bob"
+
+
+async def test_langgraph_backend_logs_when_planner_falls_back(caplog: pytest.LogCaptureFixture) -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+    from app.cognition.types import PlanningInvocation
+
+    class FailingTextModel:
+        async def ainvoke(self, prompt: str):
+            raise RuntimeError("connection error")
+
+    backend = LangGraphAgentBackend(text_model=FailingTextModel())
+
+    with caplog.at_level("WARNING"):
+        result = await backend.plan_day(
+            PlanningInvocation(
+                agent_id="alice",
+                agent_name="Alice",
+                prompt="Return a JSON plan",
+                context={"world_time": "2026-03-02T06:00:00+00:00"},
+            )
+        )
+
+    assert result is None
+    assert "LangGraph planner fallback applied for alice: result=None" in caplog.text
 
 
 def test_langgraph_backend_builds_default_model_from_langgraph_settings() -> None:
