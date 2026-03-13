@@ -177,7 +177,7 @@ def test_decision_prompt_requires_message_field_for_talk(runtime: AgentRuntime):
         in invocation.prompt
     )
     assert (
-        "当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然对话）"
+        "当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然发言；会在执行层映射为 speech 事件）"
         in invocation.prompt
     )
 

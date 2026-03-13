@@ -220,7 +220,8 @@ class AgentRuntime:
         payload = dict(decision.payload)
         if decision.message:
             payload["message"] = decision.message
-        # No default message injection — LLM must provide message content for talk actions
+        # No default message injection — the model must provide message content
+        # for talk actions, which are later persisted as speech events.
         return ActionIntent(
             agent_id=invocation.agent_id,
             action_type=decision.action_type,

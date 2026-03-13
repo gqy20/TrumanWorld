@@ -16,7 +16,10 @@ DECISION_OUTPUT_SCHEMA = {
         },
         "target_location_id": {"type": ["string", "null"]},
         "target_agent_id": {"type": ["string", "null"]},
-        "message": {"type": ["string", "null"], "description": "对话消息内容（仅 talk 类型需要)"},
+        "message": {
+            "type": ["string", "null"],
+            "description": "发言内容（仅 talk 类型需要；talk 在执行层会映射为 speech 事件）",
+        },
         "payload": {"type": ["object", "null"]},
     },
     "required": ["action_type"],

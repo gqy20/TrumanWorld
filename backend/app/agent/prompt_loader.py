@@ -54,7 +54,7 @@ class PromptLoader:
             }
             plan_label = {
                 "work": "工作",
-                "talk": "社交",
+                "talk": "发言社交",
                 "socialize": "社交",
                 "wander": "闲逛",
                 "rest": "休息",
@@ -101,7 +101,7 @@ class PromptLoader:
                 "- `action_type` 必须来自允许动作集合",
                 "- 当 `action_type=move` 时，应尽量提供 `target_location_id`",
                 "- 当 `action_type=move` 时，只能使用运行上下文中真实存在的地点 ID，不要编造别名、英文变体或不存在的地点",
-                "- 当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然对话）",
+                "- 当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然发言；会在执行层映射为 speech 事件）",
                 "- 如果信息不足，优先保持当前情境一致，通常返回 `rest`，不要把普通停留、等待、整理或在家活动表述成 `work`",
                 "- 只有当你明确处在合理的工作场景中时，才返回 `work`；有固定工作地点的人在到达工作地点前应优先 `move` 或 `rest`",
                 "- **重要**：对话要延续之前的内容，不要重复已说过的话",
