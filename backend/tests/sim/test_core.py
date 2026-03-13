@@ -282,6 +282,49 @@ def test_simulation_runner_uses_conversation_scheduler_to_reserve_listener():
     assert result.rejected[0].reason == "agent_in_conversation"
 
 
+def test_simulation_runner_allows_joiner_to_enter_session_without_taking_turn():
+    world = WorldState(
+        current_time=datetime(2026, 3, 7, 8, 0, 0),
+        tick_minutes=5,
+        locations={
+            "plaza": LocationState(
+                id="plaza",
+                name="Plaza",
+                capacity=4,
+                occupants={"alice", "bob", "carol"},
+            )
+        },
+        agents={
+            "alice": AgentState(id="alice", name="Alice", location_id="plaza", status={}),
+            "bob": AgentState(id="bob", name="Bob", location_id="plaza", status={}),
+            "carol": AgentState(id="carol", name="Carol", location_id="plaza", status={}),
+        },
+    )
+    runner = SimulationRunner(world)
+
+    result = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Hey Bob!"},
+            ),
+            ActionIntent(
+                agent_id="carol",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Mind if I join?"},
+            ),
+        ]
+    )
+
+    assert len(result.accepted) == 1
+    assert len(result.rejected) == 1
+    assert result.accepted[0].action_type == "talk"
+    assert result.rejected[0].reason == "conversation_turn_taken"
+
+
 def test_action_resolver_suppresses_work_for_talk_target_regardless_of_order():
     """Even when the target's work intent is processed BEFORE the talk intent,
     prefill_talked_agents ensures the work is still suppressed."""

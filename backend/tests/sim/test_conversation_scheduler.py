@@ -40,7 +40,7 @@ def test_conversation_scheduler_creates_session_for_valid_talk_intent():
     assert assignments["bob"].conversation_id == sessions[0].id
 
 
-def test_conversation_scheduler_rejects_second_conversation_for_busy_target():
+def test_conversation_scheduler_converts_second_talk_into_join_for_busy_target():
     world = _build_collocated_world()
     scheduler = ConversationScheduler()
 
@@ -55,4 +55,26 @@ def test_conversation_scheduler_rejects_second_conversation_for_busy_target():
     assert len(sessions) == 1
     assert assignments["alice"].role == "speaker"
     assert assignments["bob"].role == "listener"
-    assert assignments["carol"].role == "none"
+    assert assignments["carol"].role == "listener"
+    assert assignments["carol"].reason == "conversation_joiner"
+
+
+def test_conversation_scheduler_adds_joiner_to_existing_session():
+    world = _build_collocated_world()
+    scheduler = ConversationScheduler()
+
+    sessions, assignments = scheduler.schedule(
+        [
+            ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob"),
+            ActionIntent(agent_id="carol", action_type="talk", target_agent_id="bob"),
+        ],
+        world,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].participant_ids == ["alice", "bob", "carol"]
+    assert sessions[0].active_speaker_id == "alice"
+    assert assignments["alice"].role == "speaker"
+    assert assignments["bob"].role == "listener"
+    assert assignments["carol"].role == "listener"
+    assert assignments["carol"].reason == "conversation_joiner"

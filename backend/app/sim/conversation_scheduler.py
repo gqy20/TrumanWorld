@@ -7,7 +7,7 @@ from app.sim.action_resolver import ActionIntent
 from app.sim.world import WorldState
 
 
-@dataclass(frozen=True)
+@dataclass
 class ConversationSession:
     id: str
     location_id: str
@@ -40,6 +40,8 @@ class ConversationScheduler:
         sessions: list[ConversationSession] = []
         assignments: dict[str, ConversationAssignment] = {}
         occupied_agents: set[str] = set()
+        session_by_id: dict[str, ConversationSession] = {}
+        session_by_participant: dict[str, str] = {}
 
         for intent in intents:
             if intent.action_type != "talk":
@@ -52,7 +54,33 @@ class ConversationScheduler:
                 continue
             if actor.location_id != target.location_id:
                 continue
-            if actor.id in occupied_agents or target.id in occupied_agents:
+            if actor.id in occupied_agents:
+                if actor.id not in assignments:
+                    assignments[actor.id] = ConversationAssignment(
+                        agent_id=actor.id,
+                        conversation_id=None,
+                        role="none",
+                        reason="participant_busy",
+                    )
+                continue
+
+            target_session_id = session_by_participant.get(target.id)
+            if target_session_id is not None:
+                session = session_by_id[target_session_id]
+                if actor.id not in session.participant_ids:
+                    session.participant_ids.append(actor.id)
+                    session.turn_order.append(actor.id)
+                    occupied_agents.add(actor.id)
+                    session_by_participant[actor.id] = session.id
+                assignments[actor.id] = ConversationAssignment(
+                    agent_id=actor.id,
+                    conversation_id=session.id,
+                    role="listener",
+                    reason="conversation_joiner",
+                )
+                continue
+
+            if target.id in occupied_agents:
                 if actor.id not in assignments:
                     assignments[actor.id] = ConversationAssignment(
                         agent_id=actor.id,
@@ -70,8 +98,11 @@ class ConversationScheduler:
                 turn_order=[actor.id, target.id],
             )
             sessions.append(session)
+            session_by_id[session.id] = session
             occupied_agents.add(actor.id)
             occupied_agents.add(target.id)
+            session_by_participant[actor.id] = session.id
+            session_by_participant[target.id] = session.id
             assignments[actor.id] = ConversationAssignment(
                 agent_id=actor.id,
                 conversation_id=session.id,
