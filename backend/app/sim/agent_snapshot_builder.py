@@ -164,7 +164,7 @@ async def build_agent_recent_events(
 
     agent_inputs = union_all(*agent_rows).cte("agent_inputs")
     event_priority = case(
-        (Event.event_type.in_(["talk", "move"]), 0),
+        (Event.event_type.in_(["talk", "speech", "listen", "move"]), 0),
         (Event.event_type.in_(["work", "rest"]), 2),
         else_=1,
     )

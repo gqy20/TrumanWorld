@@ -180,8 +180,8 @@ async def test_relationship_repository_upserts_and_clamps_values(db_session):
 
 
 @pytest.mark.asyncio
-async def test_list_recent_events_prioritises_talk_and_move_over_work_rest(db_session):
-    """talk/move events must be returned before work/rest events even when the
+async def test_list_recent_events_prioritises_social_and_move_over_work_rest(db_session):
+    """speech/move events must be returned before work/rest events even when the
     work/rest events occurred in more recent ticks, so that LLM context windows
     are not dominated by repetitive noise."""
     run = SimulationRun(id="run-priority", name="priority", status="running")
@@ -197,7 +197,7 @@ async def test_list_recent_events_prioritises_talk_and_move_over_work_rest(db_se
     )
     db_session.add_all([run, agent])
 
-    # Two work events at high ticks, one talk event at a low tick
+    # Two work events at high ticks, one speech event at a low tick
     db_session.add_all(
         [
             Event(
@@ -217,10 +217,10 @@ async def test_list_recent_events_prioritises_talk_and_move_over_work_rest(db_se
                 payload={"agent_id": "agent-p"},
             ),
             Event(
-                id="ev-talk-5",
+                id="ev-speech-5",
                 run_id="run-priority",
                 tick_no=5,
-                event_type="talk",
+                event_type="speech",
                 actor_agent_id="agent-p",
                 payload={"agent_id": "agent-p", "message": "hello"},
             ),
@@ -240,11 +240,11 @@ async def test_list_recent_events_prioritises_talk_and_move_over_work_rest(db_se
     events = await repo.list_recent_events("run-priority", "agent-p", limit=4)
     event_types = [e.event_type for e in events]
 
-    # talk and move must appear before work entries
-    assert event_types.index("talk") < event_types.index("work")
+    # speech and move must appear before work entries
+    assert event_types.index("speech") < event_types.index("work")
     assert event_types.index("move") < event_types.index("work")
-    # Both talk and the two work events should all be present within limit=4
-    assert "talk" in event_types
+    # Both speech and the two work events should all be present within limit=4
+    assert "speech" in event_types
     assert "move" in event_types
     assert event_types.count("work") == 2
 

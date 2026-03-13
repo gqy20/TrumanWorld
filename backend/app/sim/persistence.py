@@ -284,7 +284,7 @@ class PersistenceManager:
         """Persist relationships from talk events."""
         updated = False
         for event in events:
-            if event.event_type != "talk":
+            if event.event_type not in {"talk", "speech"}:
                 continue
             if event.actor_agent_id is None or event.target_agent_id is None:
                 continue
@@ -320,7 +320,7 @@ class PersistenceManager:
         rel_repo = RelationshipRepository(session)
         updated = False
         for event in events:
-            if event.event_type != "talk":
+            if event.event_type not in {"talk", "speech"}:
                 continue
             if event.actor_agent_id is None or event.target_agent_id is None:
                 continue
@@ -391,7 +391,7 @@ class PersistenceManager:
                 )
             ]
 
-        if event.event_type == "talk":
+        if event.event_type in {"talk", "speech"}:
             target_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
             loc_id = str(payload.get("location_id") or "")
             target = agent_name(target_id)
@@ -565,7 +565,9 @@ class PersistenceManager:
         goal = agent.current_goal.lower()
         if event.event_type in goal:
             return True
-        return event.event_type == "move" and goal.startswith("move:")
+        if event.event_type == "move" and goal.startswith("move:"):
+            return True
+        return event.event_type == "speech" and "talk" in goal
 
     @staticmethod
     def _is_location_relevant(event: Event, agent: "Agent | None") -> bool:

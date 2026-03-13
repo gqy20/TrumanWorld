@@ -29,6 +29,28 @@ def test_build_event_sets_public_visibility_for_accepted_actions():
     assert event.visibility == "public"
 
 
+def test_build_event_maps_accepted_talk_to_speech_event():
+    event = build_event(
+        run_id="run-1",
+        tick_no=3,
+        world_time="2026-01-01T09:00:00",
+        action_type="talk",
+        payload={
+            "agent_id": "alice",
+            "target_agent_id": "bob",
+            "location_id": "cafe",
+            "message": "hello",
+            "conversation_event_type": "speech",
+            "speaker_agent_id": "alice",
+        },
+        accepted=True,
+    )
+
+    assert event.event_type == "speech"
+    assert event.actor_agent_id == "alice"
+    assert event.target_agent_id == "bob"
+
+
 def test_build_event_supports_listen_action():
     event = build_event(
         run_id="run-1",
@@ -96,7 +118,7 @@ def test_format_event_for_context_uses_names_and_defaults():
         id="event-1",
         run_id="run-1",
         tick_no=7,
-        event_type="talk",
+        event_type="speech",
         actor_agent_id="alice",
         target_agent_id="bob",
         location_id="cafe",
@@ -117,7 +139,7 @@ def test_format_event_for_context_uses_names_and_defaults():
     )
 
     assert formatted == {
-        "event_type": "talk",
+        "event_type": "speech",
         "tick_no": 7,
         "actor_name": "Alice",
         "target_name": "Bob",

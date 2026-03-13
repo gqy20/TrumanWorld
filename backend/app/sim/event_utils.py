@@ -18,6 +18,8 @@ def build_event(
 ) -> Event:
     visibility = "public" if accepted else "system"
     event_type = action_type if accepted else build_rejected_event_type(action_type)
+    if accepted and action_type == "talk" and payload.get("conversation_event_type") == "speech":
+        event_type = "speech"
 
     # Calculate importance if not provided
     if importance is None:

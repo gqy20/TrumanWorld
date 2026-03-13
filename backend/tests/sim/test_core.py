@@ -237,6 +237,7 @@ def test_action_resolver_suppresses_rest_for_talk_target():
     event appears alongside the talk event."""
     world = _build_collocated_world()
     resolver = ActionResolver()
+    scheduler = ConversationScheduler()
     resolver.reset_tick()
 
     intents = [
@@ -248,7 +249,24 @@ def test_action_resolver_suppresses_rest_for_talk_target():
         ),
         ActionIntent(agent_id="bob", action_type="rest"),
     ]
-    resolver.prefill_talked_agents(intents, world)
+    sessions, assignments = scheduler.schedule(intents, world)
+    resolver.prefill_conversation_assignments(
+        {
+            assignment.agent_id: {
+                "role": assignment.role,
+                "conversation_id": assignment.conversation_id,
+                "participant_ids": next(
+                    (
+                        list(session.participant_ids)
+                        for session in sessions
+                        if session.id == assignment.conversation_id
+                    ),
+                    [],
+                ),
+            }
+            for assignment in assignments.values()
+        }
+    )
 
     result_alice = resolver.resolve(world, intents[0])
     result_bob_rest = resolver.resolve(world, intents[1])
@@ -390,7 +408,7 @@ def test_simulation_runner_tags_listener_suppression_with_conversation_id():
 
 def test_action_resolver_suppresses_work_for_talk_target_regardless_of_order():
     """Even when the target's work intent is processed BEFORE the talk intent,
-    prefill_talked_agents ensures the work is still suppressed."""
+    scheduler assignments ensure the work is still suppressed."""
     world = _build_collocated_world()
     runner = SimulationRunner(world)
 

@@ -24,7 +24,7 @@ async def test_get_agent_returns_state_and_related_data(client, db_session):
         id="event-1",
         run_id=run_id,
         tick_no=3,
-        event_type="talk",
+        event_type="speech",
         actor_agent_id="alice",
         payload={"message": "hello"},
     )
@@ -60,7 +60,7 @@ async def test_get_agent_returns_state_and_related_data(client, db_session):
     assert body["occupation"] == "barista"
     assert body["current_goal"] == "open cafe"
     assert len(body["recent_events"]) == 1
-    assert body["recent_events"][0]["event_type"] == "talk"
+    assert body["recent_events"][0]["event_type"] == "speech"
     assert len(body["memories"]) == 1
     assert body["memories"][0]["summary"] == "Met Bob"
     assert body["memories"][0]["memory_category"] == "short_term"
@@ -195,11 +195,10 @@ async def test_get_agent_returns_generated_talk_memory_for_target(client, db_ses
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["recent_events"]) == 1
-    assert body["recent_events"][0]["event_type"] == "talk"
+    assert len(body["recent_events"]) == 2
+    assert {event["event_type"] for event in body["recent_events"]} == {"speech", "listen"}
     assert len(body["memories"]) == 1
-    # 对话记忆包含对方的名字（message 由 LLM 生成，此处为空）
-    assert "Alice" in body["memories"][0]["summary"]
+    assert body["memories"][0]["summary"].startswith("Listened to Alice")
     assert body["memories"][0]["self_relevance"] >= 0.8
 
 

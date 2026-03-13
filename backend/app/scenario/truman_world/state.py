@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING
 
 from app.protocol.simulation import (
     DIRECTOR_EVENT_PREFIX,
+    EVENT_LISTEN,
     EVENT_MOVE,
     EVENT_REST,
+    EVENT_SPEECH,
     EVENT_TALK,
     EVENT_WORK,
 )
@@ -55,7 +57,7 @@ class TrumanWorldStateUpdater:
                 delta += 0.12
             elif event.event_type.startswith(DIRECTOR_EVENT_PREFIX):
                 delta += 0.2
-            elif event.event_type == EVENT_TALK:
+            elif event.event_type in {EVENT_TALK, EVENT_SPEECH, EVENT_LISTEN}:
                 delta -= 0.02
             elif event.event_type in {EVENT_REST, EVENT_WORK}:
                 delta -= 0.01

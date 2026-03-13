@@ -121,7 +121,7 @@ class PromptLoader:
         target_name = evt.get("target_name", "")
         tick_no = evt.get("tick_no", "?")
 
-        if event_type == "talk":
+        if event_type in {"talk", "speech"}:
             message = evt.get("message", "...")
             if target_name:
                 return f'[Tick {tick_no}] {actor_name} → {target_name}: "{message}"'

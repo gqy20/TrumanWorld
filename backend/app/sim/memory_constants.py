@@ -19,6 +19,7 @@ EVENT_IMPORTANCE_DEFAULTS: dict[str, float] = {
     "director_broadcast": 0.85,
     "power_outage": 0.80,
     "talk": 0.55,
+    "speech": 0.55,
     "listen": 0.68,
     "talk_rejected": 0.32,
     "listen_rejected": 0.18,
@@ -63,7 +64,7 @@ def calculate_event_importance(
     importance = EVENT_IMPORTANCE_DEFAULTS.get(event_type, 0.3)
 
     message = str(payload.get("message") or "")
-    if event_type == "talk":
+    if event_type in {"talk", "speech"}:
         if any(word in message for word in EMOTIONAL_WORDS):
             importance += 0.12
         if len(message) > 100:

@@ -52,39 +52,6 @@ class ActionResolver:
         self._conversation_ids.clear()
         self._conversation_participants.clear()
 
-    def prefill_talked_agents(self, intents: list[ActionIntent], world: WorldState) -> None:
-        """Pre-scan intents to register talk targets before resolve() is called.
-
-        Only the TARGET of each valid talk is registered in _prefilled_targets,
-        so that regardless of processing order, a target's non-talk actions
-        (rest/work/move) in the same tick are suppressed via agent_in_conversation.
-        The actor's own talk intent is not pre-blocked here.
-        """
-        for intent in intents:
-            if intent.action_type != "talk":
-                continue
-            actor = world.get_agent(intent.agent_id)
-            target = self._resolve_target_agent(world, intent.target_agent_id)
-            if actor is None or target is None:
-                continue
-            if actor.location_id != target.location_id:
-                continue
-            self._prefilled_targets.add(target.id)
-
-    def prefill_conversation_targets(self, listener_agent_ids: set[str]) -> None:
-        """Reserve agents already assigned as listeners in scheduled conversations."""
-        self._prefilled_targets.update(listener_agent_ids)
-        for agent_id in listener_agent_ids:
-            self._conversation_roles[agent_id] = "listener"
-
-    def prefill_conversation_roles(self, conversation_roles: dict[str, str]) -> None:
-        """Register scheduler-assigned conversation roles for this tick."""
-        self._conversation_roles.update(conversation_roles)
-        listener_agent_ids = {
-            agent_id for agent_id, role in conversation_roles.items() if role == "listener"
-        }
-        self._prefilled_targets.update(listener_agent_ids)
-
     def prefill_conversation_assignments(
         self,
         conversation_assignments: dict[str, dict[str, object]],

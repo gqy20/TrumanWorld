@@ -387,7 +387,7 @@ async def get_run_events(
 
     if event_type:
         if event_type == "social":
-            filter_types = {"talk"}
+            filter_types = {"talk", "speech", "listen"}
         elif event_type == "movement":
             filter_types = {"move"}
         elif event_type == "activity":
@@ -436,18 +436,20 @@ async def get_world_pulse(
             str(run_id),
             tick_from=None,
             tick_to=None,
-            event_types=["talk", "move", "move_rejected", "talk_rejected"],
+            event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
         ),
         llm_call_repo.get_token_totals(str(run_id)),
     )
 
     world_time = get_run_world_time(run)
 
+    social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get("talk", 0)
+
     return WorldPulseResponse(
         run=build_run_snapshot(run),
         world_clock=build_world_clock(world_time),
         daily_stats=WorldDailyStatsResponse(
-            talk_count=all_time_event_counts.get("talk", 0),
+            talk_count=social_speech_count,
             move_count=all_time_event_counts.get("move", 0),
             rejection_count=all_time_event_counts.get("move_rejected", 0)
             + all_time_event_counts.get("talk_rejected", 0),
@@ -500,7 +502,7 @@ async def get_world_snapshot(
             str(run_id),
             tick_from=None,
             tick_to=None,
-            event_types=["talk", "move", "move_rejected", "talk_rejected"],
+            event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
         ),
         llm_call_repo.get_token_totals(str(run_id)),
     )
@@ -536,6 +538,8 @@ async def get_world_snapshot(
     world_time = get_run_world_time(run)
     agent_name_map, location_name_map = build_name_maps(agents, locations)
 
+    social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get("talk", 0)
+
     logger.debug(
         f"World snapshot retrieved for run {run_id}: "
         f"agents={len(agents)}, locations={len(locations)}, events={len(events)}, "
@@ -558,7 +562,7 @@ async def get_world_snapshot(
             else 0,
         ),
         daily_stats=WorldDailyStatsResponse(
-            talk_count=all_time_event_counts.get("talk", 0),
+            talk_count=social_speech_count,
             move_count=all_time_event_counts.get("move", 0),
             rejection_count=all_time_event_counts.get("move_rejected", 0)
             + all_time_event_counts.get("talk_rejected", 0),

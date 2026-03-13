@@ -10,6 +10,7 @@ ACTION_REST = "rest"
 
 EVENT_MOVE = ACTION_MOVE
 EVENT_TALK = ACTION_TALK
+EVENT_SPEECH = "speech"
 EVENT_LISTEN = ACTION_LISTEN
 EVENT_WORK = ACTION_WORK
 EVENT_REST = ACTION_REST
@@ -69,7 +70,7 @@ RejectedActionEventType: TypeAlias = Literal[
     "director_weather_change_rejected",
     "director_power_outage_rejected",
 ]
-EventType: TypeAlias = ActionType | RejectedActionEventType
+EventType: TypeAlias = ActionType | RejectedActionEventType | Literal["speech"]
 DirectorSceneGoal: TypeAlias = Literal[
     # 自动干预
     "soft_check_in",
