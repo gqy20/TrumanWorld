@@ -74,7 +74,7 @@ async def test_langgraph_backend_prefers_text_json_by_default() -> None:
 
     class FakeTextFirstModel:
         def __init__(self) -> None:
-            self.prompts: list[str] = []
+            self.prompts: list[object] = []
             self.structured_calls: list[dict] = []
 
         def with_structured_output(self, schema, *, method=None, include_raw=False):
@@ -113,7 +113,11 @@ async def test_langgraph_backend_prefers_text_json_by_default() -> None:
     assert result.payload == {"source": "langgraph-model"}
     assert model.prompts
     assert model.structured_calls == []
-    assert "Pick the next action." in model.prompts[0]
+    first_prompt = model.prompts[0]
+    assert isinstance(first_prompt, list)
+    first_message = first_prompt[0]
+    assert first_message.content[0]["cache_control"] == {"type": "ephemeral"}
+    assert "Pick the next action." in first_message.content[0]["text"]
 
 
 async def test_langgraph_backend_uses_structured_model_when_explicitly_enabled() -> None:
@@ -163,6 +167,43 @@ async def test_langgraph_backend_uses_structured_model_when_explicitly_enabled()
     assert result.message == "Structured path works."
     assert model.structured_calls[0]["method"] == "json_schema"
     assert model.structured_calls[0]["include_raw"] is True
+
+
+async def test_langgraph_backend_can_disable_reactor_prompt_cache() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    settings = Settings(
+        agent_backend="langgraph",
+        langgraph_reactor_prompt_cache_enabled=False,
+    )
+
+    class FakeTextModel:
+        def __init__(self) -> None:
+            self.prompts: list[object] = []
+
+        async def ainvoke(self, prompt: object):
+            self.prompts.append(prompt)
+            return """
+            {
+              "action_type": "rest"
+            }
+            """
+
+    model = FakeTextModel()
+    backend = LangGraphAgentBackend(settings=settings, decision_model=model)
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={"world": {"current_goal": "rest"}},
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    result = await backend.decide_action(invocation)
+
+    assert result.action_type == "rest"
+    assert isinstance(model.prompts[0], str)
 
 
 async def test_langgraph_backend_falls_back_when_model_errors() -> None:

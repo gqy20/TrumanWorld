@@ -10,6 +10,20 @@ class LlmCallCollector:
     def __init__(self) -> None:
         self.records: list[LlmCall] = []
 
+    @staticmethod
+    def _extract_cache_tokens(usage: dict | None) -> tuple[int, int]:
+        usage = usage or {}
+        input_token_details = usage.get("input_token_details")
+        if isinstance(input_token_details, dict):
+            return (
+                int(input_token_details.get("cache_read", 0) or 0),
+                int(input_token_details.get("cache_creation", 0) or 0),
+            )
+        return (
+            int(usage.get("cache_read_input_tokens", 0) or 0),
+            int(usage.get("cache_creation_input_tokens", 0) or 0),
+        )
+
     def build_callback(
         self,
         *,
@@ -24,6 +38,7 @@ class LlmCallCollector:
             total_cost_usd: float | None,
             duration_ms: int,
         ) -> None:
+            cache_read_tokens, cache_creation_tokens = self._extract_cache_tokens(usage)
             self.records.append(
                 LlmCall(
                     id=str(uuid4()),
@@ -33,8 +48,8 @@ class LlmCallCollector:
                     tick_no=tick_no,
                     input_tokens=int((usage or {}).get("input_tokens", 0)),
                     output_tokens=int((usage or {}).get("output_tokens", 0)),
-                    cache_read_tokens=int((usage or {}).get("cache_read_input_tokens", 0)),
-                    cache_creation_tokens=int((usage or {}).get("cache_creation_input_tokens", 0)),
+                    cache_read_tokens=cache_read_tokens,
+                    cache_creation_tokens=cache_creation_tokens,
                     total_cost_usd=total_cost_usd,
                     duration_ms=duration_ms or 0,
                 )

@@ -160,6 +160,7 @@ class SimulationService:
             if not intents:
                 intents = await self.prepare_tick_intents(run_id, world)
             result = self._build_tick_orchestrator().execute_tick(
+                run_id=run_id,
                 world=world,
                 current_tick=run.current_tick,
                 intents=intents,

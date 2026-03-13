@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from app.agent.prompt_loader import PromptLoader
@@ -86,6 +87,7 @@ class LangGraphAgentBackend:
         invocation: AgentActionInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> AgentDecisionResult:
+        started_at = perf_counter()
         try:
             state = await self._graph.ainvoke(
                 {
@@ -98,7 +100,18 @@ class LangGraphAgentBackend:
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
             return self._fallback_decision(invocation, reason=str(exc))
-        return state["result"] or AgentDecisionResult(action_type="rest")
+        result = state["result"] or AgentDecisionResult(action_type="rest")
+        logger.debug(
+            "langgraph_reactor_completed run_id=%s agent_id=%s duration_ms=%s action_type=%s "
+            "target_agent_id=%s target_location_id=%s",
+            runtime_ctx.run_id if runtime_ctx is not None else None,
+            invocation.agent_id,
+            int((perf_counter() - started_at) * 1000),
+            result.action_type,
+            result.target_agent_id,
+            result.target_location_id,
+        )
+        return result
 
     async def plan_day(
         self,
@@ -249,26 +262,62 @@ class LangGraphAgentBackend:
     ) -> dict[str, Any] | None:
         if self._text_model is None:
             return None
+        started_at = perf_counter()
         try:
-            started_at = perf_counter()
             response = await self._text_model.ainvoke(
                 f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。"
             )
             duration_ms = int((perf_counter() - started_at) * 1000)
         except Exception as exc:  # noqa: BLE001
+            duration_ms = int((perf_counter() - started_at) * 1000)
             logger.warning(f"LangGraph {task} failed for {agent_id}: {exc}")
+            logger.debug(
+                "langgraph_text_task_failed run_id=%s agent_id=%s task=%s duration_ms=%s "
+                "exception_type=%s",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                agent_id,
+                task,
+                duration_ms,
+                type(exc).__name__,
+            )
             logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
             return None
 
         self._maybe_record_usage(runtime_ctx, agent_id, task, response, duration_ms)
         content = self._extract_text_content(response)
         if not content:
+            logger.debug(
+                "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
+                "success=false reason=empty_content",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                agent_id,
+                task,
+                duration_ms,
+            )
             logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
             return None
         parsed = PromptLoader.extract_json_from_text(content)
         if parsed is None:
             logger.warning(f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}")
+            logger.debug(
+                "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
+                "success=false reason=non_json",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                agent_id,
+                task,
+                duration_ms,
+            )
             logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
+        else:
+            logger.debug(
+                "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
+                "success=true response_keys=%s",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                agent_id,
+                task,
+                duration_ms,
+                sorted(parsed.keys()) if isinstance(parsed, dict) else None,
+            )
         return parsed
 
     def _build_model_retry_policy(self) -> RetryPolicy:
@@ -287,6 +336,42 @@ class LangGraphAgentBackend:
             "Return only the structured action decision."
         )
 
+    def _split_reactor_prompt(self, invocation: AgentActionInvocation) -> tuple[str, str]:
+        prompt = self._build_text_json_prompt(invocation)
+        # Reactor prompt uses "Agent context JSON:" as the split point
+        # (stable: instructions + schema, dynamic: world state context)
+        marker = "Agent context JSON:"
+        if marker not in prompt:
+            return prompt, ""
+        stable_prefix, dynamic_suffix = prompt.split(marker, 1)
+        return stable_prefix.rstrip(), f"{marker}{dynamic_suffix}".strip()
+
+    def _build_reactor_messages(self, invocation: AgentActionInvocation) -> list[HumanMessage] | str:
+        if not self._settings.langgraph_reactor_prompt_cache_enabled:
+            return self._build_text_json_prompt(invocation)
+
+        stable_prefix, dynamic_suffix = self._split_reactor_prompt(invocation)
+        content: list[dict[str, Any]] = []
+        if stable_prefix:
+            content.append(
+                {
+                    "type": "text",
+                    "text": stable_prefix,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            )
+        if dynamic_suffix:
+            content.append({"type": "text", "text": dynamic_suffix})
+        logger.debug(
+            "langgraph_reactor_input_mode agent_id=%s mode=message_blocks cache_enabled=%s "
+            "stable_chars=%s dynamic_chars=%s",
+            invocation.agent_id,
+            self._settings.langgraph_reactor_prompt_cache_enabled,
+            len(stable_prefix),
+            len(dynamic_suffix),
+        )
+        return [HumanMessage(content=content or [{"type": "text", "text": stable_prefix or dynamic_suffix}])]
+
     async def _run_structured_reactor_decision(
         self,
         invocation: AgentActionInvocation,
@@ -295,12 +380,21 @@ class LangGraphAgentBackend:
         structured_model = self._build_structured_decision_model()
         started_at = perf_counter()
         try:
-            response = await structured_model.ainvoke(self._build_model_prompt(invocation))
+            response = await structured_model.ainvoke(self._build_reactor_messages(invocation))
         except RuntimeError:
             raise
         except Exception as exc:  # noqa: BLE001
+            duration_ms = int((perf_counter() - started_at) * 1000)
             logger.warning(
                 f"LangGraph structured reactor decision failed for {invocation.agent_id}: {exc}"
+            )
+            logger.debug(
+                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=structured "
+                "duration_ms=%s success=false exception_type=%s",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                invocation.agent_id,
+                duration_ms,
+                type(exc).__name__,
             )
             return None
 
@@ -310,8 +404,25 @@ class LangGraphAgentBackend:
 
         parsed = self._extract_structured_response(response)
         if parsed is None:
+            logger.debug(
+                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=structured "
+                "duration_ms=%s success=false reason=unparsed",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                invocation.agent_id,
+                duration_ms,
+            )
             return None
-        return self._coerce_model_result(parsed, invocation.allowed_actions)
+        result = self._coerce_model_result(parsed, invocation.allowed_actions)
+        logger.debug(
+            "langgraph_reactor_path_completed run_id=%s agent_id=%s path=structured "
+            "duration_ms=%s success=%s action_type=%s",
+            runtime_ctx.run_id if runtime_ctx is not None else None,
+            invocation.agent_id,
+            duration_ms,
+            result is not None,
+            result.action_type if result is not None else None,
+        )
+        return result
 
     async def _run_text_reactor_decision(
         self,
@@ -320,20 +431,52 @@ class LangGraphAgentBackend:
     ) -> AgentDecisionResult | None:
         started_at = perf_counter()
         try:
-            response = await self._decision_model.ainvoke(self._build_text_json_prompt(invocation))
+            response = await self._decision_model.ainvoke(self._build_reactor_messages(invocation))
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"LangGraph text reactor decision failed for {invocation.agent_id}: {exc}")
+            logger.debug(
+                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
+                "duration_ms=%s success=false exception_type=%s",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                invocation.agent_id,
+                int((perf_counter() - started_at) * 1000),
+                type(exc).__name__,
+            )
             return None
 
         duration_ms = int((perf_counter() - started_at) * 1000)
         self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", response, duration_ms)
         content = self._extract_text_content(response)
         if not content:
+            logger.debug(
+                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
+                "duration_ms=%s success=false reason=empty_content",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                invocation.agent_id,
+                duration_ms,
+            )
             return None
         parsed = PromptLoader.extract_json_from_text(content)
         if not isinstance(parsed, dict):
+            logger.debug(
+                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
+                "duration_ms=%s success=false reason=non_json",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                invocation.agent_id,
+                duration_ms,
+            )
             return None
-        return self._coerce_model_result(parsed, invocation.allowed_actions)
+        result = self._coerce_model_result(parsed, invocation.allowed_actions)
+        logger.debug(
+            "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text duration_ms=%s "
+            "success=%s action_type=%s",
+            runtime_ctx.run_id if runtime_ctx is not None else None,
+            invocation.agent_id,
+            duration_ms,
+            result is not None,
+            result.action_type if result is not None else None,
+        )
+        return result
 
     def _build_text_json_prompt(self, invocation: AgentActionInvocation) -> str:
         schema_json = json.dumps(_StructuredDecision.model_json_schema(), ensure_ascii=False, indent=2)
@@ -431,7 +574,39 @@ class LangGraphAgentBackend:
         if usage is None and isinstance(response, dict):
             usage = response.get("usage_metadata")
         if usage is None:
+            logger.debug(
+                "langgraph_usage_metadata run_id=%s agent_id=%s task=%s response_type=%s "
+                "usage_present=false",
+                runtime_ctx.run_id if runtime_ctx is not None else None,
+                agent_id,
+                task_type,
+                type(response).__name__,
+            )
             return
+        input_token_details = usage.get("input_token_details") if isinstance(usage, dict) else None
+        cache_read = (
+            input_token_details.get("cache_read")
+            if isinstance(input_token_details, dict)
+            else None
+        )
+        cache_creation = (
+            input_token_details.get("cache_creation")
+            if isinstance(input_token_details, dict)
+            else None
+        )
+        logger.debug(
+            "langgraph_usage_metadata run_id=%s agent_id=%s task=%s response_type=%s "
+            "input_tokens=%s output_tokens=%s cache_read=%s cache_creation=%s usage=%s",
+            runtime_ctx.run_id if runtime_ctx is not None else None,
+            agent_id,
+            task_type,
+            type(response).__name__,
+            usage.get("input_tokens") if isinstance(usage, dict) else None,
+            usage.get("output_tokens") if isinstance(usage, dict) else None,
+            cache_read,
+            cache_creation,
+            usage,
+        )
         runtime_ctx.on_llm_call(
             agent_id=agent_id,
             task_type=task_type,
