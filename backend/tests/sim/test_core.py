@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.sim.action_resolver import ActionIntent, ActionResolver
+from app.sim.conversation_scheduler import ConversationScheduler
 from app.sim.runner import SimulationRunner
 from app.sim.world import AgentState, LocationState, WorldState
 
@@ -255,6 +256,30 @@ def test_action_resolver_suppresses_rest_for_talk_target():
     assert result_alice.accepted is True
     assert result_bob_rest.accepted is False
     assert result_bob_rest.reason == "agent_in_conversation"
+
+
+def test_simulation_runner_uses_conversation_scheduler_to_reserve_listener():
+    world = _build_collocated_world()
+    scheduler = ConversationScheduler()
+    runner = SimulationRunner(world)
+
+    intents = [
+        ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="bob",
+            payload={"message": "Hey Bob!"},
+        ),
+        ActionIntent(agent_id="bob", action_type="work"),
+    ]
+
+    sessions, assignments = scheduler.schedule(intents, world)
+    result = runner.tick(intents)
+
+    assert len(sessions) == 1
+    assert assignments["bob"].role == "listener"
+    assert result.accepted[0].action_type == "talk"
+    assert result.rejected[0].reason == "agent_in_conversation"
 
 
 def test_action_resolver_suppresses_work_for_talk_target_regardless_of_order():

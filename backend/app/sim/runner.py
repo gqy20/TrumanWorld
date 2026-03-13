@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from app.sim.action_resolver import ActionIntent, ActionResolver, ActionResult
+from app.sim.conversation_scheduler import ConversationScheduler
 from app.sim.world import WorldState
 
 
@@ -22,6 +23,7 @@ class SimulationRunner:
     def __init__(self, world: WorldState, resolver: ActionResolver | None = None) -> None:
         self.world = world
         self.resolver = resolver or ActionResolver()
+        self.conversation_scheduler = ConversationScheduler()
         self.tick_no = 0
 
     def tick(self, intents: Iterable[ActionIntent]) -> TickResult:
@@ -30,10 +32,13 @@ class SimulationRunner:
 
         intent_list = list(intents)
         self.resolver.reset_tick()
-        # Pre-scan all talk intents so both actor and target are in _talked_agents
-        # before any resolve() call, ensuring order-independent suppression of
-        # concurrent non-talk actions from agents already in a conversation.
-        self.resolver.prefill_talked_agents(intent_list, self.world)
+        _, assignments = self.conversation_scheduler.schedule(intent_list, self.world)
+        listener_ids = {
+            assignment.agent_id
+            for assignment in assignments.values()
+            if assignment.role == "listener"
+        }
+        self.resolver.prefill_conversation_targets(listener_ids)
         for intent in intent_list:
             result = self.resolver.resolve(self.world, intent)
             if result.accepted:

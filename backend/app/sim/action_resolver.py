@@ -64,6 +64,10 @@ class ActionResolver:
                 continue
             self._prefilled_targets.add(target.id)
 
+    def prefill_conversation_targets(self, listener_agent_ids: set[str]) -> None:
+        """Reserve agents already assigned as listeners in scheduled conversations."""
+        self._prefilled_targets.update(listener_agent_ids)
+
     def resolve(self, world: WorldState, intent: ActionIntent) -> ActionResult:
         agent = world.get_agent(intent.agent_id)
         if agent is None:
