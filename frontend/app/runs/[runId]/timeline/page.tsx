@@ -11,7 +11,7 @@ import { simDayLabelFromIso } from "@/lib/world-utils";
 
 const EVENT_TYPE_OPTIONS = [
   { value: "", label: "全部类型" },
-  { value: "talk", label: "💬 对话" },
+  { value: "speech,listen,conversation_started,conversation_joined,talk", label: "💬 社交" },
   { value: "move", label: "🚶 移动" },
   { value: "work", label: "⚒️ 工作" },
   { value: "rest", label: "😴 休息" },

@@ -391,6 +391,9 @@ class PersistenceManager:
                 )
             ]
 
+        if event.event_type in {"conversation_started", "conversation_joined"}:
+            return []
+
         if event.event_type in {"talk", "speech"}:
             target_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
             loc_id = str(payload.get("location_id") or "")

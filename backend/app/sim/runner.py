@@ -45,6 +45,7 @@ class SimulationRunner:
             for assignment in assignments.values()
         }
         self.resolver.prefill_conversation_assignments(conversation_assignments)
+        accepted.extend(self._build_conversation_structure_results(sessions, assignments))
         for intent in intent_list:
             result = self.resolver.resolve(self.world, intent)
             if result.accepted:
@@ -63,6 +64,61 @@ class SimulationRunner:
             accepted=accepted,
             rejected=rejected,
         )
+
+    def _build_conversation_structure_results(
+        self,
+        sessions: list[ConversationSession],
+        assignments: dict[str, ConversationAssignment],
+    ) -> list[ActionResult]:
+        structure_results: list[ActionResult] = []
+
+        for session in sessions:
+            primary_listener_id = next(
+                (participant_id for participant_id in session.participant_ids if participant_id != session.active_speaker_id),
+                None,
+            )
+            structure_results.append(
+                ActionResult(
+                    accepted=True,
+                    action_type="conversation_started",
+                    reason="accepted",
+                    event_payload={
+                        "agent_id": session.active_speaker_id,
+                        "target_agent_id": primary_listener_id,
+                        "location_id": session.location_id,
+                        "conversation_id": session.id,
+                        "conversation_event_type": "conversation_started",
+                        "speaker_agent_id": session.active_speaker_id,
+                        "participant_ids": list(session.participant_ids),
+                    },
+                )
+            )
+
+        session_by_id = {session.id: session for session in sessions}
+        for assignment in assignments.values():
+            if assignment.reason != "conversation_joiner" or assignment.conversation_id is None:
+                continue
+            session = session_by_id.get(assignment.conversation_id)
+            if session is None:
+                continue
+            structure_results.append(
+                ActionResult(
+                    accepted=True,
+                    action_type="conversation_joined",
+                    reason="accepted",
+                    event_payload={
+                        "agent_id": assignment.agent_id,
+                        "target_agent_id": session.active_speaker_id,
+                        "location_id": session.location_id,
+                        "conversation_id": session.id,
+                        "conversation_event_type": "conversation_joined",
+                        "speaker_agent_id": session.active_speaker_id,
+                        "participant_ids": list(session.participant_ids),
+                    },
+                )
+            )
+
+        return structure_results
 
     def _build_listen_results(
         self,

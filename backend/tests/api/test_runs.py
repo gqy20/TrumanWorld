@@ -595,7 +595,16 @@ async def test_get_run_events_supports_category_filters(client, db_session):
                 id="event-social",
                 run_id=run_id,
                 tick_no=1,
-                event_type="talk",
+                event_type="speech",
+                actor_agent_id="agent-event-a",
+                target_agent_id="agent-event-b",
+                payload={},
+            ),
+            Event(
+                id="event-conversation-started",
+                run_id=run_id,
+                tick_no=1,
+                event_type="conversation_started",
                 actor_agent_id="agent-event-a",
                 target_agent_id="agent-event-b",
                 payload={},
@@ -626,7 +635,10 @@ async def test_get_run_events_supports_category_filters(client, db_session):
     activity = await client.get(f"/api/runs/{run_id}/events", params={"event_type": "activity"})
 
     assert social.status_code == 200
-    assert [event["id"] for event in social.json()["events"]] == ["event-social"]
+    assert [event["id"] for event in social.json()["events"]] == [
+        "event-social",
+        "event-conversation-started",
+    ]
     assert movement.status_code == 200
     assert [event["id"] for event in movement.json()["events"]] == ["event-move"]
     assert activity.status_code == 200

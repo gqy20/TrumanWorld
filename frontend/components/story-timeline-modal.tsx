@@ -19,7 +19,7 @@ export function StoryTimelineModal({ isOpen, onClose, chapters }: StoryTimelineM
     const allEvents = chapters.flatMap((c) => c.events);
     return {
       totalEvents: allEvents.length,
-      talkCount: allEvents.filter((e) => e.type === "talk").length,
+      talkCount: allEvents.filter((e) => e.type === "social").length,
       moveCount: allEvents.filter((e) => e.type === "move").length,
       rejectionCount: allEvents.filter((e) => e.type === "rejection").length,
     };
@@ -51,10 +51,10 @@ export function StoryTimelineModal({ isOpen, onClose, chapters }: StoryTimelineM
           <div className="flex items-center gap-4">
             <StatBadge
               icon="💬"
-              label="对话"
+              label="社交"
               count={stats.talkCount}
-              isActive={selectedEventType === "talk"}
-              onClick={() => setSelectedEventType(selectedEventType === "talk" ? null : "talk")}
+              isActive={selectedEventType === "social"}
+              onClick={() => setSelectedEventType(selectedEventType === "social" ? null : "social")}
             />
             <StatBadge
               icon="🚶"
@@ -195,7 +195,7 @@ function TimelineChapter({
 function TimelineEventItem({ event }: { event: StoryEvent }) {
   const typeConfig = {
     move: { icon: "🚶", color: "text-blue-600", bg: "bg-blue-50" },
-    talk: { icon: "💬", color: "text-rose-600", bg: "bg-rose-50" },
+    social: { icon: "💬", color: "text-rose-600", bg: "bg-rose-50" },
     rejection: { icon: "⚠️", color: "text-amber-600", bg: "bg-amber-50" },
     work: { icon: "⚒️", color: "text-slate-600", bg: "bg-slate-50" },
     rest: { icon: "😴", color: "text-purple-600", bg: "bg-purple-50" },

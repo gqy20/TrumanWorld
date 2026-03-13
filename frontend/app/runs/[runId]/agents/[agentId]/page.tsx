@@ -12,6 +12,12 @@ import { MetricChip } from "@/components/metric-chip";
 import { getAgentResult, getWorldResult } from "@/lib/api";
 import { describeAgentEvent } from "@/lib/event-utils";
 import { tickToSimDayTime } from "@/lib/world-utils";
+import {
+  EVENT_CONVERSATION_JOINED,
+  EVENT_CONVERSATION_STARTED,
+  EVENT_LISTEN,
+  EVENT_SPEECH,
+} from "@/lib/simulation-protocol";
 
 // 人格特质中文映射
 const PERSONALITY_LABELS: Record<string, string> = {
@@ -249,7 +255,12 @@ export default async function AgentPage({ params }: AgentPageProps) {
                   ) : (
                     agent.recent_events.map((event) => {
                       const message = event.payload.message as string | undefined;
-                      const isTalk = event.event_type === "talk";
+                      const isTalk =
+                        event.event_type === "talk" || event.event_type === EVENT_SPEECH;
+                      const isConversationStructure =
+                        event.event_type === EVENT_CONVERSATION_STARTED ||
+                        event.event_type === EVENT_CONVERSATION_JOINED;
+                      const isListen = event.event_type === EVENT_LISTEN;
                       const isMove = event.event_type === "move";
                       const isNoise = event.event_type === "work" || event.event_type === "rest";
                       return (
@@ -258,6 +269,10 @@ export default async function AgentPage({ params }: AgentPageProps) {
                           className={`rounded-2xl px-3 py-2.5 ${
                             isTalk
                               ? "border border-sky-100 bg-sky-50/60"
+                              : isConversationStructure
+                              ? "border border-cyan-100 bg-cyan-50/50"
+                              : isListen
+                              ? "border border-fuchsia-100 bg-fuchsia-50/50"
                               : isMove
                               ? "border border-emerald-100 bg-emerald-50/50"
                               : isNoise
@@ -268,7 +283,15 @@ export default async function AgentPage({ params }: AgentPageProps) {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-2">
                               <span className={`shrink-0 text-[10px] font-medium uppercase tracking-wider ${
-                                isTalk ? "text-sky-500" : isMove ? "text-emerald-600" : "text-slate-400"
+                                isTalk
+                                  ? "text-sky-500"
+                                  : isConversationStructure
+                                  ? "text-cyan-600"
+                                  : isListen
+                                  ? "text-fuchsia-600"
+                                  : isMove
+                                  ? "text-emerald-600"
+                                  : "text-slate-400"
                               }`}>
                                 {event.event_type}
                               </span>

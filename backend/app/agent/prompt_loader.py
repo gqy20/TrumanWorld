@@ -126,6 +126,18 @@ class PromptLoader:
             if target_name:
                 return f'[Tick {tick_no}] {actor_name} → {target_name}: "{message}"'
             return f'[Tick {tick_no}] {actor_name}: "{message}"'
+        elif event_type == "listen":
+            if target_name:
+                return f"[Tick {tick_no}] {actor_name} 正在听 {target_name} 说话"
+            return f"[Tick {tick_no}] {actor_name} 正在倾听"
+        elif event_type == "conversation_started":
+            if target_name:
+                return f"[Tick {tick_no}] {actor_name} 与 {target_name} 开始了一段对话"
+            return f"[Tick {tick_no}] {actor_name} 开始了一段对话"
+        elif event_type == "conversation_joined":
+            if target_name:
+                return f"[Tick {tick_no}] {actor_name} 加入了 {target_name} 主导的对话"
+            return f"[Tick {tick_no}] {actor_name} 加入了一段对话"
         elif event_type == "move":
             location = evt.get("location_name", "某地")
             return f"[Tick {tick_no}] {actor_name} 移动到了 {location}"

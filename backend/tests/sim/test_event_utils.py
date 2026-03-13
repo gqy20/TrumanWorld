@@ -77,6 +77,29 @@ def test_build_event_supports_listen_action():
     assert event.payload["speaker_agent_id"] == "alice"
 
 
+def test_build_event_supports_conversation_started_action():
+    event = build_event(
+        run_id="run-1",
+        tick_no=3,
+        world_time="2026-01-01T09:00:00",
+        action_type="conversation_started",
+        payload={
+            "agent_id": "alice",
+            "target_agent_id": "bob",
+            "location_id": "cafe",
+            "conversation_id": "conv-1",
+            "conversation_event_type": "conversation_started",
+            "participant_ids": ["alice", "bob"],
+        },
+        accepted=True,
+    )
+
+    assert event.event_type == "conversation_started"
+    assert event.actor_agent_id == "alice"
+    assert event.target_agent_id == "bob"
+    assert event.payload["conversation_event_type"] == "conversation_started"
+
+
 def test_build_event_sets_rejected_type_and_system_visibility():
     event = build_event(
         run_id="run-1",
@@ -168,3 +191,29 @@ def test_format_event_for_context_falls_back_for_unknown_actor():
     assert formatted["actor_name"] == "某人"
     assert "target_name" not in formatted
     assert "location_name" not in formatted
+
+
+def test_prompt_loader_formats_conversation_structure_events():
+    from app.agent.prompt_loader import PromptLoader
+
+    loader = PromptLoader()
+
+    started = loader._format_event(
+        {
+            "event_type": "conversation_started",
+            "tick_no": 3,
+            "actor_name": "Alice",
+            "target_name": "Bob",
+        }
+    )
+    joined = loader._format_event(
+        {
+            "event_type": "conversation_joined",
+            "tick_no": 4,
+            "actor_name": "Carol",
+            "target_name": "Alice",
+        }
+    )
+
+    assert started == "[Tick 3] Alice 与 Bob 开始了一段对话"
+    assert joined == "[Tick 4] Carol 加入了 Alice 主导的对话"

@@ -881,15 +881,19 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
     bob_memories = await AgentRepository(db_session).list_recent_memories("bob-5")
 
     assert result.tick_no == 1
-    assert len(result.accepted) == 2
-    assert {item.action_type for item in result.accepted} == {"talk", "listen"}
+    assert len(result.accepted) == 3
+    assert {item.action_type for item in result.accepted} == {
+        "conversation_started",
+        "talk",
+        "listen",
+    }
     assert next(item for item in result.accepted if item.action_type == "talk").event_payload[
         "conversation_event_type"
     ] == "speech"
     assert next(item for item in result.accepted if item.action_type == "listen").event_payload[
         "conversation_event_type"
     ] == "listen"
-    assert {event.event_type for event in events} == {"speech", "listen"}
+    assert {event.event_type for event in events} == {"conversation_started", "speech", "listen"}
     assert len(alice_relationships) == 1
     assert len(bob_relationships) == 1
     assert alice_relationships[0].other_agent_id == "bob-5"

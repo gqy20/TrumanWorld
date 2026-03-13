@@ -387,7 +387,13 @@ async def get_run_events(
 
     if event_type:
         if event_type == "social":
-            filter_types = {"talk", "speech", "listen"}
+            filter_types = {
+                "talk",
+                "speech",
+                "listen",
+                "conversation_started",
+                "conversation_joined",
+            }
         elif event_type == "movement":
             filter_types = {"move"}
         elif event_type == "activity":

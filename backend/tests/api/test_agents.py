@@ -195,8 +195,12 @@ async def test_get_agent_returns_generated_talk_memory_for_target(client, db_ses
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["recent_events"]) == 2
-    assert {event["event_type"] for event in body["recent_events"]} == {"speech", "listen"}
+    assert len(body["recent_events"]) == 3
+    assert {event["event_type"] for event in body["recent_events"]} == {
+        "conversation_started",
+        "speech",
+        "listen",
+    }
     assert len(body["memories"]) == 1
     assert body["memories"][0]["summary"].startswith("Listened to Alice")
     assert body["memories"][0]["self_relevance"] >= 0.8

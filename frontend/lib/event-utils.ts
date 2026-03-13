@@ -1,13 +1,17 @@
 import {
   DIRECTOR_EVENT_ACTIVITY,
   DIRECTOR_EVENT_BROADCAST,
+  EVENT_CONVERSATION_JOINED,
+  EVENT_CONVERSATION_STARTED,
   DIRECTOR_EVENT_INJECT,
   DIRECTOR_EVENT_SHUTDOWN,
   DIRECTOR_EVENT_WEATHER_CHANGE,
+  EVENT_LISTEN,
   EVENT_MOVE,
   EVENT_PLAN,
   EVENT_REFLECT,
   EVENT_REST,
+  EVENT_SPEECH,
   EVENT_TALK,
   EVENT_WORK,
   isDirectorEventType,
@@ -30,9 +34,33 @@ const DEFAULT_EVENT_META: EventMeta = {
 };
 
 export const EVENT_META: Partial<Record<EventType, EventMeta>> = {
+  [EVENT_SPEECH]: {
+    icon: "💬",
+    label: "发言",
+    chip: "bg-rose-50 text-rose-700 border border-rose-100",
+    color: "#ec4899",
+  },
+  [EVENT_LISTEN]: {
+    icon: "👂",
+    label: "倾听",
+    chip: "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100",
+    color: "#c026d3",
+  },
+  [EVENT_CONVERSATION_STARTED]: {
+    icon: "🫱",
+    label: "对话开始",
+    chip: "bg-sky-50 text-sky-700 border border-sky-100",
+    color: "#0ea5e9",
+  },
+  [EVENT_CONVERSATION_JOINED]: {
+    icon: "➕",
+    label: "加入对话",
+    chip: "bg-teal-50 text-teal-700 border border-teal-100",
+    color: "#0f766e",
+  },
   [EVENT_TALK]: {
     icon: "💬",
-    label: "对话",
+    label: "发言",
     chip: "bg-rose-50 text-rose-700 border border-rose-100",
     color: "#ec4899",
   },
@@ -116,8 +144,23 @@ export function describeWorldEvent(
   switch (event.event_type) {
     case EVENT_MOVE:
       return `${actor} 前往了 ${toPlace}`;
+    case EVENT_SPEECH:
     case EVENT_TALK:
-      return `${actor} 与 ${target} 展开交谈`;
+      return `${actor} 对 ${target} 发言`;
+    case EVENT_LISTEN: {
+      const speaker =
+        nameMap[String(event.payload.speaker_agent_id ?? "")] ||
+        String(event.payload.speaker_agent_id || target);
+      return `${actor} 正在听 ${speaker} 说话`;
+    }
+    case EVENT_CONVERSATION_STARTED:
+      return `${actor} 与 ${target} 开始了一段对话`;
+    case EVENT_CONVERSATION_JOINED: {
+      const speaker =
+        nameMap[String(event.payload.speaker_agent_id ?? "")] ||
+        String(event.payload.speaker_agent_id || target);
+      return `${actor} 加入了 ${speaker} 主导的对话`;
+    }
     case EVENT_WORK:
       return `${actor} 在 ${atPlace} 专心工作`;
     case EVENT_REST:
@@ -140,11 +183,26 @@ export function describeWorldEvent(
 export function describeTimelineEvent(event: Pick<TimelineEvent, "event_type" | "payload">) {
   const payload = event.payload;
 
-  if (event.event_type === EVENT_TALK) {
+  if (event.event_type === EVENT_SPEECH || event.event_type === EVENT_TALK) {
     const msg = payload.message ? `：「${String(payload.message)}」` : "";
     const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
     const target = String(payload.target_name ?? payload.target_agent_id ?? "某人");
-    return `${actor} 和 ${target} 展开了交谈${msg}`;
+    return `${actor} 对 ${target} 发言${msg}`;
+  }
+  if (event.event_type === EVENT_LISTEN) {
+    const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
+    const speaker = String(payload.speaker_name ?? payload.speaker_agent_id ?? payload.target_name ?? "某人");
+    return `${actor} 正在倾听 ${speaker}`;
+  }
+  if (event.event_type === EVENT_CONVERSATION_STARTED) {
+    const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
+    const target = String(payload.target_name ?? payload.target_agent_id ?? "某人");
+    return `${actor} 和 ${target} 开始了一段对话`;
+  }
+  if (event.event_type === EVENT_CONVERSATION_JOINED) {
+    const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
+    const speaker = String(payload.speaker_name ?? payload.speaker_agent_id ?? payload.target_name ?? "某人");
+    return `${actor} 加入了 ${speaker} 主导的对话`;
   }
   if (event.event_type === EVENT_MOVE) {
     const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
@@ -175,8 +233,17 @@ export function describeTimelineEvent(event: Pick<TimelineEvent, "event_type" | 
 }
 
 export function describeAgentEvent(event: AgentDetails["recent_events"][number]) {
-  if (event.event_type === EVENT_TALK && event.target_name) {
-    return `与 ${event.target_name} 对话`;
+  if ((event.event_type === EVENT_SPEECH || event.event_type === EVENT_TALK) && event.target_name) {
+    return `对 ${event.target_name} 发言`;
+  }
+  if (event.event_type === EVENT_LISTEN) {
+    return `正在倾听 ${String(event.payload.speaker_name ?? event.payload.speaker_agent_id ?? event.target_name ?? "某人")}`;
+  }
+  if (event.event_type === EVENT_CONVERSATION_STARTED && event.target_name) {
+    return `与 ${event.target_name} 开始对话`;
+  }
+  if (event.event_type === EVENT_CONVERSATION_JOINED) {
+    return `加入了一段对话`;
   }
   if (event.event_type === EVENT_MOVE && event.location_name) {
     return `前往 ${event.location_name}`;

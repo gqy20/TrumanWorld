@@ -228,7 +228,7 @@ function CompactEventItem({ event }: CompactEventItemProps) {
   const isLowImportance = event.type === "work" || event.type === "rest";
 
   const typeClasses = {
-    talk: "border-l-rose-300 bg-rose-50/30",
+    social: "border-l-rose-300 bg-rose-50/30",
     move: "border-l-emerald-300 bg-emerald-50/30",
     work: "border-l-slate-200 bg-slate-50/30",
     rest: "border-l-slate-200 bg-slate-50/30",

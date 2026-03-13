@@ -247,7 +247,12 @@ class EventRepository:
         # Priority ordering mirrors list_recent_events: social/move surface before
         # work/rest noise so the world snapshot always contains meaningful events.
         event_priority = case(
-            (Event.event_type.in_(["talk", "speech", "listen", "move"]), 0),
+            (
+                Event.event_type.in_(
+                    ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                ),
+                0,
+            ),
             (Event.event_type.in_(["work", "rest"]), 2),
             else_=1,
         )
@@ -267,7 +272,12 @@ class EventRepository:
         self, run_id: str, limit: int = 50, since_tick: int | None = None
     ) -> Sequence[EventApiRow]:
         event_priority = case(
-            (Event.event_type.in_(["talk", "speech", "listen", "move"]), 0),
+            (
+                Event.event_type.in_(
+                    ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                ),
+                0,
+            ),
             (Event.event_type.in_(["work", "rest"]), 2),
             else_=1,
         )
@@ -550,7 +560,12 @@ class AgentRepository:
         # Priority ordering: social and movement events surface before work/rest noise.
         # Within the same priority tier events are ordered by recency.
         event_priority = case(
-            (Event.event_type.in_(["talk", "speech", "listen", "move"]), 0),
+            (
+                Event.event_type.in_(
+                    ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                ),
+                0,
+            ),
             (Event.event_type.in_(["work", "rest"]), 2),
             else_=1,
         )

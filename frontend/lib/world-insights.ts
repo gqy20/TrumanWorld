@@ -1,6 +1,10 @@
 import type { WorldEvent, WorldSnapshot, AgentSummary } from "@/lib/types";
 import {
+  EVENT_CONVERSATION_JOINED,
+  EVENT_CONVERSATION_STARTED,
+  EVENT_LISTEN,
   EVENT_MOVE,
+  EVENT_SPEECH,
   EVENT_TALK,
   EVENT_WORK,
   EVENT_REST,
@@ -46,7 +50,7 @@ export interface StoryEvent {
   id: string;
   tickNo: number;
   time: string;
-  type: "talk" | "move" | "work" | "rest" | "rejection" | "other";
+  type: "social" | "move" | "work" | "rest" | "rejection" | "other";
   actorName: string;
   targetName?: string;
   locationName?: string;
@@ -136,7 +140,9 @@ export function calculateWorldHealthMetrics(
     socialTrend =
       talksPerPersonPerDay > trendUpThreshold ? "up" : talksPerPersonPerDay > trendStableThreshold ? "stable" : "down";
   } else {
-    const talkEvents = events.filter((e) => e.event_type === EVENT_TALK);
+    const talkEvents = events.filter(
+      (e) => e.event_type === EVENT_TALK || e.event_type === EVENT_SPEECH,
+    );
     // 使用配置的基准值（默认 20）
     const fallbackBaseline = world.health_metrics_config?.social_baseline_talks_per_person_per_day ?? 20;
     socialActivity = Math.min(100, (talkEvents.length / fallbackBaseline) * 100);
@@ -183,7 +189,9 @@ export function calculateWorldHealthMetrics(
 
     activitySummary,
 
-    recentTalkCount: world.daily_stats?.talk_count ?? events.filter((e) => e.event_type === EVENT_TALK).length,
+    recentTalkCount:
+      world.daily_stats?.talk_count ??
+      events.filter((e) => e.event_type === EVENT_TALK || e.event_type === EVENT_SPEECH).length,
     recentMoveCount: world.daily_stats?.move_count ?? events.filter((e) => e.event_type === EVENT_MOVE).length,
     recentRejectionCount: world.daily_stats?.rejection_count ?? events.filter((e) => e.event_type === "move_rejected" || e.event_type === "talk_rejected").length,
   };
@@ -388,14 +396,35 @@ function convertToStoryEvent(
   let icon = "";
 
   switch (event.event_type) {
+    case EVENT_SPEECH:
     case EVENT_TALK:
-      type = "talk";
+      type = "social";
       icon = "💬";
       if (targetName) {
-        description = `${actorName} 与 ${targetName} 交谈`;
+        description = `${actorName} 对 ${targetName} 发言`;
       } else {
         description = `${actorName} 在说话`;
       }
+      break;
+
+    case EVENT_LISTEN:
+      type = "social";
+      icon = "👂";
+      description = `${actorName} 正在倾听`;
+      break;
+
+    case EVENT_CONVERSATION_STARTED:
+      type = "social";
+      icon = "🫱";
+      description = targetName
+        ? `${actorName} 与 ${targetName} 开始对话`
+        : `${actorName} 开始了一段对话`;
+      break;
+
+    case EVENT_CONVERSATION_JOINED:
+      type = "social";
+      icon = "➕";
+      description = `${actorName} 加入了一段对话`;
       break;
 
     case EVENT_MOVE:
@@ -470,7 +499,7 @@ function extractHighlights(
   const highlights: StoryChapter["highlights"] = [];
 
   // 统计各类事件
-  const talkCount = events.filter((e) => e.type === "talk").length;
+  const talkCount = events.filter((e) => e.type === "social").length;
   const rejectionCount = events.filter((e) => e.type === "rejection").length;
   const moveCount = events.filter((e) => e.type === "move").length;
 

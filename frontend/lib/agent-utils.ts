@@ -1,4 +1,14 @@
-import { EVENT_MOVE, EVENT_REST, EVENT_TALK, EVENT_WORK, type EventType } from "@/lib/simulation-protocol";
+import {
+  EVENT_CONVERSATION_JOINED,
+  EVENT_CONVERSATION_STARTED,
+  EVENT_LISTEN,
+  EVENT_MOVE,
+  EVENT_REST,
+  EVENT_SPEECH,
+  EVENT_TALK,
+  EVENT_WORK,
+  type EventType,
+} from "@/lib/simulation-protocol";
 
 export type AgentStatus = "idle" | "working" | "talking" | "moving" | "resting";
 
@@ -14,6 +24,10 @@ export function inferAgentStatus(
 
   const latest = relevantEvents[0];
   switch (latest.event_type) {
+    case EVENT_SPEECH:
+    case EVENT_LISTEN:
+    case EVENT_CONVERSATION_STARTED:
+    case EVENT_CONVERSATION_JOINED:
     case EVENT_TALK:
       return "talking";
     case EVENT_WORK:

@@ -1,13 +1,17 @@
 import {
   DIRECTOR_EVENT_ACTIVITY,
   DIRECTOR_EVENT_BROADCAST,
+  EVENT_CONVERSATION_JOINED,
+  EVENT_CONVERSATION_STARTED,
   DIRECTOR_EVENT_INJECT,
   DIRECTOR_EVENT_SHUTDOWN,
   DIRECTOR_EVENT_WEATHER_CHANGE,
+  EVENT_LISTEN,
   EVENT_MOVE,
   EVENT_PLAN,
   EVENT_REFLECT,
   EVENT_REST,
+  EVENT_SPEECH,
   EVENT_TALK,
   EVENT_WORK,
 } from "@/lib/simulation-protocol";
@@ -145,7 +149,15 @@ export function getTimeOfDayStyle(timeOfDay: TimeOfDay): {
 
 export function eventMatchesFilter(event: WorldEvent, filter: EventFilter) {
   if (filter === "all") return true;
-  if (filter === "social") return event.event_type === EVENT_TALK;
+  if (filter === "social") {
+    return (
+      event.event_type === EVENT_TALK ||
+      event.event_type === EVENT_SPEECH ||
+      event.event_type === EVENT_LISTEN ||
+      event.event_type === EVENT_CONVERSATION_STARTED ||
+      event.event_type === EVENT_CONVERSATION_JOINED
+    );
+  }
   if (filter === "movement") return event.event_type === EVENT_MOVE;
   return event.event_type === EVENT_WORK || event.event_type === EVENT_REST;
 }
@@ -165,7 +177,15 @@ export function locationBeat(
   const latest = events.find((event) => event.location_id === locationId);
   if (!latest) return "quiet";
   if (currentTick !== undefined && latest.tick_no < currentTick - 1) return "quiet";
-  if (latest.event_type === EVENT_TALK) return "conversation";
+  if (
+    latest.event_type === EVENT_TALK ||
+    latest.event_type === EVENT_SPEECH ||
+    latest.event_type === EVENT_LISTEN ||
+    latest.event_type === EVENT_CONVERSATION_STARTED ||
+    latest.event_type === EVENT_CONVERSATION_JOINED
+  ) {
+    return "conversation";
+  }
   if (latest.event_type === EVENT_MOVE) return "arrival";
   if (latest.event_type === EVENT_WORK) return "working";
   if (latest.event_type === EVENT_REST) return "resting";
@@ -305,6 +325,10 @@ export function calculateLocationHeat(
 ): number {
   // 事件类型权重
   const eventWeights: Record<string, number> = {
+    [EVENT_SPEECH]: 1.5,
+    [EVENT_LISTEN]: 0.9,
+    [EVENT_CONVERSATION_STARTED]: 1.1,
+    [EVENT_CONVERSATION_JOINED]: 0.8,
     [EVENT_TALK]: 1.5,
     [EVENT_WORK]: 1.0,
     [EVENT_MOVE]: 0.6,

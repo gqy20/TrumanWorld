@@ -2,11 +2,18 @@ export const ACTION_MOVE = "move";
 export const ACTION_TALK = "talk";
 export const ACTION_WORK = "work";
 export const ACTION_REST = "rest";
+export const ACTION_LISTEN = "listen";
+export const ACTION_CONVERSATION_STARTED = "conversation_started";
+export const ACTION_CONVERSATION_JOINED = "conversation_joined";
+export const EVENT_SPEECH = "speech";
 
 export const EVENT_MOVE = ACTION_MOVE;
 export const EVENT_TALK = ACTION_TALK;
 export const EVENT_WORK = ACTION_WORK;
 export const EVENT_REST = ACTION_REST;
+export const EVENT_LISTEN = ACTION_LISTEN;
+export const EVENT_CONVERSATION_STARTED = ACTION_CONVERSATION_STARTED;
+export const EVENT_CONVERSATION_JOINED = ACTION_CONVERSATION_JOINED;
 export const EVENT_PLAN = "plan";
 export const EVENT_REFLECT = "reflect";
 
@@ -26,6 +33,10 @@ export type ActionType =
   | typeof ACTION_TALK
   | typeof ACTION_WORK
   | typeof ACTION_REST
+  | typeof ACTION_LISTEN
+  | typeof ACTION_CONVERSATION_STARTED
+  | typeof ACTION_CONVERSATION_JOINED
+  | typeof EVENT_SPEECH
   | typeof EVENT_PLAN
   | typeof EVENT_REFLECT
   | typeof DIRECTOR_EVENT_INJECT
@@ -40,6 +51,10 @@ export type RejectedActionEventType =
   | `${typeof ACTION_TALK}_rejected`
   | `${typeof ACTION_WORK}_rejected`
   | `${typeof ACTION_REST}_rejected`
+  | `${typeof ACTION_LISTEN}_rejected`
+  | `${typeof ACTION_CONVERSATION_STARTED}_rejected`
+  | `${typeof ACTION_CONVERSATION_JOINED}_rejected`
+  | `${typeof EVENT_SPEECH}_rejected`
   | `${typeof EVENT_PLAN}_rejected`
   | `${typeof EVENT_REFLECT}_rejected`
   | `${typeof DIRECTOR_EVENT_INJECT}_rejected`
