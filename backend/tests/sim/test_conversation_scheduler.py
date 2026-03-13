@@ -78,3 +78,4 @@ def test_conversation_scheduler_adds_joiner_to_existing_session():
     assert assignments["bob"].role == "listener"
     assert assignments["carol"].role == "listener"
     assert assignments["carol"].reason == "conversation_joiner"
+    assert assignments["carol"].conversation_id == sessions[0].id

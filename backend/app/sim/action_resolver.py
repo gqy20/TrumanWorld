@@ -41,12 +41,14 @@ class ActionResolver:
         self._prefilled_targets: set[str] = set()
         # Scheduler-provided conversation roles for this tick.
         self._conversation_roles: dict[str, str] = {}
+        self._conversation_ids: dict[str, str] = {}
 
     def reset_tick(self) -> None:
         """Clear per-tick state at the start of each tick."""
         self._talked_agents.clear()
         self._prefilled_targets.clear()
         self._conversation_roles.clear()
+        self._conversation_ids.clear()
 
     def prefill_talked_agents(self, intents: list[ActionIntent], world: WorldState) -> None:
         """Pre-scan intents to register talk targets before resolve() is called.
@@ -81,6 +83,26 @@ class ActionResolver:
         }
         self._prefilled_targets.update(listener_agent_ids)
 
+    def prefill_conversation_assignments(
+        self,
+        conversation_assignments: dict[str, dict[str, str | None]],
+    ) -> None:
+        """Register scheduler assignments, including role and conversation id."""
+        for agent_id, assignment in conversation_assignments.items():
+            role = assignment.get("role")
+            if role is not None:
+                self._conversation_roles[agent_id] = role
+            conversation_id = assignment.get("conversation_id")
+            if conversation_id is not None:
+                self._conversation_ids[agent_id] = conversation_id
+
+        listener_agent_ids = {
+            agent_id
+            for agent_id, assignment in conversation_assignments.items()
+            if assignment.get("role") == "listener"
+        }
+        self._prefilled_targets.update(listener_agent_ids)
+
     def resolve(self, world: WorldState, intent: ActionIntent) -> ActionResult:
         agent = world.get_agent(intent.agent_id)
         if agent is None:
@@ -109,29 +131,35 @@ class ActionResolver:
 
         if self._conversation_roles.get(intent.agent_id) == "listener":
             if intent.action_type == "talk":
+                event_payload = {
+                    "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
+                    "target_agent_id": intent.target_agent_id,
+                }
+                if conversation_id := self._conversation_ids.get(intent.agent_id):
+                    event_payload["conversation_id"] = conversation_id
                 return ActionResult(
                     False,
                     intent.action_type,
                     "conversation_turn_taken",
-                    event_payload={
-                        "agent_id": intent.agent_id,
-                        "location_id": agent.location_id,
-                        "target_agent_id": intent.target_agent_id,
-                    },
+                    event_payload=event_payload,
                 )
 
         # If this agent is pre-registered as a talk target this tick,
         # suppress non-talk actions so no spurious rest/work/move appears
         # alongside the talk event in the timeline.
         if intent.agent_id in self._prefilled_targets and intent.action_type != "talk":
+            event_payload = {
+                "agent_id": intent.agent_id,
+                "location_id": agent.location_id,
+            }
+            if conversation_id := self._conversation_ids.get(intent.agent_id):
+                event_payload["conversation_id"] = conversation_id
             return ActionResult(
                 False,
                 intent.action_type,
                 "agent_in_conversation",
-                event_payload={
-                    "agent_id": intent.agent_id,
-                    "location_id": agent.location_id,
-                },
+                event_payload=event_payload,
             )
 
         if intent.action_type == "move":
@@ -286,17 +314,21 @@ class ActionResolver:
         self._talked_agents.add(intent.agent_id)
         self._talked_agents.add(target.id)
 
+        event_payload = {
+            **intent.payload,
+            "agent_id": intent.agent_id,
+            "target_agent_id": target.id,
+            "location_id": agent.location_id,
+            "message": intent.payload.get("message") or "",
+        }
+        if conversation_id := self._conversation_ids.get(intent.agent_id):
+            event_payload["conversation_id"] = conversation_id
+
         return ActionResult(
             accepted=True,
             action_type="talk",
             reason="accepted",
-            event_payload={
-                **intent.payload,
-                "agent_id": intent.agent_id,
-                "target_agent_id": target.id,
-                "location_id": agent.location_id,
-                "message": intent.payload.get("message") or "",
-            },
+            event_payload=event_payload,
         )
 
     def _resolve_target_agent(

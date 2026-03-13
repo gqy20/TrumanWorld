@@ -322,7 +322,53 @@ def test_simulation_runner_allows_joiner_to_enter_session_without_taking_turn():
     assert len(result.accepted) == 1
     assert len(result.rejected) == 1
     assert result.accepted[0].action_type == "talk"
+    assert "conversation_id" in result.accepted[0].event_payload
+    assert result.rejected[0].event_payload["conversation_id"] == result.accepted[0].event_payload[
+        "conversation_id"
+    ]
     assert result.rejected[0].reason == "conversation_turn_taken"
+
+
+def test_simulation_runner_tags_listener_suppression_with_conversation_id():
+    world = WorldState(
+        current_time=datetime(2026, 3, 7, 8, 0, 0),
+        tick_minutes=5,
+        locations={
+            "plaza": LocationState(
+                id="plaza",
+                name="Plaza",
+                capacity=4,
+                occupants={"alice", "bob", "carol"},
+            )
+        },
+        agents={
+            "alice": AgentState(id="alice", name="Alice", location_id="plaza", status={}),
+            "bob": AgentState(id="bob", name="Bob", location_id="plaza", status={}),
+            "carol": AgentState(id="carol", name="Carol", location_id="plaza", status={}),
+        },
+    )
+    runner = SimulationRunner(world)
+
+    result = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Hey Bob!"},
+            ),
+            ActionIntent(agent_id="carol", action_type="talk", target_agent_id="bob"),
+            ActionIntent(agent_id="bob", action_type="work"),
+        ]
+    )
+
+    accepted_talk = next(item for item in result.accepted if item.action_type == "talk")
+    suppressed_work = next(item for item in result.rejected if item.action_type == "work")
+
+    assert suppressed_work.reason == "agent_in_conversation"
+    assert suppressed_work.event_payload["conversation_id"] == accepted_talk.event_payload[
+        "conversation_id"
+    ]
 
 
 def test_action_resolver_suppresses_work_for_talk_target_regardless_of_order():

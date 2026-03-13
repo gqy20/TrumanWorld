@@ -33,10 +33,14 @@ class SimulationRunner:
         intent_list = list(intents)
         self.resolver.reset_tick()
         _, assignments = self.conversation_scheduler.schedule(intent_list, self.world)
-        conversation_roles = {
-            assignment.agent_id: assignment.role for assignment in assignments.values()
+        conversation_assignments = {
+            assignment.agent_id: {
+                "role": assignment.role,
+                "conversation_id": assignment.conversation_id,
+            }
+            for assignment in assignments.values()
         }
-        self.resolver.prefill_conversation_roles(conversation_roles)
+        self.resolver.prefill_conversation_assignments(conversation_assignments)
         for intent in intent_list:
             result = self.resolver.resolve(self.world, intent)
             if result.accepted:
