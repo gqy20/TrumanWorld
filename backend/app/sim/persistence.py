@@ -395,31 +395,31 @@ class PersistenceManager:
             target_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
             loc_id = str(payload.get("location_id") or "")
             target = agent_name(target_id)
-            actor = agent_name(event.actor_agent_id)
             loc = location_name(loc_id)
             message = payload.get("message", "")
 
             if message:
-                actor_content = f'Talked with {target} at {loc}: "{message}"'
-                actor_summary = (
-                    f"Talked with {target}: {message[:30]}{'...' if len(message) > 30 else ''}"
-                )
-                target_content = f'{actor} said: "{message}"'
-                target_summary = f"{actor} said: {message[:30]}{'...' if len(message) > 30 else ''}"
+                actor_content = f'Said to {target} at {loc}: "{message}"'
+                actor_summary = f"Said to {target}: {message[:30]}{'...' if len(message) > 30 else ''}"
             else:
-                actor_content = f"Talked with {target} at {loc}."
-                actor_summary = f"Talked with {target}"
-                target_content = f"Talked with {actor} at {loc}."
-                target_summary = f"Talked with {actor}"
+                actor_content = f"Said something to {target} at {loc}."
+                actor_summary = f"Said to {target}"
 
-            records: list[tuple[str, str, str, str | None]] = [
-                (event.actor_agent_id, actor_content, actor_summary, event.target_agent_id)
-            ]
-            if event.target_agent_id:
-                records.append(
-                    (event.target_agent_id, target_content, target_summary, event.actor_agent_id)
+            return [(event.actor_agent_id, actor_content, actor_summary, event.target_agent_id)]
+
+        if event.event_type == "listen":
+            speaker_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
+            loc_id = str(payload.get("location_id") or "")
+            speaker = agent_name(speaker_id)
+            loc = location_name(loc_id)
+            return [
+                (
+                    event.actor_agent_id,
+                    f"Listened to {speaker} at {loc}.",
+                    f"Listened to {speaker}",
+                    event.target_agent_id,
                 )
-            return records
+            ]
 
         if event.event_type == "work":
             return [(event.actor_agent_id, "Worked during this tick.", "Worked", None)]
@@ -540,6 +540,8 @@ class PersistenceManager:
 
     @staticmethod
     def _determine_perspective(event: Event, agent_id: str) -> str:
+        if event.event_type == "listen" and agent_id == event.actor_agent_id:
+            return "listener"
         if agent_id == event.actor_agent_id:
             return "actor"
         if agent_id == event.target_agent_id:
@@ -549,6 +551,8 @@ class PersistenceManager:
     @staticmethod
     def _perspective_relevance(perspective: str) -> float:
         if perspective == "target":
+            return 1.0
+        if perspective == "listener":
             return 1.0
         if perspective == "actor":
             return 0.8

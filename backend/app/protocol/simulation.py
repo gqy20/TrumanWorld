@@ -4,11 +4,13 @@ from typing import Literal, TypeAlias
 
 ACTION_MOVE = "move"
 ACTION_TALK = "talk"
+ACTION_LISTEN = "listen"
 ACTION_WORK = "work"
 ACTION_REST = "rest"
 
 EVENT_MOVE = ACTION_MOVE
 EVENT_TALK = ACTION_TALK
+EVENT_LISTEN = ACTION_LISTEN
 EVENT_WORK = ACTION_WORK
 EVENT_REST = ACTION_REST
 EVENT_PLAN = "plan"
@@ -40,6 +42,7 @@ DIRECTOR_SCENE_POWER_OUTAGE = "power_outage"  # 停电场景
 ActionType: TypeAlias = Literal[
     "move",
     "talk",
+    "listen",
     "work",
     "rest",
     "plan",
@@ -54,6 +57,7 @@ ActionType: TypeAlias = Literal[
 RejectedActionEventType: TypeAlias = Literal[
     "move_rejected",
     "talk_rejected",
+    "listen_rejected",
     "work_rejected",
     "rest_rejected",
     "plan_rejected",

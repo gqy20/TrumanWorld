@@ -278,7 +278,7 @@ def test_simulation_runner_uses_conversation_scheduler_to_reserve_listener():
 
     assert len(sessions) == 1
     assert assignments["bob"].role == "listener"
-    assert result.accepted[0].action_type == "talk"
+    assert [item.action_type for item in result.accepted] == ["talk", "listen"]
     assert result.rejected[0].reason == "agent_in_conversation"
 
 
@@ -319,11 +319,21 @@ def test_simulation_runner_allows_joiner_to_enter_session_without_taking_turn():
         ]
     )
 
-    assert len(result.accepted) == 1
+    assert len(result.accepted) == 3
     assert len(result.rejected) == 1
-    assert result.accepted[0].action_type == "talk"
-    assert "conversation_id" in result.accepted[0].event_payload
-    assert result.rejected[0].event_payload["conversation_id"] == result.accepted[0].event_payload[
+    accepted_talk = next(item for item in result.accepted if item.action_type == "talk")
+    accepted_listens = [item for item in result.accepted if item.action_type == "listen"]
+
+    assert len(accepted_listens) == 2
+    assert "conversation_id" in accepted_talk.event_payload
+    assert accepted_talk.event_payload["conversation_role"] == "speaker"
+    assert accepted_talk.event_payload["conversation_event_type"] == "speech"
+    assert accepted_talk.event_payload["speaker_agent_id"] == "alice"
+    assert all(item.event_payload["conversation_role"] == "listener" for item in accepted_listens)
+    assert all(item.event_payload["conversation_event_type"] == "listen" for item in accepted_listens)
+    assert all(item.event_payload["speaker_agent_id"] == "alice" for item in accepted_listens)
+    assert result.rejected[0].event_payload["conversation_role"] == "listener"
+    assert result.rejected[0].event_payload["conversation_id"] == accepted_talk.event_payload[
         "conversation_id"
     ]
     assert result.rejected[0].reason == "conversation_turn_taken"
@@ -363,12 +373,19 @@ def test_simulation_runner_tags_listener_suppression_with_conversation_id():
     )
 
     accepted_talk = next(item for item in result.accepted if item.action_type == "talk")
+    accepted_listens = [item for item in result.accepted if item.action_type == "listen"]
     suppressed_work = next(item for item in result.rejected if item.action_type == "work")
 
+    assert len(accepted_listens) == 2
     assert suppressed_work.reason == "agent_in_conversation"
     assert suppressed_work.event_payload["conversation_id"] == accepted_talk.event_payload[
         "conversation_id"
     ]
+    assert suppressed_work.event_payload["conversation_role"] == "listener"
+    assert accepted_talk.event_payload["conversation_role"] == "speaker"
+    assert accepted_talk.event_payload["conversation_event_type"] == "speech"
+    assert all(item.event_payload["conversation_role"] == "listener" for item in accepted_listens)
+    assert all(item.event_payload["conversation_event_type"] == "listen" for item in accepted_listens)
 
 
 def test_action_resolver_suppresses_work_for_talk_target_regardless_of_order():
@@ -453,8 +470,9 @@ def test_simulation_runner_resets_talked_agents_each_tick():
             ),
         ]
     )
-    assert len(result1.accepted) == 1
+    assert len(result1.accepted) == 2
     assert len(result1.rejected) == 1
+    assert {item.action_type for item in result1.accepted} == {"talk", "listen"}
     assert result1.rejected[0].reason == "conversation_turn_taken"
 
     # Tick 2: both try again – only first accepted (reset happened)
@@ -474,5 +492,6 @@ def test_simulation_runner_resets_talked_agents_each_tick():
             ),
         ]
     )
-    assert len(result2.accepted) == 1
+    assert len(result2.accepted) == 2
     assert len(result2.rejected) == 1
+    assert {item.action_type for item in result2.accepted} == {"talk", "listen"}

@@ -29,6 +29,32 @@ def test_build_event_sets_public_visibility_for_accepted_actions():
     assert event.visibility == "public"
 
 
+def test_build_event_supports_listen_action():
+    event = build_event(
+        run_id="run-1",
+        tick_no=3,
+        world_time="2026-01-01T09:00:00",
+        action_type="listen",
+        payload={
+            "agent_id": "bob",
+            "target_agent_id": "alice",
+            "location_id": "cafe",
+            "conversation_id": "conv-1",
+            "conversation_role": "listener",
+            "conversation_event_type": "listen",
+            "speaker_agent_id": "alice",
+        },
+        accepted=True,
+    )
+
+    assert event.event_type == "listen"
+    assert event.actor_agent_id == "bob"
+    assert event.target_agent_id == "alice"
+    assert event.payload["conversation_role"] == "listener"
+    assert event.payload["conversation_event_type"] == "listen"
+    assert event.payload["speaker_agent_id"] == "alice"
+
+
 def test_build_event_sets_rejected_type_and_system_visibility():
     event = build_event(
         run_id="run-1",
@@ -74,7 +100,14 @@ def test_format_event_for_context_uses_names_and_defaults():
         actor_agent_id="alice",
         target_agent_id="bob",
         location_id="cafe",
-        payload={"message": "hello"},
+        payload={
+            "message": "hello",
+            "conversation_id": "conv-1",
+            "conversation_role": "speaker",
+            "conversation_event_type": "speech",
+            "speaker_agent_id": "alice",
+            "participant_ids": ["alice", "bob", "carol"],
+        },
     )
 
     formatted = format_event_for_context(
@@ -90,6 +123,11 @@ def test_format_event_for_context_uses_names_and_defaults():
         "target_name": "Bob",
         "location_name": "Cafe",
         "message": "hello",
+        "conversation_id": "conv-1",
+        "conversation_role": "speaker",
+        "conversation_event_type": "speech",
+        "speaker_agent_id": "alice",
+        "participant_ids": ["alice", "bob", "carol"],
     }
 
 

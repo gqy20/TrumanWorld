@@ -64,5 +64,15 @@ def format_event_for_context(
     payload = evt.payload or {}
     if "message" in payload:
         result["message"] = payload["message"]
+    if "conversation_id" in payload:
+        result["conversation_id"] = payload["conversation_id"]
+    if "conversation_role" in payload:
+        result["conversation_role"] = payload["conversation_role"]
+    if "conversation_event_type" in payload:
+        result["conversation_event_type"] = payload["conversation_event_type"]
+    if "speaker_agent_id" in payload:
+        result["speaker_agent_id"] = payload["speaker_agent_id"]
+    if "participant_ids" in payload:
+        result["participant_ids"] = payload["participant_ids"]
 
     return result

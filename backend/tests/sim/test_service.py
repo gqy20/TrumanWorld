@@ -880,18 +880,22 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
     bob_memories = await AgentRepository(db_session).list_recent_memories("bob-5")
 
     assert result.tick_no == 1
-    assert len(result.accepted) == 1
-    assert result.accepted[0].action_type == "talk"
+    assert len(result.accepted) == 2
+    assert {item.action_type for item in result.accepted} == {"talk", "listen"}
+    assert next(item for item in result.accepted if item.action_type == "talk").event_payload[
+        "conversation_event_type"
+    ] == "speech"
+    assert next(item for item in result.accepted if item.action_type == "listen").event_payload[
+        "conversation_event_type"
+    ] == "listen"
     assert len(alice_relationships) == 1
     assert len(bob_relationships) == 1
     assert alice_relationships[0].other_agent_id == "bob-5"
     assert bob_relationships[0].other_agent_id == "alice-5"
     assert alice_relationships[0].familiarity == 0.1
     assert bob_relationships[0].trust == 0.05
-    assert alice_memories[0].summary.startswith("Talked with Bob")
-    assert bob_memories[0].summary.startswith("Talked with Alice") or bob_memories[
-        0
-    ].summary.startswith("Alice said")
+    assert alice_memories[0].summary.startswith("Said to Bob")
+    assert bob_memories[0].summary.startswith("Listened to Alice")
 
 
 @pytest.mark.asyncio

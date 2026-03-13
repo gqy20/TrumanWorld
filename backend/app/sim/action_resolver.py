@@ -42,6 +42,7 @@ class ActionResolver:
         # Scheduler-provided conversation roles for this tick.
         self._conversation_roles: dict[str, str] = {}
         self._conversation_ids: dict[str, str] = {}
+        self._conversation_participants: dict[str, list[str]] = {}
 
     def reset_tick(self) -> None:
         """Clear per-tick state at the start of each tick."""
@@ -49,6 +50,7 @@ class ActionResolver:
         self._prefilled_targets.clear()
         self._conversation_roles.clear()
         self._conversation_ids.clear()
+        self._conversation_participants.clear()
 
     def prefill_talked_agents(self, intents: list[ActionIntent], world: WorldState) -> None:
         """Pre-scan intents to register talk targets before resolve() is called.
@@ -85,16 +87,23 @@ class ActionResolver:
 
     def prefill_conversation_assignments(
         self,
-        conversation_assignments: dict[str, dict[str, str | None]],
+        conversation_assignments: dict[str, dict[str, object]],
     ) -> None:
         """Register scheduler assignments, including role and conversation id."""
         for agent_id, assignment in conversation_assignments.items():
             role = assignment.get("role")
-            if role is not None:
+            if isinstance(role, str):
                 self._conversation_roles[agent_id] = role
             conversation_id = assignment.get("conversation_id")
-            if conversation_id is not None:
+            if isinstance(conversation_id, str):
                 self._conversation_ids[agent_id] = conversation_id
+            participant_ids = assignment.get("participant_ids")
+            if isinstance(participant_ids, list):
+                self._conversation_participants[agent_id] = [
+                    participant_id
+                    for participant_id in participant_ids
+                    if isinstance(participant_id, str)
+                ]
 
         listener_agent_ids = {
             agent_id
@@ -136,8 +145,7 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     "target_agent_id": intent.target_agent_id,
                 }
-                if conversation_id := self._conversation_ids.get(intent.agent_id):
-                    event_payload["conversation_id"] = conversation_id
+                self._append_conversation_metadata(intent.agent_id, event_payload)
                 return ActionResult(
                     False,
                     intent.action_type,
@@ -153,8 +161,7 @@ class ActionResolver:
                 "agent_id": intent.agent_id,
                 "location_id": agent.location_id,
             }
-            if conversation_id := self._conversation_ids.get(intent.agent_id):
-                event_payload["conversation_id"] = conversation_id
+            self._append_conversation_metadata(intent.agent_id, event_payload)
             return ActionResult(
                 False,
                 intent.action_type,
@@ -320,9 +327,10 @@ class ActionResolver:
             "target_agent_id": target.id,
             "location_id": agent.location_id,
             "message": intent.payload.get("message") or "",
+            "conversation_event_type": "speech",
+            "speaker_agent_id": intent.agent_id,
         }
-        if conversation_id := self._conversation_ids.get(intent.agent_id):
-            event_payload["conversation_id"] = conversation_id
+        self._append_conversation_metadata(intent.agent_id, event_payload)
 
         return ActionResult(
             accepted=True,
@@ -411,3 +419,15 @@ class ActionResolver:
                 **intent.payload,
             },
         )
+
+    def _append_conversation_metadata(
+        self,
+        agent_id: str,
+        event_payload: dict[str, Any],
+    ) -> None:
+        if conversation_id := self._conversation_ids.get(agent_id):
+            event_payload["conversation_id"] = conversation_id
+        if conversation_role := self._conversation_roles.get(agent_id):
+            event_payload["conversation_role"] = conversation_role
+        if participant_ids := self._conversation_participants.get(agent_id):
+            event_payload["participant_ids"] = participant_ids
