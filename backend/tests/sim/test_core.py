@@ -63,6 +63,45 @@ def test_action_resolver_rejects_talk_if_agents_are_apart():
     assert result.reason == "target_not_nearby"
 
 
+def test_action_resolver_normalizes_talk_target_from_agent_name():
+    world = _build_collocated_world()
+    world.agents["bob"].name = "Marlon"
+    resolver = ActionResolver()
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="marlon",
+            payload={"message": "Hi Marlon."},
+        ),
+    )
+
+    assert result.accepted is True
+    assert result.event_payload["target_agent_id"] == "bob"
+
+
+def test_action_resolver_rejects_unknown_talk_target_without_invalid_target_agent_id():
+    world = _build_collocated_world()
+    resolver = ActionResolver()
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="marlon",
+            payload={"message": "Hi Marlon."},
+        ),
+    )
+
+    assert result.accepted is False
+    assert result.reason == "target_not_found"
+    assert result.event_payload["target_agent_id"] is None
+    assert result.event_payload["requested_target_agent_id"] == "marlon"
+
+
 def test_action_resolver_downgrades_work_without_valid_work_context():
     world = build_world()
     resolver = ActionResolver()

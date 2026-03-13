@@ -895,6 +895,71 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
 
 
 @pytest.mark.asyncio
+async def test_simulation_service_persists_rejected_talk_with_requested_target_only(db_session):
+    run = SimulationRun(
+        id="run-invalid-target",
+        name="invalid-target",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    plaza = Location(
+        id="loc-plaza-invalid-target",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-invalid-target",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-invalid-target",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, plaza, alice, bob])
+    await db_session.commit()
+
+    service = SimulationService(db_session)
+    result = await service.run_tick(
+        run.id,
+        [
+            ActionIntent(
+                agent_id=alice.id,
+                action_type="talk",
+                target_agent_id="marlon",
+                payload={"message": "Hi Marlon."},
+            )
+        ],
+    )
+
+    events = await EventRepository(db_session).list_for_run(run.id, limit=10)
+
+    assert len(result.rejected) == 1
+    assert events[0].event_type == "talk_rejected"
+    assert events[0].target_agent_id is None
+    assert events[0].payload["requested_target_agent_id"] == "marlon"
+
+
+@pytest.mark.asyncio
 async def test_talk_memories_use_subjective_importance_per_agent(db_session):
     run = SimulationRun(
         id="run-memory-subjective",

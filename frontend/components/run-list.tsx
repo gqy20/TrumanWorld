@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, useRef, useCallback } from "react";
 import { deleteRunResult } from "@/lib/api";
 import { useRuns } from "@/components/runs-provider";
@@ -23,6 +23,7 @@ type RunListProps = {
 
 export function RunList({ runs }: RunListProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { refreshRuns } = useRuns();
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -47,8 +48,12 @@ export function RunList({ runs }: RunListProps) {
       return;
     }
 
+    const isActiveRun = pathname.startsWith(`/runs/${runId}`);
     setDeletingId(runId);
     startTransition(async () => {
+      if (isActiveRun) {
+        router.push("/");
+      }
       const result = await deleteRunResult(runId);
       if (result.data) {
         await refreshRuns();
@@ -81,18 +86,18 @@ export function RunList({ runs }: RunListProps) {
         runName={animationRunName}
         mode="enter"
       />
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-      {runs.map((run) => {
-        const isRunning = run.status === "running";
-        const isPaused = run.status === "paused";
-        const statusBg = isRunning ? "bg-emerald-50/50" : isPaused ? "bg-amber-50/50" : "bg-slate-50/50";
-        const statusBorder = isRunning ? "border-emerald-200/60" : isPaused ? "border-amber-200/60" : "border-slate-200/60";
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        {runs.map((run) => {
+          const isRunning = run.status === "running";
+          const isPaused = run.status === "paused";
+          const statusBg = isRunning ? "bg-emerald-50/50" : isPaused ? "bg-amber-50/50" : "bg-slate-50/50";
+          const statusBorder = isRunning ? "border-emerald-200/60" : isPaused ? "border-amber-200/60" : "border-slate-200/60";
 
-        return (
-          <div
-            key={run.id}
-            className={`group relative overflow-hidden rounded-[24px] border ${statusBorder} ${statusBg} shadow-xs backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white/90`}
-          >
+          return (
+            <div
+              key={run.id}
+              className={`group relative overflow-hidden rounded-[24px] border ${statusBorder} ${statusBg} shadow-xs backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white/90`}
+            >
             {/* 左侧状态竖条 */}
             <div
               className={`absolute left-0 top-0 h-full w-1 ${
@@ -213,10 +218,10 @@ export function RunList({ runs }: RunListProps) {
                 进入世界
               </button>
             </div>
-          </div>
-        );
-      })}
-    </div>
+            </div>
+          );
+        })}
+      </div>
     </>
   );
 }

@@ -57,7 +57,7 @@ class ActionResolver:
             if intent.action_type != "talk":
                 continue
             actor = world.get_agent(intent.agent_id)
-            target = world.get_agent(intent.target_agent_id or "")
+            target = self._resolve_target_agent(world, intent.target_agent_id)
             if actor is None or target is None:
                 continue
             if actor.location_id != target.location_id:
@@ -199,7 +199,8 @@ class ActionResolver:
 
     def _resolve_talk(self, world: WorldState, intent: ActionIntent) -> ActionResult:
         agent = world.get_agent(intent.agent_id)
-        target = world.get_agent(intent.target_agent_id or "")
+        target = self._resolve_target_agent(world, intent.target_agent_id)
+        requested_target_agent_id = intent.target_agent_id
         if agent is None:
             return ActionResult(
                 False,
@@ -218,19 +219,23 @@ class ActionResolver:
                 event_payload={
                     "agent_id": intent.agent_id,
                     "location_id": agent.location_id,
-                    "target_agent_id": intent.target_agent_id,
+                    "target_agent_id": None,
+                    "requested_target_agent_id": requested_target_agent_id,
                 },
             )
         if agent.location_id != target.location_id:
+            event_payload = {
+                "agent_id": intent.agent_id,
+                "location_id": agent.location_id,
+                "target_agent_id": target.id,
+            }
+            if requested_target_agent_id and requested_target_agent_id != target.id:
+                event_payload["requested_target_agent_id"] = requested_target_agent_id
             return ActionResult(
                 False,
                 "talk",
                 "target_not_nearby",
-                event_payload={
-                    "agent_id": intent.agent_id,
-                    "location_id": agent.location_id,
-                    "target_agent_id": intent.target_agent_id,
-                },
+                event_payload=event_payload,
             )
 
         # Enforce turn-based conversation: if either participant has already
@@ -256,13 +261,51 @@ class ActionResolver:
             action_type="talk",
             reason="accepted",
             event_payload={
+                **intent.payload,
                 "agent_id": intent.agent_id,
                 "target_agent_id": target.id,
                 "location_id": agent.location_id,
                 "message": intent.payload.get("message") or "",
-                **intent.payload,
             },
         )
+
+    def _resolve_target_agent(
+        self,
+        world: WorldState,
+        raw_target_agent_id: str | None,
+    ):
+        if raw_target_agent_id is None:
+            return None
+
+        candidate = raw_target_agent_id.strip()
+        if not candidate:
+            return None
+
+        exact = world.get_agent(candidate)
+        if exact is not None:
+            return exact
+
+        normalized_candidates = [candidate.lower()]
+        candidate_tail = candidate.rsplit("-", 1)[-1].strip().lower()
+        if candidate_tail and candidate_tail not in normalized_candidates:
+            normalized_candidates.append(candidate_tail)
+
+        matched = []
+        for agent in world.agents.values():
+            agent_id_lower = agent.id.lower()
+            agent_name_lower = agent.name.lower()
+            agent_suffix_lower = agent.id.rsplit("-", 1)[-1].lower()
+            if any(
+                normalized == agent_id_lower
+                or normalized == agent_name_lower
+                or normalized == agent_suffix_lower
+                for normalized in normalized_candidates
+            ):
+                matched.append(agent)
+
+        if len(matched) == 1:
+            return matched[0]
+        return None
 
     def _resolve_work(self, world: WorldState, intent: ActionIntent) -> ActionResult:
         agent = world.get_agent(intent.agent_id)

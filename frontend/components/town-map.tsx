@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import { AnimatePresence, motion } from "framer-motion";
 import { EVENT_MOVE } from "@/lib/simulation-protocol";
 import type { AgentSummary, WorldSnapshot } from "@/lib/types";
+import { buildHeatGlowMotionProps, buildHeatRingMotionProps } from "@/lib/world-map-motion";
 import { calculateLocationHeat, getHeatLevel, getTimeOfDay, getTimeOfDayStyle, type LocationHeatConfig } from "@/lib/world-utils";
 
 interface LocationNode {
@@ -546,6 +547,8 @@ export function TownMap({
             const heatLevel = getHeatLevel(node.heat, heatConfig);
             const glowThreshold = heatConfig?.glowThreshold ?? 0.1;
             const hasHeat = node.heat > glowThreshold;
+            const heatGlowMotion = buildHeatGlowMotionProps(node.heat);
+            const heatRingMotion = buildHeatRingMotionProps(node.heat);
 
             return (
               <g
@@ -580,15 +583,9 @@ export function TownMap({
                     r={outerRadius + 15 * NODE_SCALE + node.heat * 20 * NODE_SCALE}
                     fill={heatLevel.glowColor}
                     filter={node.heat > 0.6 ? "url(#heatGlowStrong)" : "url(#heatGlow)"}
-                    animate={{
-                      opacity: [0.4 + node.heat * 0.3, 0.6 + node.heat * 0.3, 0.4 + node.heat * 0.3],
-                      scale: [1, 1.05, 1]
-                    }}
-                    transition={{
-                      duration: 3 - node.heat,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
+                    initial={heatGlowMotion.initial}
+                    animate={heatGlowMotion.animate}
+                    transition={heatGlowMotion.transition}
                     style={{ transformOrigin: `${node.svgX}px ${node.svgY}px` }}
                   />
                 )}
@@ -615,14 +612,9 @@ export function TownMap({
                     stroke={heatLevel.color}
                     strokeWidth={2 + node.heat * 2}
                     strokeDasharray={`${node.heat * 20} ${(1 - node.heat) * 20}`}
-                    animate={{
-                      opacity: 0.6 + node.heat * 0.4,
-                      rotate: 360
-                    }}
-                    transition={{
-                      rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                      opacity: { duration: 0.5 }
-                    }}
+                    initial={heatRingMotion.initial}
+                    animate={heatRingMotion.animate}
+                    transition={heatRingMotion.transition}
                     style={{ transformOrigin: `${node.svgX}px ${node.svgY}px` }}
                   />
                 )}

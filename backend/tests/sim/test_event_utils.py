@@ -45,6 +45,26 @@ def test_build_event_sets_rejected_type_and_system_visibility():
     assert event.visibility == "system"
 
 
+def test_build_event_keeps_invalid_requested_target_only_in_payload():
+    event = build_event(
+        run_id="run-1",
+        tick_no=4,
+        world_time="2026-01-01T09:05:00",
+        action_type="talk",
+        payload={
+            "agent_id": "alice",
+            "target_agent_id": None,
+            "requested_target_agent_id": "marlon",
+            "location_id": "cafe",
+        },
+        accepted=False,
+    )
+
+    assert event.event_type == "talk_rejected"
+    assert event.target_agent_id is None
+    assert event.payload["requested_target_agent_id"] == "marlon"
+
+
 def test_format_event_for_context_uses_names_and_defaults():
     event = Event(
         id="event-1",
