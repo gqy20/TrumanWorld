@@ -49,6 +49,7 @@ interface TimelineModalProps {
   isOpen: boolean;
   onClose: () => void;
   runId: string;
+  agents?: AgentSummary[];
 }
 
 function buildTimelineUrl(
@@ -70,11 +71,10 @@ function buildTimelineUrl(
   return `${baseUrl}/runs/${runId}/timeline?${params.toString()}`;
 }
 
-export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
+export function TimelineModal({ isOpen, onClose, runId, agents = [] }: TimelineModalProps) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [pendingFilters, setPendingFilters] = useState<Filters>(EMPTY_FILTERS);
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
-  const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -91,7 +91,6 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
   useEffect(() => {
     if (isOpen) return;
     setTimeline(null);
-    setAgents([]);
     setLoading(true);
     setError(null);
     setIsRefreshing(false);
@@ -99,15 +98,6 @@ export function TimelineModal({ isOpen, onClose, runId }: TimelineModalProps) {
     setVisibleGroupCount(INITIAL_VISIBLE_GROUPS);
     timelineRef.current = null;
   }, [isOpen]);
-
-  // 加载角色列表
-  useEffect(() => {
-    if (!isOpen) return;
-    fetch(`${getApiBaseUrl()}/runs/${runId}/agents`, { headers: { Accept: "application/json" } })
-      .then((r) => r.json())
-      .then((data: { agents?: AgentSummary[] }) => setAgents(data.agents ?? []))
-      .catch(() => setAgents([]));
-  }, [runId, isOpen]);
 
   const fetchTimeline = useCallback(
     async (

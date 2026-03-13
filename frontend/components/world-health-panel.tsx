@@ -20,6 +20,7 @@ import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
 import { Modal, WorkspaceModalShell } from "@/components/modal";
 import { useUiSearchParams } from "@/lib/ui-url-state";
+import { isAgentSociallyEngaged } from "@/lib/world-utils";
 
 interface WorldHealthPanelProps {
   metrics: WorldHealthMetrics;
@@ -87,11 +88,18 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
             match = goal === "work" && isWorkContext;
             break;
           case "socializing":
-            match = goal === "talk";
+            match = isAgentSociallyEngaged(
+              agent.id,
+              agent.current_goal,
+              world.recent_events,
+              world.run.current_tick,
+            );
             break;
           case "resting":
             match = goal === "rest" || goal === "wander" ||
-                    (goal !== "work" && goal !== "talk" && goal !== "commute" &&
+                    (goal !== "work" &&
+                     !isAgentSociallyEngaged(agent.id, agent.current_goal, world.recent_events, world.run.current_tick) &&
+                     goal !== "commute" &&
                      goal !== "go_home" && !goal.startsWith("move:"));
             break;
           case "commuting":
@@ -247,6 +255,17 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+function formatComponentMemory(component: SystemOverview["components"]["backend"]) {
+  if (component.uniqueBytes != null) {
+    return formatBytes(component.uniqueBytes);
+  }
+  return formatBytes(component.rssBytes);
+}
+
+function getMemoryEstimateLabel(component: SystemOverview["components"]["backend"] | null | undefined) {
+  return component?.uniqueBytes != null ? "内存估算" : "内存";
+}
+
 function formatCount(value: number) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
@@ -285,9 +304,10 @@ function SystemStatusPanel({
   onClick: () => void;
 }) {
   const total = overview?.components.total;
-  const memoryValue = total ? formatBytes(total.rssBytes) : metrics ? formatBytes(metrics.processResidentMemoryBytes) : null;
+  const memoryValue = total ? formatComponentMemory(total) : metrics ? formatBytes(metrics.processResidentMemoryBytes) : null;
   const cpuValue = total ? formatCpuPercent(total.cpuPercent) : null;
   const refreshedAt = overview?.collectedAt ?? metrics?.scrapedAt;
+  const memoryLabel = getMemoryEstimateLabel(total);
 
   if (!metrics && !overview) {
     return (
@@ -323,7 +343,7 @@ function SystemStatusPanel({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <StatusStat label="总内存" value={memoryValue ?? "—"} />
+        <StatusStat label={memoryLabel} value={memoryValue ?? "—"} />
         <StatusStat label="CPU" value={cpuValue ?? "—"} highlight />
       </div>
     </button>
@@ -360,7 +380,7 @@ function SystemStatusModal({
   const refreshedAt = overview?.collectedAt ?? metrics?.scrapedAt;
   const overviewTotal = overview?.components.total;
   const totalMemoryValue = overviewTotal
-    ? formatBytes(overviewTotal.rssBytes)
+    ? formatComponentMemory(overviewTotal)
     : metrics
       ? formatBytes(metrics.processResidentMemoryBytes)
       : "—";
@@ -371,6 +391,7 @@ function SystemStatusModal({
       : "—";
   const totalCpuValue = overviewTotal ? formatCpuPercent(overviewTotal.cpuPercent) : "—";
   const totalProcessCount = overviewTotal ? formatCount(overviewTotal.processCount) : "—";
+  const totalMemoryLabel = getMemoryEstimateLabel(overviewTotal);
   const activeRunsValue = metrics ? formatCount(metrics.activeRuns) : "—";
   const backendMemoryValue = metrics ? formatBytes(metrics.processResidentMemoryBytes) : "—";
   const backendCpuSecondsValue = metrics ? `${metrics.processCpuSecondsTotal.toFixed(1)}s` : "—";
@@ -432,7 +453,7 @@ function SystemStatusModal({
                   <div className="mt-3 rounded-2xl bg-white p-4 shadow-xs">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs text-slate-500">总内存</div>
+                        <div className="text-xs text-slate-500">{totalMemoryLabel}</div>
                         <div className="mt-1 text-lg font-semibold text-slate-900">
                           {totalMemoryValue}
                         </div>
@@ -494,7 +515,7 @@ function SystemStatusModal({
                 {selectedSection === "overview" && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
-                      <StatusStat label="总内存" value={totalMemoryValue} />
+                      <StatusStat label={totalMemoryLabel} value={totalMemoryValue} />
                       <StatusStat label="总虚拟内存" value={totalVmsValue} />
                       <StatusStat label="CPU" value={totalCpuValue} highlight />
                       <StatusStat label="总进程数" value={totalProcessCount} />
@@ -507,6 +528,9 @@ function SystemStatusModal({
                           <ComponentStatusCard label="Frontend" component={overview.components.frontend} />
                           <ComponentStatusCard label="PostgreSQL" component={overview.components.postgres} />
                         </div>
+                        <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                          PostgreSQL 优先展示更接近独占内存的估算值（USS/PSS），避免多进程共享页被 RSS 重复累计。
+                        </p>
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
@@ -639,6 +663,14 @@ function ComponentStatusCard({
   component: SystemOverview["components"]["backend"];
 }) {
   const unavailable = component.status === "unavailable";
+  const memoryLabel = label === "PostgreSQL" ? "内存估算" : "内存";
+  const memoryValue = label === "PostgreSQL" ? formatComponentMemory(component) : formatBytes(component.rssBytes);
+  const memoryHint =
+    label === "PostgreSQL" && component.uniqueBytes != null
+      ? "优先 USS/PSS"
+      : label === "PostgreSQL"
+        ? "回退 RSS"
+        : null;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -653,7 +685,7 @@ function ComponentStatusCard({
         </span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <MiniStatusChip label="内存" value={formatBytes(component.rssBytes)} />
+        <MiniStatusChip label={memoryLabel} value={memoryValue} hint={memoryHint} />
         <MiniStatusChip label="CPU" value={formatCpuPercent(component.cpuPercent)} />
         <MiniStatusChip label="进程数" value={formatCount(component.processCount)} />
         <MiniStatusChip label="CPU 秒" value={component.cpuSeconds.toFixed(1)} />
@@ -689,10 +721,12 @@ function MiniStatusChip({
   label,
   value,
   tone = "slate",
+  hint,
 }: {
   label: string;
   value: string;
   tone?: "slate" | "amber";
+  hint?: string | null;
 }) {
   const toneClasses =
     tone === "amber"
@@ -703,6 +737,7 @@ function MiniStatusChip({
     <div className={`rounded-lg border px-2.5 py-2 ${toneClasses}`}>
       <div className="text-[10px] opacity-70">{label}</div>
       <div className="mt-1 text-sm font-semibold">{value}</div>
+      {hint ? <div className="mt-0.5 text-[10px] opacity-60">{hint}</div> : null}
     </div>
   );
 }

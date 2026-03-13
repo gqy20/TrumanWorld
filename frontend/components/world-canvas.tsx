@@ -21,10 +21,12 @@ import {
   beatBadge,
   buildWorldNameMaps,
   formatGoal,
+  getLocationHeadlineEvents,
   locationBeat,
   locationTone,
 } from "@/lib/world-utils";
 import { useUiSearchParams } from "@/lib/ui-url-state";
+import { describeWorldEvent } from "@/lib/event-utils";
 
 type Props = {
   runId: string;
@@ -79,18 +81,29 @@ export function WorldCanvas({ runId }: Props) {
     });
   }, [world, selectedLocationIdFromQuery]);
 
-  const { agentNameMap } = useMemo(() => {
+  const { agentNameMap, locationNameMap } = useMemo(() => {
     if (!world) {
       return {
         agentNameMap: {} as Record<string, string>,
+        locationNameMap: {} as Record<string, string>,
       };
     }
 
-    const { agentNameMap } = buildWorldNameMaps(world);
+    const { agentNameMap, locationNameMap } = buildWorldNameMaps(world);
     return {
       agentNameMap,
+      locationNameMap,
     };
   }, [world]);
+  const worldAgents = useMemo(
+    () =>
+      world
+        ? world.locations.flatMap((location) => location.occupants).filter((agent, index, array) => {
+            return array.findIndex((candidate) => candidate.id === agent.id) === index;
+          })
+        : [],
+    [world],
+  );
 
   if (!world) {
     return (
@@ -103,6 +116,9 @@ export function WorldCanvas({ runId }: Props) {
   const selectedLocation =
     world.locations.find((location) => location.id === highlightedLocationId) ?? world.locations[0] ?? null;
   const selectedLocationBeat = selectedLocation ? beatBadge(locationBeat(selectedLocation.id, world.recent_events, world.locations, world.run.current_tick)) : null;
+  const selectedLocationHeadlineEvents = selectedLocation
+    ? getLocationHeadlineEvents(selectedLocation.id, world.recent_events, 2)
+    : [];
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px_320px]">
@@ -163,6 +179,23 @@ export function WorldCanvas({ runId }: Props) {
 
             {selectedLocation ? (
               <div className="mt-4 space-y-2">
+                {selectedLocationHeadlineEvents.length > 0 ? (
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                      刚刚发生
+                    </p>
+                    <div className="mt-2 space-y-1.5">
+                      {selectedLocationHeadlineEvents.map((event) => (
+                        <div key={event.id} className="flex items-start gap-2 text-sm text-slate-600">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-moss/50" />
+                          <span className="line-clamp-2">
+                            {describeWorldEvent(event, agentNameMap, locationNameMap)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {selectedLocation.occupants.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">这里暂时没有居民。</p>
                 ) : (
@@ -235,6 +268,7 @@ export function WorldCanvas({ runId }: Props) {
           isOpen={isTimelineExpanded}
           onClose={() => replaceSearchParams({ modal: null })}
           runId={runId}
+          agents={worldAgents}
         />
 
         {/* 智能体详情弹窗 */}

@@ -412,6 +412,7 @@ function toCamelCaseSystemOverview(input: {
     {
       status: "available" | "unavailable";
       rss_bytes: number;
+      unique_bytes?: number | null;
       vms_bytes: number;
       cpu_seconds: number;
       cpu_percent: number;
@@ -425,6 +426,7 @@ function toCamelCaseSystemOverview(input: {
       backend: {
         status: input.components.backend.status,
         rssBytes: input.components.backend.rss_bytes,
+        uniqueBytes: input.components.backend.unique_bytes ?? null,
         vmsBytes: input.components.backend.vms_bytes,
         cpuSeconds: input.components.backend.cpu_seconds,
         cpuPercent: input.components.backend.cpu_percent,
@@ -433,6 +435,7 @@ function toCamelCaseSystemOverview(input: {
       frontend: {
         status: input.components.frontend.status,
         rssBytes: input.components.frontend.rss_bytes,
+        uniqueBytes: input.components.frontend.unique_bytes ?? null,
         vmsBytes: input.components.frontend.vms_bytes,
         cpuSeconds: input.components.frontend.cpu_seconds,
         cpuPercent: input.components.frontend.cpu_percent,
@@ -441,6 +444,7 @@ function toCamelCaseSystemOverview(input: {
       postgres: {
         status: input.components.postgres.status,
         rssBytes: input.components.postgres.rss_bytes,
+        uniqueBytes: input.components.postgres.unique_bytes ?? null,
         vmsBytes: input.components.postgres.vms_bytes,
         cpuSeconds: input.components.postgres.cpu_seconds,
         cpuPercent: input.components.postgres.cpu_percent,
@@ -449,6 +453,7 @@ function toCamelCaseSystemOverview(input: {
       total: {
         status: input.components.total.status,
         rssBytes: input.components.total.rss_bytes,
+        uniqueBytes: input.components.total.unique_bytes ?? null,
         vmsBytes: input.components.total.vms_bytes,
         cpuSeconds: input.components.total.cpu_seconds,
         cpuPercent: input.components.total.cpu_percent,

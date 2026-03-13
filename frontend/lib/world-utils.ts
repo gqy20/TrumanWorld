@@ -30,6 +30,16 @@ function isConversationSpeechEvent(event: WorldEvent): boolean {
   return event.event_type === EVENT_TALK || event.event_type === EVENT_SPEECH;
 }
 
+export function isSocialEvent(event: WorldEvent): boolean {
+  return (
+    event.event_type === EVENT_TALK ||
+    event.event_type === EVENT_SPEECH ||
+    event.event_type === EVENT_LISTEN ||
+    event.event_type === EVENT_CONVERSATION_STARTED ||
+    event.event_type === EVENT_CONVERSATION_JOINED
+  );
+}
+
 export function buildWorldNameMaps(world: WorldSnapshot) {
   const agentNameMap: Record<string, string> = {};
   const locationNameMap: Record<string, string> = {};
@@ -71,6 +81,42 @@ export function compressConversationDisplayEvents(events: WorldEvent[]): WorldEv
     if (!conversationId) return true;
     return !conversationIdsWithSpeech.has(conversationId);
   });
+}
+
+export function isAgentSociallyEngaged(
+  agentId: string,
+  currentGoal: string | undefined,
+  recentEvents: WorldEvent[],
+  currentTick?: number,
+): boolean {
+  if (currentGoal === "talk") {
+    return true;
+  }
+
+  return recentEvents.some((event) => {
+    if (!isSocialEvent(event)) return false;
+    if (currentTick !== undefined && event.tick_no < currentTick - 1) return false;
+    return event.actor_agent_id === agentId || event.target_agent_id === agentId;
+  });
+}
+
+export function getLocationHeadlineEvents(
+  locationId: string,
+  events: WorldEvent[],
+  limit: number = 2,
+): WorldEvent[] {
+  const locationEvents = compressConversationDisplayEvents(
+    events.filter((event) => event.location_id === locationId),
+  );
+
+  const ranked = [...locationEvents].sort((left, right) => {
+    if (right.tick_no !== left.tick_no) return right.tick_no - left.tick_no;
+    const leftSocial = isSocialEvent(left) ? 1 : 0;
+    const rightSocial = isSocialEvent(right) ? 1 : 0;
+    return rightSocial - leftSocial;
+  });
+
+  return ranked.slice(0, limit);
 }
 
 export function locationTone(locationType: string) {
@@ -180,13 +226,7 @@ export function getTimeOfDayStyle(timeOfDay: TimeOfDay): {
 export function eventMatchesFilter(event: WorldEvent, filter: EventFilter) {
   if (filter === "all") return true;
   if (filter === "social") {
-    return (
-      event.event_type === EVENT_TALK ||
-      event.event_type === EVENT_SPEECH ||
-      event.event_type === EVENT_LISTEN ||
-      event.event_type === EVENT_CONVERSATION_STARTED ||
-      event.event_type === EVENT_CONVERSATION_JOINED
-    );
+    return isSocialEvent(event);
   }
   if (filter === "movement") return event.event_type === EVENT_MOVE;
   return event.event_type === EVENT_WORK || event.event_type === EVENT_REST;

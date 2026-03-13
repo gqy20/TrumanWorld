@@ -213,6 +213,7 @@ export type SystemMetrics = {
 export type SystemOverviewComponent = {
   status: "available" | "unavailable";
   rssBytes: number;
+  uniqueBytes?: number | null;
   vmsBytes: number;
   cpuSeconds: number;
   cpuPercent: number;

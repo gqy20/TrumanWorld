@@ -70,6 +70,7 @@ async def test_system_overview_endpoint_returns_project_components(
                 "backend": {
                     "status": "available",
                     "rss_bytes": 100,
+                    "unique_bytes": 90,
                     "vms_bytes": 200,
                     "cpu_seconds": 3.5,
                     "cpu_percent": 25.0,
@@ -78,6 +79,7 @@ async def test_system_overview_endpoint_returns_project_components(
                 "frontend": {
                     "status": "available",
                     "rss_bytes": 300,
+                    "unique_bytes": 280,
                     "vms_bytes": 400,
                     "cpu_seconds": 2.0,
                     "cpu_percent": 50.0,
@@ -86,6 +88,7 @@ async def test_system_overview_endpoint_returns_project_components(
                 "postgres": {
                     "status": "unavailable",
                     "rss_bytes": 0,
+                    "unique_bytes": None,
                     "vms_bytes": 0,
                     "cpu_seconds": 0.0,
                     "cpu_percent": 0.0,
@@ -94,6 +97,7 @@ async def test_system_overview_endpoint_returns_project_components(
                 "total": {
                     "status": "available",
                     "rss_bytes": 400,
+                    "unique_bytes": 370,
                     "vms_bytes": 600,
                     "cpu_seconds": 5.5,
                     "cpu_percent": 75.0,
@@ -110,6 +114,7 @@ async def test_system_overview_endpoint_returns_project_components(
     assert body["collected_at"] == 1234567890
     assert body["components"]["backend"]["cpu_percent"] == 25.0
     assert body["components"]["backend"]["rss_bytes"] == 100
+    assert body["components"]["backend"]["unique_bytes"] == 90
     assert body["components"]["frontend"]["process_count"] == 2
     assert body["components"]["postgres"]["status"] == "unavailable"
     assert body["components"]["total"]["rss_bytes"] == 400

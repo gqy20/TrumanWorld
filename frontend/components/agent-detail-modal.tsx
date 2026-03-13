@@ -10,10 +10,11 @@ import {
   memoryCategoryBadgeClass,
   relationshipTone,
 } from "@/lib/agent-utils";
-import { getAgentResult, getWorldResult } from "@/lib/api";
+import { getAgentResult } from "@/lib/api";
+import { useWorld } from "@/components/world-context";
 import { describeAgentEvent } from "@/lib/event-utils";
 import { tickToSimDayTime } from "@/lib/world-utils";
-import type { AgentDetails, AgentRecentEvent, AgentRelationship, WorldSnapshot } from "@/lib/types";
+import type { AgentDetails, AgentRecentEvent, AgentRelationship } from "@/lib/types";
 
 // 人格特质中文映射
 const PERSONALITY_LABELS: Record<string, string> = {
@@ -50,8 +51,8 @@ interface AgentDetailModalProps {
 }
 
 export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetailModalProps) {
+  const { world } = useWorld();
   const [agent, setAgent] = useState<AgentDetails | null>(null);
-  const [world, setWorld] = useState<WorldSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,16 +60,13 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
     if (!isOpen) return;
     setLoading(true);
     setError(null);
-    Promise.all([getAgentResult(runId, agentId), getWorldResult(runId)])
-      .then(([agentRes, worldRes]) => {
+    getAgentResult(runId, agentId)
+      .then((agentRes) => {
         if (agentRes.data) {
           setAgent(agentRes.data);
-        } else {
-          setError(agentRes.error === "network_error" ? "网络错误" : "未找到智能体");
+          return;
         }
-        if (worldRes.data) {
-          setWorld(worldRes.data);
-        }
+        setError(agentRes.error === "network_error" ? "网络错误" : "未找到智能体");
       })
       .catch(() => setError("加载失败"))
       .finally(() => setLoading(false));
