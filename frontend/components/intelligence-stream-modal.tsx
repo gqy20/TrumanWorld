@@ -6,6 +6,7 @@ import type { WorldSnapshot, WorldEvent } from "@/lib/types";
 import { EventCard } from "@/components/event-card";
 import {
   buildWorldNameMaps,
+  compressConversationDisplayEvents,
   filterWorldEvents,
   tickToSimDayTime,
   type EventFilter,
@@ -130,8 +131,9 @@ export function IntelligenceStreamModal({
   const { agentNameMap, locationNameMap, visibleEvents, latestTick } = useMemo(() => {
     const { agentNameMap, locationNameMap } = buildWorldNameMaps(world);
     const filtered = filterWorldEvents(allEvents, eventFilter, locationFilter);
+    const visibleEvents = compressConversationDisplayEvents(filtered);
     const tick = allEvents[0]?.tick_no ?? world.run.current_tick ?? 0;
-    return { agentNameMap, locationNameMap, visibleEvents: filtered, latestTick: tick };
+    return { agentNameMap, locationNameMap, visibleEvents, latestTick: tick };
   }, [eventFilter, locationFilter, world, allEvents]);
 
   if (!isOpen) return null;

@@ -6,7 +6,13 @@ import type { WorldSnapshot } from "@/lib/types";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { EventCard } from "@/components/event-card";
-import { beatBadge, buildWorldNameMaps, locationBeat, tickToSimDayTime } from "@/lib/world-utils";
+import {
+  beatBadge,
+  buildWorldNameMaps,
+  compressConversationDisplayEvents,
+  locationBeat,
+  tickToSimDayTime,
+} from "@/lib/world-utils";
 import { Modal } from "@/components/modal";
 
 type LocationDetailModalProps = {
@@ -31,11 +37,12 @@ export function LocationDetailModal({
     const events = world.recent_events
       .filter((event) => event.location_id === locationId)
       .sort((a, b) => b.tick_no - a.tick_no); // 按 tick 倒序，最新的在前
+    const visibleEvents = compressConversationDisplayEvents(events);
 
     return {
       agentNameMap,
       locationNameMap,
-      locationEvents: events,
+      locationEvents: visibleEvents,
     };
   }, [world, locationId]);
 

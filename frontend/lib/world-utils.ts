@@ -19,6 +19,17 @@ import type { WorldEvent, WorldSnapshot } from "@/lib/types";
 export type LocationBeat = "conversation" | "arrival" | "working" | "resting" | "quiet";
 export type EventFilter = "all" | "social" | "activity" | "movement";
 
+function isConversationStructureEvent(event: WorldEvent): boolean {
+  return (
+    event.event_type === EVENT_CONVERSATION_STARTED ||
+    event.event_type === EVENT_CONVERSATION_JOINED
+  );
+}
+
+function isConversationSpeechEvent(event: WorldEvent): boolean {
+  return event.event_type === EVENT_TALK || event.event_type === EVENT_SPEECH;
+}
+
 export function buildWorldNameMaps(world: WorldSnapshot) {
   const agentNameMap: Record<string, string> = {};
   const locationNameMap: Record<string, string> = {};
@@ -41,6 +52,25 @@ export function filterWorldEvents(
   return events
     .filter((event) => eventMatchesFilter(event, eventFilter))
     .filter((event) => locationFilter === null || event.location_id === locationFilter);
+}
+
+export function compressConversationDisplayEvents(events: WorldEvent[]): WorldEvent[] {
+  const conversationIdsWithSpeech = new Set<string>();
+
+  for (const event of events) {
+    const conversationId = String(event.payload.conversation_id ?? "");
+    if (!conversationId) continue;
+    if (isConversationSpeechEvent(event)) {
+      conversationIdsWithSpeech.add(conversationId);
+    }
+  }
+
+  return events.filter((event) => {
+    if (!isConversationStructureEvent(event)) return true;
+    const conversationId = String(event.payload.conversation_id ?? "");
+    if (!conversationId) return true;
+    return !conversationIdsWithSpeech.has(conversationId);
+  });
 }
 
 export function locationTone(locationType: string) {

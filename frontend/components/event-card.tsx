@@ -1,7 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { EVENT_SPEECH, EVENT_TALK } from "@/lib/simulation-protocol";
+import {
+  EVENT_CONVERSATION_JOINED,
+  EVENT_CONVERSATION_STARTED,
+  EVENT_SPEECH,
+  EVENT_TALK,
+} from "@/lib/simulation-protocol";
 import type { WorldEvent } from "@/lib/types";
 import { describeWorldEvent, getEventMeta } from "@/lib/event-utils";
 
@@ -23,6 +28,9 @@ export function EventCard({
   simTime,
 }: EventCardProps) {
   const config = getEventMeta(event.event_type);
+  const isConversationStructure =
+    event.event_type === EVENT_CONVERSATION_STARTED ||
+    event.event_type === EVENT_CONVERSATION_JOINED;
 
   const description = describeWorldEvent(event, agentNameMap, locationNameMap);
   const messageText = event.payload.message;
@@ -43,26 +51,36 @@ export function EventCard({
         damping: 28,
       }}
       className={`
-        relative rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
+        relative rounded-2xl border px-4 py-3 text-sm
         transition-shadow hover:shadow-xs
+        ${
+          isConversationStructure
+            ? "border-slate-100 bg-slate-50/70"
+            : "border-slate-200 bg-white"
+        }
         ${isLatest ? "ring-1 ring-offset-1" : ""}
       `}
       style={{
-        boxShadow: isLatest ? `0 4px 14px ${config.color}18` : undefined,
+        boxShadow:
+          isLatest && !isConversationStructure ? `0 4px 14px ${config.color}18` : undefined,
       }}
     >
       <div
         className="absolute inset-y-3 left-0 w-1 rounded-r-full"
-        style={{ backgroundColor: config.color }}
+        style={{ backgroundColor: isConversationStructure ? `${config.color}88` : config.color }}
       />
       <div className="relative pl-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-50 text-sm shadow-xs">
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm ${
+                isConversationStructure ? "bg-white text-slate-500" : "bg-slate-50 shadow-xs"
+              }`}
+            >
               {config.icon}
             </span>
             <div className="min-w-0">
-              <p className="font-medium text-gray-900">
+              <p className={isConversationStructure ? "text-slate-600" : "font-medium text-gray-900"}>
                 {description}
               </p>
               {hasMessage && (
@@ -79,10 +97,12 @@ export function EventCard({
           </div>
           <div className="flex shrink-0 flex-col items-end gap-0.5">
             <span
-              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              className={`rounded-full px-2 py-0.5 text-[10px] ${
+                isConversationStructure ? "font-normal" : "font-medium"
+              }`}
               style={{
-                backgroundColor: `${config.color}20`,
-                color: config.color,
+                backgroundColor: isConversationStructure ? "rgba(241, 245, 249, 0.95)" : `${config.color}20`,
+                color: isConversationStructure ? "#64748b" : config.color,
               }}
             >
               {config.label}
