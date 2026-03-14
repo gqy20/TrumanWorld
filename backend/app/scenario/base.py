@@ -19,7 +19,7 @@ class Scenario(ABC):
     """Abstract scenario contract for simulation orchestration."""
 
     @abstractmethod
-    def with_session(self, session: AsyncSession | None) -> "Scenario":
+    def with_session(self, session: AsyncSession | None) -> Scenario:
         raise NotImplementedError
 
     @abstractmethod
@@ -50,7 +50,7 @@ class Scenario(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def persist_director_plan(self, run_id: str, plan: "DirectorPlan | None") -> None:
+    async def persist_director_plan(self, run_id: str, plan: DirectorPlan | None) -> None:
         raise NotImplementedError
 
     @abstractmethod

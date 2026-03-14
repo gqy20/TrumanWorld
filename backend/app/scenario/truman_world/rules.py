@@ -40,7 +40,7 @@ def load_world_config() -> dict[str, Any]:
     """
     global _WORLD_CONFIG_CACHE
     if _WORLD_CONFIG_CACHE is None:
-        with open(_WORLD_CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(_WORLD_CONFIG_PATH, encoding="utf-8") as f:
             _WORLD_CONFIG_CACHE = yaml.safe_load(f)
     return _WORLD_CONFIG_CACHE
 
@@ -232,8 +232,8 @@ def _build_action_hint_for_manual_goal(scene_goal: str, guidance: dict[str, Any]
 
 def build_perception_context_for_agent(
     viewer_agent_id: str,
-    world: "WorldState",
-    relationships: list["Relationship"],
+    world: WorldState,
+    relationships: list[Relationship],
     current_location_id: str | None,
 ) -> dict[str, Any]:
     """Build perception context for an agent.

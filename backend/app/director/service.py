@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class DirectorEventService:
-    def __init__(self, session: "AsyncSession") -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self.run_repo = RunRepository(session)
         self.agent_repo = AgentRepository(session)
         self.director_memory_repo = DirectorMemoryRepository(session)

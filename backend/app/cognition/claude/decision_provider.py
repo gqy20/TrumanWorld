@@ -20,8 +20,8 @@ from app.infra.logging import get_logger
 from app.infra.settings import Settings
 
 if TYPE_CHECKING:
-    from app.cognition.claude.connection_pool import AgentConnectionPool
     from app.agent.runtime import RuntimeContext, RuntimeInvocation
+    from app.cognition.claude.connection_pool import AgentConnectionPool
     from app.sim.types import RuntimeWorldContext
 
 logger = get_logger(__name__)
@@ -32,7 +32,7 @@ class AgentDecisionProvider(ABC):
     async def decide(
         self,
         invocation: Any,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         raise NotImplementedError
 
@@ -67,7 +67,7 @@ class HeuristicDecisionProvider(AgentDecisionProvider):
     async def decide(
         self,
         invocation: Any,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         world = invocation.context.get("world", {})
         goal = world.get("current_goal")
@@ -117,7 +117,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         self._pool = connection_pool
 
     @staticmethod
-    def _get_pool_key(invocation: "RuntimeInvocation") -> str:
+    def _get_pool_key(invocation: RuntimeInvocation) -> str:
         if invocation.run_id:
             return f"{invocation.run_id}:{invocation.agent_id}"
         return invocation.agent_id
@@ -125,7 +125,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
     def _build_sdk_options(
         self,
         invocation: RuntimeInvocation,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> ClaudeAgentOptions:
         budget = (
             invocation.max_budget_usd
@@ -167,7 +167,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
     async def decide(
         self,
         invocation: RuntimeInvocation,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         pool_key = self._get_pool_key(invocation)
         if self._pool and self._pool.is_warmed_up(pool_key):
@@ -180,7 +180,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
     async def _decide_with_pool(
         self,
         invocation: RuntimeInvocation,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         max_attempts = self.max_retries + 1
         last_exc: Exception | None = None
@@ -226,7 +226,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
     async def _decide_with_pool_once(
         self,
         invocation: RuntimeInvocation,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         from claude_agent_sdk import AssistantMessage
 
@@ -287,7 +287,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
     async def _decide_with_query(
         self,
         invocation: RuntimeInvocation,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         if shutil.which("claude") is None:
             raise RuntimeError("Claude CLI is not available in the current environment")
@@ -345,7 +345,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         invocation: RuntimeInvocation,
         full_prompt: str,
         options: ClaudeAgentOptions,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         result_decision: RuntimeDecision | None = None
         captured_session_id: str | None = None

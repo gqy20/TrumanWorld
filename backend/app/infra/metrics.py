@@ -4,8 +4,8 @@ from prometheus_client import (
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
-    GCCollector,
     Gauge,
+    GCCollector,
     Histogram,
     PlatformCollector,
     ProcessCollector,
@@ -15,7 +15,6 @@ from prometheus_client import (
 from app.cognition.claude.connection_pool import peek_connection_pool
 from app.infra.settings import get_settings
 from app.sim.scheduler import get_scheduler
-
 
 REGISTRY = CollectorRegistry()
 ProcessCollector(registry=REGISTRY)
@@ -67,9 +66,9 @@ CLAUDE_REACTOR_POOL_ACTIVE = Gauge(
     registry=REGISTRY,
 )
 CLAUDE_REACTOR_POOL_ACTIVE.set_function(
-    lambda: float(peek_connection_pool().active_count)
-    if peek_connection_pool() is not None
-    else 0.0
+    lambda: (
+        float(peek_connection_pool().active_count) if peek_connection_pool() is not None else 0.0
+    )
 )
 
 LLM_CALL_TOTAL = Counter(

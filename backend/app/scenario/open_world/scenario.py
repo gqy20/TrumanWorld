@@ -26,7 +26,7 @@ class OpenWorldScenario(Scenario):
     def __init__(self, session: AsyncSession | None = None) -> None:
         self.session = session
 
-    def with_session(self, session: AsyncSession | None) -> "OpenWorldScenario":
+    def with_session(self, session: AsyncSession | None) -> OpenWorldScenario:
         return OpenWorldScenario(session)
 
     def configure_runtime(self, agent_runtime) -> None:

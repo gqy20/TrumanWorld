@@ -225,11 +225,9 @@ class DirectorAgent:
             result = await run_text_query(
                 prompt=full_prompt,
                 options=options,
-                on_usage=lambda usage, _cost, _duration: logger.debug(
-                    f"DirectorAgent LLM usage: {usage}"
-                )
-                if usage
-                else None,
+                on_usage=lambda usage, _cost, _duration: (
+                    logger.debug(f"DirectorAgent LLM usage: {usage}") if usage else None
+                ),
             )
             return clean_response_text(result)
         except RuntimeError:

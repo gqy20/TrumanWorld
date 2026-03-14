@@ -1,16 +1,15 @@
 from __future__ import annotations
 
+import os
+import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-import os
-import time
 from urllib.parse import urlparse
 
 import psutil
 
 from app.infra.settings import Settings, get_settings
-
 
 SnapshotDict = dict[str, int | float | str | None]
 _CPU_SAMPLE_CACHE: dict[str, tuple[float, float]] = {}
@@ -112,7 +111,9 @@ def _snapshot_from_pids(pids: Iterable[int], cache_key: str) -> ResourceSnapshot
             continue
 
         rss_bytes += int(memory_info.rss)
-        process_unique = getattr(memory_full_info, "uss", None) or getattr(memory_full_info, "pss", None)
+        process_unique = getattr(memory_full_info, "uss", None) or getattr(
+            memory_full_info, "pss", None
+        )
         if process_unique is None:
             unique_available = False
         else:

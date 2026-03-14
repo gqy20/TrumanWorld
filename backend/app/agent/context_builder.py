@@ -6,7 +6,6 @@ from typing import Any
 
 from app.agent.config_loader import AgentConfig
 
-
 WorldFilterHook = Callable[[str, dict[str, Any]], dict[str, Any]]
 RoleContextHook = Callable[[str, dict[str, Any]], dict[str, Any]]
 SceneGuidanceHook = Callable[[str, dict[str, Any]], dict[str, Any]]

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from collections.abc import Sequence
-from uuid import uuid4
-
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from sqlalchemy import Select, and_, case, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +13,8 @@ from app.store.models import (
     Agent,
     DirectorMemory,
     Event,
-    Location,
     LlmCall,
+    Location,
     Memory,
     Relationship,
     SimulationRun,
@@ -139,6 +138,7 @@ class RunRepository:
         to 'paused'. Returns the list of affected runs.
         """
         from datetime import UTC, datetime
+
         from sqlalchemy import update
 
         now = datetime.now(UTC)
@@ -249,7 +249,14 @@ class EventRepository:
         event_priority = case(
             (
                 Event.event_type.in_(
-                    ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                    [
+                        "talk",
+                        "speech",
+                        "listen",
+                        "conversation_started",
+                        "conversation_joined",
+                        "move",
+                    ]
                 ),
                 0,
             ),
@@ -274,7 +281,14 @@ class EventRepository:
         event_priority = case(
             (
                 Event.event_type.in_(
-                    ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                    [
+                        "talk",
+                        "speech",
+                        "listen",
+                        "conversation_started",
+                        "conversation_joined",
+                        "move",
+                    ]
                 ),
                 0,
             ),
@@ -562,7 +576,14 @@ class AgentRepository:
         event_priority = case(
             (
                 Event.event_type.in_(
-                    ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                    [
+                        "talk",
+                        "speech",
+                        "listen",
+                        "conversation_started",
+                        "conversation_joined",
+                        "move",
+                    ]
                 ),
                 0,
             ),

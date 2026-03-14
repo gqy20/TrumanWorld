@@ -29,7 +29,9 @@ class LangGraphDirectorBackend:
     ) -> None:
         self._settings = settings or get_settings()
         self._agent = DirectorAgent(self._settings)
-        self._enabled = self._agent._config.enabled and self._settings.director_backend == "langgraph"
+        self._enabled = (
+            self._agent._config.enabled and self._settings.director_backend == "langgraph"
+        )
         self._decision_interval = self._agent._config.decision_interval
         self._text_model: BaseChatModel | ChatModelProtocol | None = (
             text_model or self._build_default_model()
@@ -50,19 +52,18 @@ class LangGraphDirectorBackend:
             return None
 
         context = invocation.context
-        cast_agents = [a for a in context.agents if a.get("profile", {}).get("world_role") == "cast"]
+        cast_agents = [
+            a for a in context.agents if a.get("profile", {}).get("world_role") == "cast"
+        ]
         if not cast_agents or context.assessment.truman_agent_id is None:
             return None
 
         prompt = self._agent._build_decision_prompt(context, cast_agents, invocation.recent_goals)
-        full_prompt = (
-            f"{prompt}\n\n"
-            "重要：你必须只返回一个有效的 JSON 对象，不要有其他任何文本。"
-        )
+        full_prompt = f"{prompt}\n\n重要：你必须只返回一个有效的 JSON 对象，不要有其他任何文本。"
 
         try:
             response = await self._text_model.ainvoke(full_prompt)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"LangGraph director decision failed: {exc}")
             return None
 

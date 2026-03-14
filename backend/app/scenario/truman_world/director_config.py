@@ -87,7 +87,7 @@ class DirectorConfig:
         if self._prompt_template is None:
             prompt_path = _SCENARIO_DIR / self.prompt.file
             try:
-                with open(prompt_path, "r", encoding="utf-8") as f:
+                with open(prompt_path, encoding="utf-8") as f:
                     self._prompt_template = f.read()
             except FileNotFoundError:
                 logger.warning(f"Director prompt file not found: {prompt_path}")
@@ -148,7 +148,7 @@ def load_director_config(force_reload: bool = False) -> DirectorConfig:
 
     # Load from file
     try:
-        with open(_DIRECTOR_CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(_DIRECTOR_CONFIG_PATH, encoding="utf-8") as f:
             _config_cache = yaml.safe_load(f)
             _config_load_time = current_time
             logger.debug(f"Loaded director config from {_DIRECTOR_CONFIG_PATH}")

@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from app.protocol.simulation import EventType
 
-
 # ============================================================================
 # Common Responses
 # ============================================================================
@@ -198,7 +197,9 @@ class TickResponse(BaseModel):
 class TimelineEventResponse(BaseModel):
     id: str = Field(..., description="事件 ID", examples=["evt_001"])
     tick_no: int = Field(..., description="Tick 编号", examples=[42])
-    event_type: EventType = Field(..., description="事件类型", examples=["speech", "listen", "move"])
+    event_type: EventType = Field(
+        ..., description="事件类型", examples=["speech", "listen", "move"]
+    )
     importance: float | None = Field(None, description="重要性", ge=0, le=1, examples=[0.8])
     payload: dict = Field(default_factory=dict, description="事件负载数据")
     world_time: str | None = Field(None, description="模拟世界时间", examples=["09:30"])

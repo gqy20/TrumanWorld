@@ -18,6 +18,7 @@ from app.sim.event_utils import build_event
 from app.sim.memory_constants import calculate_memory_importance, determine_memory_category
 from app.sim.runner import TickResult
 from app.sim.world import WorldState
+from app.store.models import Event, Memory, Relationship
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
@@ -26,7 +27,6 @@ from app.store.repositories import (
     RelationshipRepository,
     RunRepository,
 )
-from app.store.models import Event, Memory, Relationship
 
 if TYPE_CHECKING:
     from app.store.models import Agent
@@ -403,7 +403,9 @@ class PersistenceManager:
 
             if message:
                 actor_content = f'Said to {target} at {loc}: "{message}"'
-                actor_summary = f"Said to {target}: {message[:30]}{'...' if len(message) > 30 else ''}"
+                actor_summary = (
+                    f"Said to {target}: {message[:30]}{'...' if len(message) > 30 else ''}"
+                )
             else:
                 actor_content = f"Said something to {target} at {loc}."
                 actor_summary = f"Said to {target}"
@@ -479,7 +481,9 @@ class PersistenceManager:
         )
         location_ids = {event.location_id for event, _agent_id, _summary in routine_requests}
         location_filters = []
-        non_null_location_ids = [location_id for location_id in location_ids if location_id is not None]
+        non_null_location_ids = [
+            location_id for location_id in location_ids if location_id is not None
+        ]
         if non_null_location_ids:
             location_filters.append(Memory.location_id.in_(non_null_location_ids))
         if None in location_ids:
@@ -527,8 +531,7 @@ class PersistenceManager:
         stmt = select(Relationship).where(Relationship.run_id == run_id, or_(*pair_conditions))
         result = await session.execute(stmt)
         strength_map: dict[tuple[str, str | None], float] = {
-            (agent_id, related_agent_id): 0.0
-            for agent_id, related_agent_id in pair_requests
+            (agent_id, related_agent_id): 0.0 for agent_id, related_agent_id in pair_requests
         }
         for relation in result.scalars():
             components = [
@@ -562,7 +565,7 @@ class PersistenceManager:
         return 0.4
 
     @staticmethod
-    def _is_goal_relevant(event: Event, agent: "Agent | None") -> bool:
+    def _is_goal_relevant(event: Event, agent: Agent | None) -> bool:
         if agent is None or not agent.current_goal:
             return False
         goal = agent.current_goal.lower()
@@ -573,7 +576,7 @@ class PersistenceManager:
         return event.event_type == "speech" and "talk" in goal
 
     @staticmethod
-    def _is_location_relevant(event: Event, agent: "Agent | None") -> bool:
+    def _is_location_relevant(event: Event, agent: Agent | None) -> bool:
         if agent is None:
             return False
         return bool(
@@ -682,7 +685,7 @@ _PLAN_VALUE_NORMALISE: dict[str, str] = {
 }
 
 
-def _compute_goal_for_schedule(world: "WorldState", agent: "Agent") -> str | None:
+def _compute_goal_for_schedule(world: WorldState, agent: Agent) -> str | None:
     """Compute the agent's goal for the current time period from its daily plan.
 
     Returns None when no update is needed (e.g. unrecognised time period or

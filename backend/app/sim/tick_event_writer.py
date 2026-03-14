@@ -6,23 +6,24 @@ from app.sim.event_utils import build_event
 from app.sim.persistence import PersistenceManager
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.scenario.base import Scenario
     from app.sim.runner import TickResult
     from app.store.models import Event
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TickEventWriter:
-    def __init__(self, session: "AsyncSession | None") -> None:
+    def __init__(self, session: AsyncSession | None) -> None:
         self.persistence = PersistenceManager(session) if session is not None else None
 
     async def persist(
         self,
         *,
         run_id: str,
-        result: "TickResult",
-        scenario: "Scenario",
-    ) -> list["Event"]:
+        result: TickResult,
+        scenario: Scenario,
+    ) -> list[Event]:
         if self.persistence is None:
             msg = "TickEventWriter.persist requires a bound session"
             raise RuntimeError(msg)

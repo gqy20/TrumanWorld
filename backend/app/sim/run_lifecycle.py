@@ -9,7 +9,6 @@ from app.sim.scheduler import get_scheduler
 from app.store.models import SimulationRun
 from app.store.repositories import RunRepository
 
-
 logger = get_logger(__name__)
 
 

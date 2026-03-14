@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 class LlmCallWriter:
-    async def persist(self, *, run_id: str, llm_records: list["LlmCall"], engine) -> None:
+    async def persist(self, *, run_id: str, llm_records: list[LlmCall], engine) -> None:
         if not llm_records or engine is None:
             return
 
@@ -25,5 +25,5 @@ class LlmCallWriter:
                     llm_session.add(record)
                 await llm_session.commit()
             observe_llm_records(llm_records)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"Failed to persist llm_calls for run {run_id}: {exc}")

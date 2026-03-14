@@ -86,7 +86,7 @@ class AgentConnectionPool:
                     )
                 logger.info(f"Warmed up connection for agent: {agent_id}")
                 return True
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(f"Failed to warmup connection for {agent_id}: {exc}")
                 return False
 
@@ -169,7 +169,7 @@ class AgentConnectionPool:
             try:
                 await pooled.client.disconnect()
                 logger.debug(f"Evicted LRU connection for agent: {lru_id}")
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(f"Error disconnecting evicted client {lru_id}: {exc}")
 
     async def cleanup_idle(self) -> int:
@@ -189,7 +189,7 @@ class AgentConnectionPool:
                     await pooled.client.disconnect()
                     cleaned += 1
                     logger.debug(f"Cleaned up idle connection for agent: {agent_id}")
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     logger.warning(f"Error disconnecting idle client {agent_id}: {exc}")
 
         if cleaned > 0:
@@ -204,7 +204,7 @@ class AgentConnectionPool:
                 try:
                     await pooled.client.disconnect()
                     logger.debug(f"Closed connection for agent: {agent_id}")
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     logger.warning(f"Error disconnecting client {agent_id}: {exc}")
             self._pool.clear()
 
@@ -240,7 +240,7 @@ class AgentConnectionPool:
                     await pooled.client.disconnect()
                     cleaned += 1
                     logger.debug(f"Cleaned up connection for run: {agent_id}")
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     logger.warning(f"Error disconnecting client {agent_id}: {exc}")
 
         if cleaned > 0:
@@ -272,7 +272,7 @@ def _kill_orphan_sdk_processes() -> None:
                 continue
         if killed:
             logger.info(f"SIGKILL sent to {len(killed)} orphan SDK process(es): {killed}")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(f"Failed to kill orphan SDK processes: {exc}")
 
 

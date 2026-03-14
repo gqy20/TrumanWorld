@@ -30,25 +30,25 @@ def _load_sleep_config() -> dict:
         if "end" in sleep:
             result["sleep_end_hour"] = int(sleep["end"])
         return result
-    except Exception:  # noqa: BLE001
+    except Exception:
         # 配置加载失败时使用 WorldState 默认值
         return {}
 
 
 @dataclass
 class LoadedTickData:
-    run: "SimulationRun"
+    run: SimulationRun
     world: WorldState
     agent_data: list[AgentDecisionSnapshot]
-    agents: list["Agent"]
-    director_plan: "DirectorPlan | None" = field(default=None)
+    agents: list[Agent]
+    director_plan: DirectorPlan | None = field(default=None)
 
 
 async def load_tick_data(
     *,
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
-    scenario: "Scenario",
+    scenario: Scenario,
 ) -> LoadedTickData:
     run_repo = RunRepository(session)
     run = await run_repo.get(run_id)

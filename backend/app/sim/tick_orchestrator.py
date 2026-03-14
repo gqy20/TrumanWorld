@@ -8,8 +8,8 @@ from app.agent.runtime import RuntimeContext
 from app.infra.logging import get_logger
 from app.scenario.base import Scenario
 from app.scenario.types import get_agent_config_id, get_scenario_guidance, get_world_role
-from app.sim.llm_call_collector import LlmCallCollector
 from app.sim.agent_snapshot_builder import build_agent_recent_events
+from app.sim.llm_call_collector import LlmCallCollector
 from app.sim.runner import SimulationRunner, TickResult
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
@@ -37,11 +37,11 @@ class TickOrchestrator:
     def __init__(
         self,
         *,
-        agent_runtime: "AgentRuntime",
+        agent_runtime: AgentRuntime,
         scenario: Scenario,
-        session: "AsyncSession | None" = None,
-        context_builder: "ContextBuilder | None" = None,
-        agent_repo: "AgentRepository | None" = None,
+        session: AsyncSession | None = None,
+        context_builder: ContextBuilder | None = None,
+        agent_repo: AgentRepository | None = None,
     ) -> None:
         self.agent_runtime = agent_runtime
         self.scenario = scenario
@@ -49,7 +49,7 @@ class TickOrchestrator:
         self.context_builder = context_builder
         self.agent_repo = agent_repo
 
-    async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list["ActionIntent"]:
+    async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
         if self.session is None or self.context_builder is None or self.agent_repo is None:
             msg = "TickOrchestrator.prepare_tick_intents requires a bound session context"
             raise RuntimeError(msg)
@@ -105,11 +105,11 @@ class TickOrchestrator:
     async def prepare_intents_from_data(
         self,
         world: WorldState,
-        agent_data: list["AgentDecisionSnapshot"],
+        agent_data: list[AgentDecisionSnapshot],
         engine=None,
         run_id: str | None = None,
         tick_no: int = 0,
-    ) -> tuple[list["ActionIntent"], list[LlmCall]]:
+    ) -> tuple[list[ActionIntent], list[LlmCall]]:
         phase_started_at = perf_counter()
         collector = LlmCallCollector()
         concurrency_limit = self.agent_runtime.decision_concurrency_limit()
@@ -256,7 +256,7 @@ class TickOrchestrator:
         runtime_ctx=None,
         workplace_location_id: str | None = None,
         current_plan: dict | None = None,
-    ) -> "ActionIntent":
+    ) -> ActionIntent:
         nearby_agent_id = (
             find_nearby_agent(world, agent_id, current_location_id)
             if current_location_id is not None
@@ -295,7 +295,7 @@ class TickOrchestrator:
         run_id: str | None,
         world: WorldState,
         current_tick: int,
-        intents: list["ActionIntent"],
+        intents: list[ActionIntent],
     ) -> TickResult:
         started_at = perf_counter()
         runner = SimulationRunner(world)
@@ -313,5 +313,5 @@ class TickOrchestrator:
         return result
 
     @staticmethod
-    def resolve_runtime_agent_id(agent: "Agent") -> str:
+    def resolve_runtime_agent_id(agent: Agent) -> str:
         return get_agent_config_id(agent.profile) or agent.id

@@ -6,7 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-
 DECISION_OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {

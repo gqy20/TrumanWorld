@@ -7,8 +7,8 @@ with their own private structures.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, TypedDict, cast
-
+from collections.abc import Mapping
+from typing import Any, TypedDict, cast
 
 # ---------------------------------------------------------------------------
 # World role
@@ -79,7 +79,7 @@ def build_agent_profile(
     extras: Mapping[str, Any] | None = None,
 ) -> AgentProfile:
     """Build an AgentProfile dict from keyword arguments."""
-    profile = cast(AgentProfile, dict(extras or {}))
+    profile = cast("AgentProfile", dict(extras or {}))
     if bio is not None:
         profile["bio"] = bio
     if agent_config_id is not None:
@@ -100,7 +100,7 @@ def merge_agent_profile(
     guidance: ScenarioGuidance | None = None,
 ) -> AgentProfile:
     """Merge an existing profile dict with optional scenario guidance."""
-    base = cast(AgentProfile, dict(profile or {}))
+    base = cast("AgentProfile", dict(profile or {}))
     if guidance:
         base.update(guidance)
     return base

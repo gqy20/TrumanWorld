@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes.runs import get_required_run
 from app.api.schemas.simulation import (
     COMMON_RESPONSES,
     DirectorEventRequest,
@@ -13,7 +14,6 @@ from app.api.schemas.simulation import (
     DirectorObservationResponse,
     StatusResponse,
 )
-from app.api.routes.runs import get_required_run
 from app.director.service import DirectorEventService
 from app.infra.db import get_db_session
 from app.sim.service import SimulationService

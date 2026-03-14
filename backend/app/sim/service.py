@@ -23,11 +23,11 @@ from app.sim.runner import TickResult
 from app.sim.tick_event_writer import TickEventWriter
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.world import WorldState
+from app.store.models import SimulationRun
 from app.store.repositories import (
     AgentRepository,
     RunRepository,
 )
-from app.store.models import SimulationRun
 
 if TYPE_CHECKING:
     from app.infra.db import async_engine
@@ -83,7 +83,7 @@ class SimulationService:
         cls,
         agent_runtime: AgentRuntime,
         scenario: Scenario | None = None,
-    ) -> "SimulationService":
+    ) -> SimulationService:
         return cls(
             session=None,
             agent_runtime=agent_runtime,
@@ -192,7 +192,7 @@ class SimulationService:
     async def run_tick_isolated(
         self,
         run_id: str,
-        engine: "async_engine",
+        engine: async_engine,
         intents: list[ActionIntent] | None = None,
     ) -> TickResult:
         """Run a tick with isolated database sessions to avoid greenlet conflicts.

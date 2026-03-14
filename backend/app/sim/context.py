@@ -17,12 +17,13 @@ from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_truman_suspicion_from_agent_data,
 )
-from app.sim.world_queries import find_nearby_agent, get_agent
 from app.sim.world import AgentState, LocationState, WorldState
+from app.sim.world_queries import find_nearby_agent, get_agent
 from app.store.repositories import AgentRepository, EventRepository, LocationRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.store.models import Agent, Event, SimulationRun
 
 
@@ -39,7 +40,7 @@ def _load_sleep_config() -> dict:
         if "end" in sleep:
             result["sleep_end_hour"] = int(sleep["end"])
         return result
-    except Exception:  # noqa: BLE001
+    except Exception:
         return {}
 
 

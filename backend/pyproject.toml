@@ -55,6 +55,11 @@ ignore = [
     "B008",   # do not perform function calls in argument defaults
     "B905",   # zip without strict
     "SIM108", # use ternary operator
+    "RUF001", # ambiguous full-width characters in strings (Chinese punctuation)
+    "RUF002", # ambiguous full-width characters in docstrings
+    "RUF003", # ambiguous full-width colon in comments
+    "TC003",  # type-checking import moved to TYPE_CHECKING block
+    "TC001",  # type-checking import moved to TYPE_CHECKING block
 ]
 
 [tool.ruff.lint.isort]

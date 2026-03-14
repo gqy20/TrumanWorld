@@ -5,7 +5,6 @@ from typing import Literal
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 # 开发环境默认数据库 URL（仅用于本地开发，不包含生产密码）

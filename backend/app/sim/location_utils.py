@@ -10,7 +10,7 @@ def resolve_agent_location_id(
     *,
     current_location_id: str | None,
     home_location_id: str | None,
-    location_states: dict[str, "LocationState"],
+    location_states: dict[str, LocationState],
 ) -> str:
     location_id = current_location_id or home_location_id
     if location_id is not None:

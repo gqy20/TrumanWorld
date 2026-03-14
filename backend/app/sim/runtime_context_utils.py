@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 def build_agent_world_context(
     *,
-    world: "WorldState",
+    world: WorldState,
     current_goal: str | None,
     current_location_id: str | None,
     home_location_id: str | None,
@@ -94,7 +94,7 @@ def inject_profile_fields_into_context(
 
 def extract_truman_suspicion_from_agent_data(
     agent_data: list[AgentDecisionSnapshot],
-    world: "WorldState",
+    world: WorldState,
 ) -> float:
     for agent_snapshot in agent_data:
         profile = agent_snapshot.profile or {}
@@ -130,7 +130,7 @@ def _normalize_director_guidance(guidance: ScenarioGuidance) -> ScenarioGuidance
 
 def _inject_world_effects(
     context: dict,
-    world: "WorldState",
+    world: WorldState,
     current_location_id: str | None,
 ) -> None:
     world_effects = getattr(world, "world_effects", {}) or {}

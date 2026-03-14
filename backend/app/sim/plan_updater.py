@@ -8,12 +8,7 @@ This module provides functions to:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from app.sim.action_resolver import ActionIntent, PlanUpdate
-
-if TYPE_CHECKING:
-    from app.sim.world import WorldState
 
 # Valid reasons for plan updates
 VALID_PLAN_UPDATE_REASONS = [
@@ -51,10 +46,7 @@ def should_update_plan(
         return False
 
     # Check cooldown (skip if last_update_tick is 0, meaning no previous update)
-    if last_update_tick > 0 and (current_tick - last_update_tick) < cooldown_ticks:
-        return False
-
-    return True
+    return not (last_update_tick > 0 and (current_tick - last_update_tick) < cooldown_ticks)
 
 
 def update_agent_plan(

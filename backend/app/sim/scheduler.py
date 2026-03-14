@@ -1,8 +1,8 @@
 """Simple scheduler for automatic tick advancement."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable
 
 from app.infra.logging import debug, error, info, warning
 from app.infra.settings import get_settings
@@ -84,7 +84,7 @@ class SimulationScheduler:
             # Use timeout to avoid blocking forever if LLM call is stuck
             try:
                 await asyncio.wait_for(asyncio.shield(scheduled.task), timeout=2.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 warning(f"Task for run {run_id} did not cancel within 2s, continuing")
             except asyncio.CancelledError:
                 pass

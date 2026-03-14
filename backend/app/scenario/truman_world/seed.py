@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from app.agent.registry import AgentRegistry
 from app.infra.settings import get_settings
 from app.scenario.truman_world.rules import load_world_config
-from app.sim.context import DEFAULT_WORLD_START_TIME
 from app.scenario.truman_world.types import build_agent_profile
+from app.sim.context import DEFAULT_WORLD_START_TIME
 from app.store.models import Agent, Location, Relationship
 
 if TYPE_CHECKING:

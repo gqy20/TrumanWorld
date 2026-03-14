@@ -38,12 +38,12 @@ MEMORY_TYPE_DAILY_REFLECTION = "daily_reflection"
 # ── 触发检测 ─────────────────────────────────────────────────────────────────
 
 
-def should_run_planner(world: "WorldState") -> bool:
+def should_run_planner(world: WorldState) -> bool:
     """Return True when the world just entered morning (06:00 hour)."""
     return world.current_time.hour == 6 and world.current_time.minute < world.tick_minutes
 
 
-def should_run_reflector(world: "WorldState") -> bool:
+def should_run_reflector(world: WorldState) -> bool:
     """Return True right after the 21:55 reflection tick completes.
 
     Reflector is executed after a tick finishes, so the world clock has already
@@ -54,7 +54,7 @@ def should_run_reflector(world: "WorldState") -> bool:
 
 
 async def has_plan_for_today(
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
     agent_id: str,
     today: date,
@@ -75,7 +75,7 @@ async def has_plan_for_today(
 
 
 async def has_reflection_for_today(
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
     agent_id: str,
     today: date,
@@ -98,7 +98,7 @@ async def has_reflection_for_today(
 # ── 上下文构建辅助 ────────────────────────────────────────────────────────────
 
 
-def _build_basic_world_context(world: "WorldState") -> dict:
+def _build_basic_world_context(world: WorldState) -> dict:
     """Build minimal world context dict for planner/reflector prompts."""
     weekday = world.current_time.weekday()
     return {
@@ -109,7 +109,7 @@ def _build_basic_world_context(world: "WorldState") -> dict:
 
 
 async def _load_recent_memories(
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
     agent_id: str,
     limit: int = 5,
@@ -132,10 +132,10 @@ async def _load_recent_memories(
 
 
 async def _load_yesterday_plan_execution(
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
     agent_id: str,
-    yesterday: "date",
+    yesterday: date,
     ticks_per_day: int,
 ) -> str:
     """Load yesterday's plan and actual execution, generate comparison summary.
@@ -144,7 +144,6 @@ async def _load_yesterday_plan_execution(
     - Yesterday's plan (what was planned)
     - Yesterday's actual behavior (what actually happened)
     """
-    from sqlalchemy import or_
 
     # 1. Get yesterday's plan from daily_plan memory
     yesterday_str = yesterday.isoformat()
@@ -176,24 +175,19 @@ async def _load_yesterday_plan_execution(
     # Since we don't have world context here, let's get all events from yesterday
 
     # Query events from the run, filter by agent
-    # We'll estimate yesterday's tick range
-    yesterday_start_tick = ticks_per_day  # Approximate: yesterday starts at tick_per_day (end of day 1)
-    yesterday_end_tick = ticks_per_day * 2  # Approximate
-
     events_result = await session.execute(
-        select(Event).where(
+        select(Event)
+        .where(
             Event.run_id == run_id,
             Event.actor_agent_id == agent_id,
             Event.tick_no > 0,
             Event.tick_no <= ticks_per_day * 2,  # Last 2 days of events
-        ).order_by(Event.tick_no.asc())
+        )
+        .order_by(Event.tick_no.asc())
     )
 
     # Filter to get only yesterday's events (first half of the range)
-    yesterday_events = [
-        e for e in events_result.scalars().all()
-        if e.tick_no > ticks_per_day
-    ]
+    yesterday_events = [e for e in events_result.scalars().all() if e.tick_no > ticks_per_day]
 
     # 3. Analyze actual behavior
     action_counts: dict[str, int] = {}
@@ -217,7 +211,7 @@ async def _load_yesterday_plan_execution(
 
 
 async def _load_today_events(
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
     agent_id: str,
     tick_no: int,
@@ -259,9 +253,9 @@ async def run_morning_planning(
     *,
     run_id: str,
     tick_no: int,
-    world: "WorldState",
-    engine: "AsyncEngine",
-    agent_runtime: "AgentRuntime",
+    world: WorldState,
+    engine: AsyncEngine,
+    agent_runtime: AgentRuntime,
 ) -> None:
     """Run the Planner for all agents at morning boundary and persist results."""
     from datetime import timedelta
@@ -392,9 +386,9 @@ async def run_evening_reflection(
     *,
     run_id: str,
     tick_no: int,
-    world: "WorldState",
-    engine: "AsyncEngine",
-    agent_runtime: "AgentRuntime",
+    world: WorldState,
+    engine: AsyncEngine,
+    agent_runtime: AgentRuntime,
 ) -> None:
     """Run the Reflector for all agents at night boundary and persist results."""
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -532,7 +526,7 @@ def _mood_to_valence(mood: str) -> float:
 
 
 async def _promote_memories_after_reflection(
-    session: "AsyncSession",
+    session: AsyncSession,
     *,
     run_id: str,
     tick_no: int,

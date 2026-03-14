@@ -28,7 +28,7 @@ class IsolatedTickRunner:
     def __init__(
         self,
         *,
-        agent_runtime: "AgentRuntime",
+        agent_runtime: AgentRuntime,
         llm_call_writer: LlmCallWriter | None = None,
         day_boundary_coordinator: DayBoundaryCoordinator | None = None,
     ) -> None:
@@ -41,8 +41,8 @@ class IsolatedTickRunner:
         *,
         run_id: str,
         engine,
-        intents: list["ActionIntent"] | None = None,
-    ) -> tuple["TickResult", "Scenario"]:
+        intents: list[ActionIntent] | None = None,
+    ) -> tuple[TickResult, Scenario]:
         read_started_at = perf_counter()
         async with AsyncSession(engine) as read_session:
             run = await read_session.get(SimulationRun, run_id)

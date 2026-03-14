@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-
 PLANNER_PROMPT_PATH = Path(__file__).with_name("prompts") / "planner.md"
 REFLECTOR_PROMPT_PATH = Path(__file__).with_name("prompts") / "reflector.md"
 
@@ -51,17 +50,6 @@ class PromptLoader:
                 "afternoon": "下午",
                 "evening": "傍晚",
                 "night": "夜间",
-            }
-            plan_label = {
-                "work": "工作",
-                "talk": "发言社交",
-                "socialize": "社交",
-                "wander": "闲逛",
-                "rest": "休息",
-                "go_home": "回家",
-                "commute": "通勤",
-                "prepare_day": "准备一天",
-                "home": "在家",
             }
             for key in ("morning", "daytime", "evening"):
                 val = daily_schedule.get(key)
@@ -175,32 +163,38 @@ class PromptLoader:
         # 如果有昨日计划执行情况，单独展示
         yesterday_execution = context.get("yesterday_plan_execution")
         if yesterday_execution:
-            lines.extend([
-                "# 昨日计划执行情况",
-                yesterday_execution,
-                "",
-            ])
+            lines.extend(
+                [
+                    "# 昨日计划执行情况",
+                    yesterday_execution,
+                    "",
+                ]
+            )
 
         # 近期记忆
         recent_memories = context.get("recent_memories", [])
         if recent_memories:
-            lines.extend([
-                "# 近期记忆",
-                "以下是你近期记得的一些事情：",
-                "",
-            ])
+            lines.extend(
+                [
+                    "# 近期记忆",
+                    "以下是你近期记得的一些事情：",
+                    "",
+                ]
+            )
             for mem in recent_memories[-3:]:  # 只显示最近3条
                 content = mem.get("content", "")[:100]
                 if content:
                     lines.append(f"- {content}")
             lines.append("")
 
-        lines.extend([
-            "# 运行上下文",
-            "```json",
-            self._to_pretty_json(context),
-            "```",
-        ])
+        lines.extend(
+            [
+                "# 运行上下文",
+                "```json",
+                self._to_pretty_json(context),
+                "```",
+            ]
+        )
         return "\n".join(lines)
 
     def render_reflector_prompt(

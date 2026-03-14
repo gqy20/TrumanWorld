@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 from app.director.observer import DirectorAssessment, DirectorObserver
 from app.director.planner import DirectorPlanner
 from app.director.types import DirectorPlan
-from app.infra.settings import get_settings
 from app.infra.logging import get_logger
+from app.infra.settings import get_settings
 from app.scenario.truman_world.heuristics import build_truman_world_decision
 from app.scenario.truman_world.types import (
     DirectorGuidance,
@@ -208,8 +208,8 @@ class TrumanWorldCoordinator:
     async def persist_director_plan(
         self,
         run_id: str,
-        plan: "DirectorPlan",
-        assessment: "DirectorAssessment | None" = None,
+        plan: DirectorPlan,
+        assessment: DirectorAssessment | None = None,
     ) -> None:
         """将自动干预计划持久化到记忆，应在 write_session 阶段调用。
 

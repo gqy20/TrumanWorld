@@ -7,19 +7,19 @@ if TYPE_CHECKING:
     from app.sim.world import AgentState, LocationState, WorldState
 
 
-def get_location(world: "WorldState", location_id: str | None) -> "LocationState | None":
+def get_location(world: WorldState, location_id: str | None) -> LocationState | None:
     if not location_id:
         return None
     return world.get_location(location_id)
 
 
-def get_agent(world: "WorldState", agent_id: str | None) -> "AgentState | None":
+def get_agent(world: WorldState, agent_id: str | None) -> AgentState | None:
     if not agent_id:
         return None
     return world.get_agent(agent_id)
 
 
-def find_nearby_agent(world: "WorldState", agent_id: str, location_id: str) -> str | None:
+def find_nearby_agent(world: WorldState, agent_id: str, location_id: str) -> str | None:
     location = get_location(world, location_id)
     if location is None:
         return None
@@ -31,7 +31,7 @@ def find_nearby_agent(world: "WorldState", agent_id: str, location_id: str) -> s
 
 
 def list_other_occupants(
-    world: "WorldState", viewer_agent_id: str, location_id: str | None
+    world: WorldState, viewer_agent_id: str, location_id: str | None
 ) -> list[str]:
     location = get_location(world, location_id)
     if location is None:
@@ -40,7 +40,7 @@ def list_other_occupants(
 
 
 def get_location_occupants(
-    world: "WorldState", location_id: str | None, exclude_agent_id: str | None = None
+    world: WorldState, location_id: str | None, exclude_agent_id: str | None = None
 ) -> list[dict[str, Any]]:
     """Get all agents at a location with their basic info.
 

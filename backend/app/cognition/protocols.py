@@ -63,7 +63,7 @@ class ChatModelProtocol(Protocol):
         """Return the model name/identifier."""
         ...
 
-    async def ainvoke(self, input: list, **kwargs) -> object:  # noqa: ANN001
+    async def ainvoke(self, input: list, **kwargs) -> object:
         """Asynchronously invoke the model."""
         ...
 
@@ -72,11 +72,11 @@ class ChatModelProtocol(Protocol):
 class StructuredModelProtocol(Protocol):
     """Protocol for models that support structured output."""
 
-    def with_structured_output(self, schema: type[BaseModel]) -> "StructuredModelProtocol":
+    def with_structured_output(self, schema: type[BaseModel]) -> StructuredModelProtocol:
         """Return a model wrapper that outputs structured data."""
         ...
 
-    async def ainvoke(self, input: list, **kwargs) -> BaseModel:  # noqa: ANN001
+    async def ainvoke(self, input: list, **kwargs) -> BaseModel:
         """Asynchronously invoke with structured output."""
         ...
 

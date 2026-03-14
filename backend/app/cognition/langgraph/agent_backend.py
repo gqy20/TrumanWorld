@@ -4,9 +4,9 @@ import json
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from langchain_core.messages import HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
-from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from app.agent.prompt_loader import PromptLoader
@@ -118,7 +118,7 @@ class LangGraphAgentBackend:
                 },
                 context={"runtime_ctx": runtime_ctx},
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
             return self._fallback_decision(invocation, reason=str(exc))
         result = state["result"] or AgentDecisionResult(action_type="rest")
@@ -289,7 +289,7 @@ class LangGraphAgentBackend:
                 f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。"
             )
             duration_ms = int((perf_counter() - started_at) * 1000)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             duration_ms = int((perf_counter() - started_at) * 1000)
             logger.warning(f"LangGraph {task} failed for {agent_id}: {exc}")
             logger.debug(
@@ -371,7 +371,9 @@ class LangGraphAgentBackend:
         # dynamic_suffix is just the context JSON
         return (stable_prefix + "Agent context JSON:").rstrip(), dynamic_suffix.strip()
 
-    def _build_reactor_messages(self, invocation: AgentActionInvocation) -> list[HumanMessage] | str:
+    def _build_reactor_messages(
+        self, invocation: AgentActionInvocation
+    ) -> list[HumanMessage] | str:
         if not self._settings.langgraph_reactor_prompt_cache_enabled:
             return self._build_text_json_prompt(invocation)
 
@@ -395,7 +397,11 @@ class LangGraphAgentBackend:
             len(stable_prefix),
             len(dynamic_suffix),
         )
-        return [HumanMessage(content=content or [{"type": "text", "text": stable_prefix or dynamic_suffix}])]
+        return [
+            HumanMessage(
+                content=content or [{"type": "text", "text": stable_prefix or dynamic_suffix}]
+            )
+        ]
 
     async def _run_structured_reactor_decision(
         self,
@@ -408,7 +414,7 @@ class LangGraphAgentBackend:
             response = await structured_model.ainvoke(self._build_reactor_messages(invocation))
         except RuntimeError:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             duration_ms = int((perf_counter() - started_at) * 1000)
             logger.warning(
                 f"LangGraph structured reactor decision failed for {invocation.agent_id}: {exc}"
@@ -425,7 +431,9 @@ class LangGraphAgentBackend:
 
         duration_ms = int((perf_counter() - started_at) * 1000)
         raw_response = response.get("raw") if self._is_structured_wrapper(response) else response
-        self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", raw_response, duration_ms)
+        self._maybe_record_usage(
+            runtime_ctx, invocation.agent_id, "reactor", raw_response, duration_ms
+        )
 
         parsed = self._extract_structured_response(response)
         if parsed is None:
@@ -457,8 +465,10 @@ class LangGraphAgentBackend:
         started_at = perf_counter()
         try:
             response = await self._decision_model.ainvoke(self._build_reactor_messages(invocation))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(f"LangGraph text reactor decision failed for {invocation.agent_id}: {exc}")
+        except Exception as exc:
+            logger.warning(
+                f"LangGraph text reactor decision failed for {invocation.agent_id}: {exc}"
+            )
             logger.debug(
                 "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
                 "duration_ms=%s success=false exception_type=%s",
@@ -504,7 +514,9 @@ class LangGraphAgentBackend:
         return result
 
     def _build_text_json_prompt(self, invocation: AgentActionInvocation) -> str:
-        schema_json = json.dumps(_StructuredDecision.model_json_schema(), ensure_ascii=False, indent=2)
+        schema_json = json.dumps(
+            _StructuredDecision.model_json_schema(), ensure_ascii=False, indent=2
+        )
         context_json = json.dumps(invocation.context, ensure_ascii=False, sort_keys=True)
         allowed_actions = ", ".join(invocation.allowed_actions)
         # Optimized order: stable content first (prompt, actions, instructions, schema),
@@ -617,9 +629,7 @@ class LangGraphAgentBackend:
             return
         input_token_details = usage.get("input_token_details") if isinstance(usage, dict) else None
         cache_read = (
-            input_token_details.get("cache_read")
-            if isinstance(input_token_details, dict)
-            else None
+            input_token_details.get("cache_read") if isinstance(input_token_details, dict) else None
         )
         cache_creation = (
             input_token_details.get("cache_creation")

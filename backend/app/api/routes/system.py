@@ -5,7 +5,6 @@ from fastapi import APIRouter
 from app.api.schemas.simulation import COMMON_RESPONSES, SystemOverviewResponse
 from app.infra.system_overview import get_system_overview_payload
 
-
 router = APIRouter()
 
 

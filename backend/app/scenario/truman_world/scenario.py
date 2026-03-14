@@ -4,16 +4,16 @@ from typing import TYPE_CHECKING
 
 from app.agent.context_builder import ScenarioContextHooks
 from app.scenario.base import Scenario
-from app.scenario.types import AgentProfile, ScenarioGuidance
+from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
 from app.scenario.truman_world.rules import (
     build_role_context,
     build_scene_guidance,
     build_world_common_knowledge,
     filter_world_for_role,
 )
-from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
 from app.scenario.truman_world.seed import TrumanWorldSeedBuilder
 from app.scenario.truman_world.state import TrumanWorldStateUpdater
+from app.scenario.types import AgentProfile, ScenarioGuidance
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +31,7 @@ class TrumanWorldScenario(Scenario):
         self.state_updater = TrumanWorldStateUpdater(session) if session is not None else None
         self.seed_builder = TrumanWorldSeedBuilder(session) if session is not None else None
 
-    def with_session(self, session: AsyncSession | None) -> "TrumanWorldScenario":
+    def with_session(self, session: AsyncSession | None) -> TrumanWorldScenario:
         return TrumanWorldScenario(session)
 
     def configure_runtime(self, agent_runtime: AgentRuntime) -> None:

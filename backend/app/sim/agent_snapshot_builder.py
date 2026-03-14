@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 from app.sim.world import AgentState, LocationState
 
-
 SHORT_TERM_LIMIT = 8
 MEDIUM_TERM_LIMIT = 10
 LONG_TERM_LIMIT = 12
@@ -28,9 +27,9 @@ MEMORY_CONTENT_PREVIEW_LIMIT = 160
 
 async def build_agent_memory_cache(
     *,
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
-    agents: list["Agent"],
+    agents: list[Agent],
 ) -> dict[str, dict[str, list[dict[str, Any]]]]:
     """预加载所有 agent 的记忆数据到内存缓存。
 
@@ -108,12 +107,8 @@ async def build_agent_memory_cache(
                     medium_term.append(mem_dict)
             elif len(long_term) < LONG_TERM_LIMIT:
                 long_term.append(mem_dict)
-            if (
-                mem.related_agent_id
-                and (
-                    len(about_others) < ABOUT_OTHER_AGENT_LIMIT
-                    or mem.related_agent_id in about_others
-                )
+            if mem.related_agent_id and (
+                len(about_others) < ABOUT_OTHER_AGENT_LIMIT or mem.related_agent_id in about_others
             ):
                 if len(about_others[mem.related_agent_id]) >= ABOUT_OTHER_MEMORY_LIMIT:
                     continue
@@ -132,11 +127,11 @@ async def build_agent_memory_cache(
 
 async def build_agent_recent_events(
     *,
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
-    agents: list["Agent"],
-    agent_states: dict[str, "AgentState"],
-    location_states: dict[str, "LocationState"],
+    agents: list[Agent],
+    agent_states: dict[str, AgentState],
+    location_states: dict[str, LocationState],
 ) -> dict[str, list[dict[str, Any]]]:
     context_builder = ContextBuilder(session)
     from collections import defaultdict
@@ -227,13 +222,13 @@ async def build_agent_recent_events(
 
 async def build_agent_snapshots(
     *,
-    session: "AsyncSession",
+    session: AsyncSession,
     run_id: str,
-    run: "SimulationRun",
-    agents: list["Agent"],
-    scenario: "Scenario",
-    location_states: dict[str, "LocationState"],
-    agent_states: dict[str, "AgentState"],
+    run: SimulationRun,
+    agents: list[Agent],
+    scenario: Scenario,
+    location_states: dict[str, LocationState],
+    agent_states: dict[str, AgentState],
 ) -> tuple[list[AgentDecisionSnapshot], Any]:
     """Build per-agent decision snapshots.
 

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from app.sim.action_resolver import ActionIntent, ActionResolver, ActionResult
-from app.sim.conversation_scheduler import ConversationAssignment, ConversationScheduler, ConversationSession
+from app.sim.conversation_scheduler import (
+    ConversationAssignment,
+    ConversationScheduler,
+    ConversationSession,
+)
 from app.sim.world import WorldState
 
 
@@ -40,7 +44,9 @@ class SimulationRunner:
             assignment.agent_id: {
                 "role": assignment.role,
                 "conversation_id": assignment.conversation_id,
-                "participant_ids": participants_by_conversation_id.get(assignment.conversation_id, []),
+                "participant_ids": participants_by_conversation_id.get(
+                    assignment.conversation_id, []
+                ),
             }
             for assignment in assignments.values()
         }
@@ -74,7 +80,11 @@ class SimulationRunner:
 
         for session in sessions:
             primary_listener_id = next(
-                (participant_id for participant_id in session.participant_ids if participant_id != session.active_speaker_id),
+                (
+                    participant_id
+                    for participant_id in session.participant_ids
+                    if participant_id != session.active_speaker_id
+                ),
                 None,
             )
             structure_results.append(

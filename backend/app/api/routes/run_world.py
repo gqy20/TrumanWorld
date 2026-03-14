@@ -5,9 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes.runs import build_run_payload, get_required_run
 from app.api.schemas.simulation import (
-    AgentSummaryResponse,
     COMMON_RESPONSES,
+    AgentSummaryResponse,
     TimelineEventResponse,
     TimelineResponse,
     TimelineRunInfo,
@@ -24,7 +25,6 @@ from app.api.schemas.simulation import (
 )
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
-from app.api.routes.runs import build_run_payload, get_required_run
 from app.scenario.truman_world.rules import load_world_config
 from app.scenario.truman_world.types import get_agent_config_id
 from app.sim.context import DEFAULT_WORLD_START_TIME, get_run_world_time
@@ -449,7 +449,9 @@ async def get_world_pulse(
 
     world_time = get_run_world_time(run)
 
-    social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get("talk", 0)
+    social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get(
+        "talk", 0
+    )
 
     return WorldPulseResponse(
         run=build_run_snapshot(run),
@@ -534,8 +536,7 @@ async def get_world_snapshot(
             y=location.y,
             capacity=location.capacity,
             occupants=[
-                agent_summaries[agent.id]
-                for agent in occupants_by_location.get(location.id, [])
+                agent_summaries[agent.id] for agent in occupants_by_location.get(location.id, [])
             ],
         )
         for location in locations
@@ -544,7 +545,9 @@ async def get_world_snapshot(
     world_time = get_run_world_time(run)
     agent_name_map, location_name_map = build_name_maps(agents, locations)
 
-    social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get("talk", 0)
+    social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get(
+        "talk", 0
+    )
 
     logger.debug(
         f"World snapshot retrieved for run {run_id}: "

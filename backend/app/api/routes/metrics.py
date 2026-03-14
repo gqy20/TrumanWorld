@@ -4,7 +4,6 @@ from fastapi import APIRouter, Response
 
 from app.infra.metrics import render_metrics
 
-
 router = APIRouter()
 
 

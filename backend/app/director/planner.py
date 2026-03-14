@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from app.cognition.claude.director_agent import DirectorContext
 from app.cognition.interfaces import DirectorCognitionBackend
 from app.cognition.registry import get_cognition_registry
-from app.cognition.claude.director_agent import DirectorContext
 from app.cognition.types import DirectorDecisionInvocation
 from app.director.observer import DirectorAssessment
 from app.director.strategy_engine import StrategyExecutor
@@ -48,7 +48,7 @@ class DirectorPlanner:
         self,
         *,
         assessment: DirectorAssessment,
-        agents: list["Agent"],
+        agents: list[Agent],
         recent_intervention_goals: list[str] | None = None,
         current_tick: int = 0,
         recent_events: list[dict[str, Any]] | None = None,
@@ -144,7 +144,7 @@ class DirectorPlanner:
     def _build_config_based_plan(
         self,
         assessment: DirectorAssessment,
-        cast_agents: list["Agent"],
+        cast_agents: list[Agent],
         recent_goals: set[str],
     ) -> DirectorPlan | None:
         """基于配置的干预计划构建（回退方案）
@@ -183,7 +183,7 @@ class DirectorPlanner:
             cooldown_ticks=plan_data["cooldown_ticks"],
         )
 
-    def _pick_primary_cast(self, cast_agents: list["Agent"]) -> "Agent | None":
+    def _pick_primary_cast(self, cast_agents: list[Agent]) -> Agent | None:
         sorted_agents = sorted(
             cast_agents,
             key=lambda agent: (

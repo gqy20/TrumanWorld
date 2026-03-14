@@ -126,7 +126,7 @@ MEMORY_TOOLS_DEFS = [
 ]
 
 
-def create_memory_mcp_server_cached(cache: "MemoryCache") -> Server:
+def create_memory_mcp_server_cached(cache: MemoryCache) -> Server:
     """Create an MCP server with memory tools using pre-loaded cache.
 
     This version uses MemoryCache instead of creating database sessions,

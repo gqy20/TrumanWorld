@@ -56,13 +56,13 @@ class RuntimeContext:
     and should be passed alongside RuntimeInvocation.
     """
 
-    db_engine: "AsyncEngine | None" = None
+    db_engine: AsyncEngine | None = None
     run_id: str | None = None
     enable_memory_tools: bool = True
     # LLM 调用回调：(agent_id, task_type, usage, total_cost_usd, duration_ms) -> None
     on_llm_call: Callable[..., None] | None = field(default=None)
     # 预加载的记忆缓存，用于 in-process MCP 工具（避免 greenlet 冲突）
-    memory_cache: "MemoryCache | None" = field(default=None)
+    memory_cache: MemoryCache | None = field(default=None)
 
 
 class AgentRuntime:
@@ -216,7 +216,9 @@ class AgentRuntime:
             if runtime_ctx is not None
             else None
         )
-        decision = await self.backend.decide_action(backend_invocation, runtime_ctx=backend_runtime_ctx)
+        decision = await self.backend.decide_action(
+            backend_invocation, runtime_ctx=backend_runtime_ctx
+        )
         payload = dict(decision.payload)
         if decision.message:
             payload["message"] = decision.message
@@ -266,7 +268,7 @@ class AgentRuntime:
         agent_name: str,
         world_context: dict[str, Any],
         recent_memories: list[dict[str, Any]] | None = None,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> dict | None:
         """Run the daily planning LLM call and return parsed plan dict.
 
@@ -305,7 +307,7 @@ class AgentRuntime:
         agent_name: str,
         world_context: dict[str, Any],
         daily_events: list[dict[str, Any]] | None = None,
-        runtime_ctx: "RuntimeContext | None" = None,
+        runtime_ctx: RuntimeContext | None = None,
     ) -> dict | None:
         """Run the daily reflection LLM call and return parsed reflection dict.
 

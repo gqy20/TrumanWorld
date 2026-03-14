@@ -19,7 +19,6 @@ from app.cognition.types import (
 from app.infra.logging import get_logger
 from app.infra.settings import Settings
 
-
 logger = get_logger(__name__)
 
 
@@ -140,8 +139,8 @@ class ClaudeSdkAgentBackend:
             logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")
             return None
 
-        from app.cognition.claude.sdk_options import build_sdk_options
         from app.agent.system_prompt import build_system_prompt
+        from app.cognition.claude.sdk_options import build_sdk_options
 
         options = build_sdk_options(
             self._settings,
@@ -159,21 +158,23 @@ class ClaudeSdkAgentBackend:
                 prompt=full_prompt,
                 options=options,
                 on_usage=(
-                    lambda usage, total_cost_usd, duration_ms: runtime_ctx.on_llm_call(
-                        agent_id=agent_id,
-                        task_type=task,
-                        usage=usage,
-                        total_cost_usd=total_cost_usd,
-                        duration_ms=duration_ms,
+                    lambda usage, total_cost_usd, duration_ms: (
+                        runtime_ctx.on_llm_call(
+                            agent_id=agent_id,
+                            task_type=task,
+                            usage=usage,
+                            total_cost_usd=total_cost_usd,
+                            duration_ms=duration_ms,
+                        )
+                        if runtime_ctx and runtime_ctx.on_llm_call
+                        else None
                     )
-                    if runtime_ctx and runtime_ctx.on_llm_call
-                    else None
                 ),
             )
         except RuntimeError as exc:
             logger.warning(f"{task} LLM error for {agent_id}: {exc}")
             return None
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"{task} LLM call failed for {agent_id}: {exc}")
             return None
 

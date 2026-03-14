@@ -25,9 +25,9 @@ class DayBoundaryCoordinator:
         *,
         run_id: str,
         tick_no: int,
-        world: "WorldState",
+        world: WorldState,
         engine,
-        agent_runtime: "AgentRuntime",
+        agent_runtime: AgentRuntime,
     ) -> bool:
         """在 agent 决策前运行 Planner（如果当前是清晨边界）。
 
@@ -44,7 +44,7 @@ class DayBoundaryCoordinator:
                 agent_runtime=agent_runtime,
             )
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"Day boundary planner failed: {exc}")
             return False
 
@@ -53,9 +53,9 @@ class DayBoundaryCoordinator:
         *,
         run_id: str,
         tick_no: int,
-        world: "WorldState",
+        world: WorldState,
         engine,
-        agent_runtime: "AgentRuntime",
+        agent_runtime: AgentRuntime,
     ) -> None:
         """在 tick 结束后运行 Reflector（如果当前是夜晚边界）。"""
         if engine is None or not should_run_reflector(world):
@@ -68,17 +68,17 @@ class DayBoundaryCoordinator:
                 engine=engine,
                 agent_runtime=agent_runtime,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"Day boundary reflector failed: {exc}")
 
     async def run(
         self,
         *,
         run_id: str,
-        result: "TickResult",
-        world: "WorldState",
+        result: TickResult,
+        world: WorldState,
         engine,
-        agent_runtime: "AgentRuntime",
+        agent_runtime: AgentRuntime,
     ) -> None:
         """向后兼容接口：在 tick 结束后仅处理 Reflector。
 
