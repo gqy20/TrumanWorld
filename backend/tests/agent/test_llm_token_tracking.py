@@ -336,6 +336,7 @@ class TestFreeTextBypassesPool:
             "claude_agent_sdk.query",
             _single_result_query('{"morning":"work","daytime":"work","evening":"rest"}'),
         )
+        monkeypatch.setattr("shutil.which", lambda command: "/usr/bin/claude")
 
         backend = ClaudeSdkAgentBackend(settings, connection_pool=_PoolMustNotBeUsed())
         result = await backend.plan_day(
@@ -370,6 +371,7 @@ class TestFreeTextBypassesPool:
             "claude_agent_sdk.query",
             _single_result_query('{"reflection":"Good day","mood":"happy"}'),
         )
+        monkeypatch.setattr("shutil.which", lambda command: "/usr/bin/claude")
 
         backend = ClaudeSdkAgentBackend(settings, connection_pool=_PoolMustNotBeUsed())
         result = await backend.reflect_day(
