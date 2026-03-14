@@ -67,14 +67,14 @@ class PromptLoader:
                 val = daily_schedule.get(key)
                 if val:
                     period_zh = period_label.get(key, key)
-                    val_zh = plan_label.get(str(val), str(val))
+                    # 直接显示原始文本，不再查字典翻译
                     is_current = (
                         (key == "morning" and time_period in {"dawn", "morning"})
                         or (key == "daytime" and time_period in {"noon", "afternoon"})
                         or (key == "evening" and time_period == "evening")
                     )
                     marker = " (← 当前时段)" if is_current else ""
-                    lines.append(f"- {period_zh}: {val_zh}{marker}")
+                    lines.append(f"- {period_zh}: {val}{marker}")
             lines.append("")
 
         # 渲染对话历史（如果有）

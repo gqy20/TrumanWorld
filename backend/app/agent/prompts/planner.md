@@ -16,13 +16,13 @@
 
 ```json
 {
-  "morning": "wander | work | talk | rest | commute",
-  "daytime": "wander | work | talk | rest | commute",
-  "evening": "socialize | work | rest | go_home",
-  "intention": "一句话说明今天最想做的事（30字以内）"
+  "morning": "描述你上午想做什么（简短的自然语言）",
+  "daytime": "描述你下午想做什么（简短的自然语言）",
+  "evening": "描述你傍晚想做什么（简短的自然语言）",
+  "intention": "一句话说明今天最想做的事（100字以内）"
 }
 ```
 
-- `morning` / `daytime` / `evening` 必须从括号内的值中选一个
+- `morning` / `daytime` / `evening` 用简短的自然语言描述你想做的事情，例如："去咖啡店工作"、"和朋友在广场聊天"、"在家休息"
 - `intention` 是自然语言，用第一人称表达
 - 只返回 JSON，不要有任何其他文字

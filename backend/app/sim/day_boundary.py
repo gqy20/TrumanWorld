@@ -351,9 +351,21 @@ async def run_evening_reflection(
             reflection_text = reflection.get("reflection", "")
             mood = reflection.get("mood", "neutral")
             key_person = reflection.get("key_person")
+            happy_event = reflection.get("happy_event", "")
+            regret_event = reflection.get("regret_event", "")
+            self_evaluation = reflection.get("self_evaluation", "")
             tomorrow = reflection.get("tomorrow_intention", "")
 
-            content = reflection_text or f"今天已结束。（{today.isoformat()}）"
+            # 构建更丰富的 content
+            content_parts = [reflection_text]
+            if happy_event:
+                content_parts.append(f"\n最开心的事：{happy_event}")
+            if regret_event:
+                content_parts.append(f"\n最遗憾的事：{regret_event}")
+            if self_evaluation:
+                content_parts.append(f"\n自我评价：{self_evaluation}")
+            content = "\n".join(content_parts) or f"今天已结束。（{today.isoformat()}）"
+
             summary = tomorrow or f"今日总结（{today.isoformat()}）"
 
             memories_to_create.append(
@@ -374,6 +386,9 @@ async def run_evening_reflection(
                     metadata_json={
                         "mood": mood,
                         "key_person": key_person,
+                        "happy_event": happy_event,
+                        "regret_event": regret_event,
+                        "self_evaluation": self_evaluation,
                         "tomorrow_intention": tomorrow,
                         "day": today.isoformat(),
                     },
