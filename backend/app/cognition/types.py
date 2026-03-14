@@ -3,13 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.cognition.protocols import LLMCallCallback, MemoryCacheProtocol
+
 
 @dataclass
 class BackendExecutionContext:
     run_id: str | None = None
     enable_memory_tools: bool = True
-    on_llm_call: Any | None = None
-    memory_cache: Any | None = None
+    on_llm_call: LLMCallCallback = None
+    memory_cache: MemoryCacheProtocol | None = None
 
 
 @dataclass
@@ -41,7 +43,7 @@ class ReflectionInvocation:
 @dataclass
 class DirectorDecisionInvocation:
     prompt: str
-    context: Any
+    context: dict[str, Any]  # World state context for director
     recent_goals: set[str]
 
 

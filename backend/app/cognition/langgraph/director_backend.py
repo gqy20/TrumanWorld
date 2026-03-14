@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.cognition.claude.director_agent import DirectorAgent
+from app.cognition.protocols import ChatModelProtocol, DirectorIntervention
 from app.cognition.types import DirectorDecisionInvocation
 from app.infra.logging import get_logger
 from app.infra.settings import Settings, get_settings
+
+if TYPE_CHECKING:
+    from langchain_core.language_models.chat_models import BaseChatModel
 
 logger = get_logger(__name__)
 
@@ -21,13 +25,15 @@ class LangGraphDirectorBackend:
     def __init__(
         self,
         settings: Settings | None = None,
-        text_model: Any | None = None,
+        text_model: BaseChatModel | ChatModelProtocol | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._agent = DirectorAgent(self._settings)
         self._enabled = self._agent._config.enabled and self._settings.director_backend == "langgraph"
         self._decision_interval = self._agent._config.decision_interval
-        self._text_model = text_model or self._build_default_model()
+        self._text_model: BaseChatModel | ChatModelProtocol | None = (
+            text_model or self._build_default_model()
+        )
 
     def is_enabled(self) -> bool:
         return self._enabled
@@ -37,7 +43,9 @@ class LangGraphDirectorBackend:
             return False
         return tick_no % self._decision_interval == 0
 
-    async def propose_intervention(self, invocation: DirectorDecisionInvocation):
+    async def propose_intervention(
+        self, invocation: DirectorDecisionInvocation
+    ) -> DirectorIntervention | None:
         if not self._enabled or self._text_model is None:
             return None
 
@@ -64,7 +72,7 @@ class LangGraphDirectorBackend:
             cast_agents,
         )
 
-    def _build_default_model(self) -> Any | None:
+    def _build_default_model(self) -> BaseChatModel | None:
         model_name = (
             self._settings.director_agent_model
             or self._settings.langgraph_model
@@ -85,7 +93,7 @@ class LangGraphDirectorBackend:
             model_kwargs["base_url"] = self._settings.langgraph_base_url
         return ChatAnthropic(**model_kwargs)
 
-    def _extract_text_content(self, response: Any) -> str:
+    def _extract_text_content(self, response: object) -> str:
         content = getattr(response, "content", response)
         if isinstance(content, str):
             return content

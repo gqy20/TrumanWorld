@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from time import perf_counter
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.agent.prompt_loader import PromptLoader
 from app.cognition.claude.decision_provider import HeuristicDecisionHook
+from app.cognition.protocols import ChatModelProtocol, StructuredModelProtocol
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -20,6 +21,9 @@ from app.cognition.types import (
 )
 from app.infra.logging import get_logger
 from app.infra.settings import Settings, get_settings
+
+if TYPE_CHECKING:
+    from langchain_core.language_models.chat_models import BaseChatModel
 
 logger = get_logger(__name__)
 
@@ -42,6 +46,19 @@ class _DecisionContext(TypedDict):
     runtime_ctx: BackendExecutionContext | None
 
 
+class _RuntimeContextWrapper:
+    """Minimal wrapper for LangGraph runtime context.
+
+    LangGraph passes a runtime object with a `.context` attribute
+    containing our configured context schema.
+    """
+
+    context: _DecisionContext
+
+    def __init__(self, context: _DecisionContext) -> None:
+        self.context = context
+
+
 class LangGraphAgentBackend:
     """Minimal LangGraph-backed reactor stub.
 
@@ -52,14 +69,18 @@ class LangGraphAgentBackend:
     def __init__(
         self,
         settings: Settings | None = None,
-        decision_model: Any | None = None,
-        text_model: Any | None = None,
+        decision_model: BaseChatModel | ChatModelProtocol | None = None,
+        text_model: BaseChatModel | ChatModelProtocol | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._decision_hook: HeuristicDecisionHook | None = None
         default_model = self._build_default_model()
-        self._decision_model = decision_model or default_model
-        self._text_model = text_model or decision_model or default_model
+        self._decision_model: BaseChatModel | ChatModelProtocol | None = (
+            decision_model or default_model
+        )
+        self._text_model: BaseChatModel | ChatModelProtocol | None = (
+            text_model or decision_model or default_model
+        )
         graph = StateGraph(_DecisionState, context_schema=_DecisionContext)
         graph.add_node(
             "model_decide",
@@ -143,7 +164,7 @@ class LangGraphAgentBackend:
     async def _model_decide_node(
         self,
         state: _DecisionState,
-        runtime: Any,
+        runtime: _RuntimeContextWrapper,
     ) -> _DecisionState:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
@@ -233,7 +254,7 @@ class LangGraphAgentBackend:
         )
         return result
 
-    def _build_default_model(self) -> Any | None:
+    def _build_default_model(self) -> BaseChatModel | None:
         if not self._settings.langgraph_model or not self._settings.langgraph_api_key:
             return None
 
@@ -498,7 +519,7 @@ class LangGraphAgentBackend:
             f"Agent context JSON:\n{context_json}"
         )
 
-    def _build_structured_decision_model(self) -> Any:
+    def _build_structured_decision_model(self) -> StructuredModelProtocol:
         try:
             return self._decision_model.with_structured_output(
                 _StructuredDecision,
