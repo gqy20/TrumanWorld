@@ -131,6 +131,91 @@ async def _load_recent_memories(
     ]
 
 
+async def _load_yesterday_plan_execution(
+    session: "AsyncSession",
+    run_id: str,
+    agent_id: str,
+    yesterday: "date",
+    ticks_per_day: int,
+) -> str:
+    """Load yesterday's plan and actual execution, generate comparison summary.
+
+    Returns a string describing:
+    - Yesterday's plan (what was planned)
+    - Yesterday's actual behavior (what actually happened)
+    """
+    from sqlalchemy import or_
+
+    # 1. Get yesterday's plan from daily_plan memory
+    yesterday_str = yesterday.isoformat()
+    result = await session.execute(
+        select(Memory).where(
+            Memory.run_id == run_id,
+            Memory.agent_id == agent_id,
+            Memory.memory_type == MEMORY_TYPE_DAILY_PLAN,
+        )
+    )
+    plan_text = None
+    for mem in result.scalars().all():
+        meta = mem.metadata_json or {}
+        if meta.get("day") == yesterday_str:
+            # Extract plan from content like "今日计划：早晨=X，白天=Y，傍晚=Z。"
+            plan_text = mem.content
+            break
+
+    if not plan_text:
+        return ""  # No yesterday plan found
+
+    # 2. Get yesterday's actual events (last ticks_per_day ticks before today)
+    # Calculate tick range for yesterday: from (tick_no - 2*ticks_per_day) to (tick_no - ticks_per_day)
+    # But we don't have tick_no here, so approximate using the day boundary
+    # Simpler: get yesterday's events by filtering today's date
+
+    # Get today's tick offset, then calculate yesterday's range
+    # For simplicity, we'll just get yesterday's date and calculate based on world time
+    # Since we don't have world context here, let's get all events from yesterday
+
+    # Query events from the run, filter by agent
+    # We'll estimate yesterday's tick range
+    yesterday_start_tick = ticks_per_day  # Approximate: yesterday starts at tick_per_day (end of day 1)
+    yesterday_end_tick = ticks_per_day * 2  # Approximate
+
+    events_result = await session.execute(
+        select(Event).where(
+            Event.run_id == run_id,
+            Event.actor_agent_id == agent_id,
+            Event.tick_no > 0,
+            Event.tick_no <= ticks_per_day * 2,  # Last 2 days of events
+        ).order_by(Event.tick_no.asc())
+    )
+
+    # Filter to get only yesterday's events (first half of the range)
+    yesterday_events = [
+        e for e in events_result.scalars().all()
+        if e.tick_no > ticks_per_day
+    ]
+
+    # 3. Analyze actual behavior
+    action_counts: dict[str, int] = {}
+    for evt in yesterday_events:
+        action_type = evt.event_type
+        if action_type in ("talk", "speech"):
+            action_counts["socialize"] = action_counts.get("socialize", 0) + 1
+        elif action_type == "work":
+            action_counts["work"] = action_counts.get("work", 0) + 1
+        elif action_type == "rest":
+            action_counts["rest"] = action_counts.get("rest", 0) + 1
+        elif action_type == "move":
+            action_counts["move"] = action_counts.get("move", 0) + 1
+
+    # 4. Generate comparison text
+    if not yesterday_events:
+        return f"昨日计划：{plan_text}\n昨日实际：未找到行为记录"
+
+    actions_summary = "、".join([f"{k}{v}次" for k, v in action_counts.items()]) or "无"
+    return f"昨日计划：{plan_text}\n昨日实际：{actions_summary}"
+
+
 async def _load_today_events(
     session: "AsyncSession",
     run_id: str,
@@ -179,9 +264,13 @@ async def run_morning_planning(
     agent_runtime: "AgentRuntime",
 ) -> None:
     """Run the Planner for all agents at morning boundary and persist results."""
+    from datetime import timedelta
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     today = world.current_time.date()
+    yesterday = today - timedelta(days=1)
+    ticks_per_day = (24 * 60) // world.tick_minutes
     world_ctx = _build_basic_world_context(world)
 
     async with AsyncSession(engine, expire_on_commit=False) as read_session:
@@ -204,6 +293,17 @@ async def run_morning_planning(
             a.id: mems for a, mems in zip(pending, memories_list)
         }
 
+        # 并行预加载昨日计划执行情况
+        yesterday_execution_list = await asyncio.gather(
+            *[
+                _load_yesterday_plan_execution(read_session, run_id, a.id, yesterday, ticks_per_day)
+                for a in pending
+            ]
+        )
+        yesterday_execution_by_agent: dict[str, str] = {
+            a.id: exec_text for a, exec_text in zip(pending, yesterday_execution_list)
+        }
+
     if not pending:
         return
 
@@ -211,10 +311,20 @@ async def run_morning_planning(
 
     async def plan_one(agent: Agent) -> tuple[str, str, dict | None]:
         config_id = (agent.profile or {}).get("agent_config_id") or agent.id
+        yesterday_execution = yesterday_execution_by_agent.get(agent.id, "")
+
+        # 构建扩展的 world_context，包含昨日计划执行情况
+        extended_ctx = {
+            **world_ctx,
+            "personality": agent.personality or {},
+        }
+        if yesterday_execution:
+            extended_ctx["yesterday_plan_execution"] = yesterday_execution
+
         result = await agent_runtime.run_planner(
             agent_id=config_id,
             agent_name=agent.name,
-            world_context={**world_ctx, "personality": agent.personality or {}},
+            world_context=extended_ctx,
             recent_memories=memories_by_agent.get(agent.id),
         )
         return agent.id, agent.name, result

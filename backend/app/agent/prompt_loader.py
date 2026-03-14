@@ -152,14 +152,37 @@ class PromptLoader:
         """Render the daily planning prompt for a given agent."""
         base = PLANNER_PROMPT_PATH.read_text(encoding="utf-8").strip()
         base = base.replace("{agent_name}", agent_name)
-        lines = [
-            base,
-            "",
+        lines = [base, ""]
+
+        # 如果有昨日计划执行情况，单独展示
+        yesterday_execution = context.get("yesterday_plan_execution")
+        if yesterday_execution:
+            lines.extend([
+                "# 昨日计划执行情况",
+                yesterday_execution,
+                "",
+            ])
+
+        # 近期记忆
+        recent_memories = context.get("recent_memories", [])
+        if recent_memories:
+            lines.extend([
+                "# 近期记忆",
+                "以下是你近期记得的一些事情：",
+                "",
+            ])
+            for mem in recent_memories[-3:]:  # 只显示最近3条
+                content = mem.get("content", "")[:100]
+                if content:
+                    lines.append(f"- {content}")
+            lines.append("")
+
+        lines.extend([
             "# 运行上下文",
             "```json",
             self._to_pretty_json(context),
             "```",
-        ]
+        ])
         return "\n".join(lines)
 
     def render_reflector_prompt(
