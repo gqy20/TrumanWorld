@@ -8,6 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
+# 开发环境默认数据库 URL（仅用于本地开发，不包含生产密码）
+_DEV_DATABASE_URL = "postgresql+psycopg://truman:truman@localhost:5432/trumanworld"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -18,7 +21,9 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     api_prefix: str = "/api"
-    database_url: str = "postgresql+psycopg://truman:truman123@localhost:5432/trumanworld"
+    # 数据库 URL 必须通过环境变量 TRUMANWORLD_DATABASE_URL 提供
+    # 开发环境可使用: postgresql+psycopg://truman:truman@localhost:5432/trumanworld
+    database_url: str | None = None
     redis_url: str = "redis://localhost:6379/0"
     anthropic_api_key: str | None = None
     anthropic_base_url: str | None = None
@@ -63,6 +68,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def normalize_agent_settings(self) -> "Settings":
+        # 数据库 URL 验证：开发环境提供默认值，生产环境必须显式配置
+        if self.database_url is None:
+            if self.app_env == "development":
+                self.database_url = _DEV_DATABASE_URL
+            else:
+                raise ValueError(
+                    "TRUMANWORLD_DATABASE_URL must be set in non-development environments"
+                )
+
         if self.agent_model is None and self.anthropic_model is not None:
             self.agent_model = self.anthropic_model
         if self.langgraph_model is None and self.agent_model is not None:
