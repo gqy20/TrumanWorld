@@ -20,69 +20,97 @@ jest.mock("framer-motion", () => ({
 
 // Mock useModal hook
 jest.mock("@/lib/hooks", () => ({
-  useModal: ({ isOpen, onClose, closeOnBackdrop }: { isOpen: boolean; onClose: () => void; closeOnBackdrop: boolean }) => ({
+  useModal: ({ onClose, closeOnBackdrop }: { onClose: () => void; closeOnBackdrop: boolean }) => ({
     handleBackdropClick: closeOnBackdrop ? onClose : () => {},
   }),
 }));
 
 describe("Modal", () => {
-  const defaultProps = {
-    isOpen: true,
-    onClose: jest.fn(),
-    children: <div>Modal Content</div>,
-  };
+  const onClose = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it("renders children when open", () => {
-    render(<Modal {...defaultProps} />);
+    render(
+      <Modal isOpen onClose={onClose}>
+        <div>Modal Content</div>
+      </Modal>
+    );
 
     expect(screen.getByText("Modal Content")).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {
-    render(<Modal {...defaultProps} isOpen={false} />);
+    render(
+      <Modal isOpen={false} onClose={onClose}>
+        <div>Modal Content</div>
+      </Modal>
+    );
 
     expect(screen.queryByText("Modal Content")).not.toBeInTheDocument();
   });
 
   it("renders title when provided", () => {
-    render(<Modal {...defaultProps} title="Test Modal" />);
+    render(
+      <Modal isOpen onClose={onClose} title="Test Modal">
+        <div>Content</div>
+      </Modal>
+    );
 
     expect(screen.getByText("Test Modal")).toBeInTheDocument();
   });
 
   it("renders subtitle when provided", () => {
-    render(<Modal {...defaultProps} subtitle="Modal description" />);
+    render(
+      <Modal isOpen onClose={onClose} subtitle="Modal description">
+        <div>Content</div>
+      </Modal>
+    );
 
     expect(screen.getByText("Modal description")).toBeInTheDocument();
   });
 
   it("renders close button by default", () => {
-    render(<Modal {...defaultProps} />);
+    render(
+      <Modal isOpen onClose={onClose}>
+        <div>Content</div>
+      </Modal>
+    );
 
     expect(screen.getByRole("button")).toBeInTheDocument();
   });
 
   it("hides close button when showCloseButton is false", () => {
-    render(<Modal {...defaultProps} showCloseButton={false} />);
+    render(
+      <Modal isOpen onClose={onClose} showCloseButton={false}>
+        <div>Content</div>
+      </Modal>
+    );
 
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("calls onClose when close button is clicked", () => {
-    const onClose = jest.fn();
-    render(<Modal {...defaultProps} onClose={onClose} />);
+    const handleClose = jest.fn();
+    render(
+      <Modal isOpen onClose={handleClose}>
+        <div>Content</div>
+      </Modal>
+    );
 
     fireEvent.click(screen.getByRole("button"));
 
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
   it("renders header actions when provided", () => {
-    render(<Modal {...defaultProps} headerActions={<button type="button">Action</button>} />);
+    render(
+      <Modal isOpen onClose={onClose} headerActions={<button type="button">Action</button>}>
+        <div>Content</div>
+      </Modal>
+    );
 
     expect(screen.getByText("Action")).toBeInTheDocument();
   });

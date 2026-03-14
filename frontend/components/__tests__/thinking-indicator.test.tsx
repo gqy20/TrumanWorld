@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { ThinkingIndicator } from "@/components/thinking-indicator";
 
 // Mock framer-motion

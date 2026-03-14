@@ -43,10 +43,10 @@ describe("EventCard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetEventMeta.mockReturnValue({
-      type: "move",
-      label: "移动",
       icon: "🚶",
-      color: "#3b82f6",
+      label: "移动",
+      chip: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+      color: "#10b981",
     });
     mockDescribeWorldEvent.mockReturnValue("Alice 移动到了 咖啡店");
   });
