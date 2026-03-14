@@ -46,6 +46,7 @@ class PromptLoader:
             period_label = {
                 "dawn": "黎明",
                 "morning": "上午",
+                "daytime": "白天",
                 "noon": "中午",
                 "afternoon": "下午",
                 "evening": "傍晚",
