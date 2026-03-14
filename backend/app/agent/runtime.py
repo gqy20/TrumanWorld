@@ -22,7 +22,7 @@ from app.cognition.types import (
 )
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
-from app.sim.action_resolver import ActionIntent
+from app.sim.action_resolver import ActionIntent, PlanUpdate
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -222,12 +222,25 @@ class AgentRuntime:
             payload["message"] = decision.message
         # No default message injection — the model must provide message content
         # for talk actions, which are later persisted as speech events.
+
+        # Parse plan_update if present
+        plan_update_obj = None
+        if decision.plan_update:
+            plan_update_dict = decision.plan_update
+            plan_update_obj = PlanUpdate(
+                reason=plan_update_dict.get("reason", ""),
+                new_morning=plan_update_dict.get("new_morning"),
+                new_daytime=plan_update_dict.get("new_daytime"),
+                new_evening=plan_update_dict.get("new_evening"),
+            )
+
         return ActionIntent(
             agent_id=invocation.agent_id,
             action_type=decision.action_type,
             target_location_id=decision.target_location_id,
             target_agent_id=decision.target_agent_id,
             payload=payload,
+            plan_update=plan_update_obj,
         )
 
     async def react(

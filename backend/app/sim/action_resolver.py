@@ -7,12 +7,23 @@ from app.sim.world import WorldState
 
 
 @dataclass
+class PlanUpdate:
+    """Represents a request to update the agent's current plan."""
+
+    reason: str
+    new_morning: str | None = None
+    new_daytime: str | None = None
+    new_evening: str | None = None
+
+
+@dataclass
 class ActionIntent:
     agent_id: str
     action_type: str
     target_location_id: str | None = None
     target_agent_id: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
+    plan_update: PlanUpdate | None = None  # Optional plan update request
 
 
 @dataclass

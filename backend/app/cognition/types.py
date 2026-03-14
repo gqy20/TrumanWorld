@@ -54,3 +54,4 @@ class AgentDecisionResult:
     target_agent_id: str | None = None
     message: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
+    plan_update: dict[str, Any] | None = None  # Optional plan update
