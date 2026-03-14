@@ -342,7 +342,7 @@ def test_simulation_runner_allows_joiner_to_enter_session_without_taking_turn():
     )
 
     assert len(result.accepted) == 5
-    assert len(result.rejected) == 1
+    assert len(result.rejected) == 0
     started_events = [
         item for item in result.accepted if item.action_type == "conversation_started"
     ]
@@ -364,12 +364,6 @@ def test_simulation_runner_allows_joiner_to_enter_session_without_taking_turn():
         item.event_payload["conversation_event_type"] == "listen" for item in accepted_listens
     )
     assert all(item.event_payload["speaker_agent_id"] == "alice" for item in accepted_listens)
-    assert result.rejected[0].event_payload["conversation_role"] == "listener"
-    assert (
-        result.rejected[0].event_payload["conversation_id"]
-        == accepted_talk.event_payload["conversation_id"]
-    )
-    assert result.rejected[0].reason == "conversation_turn_taken"
 
 
 def test_simulation_runner_tags_listener_suppression_with_conversation_id():

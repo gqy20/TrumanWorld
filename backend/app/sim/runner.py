@@ -53,6 +53,8 @@ class SimulationRunner:
         self.resolver.prefill_conversation_assignments(conversation_assignments)
         accepted.extend(self._build_conversation_structure_results(sessions, assignments))
         for intent in intent_list:
+            if self._should_skip_intent(intent, assignments):
+                continue
             result = self.resolver.resolve(self.world, intent)
             if result.accepted:
                 accepted.append(result)
@@ -70,6 +72,19 @@ class SimulationRunner:
             accepted=accepted,
             rejected=rejected,
         )
+
+    @staticmethod
+    def _should_skip_intent(
+        intent: ActionIntent,
+        assignments: dict[str, ConversationAssignment],
+    ) -> bool:
+        assignment = assignments.get(intent.agent_id)
+        if assignment is None:
+            return False
+        # A joiner already produces conversation_joined + listen events.
+        # Re-processing the original talk intent would turn a successful join
+        # into a synthetic talk_rejected, which pollutes rejection metrics.
+        return intent.action_type == "talk" and assignment.reason == "conversation_joiner"
 
     def _build_conversation_structure_results(
         self,

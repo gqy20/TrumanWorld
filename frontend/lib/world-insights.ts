@@ -9,6 +9,7 @@ import {
   EVENT_WORK,
   EVENT_REST,
 } from "@/lib/simulation-protocol";
+import { isAgentSociallyEngaged } from "@/lib/world-utils";
 
 // ============================================================================
 // 类型定义
@@ -165,7 +166,12 @@ export function calculateWorldHealthMetrics(
   const executedDirectorInterventions = directorStats?.executed ?? executedMemories;
   
   // 5. 活动摘要
-  const activitySummary = calculateActivitySummary(agents, world.locations);
+  const activitySummary = calculateActivitySummary(
+    agents,
+    world.locations,
+    events,
+    world.run.current_tick,
+  );
 
   return {
     continuityScore,
@@ -211,7 +217,12 @@ function getRejectionDescription(
   return `${actorName}动作被拒绝`;
 }
 
-function calculateActivitySummary(agents: AgentSummary[], locations: WorldSnapshot["locations"]) {
+function calculateActivitySummary(
+  agents: AgentSummary[],
+  locations: WorldSnapshot["locations"],
+  events: WorldEvent[],
+  currentTick?: number,
+) {
   let working = 0;
   let resting = 0;
   let commuting = 0;
@@ -224,6 +235,12 @@ function calculateActivitySummary(agents: AgentSummary[], locations: WorldSnapsh
       ? locationTypeMap.get(agent.current_location_id)
       : undefined;
     const isWorkContext = locationType != null && locationType !== "home" && locationType !== "plaza";
+    const sociallyEngaged = isAgentSociallyEngaged(
+      agent.id,
+      agent.current_goal,
+      events,
+      currentTick,
+    );
 
     if (goal === "work") {
       if (isWorkContext) {
@@ -231,8 +248,7 @@ function calculateActivitySummary(agents: AgentSummary[], locations: WorldSnapsh
       } else {
         commuting++;
       }
-    } else if (goal === "talk") {
-      // 对话中算作社交
+    } else if (goal === "talk" || sociallyEngaged) {
       socializing++;
     } else if (goal === "rest") {
       resting++;

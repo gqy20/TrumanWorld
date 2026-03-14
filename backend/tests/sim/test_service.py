@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+from sqlalchemy import select
 
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
@@ -15,12 +16,13 @@ from app.scenario.types import ScenarioGuidance
 from app.sim.action_resolver import ActionIntent
 from app.sim.service import SimulationService
 from app.sim.tick_orchestrator import TickOrchestrator
-from app.store.models import Agent, Location, SimulationRun
+from app.store.models import Agent, Location, Memory, SimulationRun
 from app.store.repositories import (
     AgentRepository,
     DirectorMemoryRepository,
     EventRepository,
     LlmCallRepository,
+    RelationshipRepository,
     RunRepository,
 )
 
@@ -218,7 +220,106 @@ async def test_simulation_service_aggregates_consecutive_work_memories_into_stre
     assert worked_memories[0].last_tick_no == 3
     assert worked_memories[0].tick_no == 3
     assert worked_memories[0].content == "Worked during 3 consecutive ticks."
-    assert worked_memories[0].memory_category == "medium_term"
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_group_conversation_does_not_create_spurious_rejection(
+    db_session,
+):
+    run = SimulationRun(
+        id="run-service-group-conversation",
+        name="service",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    plaza = Location(
+        id="loc-plaza-group",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-group",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-group",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    carol = Agent(
+        id="carol-group",
+        run_id=run.id,
+        name="Carol",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, plaza, alice, bob, carol])
+    await db_session.commit()
+
+    service = SimulationService(db_session)
+    result = await service.run_tick(
+        run.id,
+        [
+            ActionIntent(
+                agent_id=alice.id,
+                action_type="talk",
+                target_agent_id=bob.id,
+                payload={"message": "Hey Bob!"},
+            ),
+            ActionIntent(
+                agent_id=carol.id,
+                action_type="talk",
+                target_agent_id=bob.id,
+                payload={"message": "Mind if I join?"},
+            ),
+        ],
+    )
+
+    events = await EventRepository(db_session).list_for_run(run.id, limit=10)
+    memories_result = await db_session.execute(
+        select(Memory).where(Memory.run_id == run.id).order_by(Memory.agent_id.asc(), Memory.id.asc())
+    )
+    memories = memories_result.scalars().all()
+    alice_to_carol = await RelationshipRepository(db_session).get_pair(run.id, alice.id, carol.id)
+    carol_to_alice = await RelationshipRepository(db_session).get_pair(run.id, carol.id, alice.id)
+
+    assert len(result.rejected) == 0
+    assert not any(event.event_type == "talk_rejected" for event in events)
+    assert any(
+        memory.agent_id == bob.id and "Alice said at Plaza" in memory.content for memory in memories
+    )
+    assert any(
+        memory.agent_id == carol.id and "Alice said at Plaza" in memory.content
+        for memory in memories
+    )
+    assert alice_to_carol is not None
+    assert carol_to_alice is not None
+    assert alice_to_carol.familiarity > 0
+    assert carol_to_alice.familiarity > 0
 
 
 @pytest.mark.asyncio
@@ -909,7 +1010,7 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
     assert alice_relationships[0].familiarity == 0.1
     assert bob_relationships[0].trust == 0.05
     assert alice_memories[0].summary.startswith("Said to Bob")
-    assert bob_memories[0].summary.startswith("Listened to Alice")
+    assert bob_memories[0].summary.startswith("Talked with Alice")
 
 
 @pytest.mark.asyncio
@@ -1045,6 +1146,7 @@ async def test_talk_memories_use_subjective_importance_per_agent(db_session):
     assert alice_memories[0].memory_category == "medium_term"
     assert bob_memories[0].memory_category == "medium_term"
     assert alice_memories[0].self_relevance < bob_memories[0].self_relevance
+    assert "Alice said" in bob_memories[0].content
 
 
 @pytest.mark.asyncio

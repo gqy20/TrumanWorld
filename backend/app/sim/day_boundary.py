@@ -136,6 +136,7 @@ async def _load_yesterday_plan_execution(
     run_id: str,
     agent_id: str,
     yesterday: date,
+    current_tick: int,
     ticks_per_day: int,
 ) -> str:
     """Load yesterday's plan and actual execution, generate comparison summary.
@@ -165,29 +166,19 @@ async def _load_yesterday_plan_execution(
     if not plan_text:
         return ""  # No yesterday plan found
 
-    # 2. Get yesterday's actual events (last ticks_per_day ticks before today)
-    # Calculate tick range for yesterday: from (tick_no - 2*ticks_per_day) to (tick_no - ticks_per_day)
-    # But we don't have tick_no here, so approximate using the day boundary
-    # Simpler: get yesterday's events by filtering today's date
-
-    # Get today's tick offset, then calculate yesterday's range
-    # For simplicity, we'll just get yesterday's date and calculate based on world time
-    # Since we don't have world context here, let's get all events from yesterday
-
-    # Query events from the run, filter by agent
+    # 2. Get yesterday's actual events relative to the current day boundary.
+    yesterday_start_tick = max(0, current_tick - ticks_per_day)
     events_result = await session.execute(
         select(Event)
         .where(
             Event.run_id == run_id,
             Event.actor_agent_id == agent_id,
-            Event.tick_no > 0,
-            Event.tick_no <= ticks_per_day * 2,  # Last 2 days of events
+            Event.tick_no > yesterday_start_tick,
+            Event.tick_no <= current_tick,
         )
         .order_by(Event.tick_no.asc())
     )
-
-    # Filter to get only yesterday's events (first half of the range)
-    yesterday_events = [e for e in events_result.scalars().all() if e.tick_no > ticks_per_day]
+    yesterday_events = list(events_result.scalars().all())
 
     # 3. Analyze actual behavior
     action_counts: dict[str, int] = {}
@@ -290,7 +281,14 @@ async def run_morning_planning(
         # 并行预加载昨日计划执行情况
         yesterday_execution_list = await asyncio.gather(
             *[
-                _load_yesterday_plan_execution(read_session, run_id, a.id, yesterday, ticks_per_day)
+                _load_yesterday_plan_execution(
+                    read_session,
+                    run_id,
+                    a.id,
+                    yesterday,
+                    tick_no,
+                    ticks_per_day,
+                )
                 for a in pending
             ]
         )

@@ -343,7 +343,14 @@ class TestDayBoundaryPreloadParallel:
         async def mock_load_memories(session, run_id, agent_id, limit=5):
             return []
 
-        async def mock_load_yesterday_execution(session, run_id, agent_id, yesterday, ticks_per_day):
+        async def mock_load_yesterday_execution(
+            session,
+            run_id,
+            agent_id,
+            yesterday,
+            current_tick,
+            ticks_per_day,
+        ):
             return ""
 
         mock_agent_repo = AsyncMock()
@@ -433,7 +440,14 @@ class TestDayBoundaryPreloadParallel:
                 for d in agents_data
             ]
 
-        async def mock_load_yesterday_execution(session, run_id, agent_id, yesterday, ticks_per_day):
+        async def mock_load_yesterday_execution(
+            session,
+            run_id,
+            agent_id,
+            yesterday,
+            current_tick,
+            ticks_per_day,
+        ):
             return ""
 
         mock_agent_repo = AsyncMock()

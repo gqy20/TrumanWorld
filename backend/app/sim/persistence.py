@@ -281,32 +281,28 @@ class PersistenceManager:
             await session.commit()
 
     async def persist_tick_relationships(self, run_id: str, events: list[Event]) -> None:
-        """Persist relationships from talk events."""
+        """Persist relationships from social speech events."""
         updated = False
         for event in events:
-            if event.event_type not in {"talk", "speech"}:
-                continue
-            if event.actor_agent_id is None or event.target_agent_id is None:
-                continue
-
-            await self.relationship_repo.upsert_interaction(
-                run_id=run_id,
-                agent_id=event.actor_agent_id,
-                other_agent_id=event.target_agent_id,
-                familiarity_delta=0.1,
-                trust_delta=0.05,
-                affinity_delta=0.05,
-            )
-            updated = True
-            await self.relationship_repo.upsert_interaction(
-                run_id=run_id,
-                agent_id=event.target_agent_id,
-                other_agent_id=event.actor_agent_id,
-                familiarity_delta=0.1,
-                trust_delta=0.05,
-                affinity_delta=0.05,
-            )
-            updated = True
+            for actor_agent_id, other_agent_id in self._iter_relationship_pairs(event):
+                await self.relationship_repo.upsert_interaction(
+                    run_id=run_id,
+                    agent_id=actor_agent_id,
+                    other_agent_id=other_agent_id,
+                    familiarity_delta=0.1,
+                    trust_delta=0.05,
+                    affinity_delta=0.05,
+                )
+                updated = True
+                await self.relationship_repo.upsert_interaction(
+                    run_id=run_id,
+                    agent_id=other_agent_id,
+                    other_agent_id=actor_agent_id,
+                    familiarity_delta=0.1,
+                    trust_delta=0.05,
+                    affinity_delta=0.05,
+                )
+                updated = True
         if updated:
             await self.session.commit()
 
@@ -320,31 +316,50 @@ class PersistenceManager:
         rel_repo = RelationshipRepository(session)
         updated = False
         for event in events:
-            if event.event_type not in {"talk", "speech"}:
-                continue
-            if event.actor_agent_id is None or event.target_agent_id is None:
-                continue
-
-            await rel_repo.upsert_interaction(
-                run_id=run_id,
-                agent_id=event.actor_agent_id,
-                other_agent_id=event.target_agent_id,
-                familiarity_delta=0.1,
-                trust_delta=0.05,
-                affinity_delta=0.05,
-            )
-            updated = True
-            await rel_repo.upsert_interaction(
-                run_id=run_id,
-                agent_id=event.target_agent_id,
-                other_agent_id=event.actor_agent_id,
-                familiarity_delta=0.1,
-                trust_delta=0.05,
-                affinity_delta=0.05,
-            )
-            updated = True
+            for actor_agent_id, other_agent_id in self._iter_relationship_pairs(event):
+                await rel_repo.upsert_interaction(
+                    run_id=run_id,
+                    agent_id=actor_agent_id,
+                    other_agent_id=other_agent_id,
+                    familiarity_delta=0.1,
+                    trust_delta=0.05,
+                    affinity_delta=0.05,
+                )
+                updated = True
+                await rel_repo.upsert_interaction(
+                    run_id=run_id,
+                    agent_id=other_agent_id,
+                    other_agent_id=actor_agent_id,
+                    familiarity_delta=0.1,
+                    trust_delta=0.05,
+                    affinity_delta=0.05,
+                )
+                updated = True
         if updated:
             await session.commit()
+
+    @staticmethod
+    def _iter_relationship_pairs(event: Event) -> list[tuple[str, str]]:
+        if event.event_type not in {"talk", "speech"}:
+            return []
+        if event.actor_agent_id is None:
+            return []
+
+        payload = event.payload or {}
+        participant_ids = payload.get("participant_ids")
+        participants = [
+            participant_id
+            for participant_id in participant_ids
+            if isinstance(participant_id, str) and participant_id != event.actor_agent_id
+        ] if isinstance(participant_ids, list) else []
+        if event.target_agent_id and event.target_agent_id not in participants:
+            participants.append(event.target_agent_id)
+
+        return [
+            (event.actor_agent_id, participant_id)
+            for participant_id in participants
+            if participant_id != event.actor_agent_id
+        ]
 
     async def persist_agent_locations(self, run_id: str, world: WorldState) -> None:
         """Update agent locations after tick."""
@@ -398,19 +413,49 @@ class PersistenceManager:
             target_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
             loc_id = str(payload.get("location_id") or "")
             target = agent_name(target_id)
+            actor = agent_name(event.actor_agent_id)
             loc = location_name(loc_id)
             message = payload.get("message", "")
+            participant_ids = payload.get("participant_ids")
+            listeners = [
+                participant_id
+                for participant_id in participant_ids
+                if isinstance(participant_id, str) and participant_id != event.actor_agent_id
+            ] if isinstance(participant_ids, list) else []
+            if event.target_agent_id and event.target_agent_id not in listeners:
+                listeners.append(event.target_agent_id)
 
             if message:
                 actor_content = f'Said to {target} at {loc}: "{message}"'
                 actor_summary = (
                     f"Said to {target}: {message[:30]}{'...' if len(message) > 30 else ''}"
                 )
+                listener_records = [
+                    (
+                        listener_id,
+                        f'{actor} said at {loc}: "{message}"',
+                        f"{actor} said: {message[:30]}{'...' if len(message) > 30 else ''}",
+                        event.actor_agent_id,
+                    )
+                    for listener_id in listeners
+                ]
             else:
                 actor_content = f"Said something to {target} at {loc}."
                 actor_summary = f"Said to {target}"
+                listener_records = [
+                    (
+                        listener_id,
+                        f"Talked with {actor} at {loc}.",
+                        f"Talked with {actor}",
+                        event.actor_agent_id,
+                    )
+                    for listener_id in listeners
+                ]
 
-            return [(event.actor_agent_id, actor_content, actor_summary, event.target_agent_id)]
+            return [
+                (event.actor_agent_id, actor_content, actor_summary, event.target_agent_id),
+                *listener_records,
+            ]
 
         if event.event_type == "listen":
             speaker_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
@@ -448,10 +493,34 @@ class PersistenceManager:
         agent_name_map: dict[str, str],
         location_name_map: dict[str, str],
     ) -> list[tuple[Event, list[tuple[str, str, str, str | None]]]]:
+        speech_listener_keys: set[tuple[int, str, str]] = set()
+        for event in events:
+            if event.event_type not in {"talk", "speech"} or event.actor_agent_id is None:
+                continue
+            payload = event.payload or {}
+            conversation_id = payload.get("conversation_id")
+            participant_ids = payload.get("participant_ids")
+            if not isinstance(conversation_id, str) or not isinstance(participant_ids, list):
+                continue
+            for participant_id in participant_ids:
+                if (
+                    isinstance(participant_id, str)
+                    and participant_id != event.actor_agent_id
+                ):
+                    speech_listener_keys.add((event.tick_no, conversation_id, participant_id))
+
         prepared: list[tuple[Event, list[tuple[str, str, str, str | None]]]] = []
         for event in events:
             if event.event_type.endswith("_rejected") or event.actor_agent_id is None:
                 continue
+            if event.event_type == "listen":
+                payload = event.payload or {}
+                conversation_id = payload.get("conversation_id")
+                if (
+                    isinstance(conversation_id, str)
+                    and (event.tick_no, conversation_id, event.actor_agent_id) in speech_listener_keys
+                ):
+                    continue
             records = self._build_memory_records(event, agent_name_map, location_name_map)
             if records:
                 prepared.append((event, records))

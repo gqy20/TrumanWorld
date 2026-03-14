@@ -202,7 +202,7 @@ async def test_get_agent_returns_generated_talk_memory_for_target(client, db_ses
         "listen",
     }
     assert len(body["memories"]) == 1
-    assert body["memories"][0]["summary"].startswith("Listened to Alice")
+    assert body["memories"][0]["summary"].startswith("Talked with Alice")
     assert body["memories"][0]["self_relevance"] >= 0.8
 
 
