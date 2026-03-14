@@ -24,7 +24,7 @@ sync-agent-logos:
 install: backend-install frontend-install sync-agent-logos
 
 backend-install:
-	cd $(BACKEND_DIR) && uv sync --extra dev
+	cd $(BACKEND_DIR) && uv sync --group dev
 
 frontend-install:
 	cd $(FRONTEND_DIR) && npm install
@@ -53,11 +53,12 @@ migrate:
 pre-commit:
 	$(PYTHON) -m pre_commit run --all-files
 
-# 数据库配置（测试环境）
+# 数据库配置（本地开发环境，从环境变量或使用默认值）
+# 生产环境请务必设置环境变量 TRUMANWORLD_DB_PASSWORD
 DB_CONTAINER_NAME := trumanworld-db-test
 DB_PORT := 5432
 DB_USER := truman
-DB_PASSWORD := truman123
+DB_PASSWORD ?= $(or $(TRUMANWORLD_DB_PASSWORD),truman)
 DB_NAME := trumanworld
 
 # 应用端口配置

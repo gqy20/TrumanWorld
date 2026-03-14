@@ -34,11 +34,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         working-directory: ./backend
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       - name: Run tests
         working-directory: ./backend
@@ -83,11 +83,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         working-directory: ./backend
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       - name: Run database migrations
         working-directory: ./backend
