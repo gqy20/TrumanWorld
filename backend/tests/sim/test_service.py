@@ -301,7 +301,9 @@ async def test_simulation_service_group_conversation_does_not_create_spurious_re
 
     events = await EventRepository(db_session).list_for_run(run.id, limit=10)
     memories_result = await db_session.execute(
-        select(Memory).where(Memory.run_id == run.id).order_by(Memory.agent_id.asc(), Memory.id.asc())
+        select(Memory)
+        .where(Memory.run_id == run.id)
+        .order_by(Memory.agent_id.asc(), Memory.id.asc())
     )
     memories = memories_result.scalars().all()
     alice_to_carol = await RelationshipRepository(db_session).get_pair(run.id, alice.id, carol.id)

@@ -374,7 +374,9 @@ class TestDayBoundaryPreloadParallel:
             patch("app.sim.day_boundary.MemoryRepository") as mock_mem_repo_cls,
             patch("app.sim.day_boundary.has_plan_for_today", slow_has_plan),
             patch("app.sim.day_boundary._load_recent_memories", mock_load_memories),
-            patch("app.sim.day_boundary._load_yesterday_plan_execution", mock_load_yesterday_execution),
+            patch(
+                "app.sim.day_boundary._load_yesterday_plan_execution", mock_load_yesterday_execution
+            ),
             patch("sqlalchemy.ext.asyncio.AsyncSession", return_value=mock_session_ctx),
         ):
             mock_mem_repo = AsyncMock()
@@ -471,7 +473,9 @@ class TestDayBoundaryPreloadParallel:
             patch("app.sim.day_boundary.MemoryRepository") as mock_mem_repo_cls,
             patch("app.sim.day_boundary.has_plan_for_today", AsyncMock(return_value=False)),
             patch("app.sim.day_boundary._load_recent_memories", slow_load_memories),
-            patch("app.sim.day_boundary._load_yesterday_plan_execution", mock_load_yesterday_execution),
+            patch(
+                "app.sim.day_boundary._load_yesterday_plan_execution", mock_load_yesterday_execution
+            ),
             patch("sqlalchemy.ext.asyncio.AsyncSession", return_value=mock_session_ctx),
         ):
             mock_mem_repo = AsyncMock()

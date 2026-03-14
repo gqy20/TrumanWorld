@@ -347,11 +347,15 @@ class PersistenceManager:
 
         payload = event.payload or {}
         participant_ids = payload.get("participant_ids")
-        participants = [
-            participant_id
-            for participant_id in participant_ids
-            if isinstance(participant_id, str) and participant_id != event.actor_agent_id
-        ] if isinstance(participant_ids, list) else []
+        participants = (
+            [
+                participant_id
+                for participant_id in participant_ids
+                if isinstance(participant_id, str) and participant_id != event.actor_agent_id
+            ]
+            if isinstance(participant_ids, list)
+            else []
+        )
         if event.target_agent_id and event.target_agent_id not in participants:
             participants.append(event.target_agent_id)
 
@@ -417,11 +421,15 @@ class PersistenceManager:
             loc = location_name(loc_id)
             message = payload.get("message", "")
             participant_ids = payload.get("participant_ids")
-            listeners = [
-                participant_id
-                for participant_id in participant_ids
-                if isinstance(participant_id, str) and participant_id != event.actor_agent_id
-            ] if isinstance(participant_ids, list) else []
+            listeners = (
+                [
+                    participant_id
+                    for participant_id in participant_ids
+                    if isinstance(participant_id, str) and participant_id != event.actor_agent_id
+                ]
+                if isinstance(participant_ids, list)
+                else []
+            )
             if event.target_agent_id and event.target_agent_id not in listeners:
                 listeners.append(event.target_agent_id)
 
@@ -503,10 +511,7 @@ class PersistenceManager:
             if not isinstance(conversation_id, str) or not isinstance(participant_ids, list):
                 continue
             for participant_id in participant_ids:
-                if (
-                    isinstance(participant_id, str)
-                    and participant_id != event.actor_agent_id
-                ):
+                if isinstance(participant_id, str) and participant_id != event.actor_agent_id:
                     speech_listener_keys.add((event.tick_no, conversation_id, participant_id))
 
         prepared: list[tuple[Event, list[tuple[str, str, str, str | None]]]] = []
@@ -518,7 +523,8 @@ class PersistenceManager:
                 conversation_id = payload.get("conversation_id")
                 if (
                     isinstance(conversation_id, str)
-                    and (event.tick_no, conversation_id, event.actor_agent_id) in speech_listener_keys
+                    and (event.tick_no, conversation_id, event.actor_agent_id)
+                    in speech_listener_keys
                 ):
                     continue
             records = self._build_memory_records(event, agent_name_map, location_name_map)

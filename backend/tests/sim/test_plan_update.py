@@ -65,12 +65,15 @@ def test_should_update_plan_with_cooldown_allow():
         ),
     )
 
-    assert should_update_plan(
-        intent,
-        last_update_tick=50,
-        current_tick=100,
-        cooldown_ticks=12,
-    ) is True
+    assert (
+        should_update_plan(
+            intent,
+            last_update_tick=50,
+            current_tick=100,
+            cooldown_ticks=12,
+        )
+        is True
+    )
 
 
 def test_should_update_plan_with_cooldown_deny():
@@ -83,12 +86,15 @@ def test_should_update_plan_with_cooldown_deny():
         ),
     )
 
-    assert should_update_plan(
-        intent,
-        last_update_tick=95,
-        current_tick=100,
-        cooldown_ticks=12,
-    ) is False
+    assert (
+        should_update_plan(
+            intent,
+            last_update_tick=95,
+            current_tick=100,
+            cooldown_ticks=12,
+        )
+        is False
+    )
 
 
 def test_update_agent_plan_partial():
