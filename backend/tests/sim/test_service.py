@@ -379,7 +379,9 @@ async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_sess
 
 
 @pytest.mark.asyncio
-async def test_simulation_service_runs_tick_with_langgraph_backend(db_session, tmp_path, monkeypatch):
+async def test_simulation_service_runs_tick_with_langgraph_backend(
+    db_session, tmp_path, monkeypatch
+):
     monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "langgraph")
     monkeypatch.setenv("TRUMANWORLD_AGENT_MODEL", "langgraph-smoke-model")
     monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_API_KEY", "langgraph-smoke-key")
@@ -887,12 +889,18 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
         "talk",
         "listen",
     }
-    assert next(item for item in result.accepted if item.action_type == "talk").event_payload[
-        "conversation_event_type"
-    ] == "speech"
-    assert next(item for item in result.accepted if item.action_type == "listen").event_payload[
-        "conversation_event_type"
-    ] == "listen"
+    assert (
+        next(item for item in result.accepted if item.action_type == "talk").event_payload[
+            "conversation_event_type"
+        ]
+        == "speech"
+    )
+    assert (
+        next(item for item in result.accepted if item.action_type == "listen").event_payload[
+            "conversation_event_type"
+        ]
+        == "listen"
+    )
     assert {event.event_type for event in events} == {"conversation_started", "speech", "listen"}
     assert len(alice_relationships) == 1
     assert len(bob_relationships) == 1
@@ -1476,7 +1484,9 @@ async def test_run_tick_isolated_persists_llm_calls(db_session):
         usage={"input_tokens": 111, "output_tokens": 222, "cache_read_input_tokens": 33},
         cost=0.015,
     )
-    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend(provider))
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend(provider)
+    )
     service = SimulationService.create_for_scheduler(runtime)
 
     result = await service.run_tick_isolated(run_id, engine)

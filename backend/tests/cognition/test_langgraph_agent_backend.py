@@ -234,7 +234,9 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
     assert result.target_location_id == "town-square"
 
 
-async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(caplog: pytest.LogCaptureFixture) -> None:
+async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     from app.cognition.claude.decision_utils import RuntimeDecision
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
@@ -244,10 +246,12 @@ async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(caplog:
 
     backend = LangGraphAgentBackend(decision_model=FailingModel())
     backend.set_decision_hook(
-        lambda world, nearby_agent_id, current_location_id, home_location_id, agent_id: RuntimeDecision(
-            action_type="talk",
-            target_agent_id=nearby_agent_id,
-            message="Fallback says hi.",
+        lambda world, nearby_agent_id, current_location_id, home_location_id, agent_id: (
+            RuntimeDecision(
+                action_type="talk",
+                target_agent_id=nearby_agent_id,
+                message="Fallback says hi.",
+            )
         )
     )
     invocation = AgentActionInvocation(
@@ -322,6 +326,7 @@ async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_
 
 async def test_langgraph_backend_retries_transient_model_failures() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
     settings = Settings(
         agent_backend="langgraph",
         langgraph_reactor_structured_enabled=True,
@@ -567,7 +572,9 @@ async def test_langgraph_backend_reflect_day_returns_parsed_json() -> None:
     assert result["key_person"] == "bob"
 
 
-async def test_langgraph_backend_logs_when_planner_falls_back(caplog: pytest.LogCaptureFixture) -> None:
+async def test_langgraph_backend_logs_when_planner_falls_back(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
     from app.cognition.types import PlanningInvocation
 

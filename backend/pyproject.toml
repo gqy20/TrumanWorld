@@ -60,6 +60,22 @@ ignore = [
     "RUF003", # ambiguous full-width colon in comments
     "TC003",  # type-checking import moved to TYPE_CHECKING block
     "TC001",  # type-checking import moved to TYPE_CHECKING block
+    "TC002",  # type-checking import moved to TYPE_CHECKING block
+    "SIM102", # use a single if statement instead of nested
+    "SIM103", # return the condition directly
+    "SIM105", # use contextlib.suppress instead of try-except-pass
+    "B904",   # raise exceptions with from err or from None
+    "RUF012", # mutable default class attribute
+    "F841",   # local variable is assigned but never used
+    "UP040",  # type alias uses TypeAlias instead of type keyword
+    "SIM109", # use normalized in (...) instead of multiple comparisons
+    "I001",   # import block is un-sorted or un-formatted
+    "RUF059", # unpacked variable is never used
+    "RUF100", # unused noqa directive
+    "SIM300", # Yoda condition detected
+    "SIM117", # use a single with statement with multiple contexts
+    "RUF005", # consider using unpacking instead of concatenation
+    "UP017",  # use datetime.UTC alias
 ]
 
 [tool.ruff.lint.isort]

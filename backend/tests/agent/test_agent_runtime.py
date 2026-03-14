@@ -307,7 +307,9 @@ def test_runtime_selects_claude_provider_from_env(tmp_path: Path, monkeypatch: p
     get_settings.cache_clear()
 
 
-def test_runtime_selects_langgraph_backend_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_runtime_selects_langgraph_backend_from_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "langgraph")
     monkeypatch.setenv("TRUMANWORLD_AGENT_MODEL", "claude-test")
     monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_API_KEY", "test-key")

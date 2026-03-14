@@ -152,7 +152,8 @@ class TestReactorPromptCache:
         assert '"tick": 100' in dynamic2
 
     def test_build_reactor_messages_with_cache_enabled_returns_message_blocks(
-        self, backend_with_cache_enabled: LangGraphAgentBackend,
+        self,
+        backend_with_cache_enabled: LangGraphAgentBackend,
         sample_invocation: AgentActionInvocation,
     ) -> None:
         """When cache is enabled, _build_reactor_messages should return list of HumanMessage with cache_control."""
@@ -175,7 +176,8 @@ class TestReactorPromptCache:
         assert first_block.get("cache_control") == {"type": "ephemeral"}
 
     def test_build_reactor_messages_with_cache_disabled_returns_string(
-        self, backend_with_cache_disabled: LangGraphAgentBackend,
+        self,
+        backend_with_cache_disabled: LangGraphAgentBackend,
         sample_invocation: AgentActionInvocation,
     ) -> None:
         """When cache is disabled, _build_reactor_messages should return plain string."""

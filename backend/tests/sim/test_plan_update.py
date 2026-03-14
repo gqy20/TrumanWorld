@@ -13,6 +13,7 @@ from typing import Any
 @dataclass
 class PlanUpdate:
     """Represents a request to update the agent's current plan."""
+
     reason: str
     new_morning: str | None = None
     new_daytime: str | None = None
@@ -23,6 +24,7 @@ class PlanUpdate:
 @dataclass
 class ActionIntent:
     """Test version of ActionIntent with plan_update support."""
+
     agent_id: str
     action_type: str
     target_location_id: str | None = None
@@ -120,7 +122,10 @@ class TestShouldUpdatePlan:
 
         # Last update at tick 50, current tick 100 - cooldown is 12 ticks
         # 100 - 50 = 50 > 12, should allow
-        assert should_update_plan(intent, last_update_tick=50, current_tick=100, cooldown_ticks=12) is True
+        assert (
+            should_update_plan(intent, last_update_tick=50, current_tick=100, cooldown_ticks=12)
+            is True
+        )
 
     def test_should_update_plan_with_cooldown_deny(self):
         """should_update_plan respects cooldown - deny when too soon."""
@@ -135,7 +140,10 @@ class TestShouldUpdatePlan:
 
         # Last update at tick 95, current tick 100 - cooldown is 12 ticks
         # 100 - 95 = 5 < 12, should deny
-        assert should_update_plan(intent, last_update_tick=95, current_tick=100, cooldown_ticks=12) is False
+        assert (
+            should_update_plan(intent, last_update_tick=95, current_tick=100, cooldown_ticks=12)
+            is False
+        )
 
 
 class TestUpdateAgentPlan:
@@ -203,6 +211,7 @@ class TestUpdateAgentPlan:
 
 
 # Implementation to be tested
+
 
 def should_update_plan(
     intent: ActionIntent,
