@@ -228,13 +228,13 @@ class TrumanWorldCoordinator:
             run_id=run_id,
             tick_no=tick_no,
             scene_goal=plan.scene_goal,
-            target_cast_ids=plan.target_cast_ids,
+            target_cast_ids=plan.target_agent_ids,
             priority=plan.priority,
             urgency=plan.urgency,
             message_hint=plan.message_hint,
             target_agent_id=plan.target_agent_id,
             reason=plan.reason,
-            trigger_suspicion_score=assessment.truman_suspicion_score if assessment else 0.0,
+            trigger_suspicion_score=assessment.subject_alert_score if assessment else 0.0,
             trigger_continuity_risk=assessment.continuity_risk if assessment else "stable",
             cooldown_ticks=plan.cooldown_ticks,
         )
@@ -259,7 +259,7 @@ class TrumanWorldCoordinator:
 
         return DirectorPlan(
             scene_goal=memory.scene_goal,
-            target_cast_ids=target_cast_ids,
+            target_agent_ids=target_cast_ids,
             priority=memory.priority,
             urgency=memory.urgency,
             message_hint=memory.message_hint,
@@ -290,7 +290,7 @@ class TrumanWorldCoordinator:
 
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:
         guidance = {}
-        if plan and agent.id in plan.target_cast_ids:
+        if plan and agent.id in plan.target_agent_ids:
             guidance = build_director_guidance(
                 scene_goal=plan.scene_goal,
                 priority=plan.priority,
@@ -332,8 +332,10 @@ class TrumanWorldCoordinator:
         scenario_state: dict | None = None,
         scenario_guidance=None,
     ) -> ActionIntent | None:
-        truman_suspicion_score = float(
-            (scenario_state or {}).get("truman_suspicion_score", 0.0) or 0.0
+        subject_alert_score = float(
+            (scenario_state or {}).get("subject_alert_score")
+            or (scenario_state or {}).get("truman_suspicion_score", 0.0)
+            or 0.0
         )
         director_guidance: DirectorGuidance = {}
         if scenario_guidance:
@@ -354,7 +356,8 @@ class TrumanWorldCoordinator:
         runtime_world: RuntimeWorldContext = {
             "world_role": world_role,
             "self_status": current_status or {},
-            "truman_suspicion_score": truman_suspicion_score,
+            "subject_alert_score": subject_alert_score,
+            "truman_suspicion_score": subject_alert_score,
             **director_guidance,
         }
         decision = build_truman_world_decision(

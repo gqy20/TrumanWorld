@@ -15,6 +15,7 @@ from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.event_utils import format_event_for_context
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
+    extract_subject_alert_from_agent_data,
     extract_truman_suspicion_from_agent_data,
 )
 from app.sim.world import AgentState, LocationState, WorldState
@@ -176,6 +177,14 @@ class ContextBuilder:
             Truman's suspicion score, or 0.0 if not found
         """
         return extract_truman_suspicion_from_agent_data(agent_data, world)
+
+    def extract_subject_alert_from_agent_data(
+        self,
+        agent_data: list[dict],
+        world: WorldState,
+    ) -> float:
+        """Extract the primary subject alert score from agent data."""
+        return extract_subject_alert_from_agent_data(agent_data, world)
 
     def extract_truman_suspicion_from_agents(
         self,

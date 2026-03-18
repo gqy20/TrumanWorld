@@ -38,6 +38,7 @@ def build_agent_world_context(
         "social_location_ids": social_location_ids,
         "nearby_agent_id": nearby_agent_id,
         "self_status": current_status or {},
+        "subject_alert_score": truman_suspicion_score,
         "truman_suspicion_score": truman_suspicion_score,
         **world.time_context(),
     }
@@ -105,6 +106,13 @@ def extract_truman_suspicion_from_agent_data(
             continue
         return float((state.status or {}).get("suspicion_score", 0.0) or 0.0)
     return 0.0
+
+
+def extract_subject_alert_from_agent_data(
+    agent_data: list[AgentDecisionSnapshot],
+    world: WorldState,
+) -> float:
+    return extract_truman_suspicion_from_agent_data(agent_data, world)
 
 
 def _normalize_director_guidance(guidance: ScenarioGuidance) -> ScenarioGuidance:

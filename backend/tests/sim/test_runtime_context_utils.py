@@ -3,6 +3,7 @@ from datetime import datetime
 from app.scenario.truman_world.types import build_director_guidance
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
+    extract_subject_alert_from_agent_data,
     extract_truman_suspicion_from_agent_data,
 )
 from app.sim.types import AgentDecisionSnapshot
@@ -88,6 +89,8 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
     assert context["director_scene_goal"] == "soft_check_in"
     assert context["director_priority"] == "advisory"
     assert context["director_message_hint"] == "keep it casual"
+    assert context["subject_alert_score"] == 0.25
+    assert context["truman_suspicion_score"] == context["subject_alert_score"]
     assert context["workplace_location_id"] == "cafe"
     assert context["active_world_effects"] == ["power_outage"]
     assert context["current_location_power_status"] == "off"
@@ -116,8 +119,10 @@ def test_extract_truman_suspicion_from_agent_data_returns_first_truman_score():
     ]
 
     suspicion = extract_truman_suspicion_from_agent_data(agent_data, world)
+    alert_score = extract_subject_alert_from_agent_data(agent_data, world)
 
     assert suspicion == 0.75
+    assert alert_score == suspicion
 
 
 def test_extract_truman_suspicion_from_agent_data_returns_zero_without_matching_state():
