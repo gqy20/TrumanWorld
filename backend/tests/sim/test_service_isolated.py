@@ -11,6 +11,7 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
+from app.cognition.errors import UpstreamApiUnavailableError
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.scenario.types import ScenarioGuidance
 from app.sim.action_resolver import ActionIntent
@@ -230,6 +231,59 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
     assert len(llm_records) == 1
     assert llm_records[0].input_tokens == 130
     assert len(intents) == 1
+
+    shutil.rmtree(tmp_path)
+
+
+class UnavailableApiBackend:
+    async def decide_action(self, invocation, runtime_ctx=None):
+        raise UpstreamApiUnavailableError("rate_limit_error")
+
+    async def plan_day(self, invocation, runtime_ctx=None):
+        return None
+
+    async def reflect_day(self, invocation, runtime_ctx=None):
+        return None
+
+
+@pytest.mark.asyncio
+async def test_prepare_intents_from_data_raises_on_upstream_api_unavailable(db_session):
+    tmp_path = Path(tempfile.mkdtemp())
+    agent_dir = tmp_path / "agent-stop-fast"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "id: agent-stop-fast\nname: Alice\noccupation: resident\nhome: loc-1\n",
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        backend=UnavailableApiBackend(),
+    )
+    orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+
+    world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
+    world.agents["agent-stop-fast"] = type(
+        "S", (), {"id": "agent-stop-fast", "status": {}, "location_id": "loc-1"}
+    )()
+    snapshot = AgentDecisionSnapshot(
+        id="agent-stop-fast",
+        current_goal="rest",
+        current_location_id="loc-1",
+        home_location_id="loc-1",
+        profile={},
+        recent_events=[],
+    )
+
+    with pytest.raises(UpstreamApiUnavailableError):
+        await orchestrator.prepare_intents_from_data(
+            world=world,
+            agent_data=[snapshot],
+            engine=None,
+            run_id="run-stop-fast",
+            tick_no=3,
+        )
 
     shutil.rmtree(tmp_path)
 

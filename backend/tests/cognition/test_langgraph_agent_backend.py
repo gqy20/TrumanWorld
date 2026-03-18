@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.cognition.errors import UpstreamApiUnavailableError
 from app.cognition.registry import CognitionRegistry
 from app.cognition.types import AgentActionInvocation, BackendExecutionContext
 from app.infra.settings import Settings
@@ -232,6 +233,34 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
 
     assert result.action_type == "move"
     assert result.target_location_id == "town-square"
+
+
+async def test_langgraph_backend_raises_when_fail_fast_enabled_and_api_unavailable() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    settings = Settings(
+        agent_backend="langgraph",
+        agent_fail_fast_on_api_unavailable=True,
+    )
+
+    class FailingModel:
+        async def ainvoke(self, prompt: str):
+            raise RuntimeError(
+                "Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error'}}"
+            )
+
+    backend = LangGraphAgentBackend(settings=settings, decision_model=FailingModel())
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
+        context={"world": {"current_goal": "rest"}},
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    with pytest.raises(UpstreamApiUnavailableError):
+        await backend.decide_action(invocation)
 
 
 async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(

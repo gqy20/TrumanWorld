@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 
+from app.cognition.errors import UpstreamApiUnavailableError
 from app.sim.scheduler import SimulationScheduler
 
 
@@ -49,3 +50,27 @@ async def test_stop_run_before_first_tick_prevents_auto_advance() -> None:
 
     assert ticks == []
     assert not scheduler.is_running("run-2")
+
+
+@pytest.mark.asyncio
+async def test_upstream_api_unavailable_pauses_run_immediately() -> None:
+    scheduler = SimulationScheduler()
+    paused_runs: list[str] = []
+
+    async def callback(run_id: str) -> None:
+        raise UpstreamApiUnavailableError("rate_limit_error")
+
+    async def on_max_errors(run_id: str) -> None:
+        paused_runs.append(run_id)
+
+    await scheduler.start_run(
+        "run-3",
+        interval_seconds=0.01,
+        callback=callback,
+        on_max_errors=on_max_errors,
+    )
+
+    await asyncio.sleep(0.05)
+
+    assert paused_runs == ["run-3"]
+    assert not scheduler.is_running("run-3")

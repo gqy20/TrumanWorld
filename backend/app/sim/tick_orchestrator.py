@@ -5,6 +5,7 @@ from time import perf_counter
 from typing import TYPE_CHECKING
 
 from app.agent.runtime import RuntimeContext
+from app.cognition.errors import UpstreamApiUnavailableError
 from app.infra.logging import get_logger
 from app.scenario.base import Scenario
 from app.scenario.types import get_agent_config_id, get_scenario_guidance, get_world_role
@@ -197,6 +198,8 @@ class TickOrchestrator:
                     workplace_location_id=workplace_location_id,
                     current_plan=agent_snapshot.current_plan,
                 )
+            except UpstreamApiUnavailableError:
+                raise
             except Exception as exc:
                 logger.exception(
                     "agent_decision_failed run_id=%s tick_no=%s agent_id=%s runtime_agent_id=%s "

@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from app.cognition.errors import UpstreamApiUnavailableError
 from app.infra.logging import debug, error, info, warning
 from app.infra.settings import get_settings
 
@@ -142,10 +143,18 @@ class SimulationScheduler:
                     # Handle claude_agent_sdk anyio cancel scope errors
                     if "cancel scope" in str(e).lower():
                         debug(f"Tick callback cancel scope error for run {run_id}: {e}")
+                    elif isinstance(e, UpstreamApiUnavailableError):
+                        error(f"Upstream API unavailable for run {run_id}: {e}")
+                        await self._pause_run_immediately(run_id, on_max_errors)
+                        break
                     else:
                         error(f"RuntimeError in tick callback for run {run_id}: {e}")
                         consecutive_errors += 1
                 except Exception as e:
+                    if isinstance(e, UpstreamApiUnavailableError):
+                        error(f"Upstream API unavailable for run {run_id}: {e}")
+                        await self._pause_run_immediately(run_id, on_max_errors)
+                        break
                     error(f"Error in tick callback for run {run_id}: {e}")
                     consecutive_errors += 1
                     # Continue running despite callback errors
@@ -174,6 +183,19 @@ class SimulationScheduler:
             except Exception as e:
                 error(f"Unexpected error in tick loop for run {run_id}: {e}")
                 # Continue running despite errors
+
+    async def _pause_run_immediately(
+        self,
+        run_id: str,
+        on_max_errors: Callable[[str], Awaitable[None]] | None,
+    ) -> None:
+        warning(f"Auto-pausing run {run_id} immediately due to upstream API unavailability")
+        self._scheduled.pop(run_id, None)
+        if on_max_errors is not None:
+            try:
+                await on_max_errors(run_id)
+            except Exception as cb_err:
+                error(f"on_max_errors callback failed for run {run_id}: {cb_err}")
 
 
 # Global scheduler instance

@@ -11,6 +11,10 @@ from pydantic import BaseModel, Field
 
 from app.agent.prompt_loader import PromptLoader
 from app.cognition.claude.decision_provider import HeuristicDecisionHook
+from app.cognition.errors import (
+    UpstreamApiUnavailableError,
+    is_upstream_api_unavailable_error,
+)
 from app.cognition.protocols import ChatModelProtocol, StructuredModelProtocol
 from app.cognition.types import (
     AgentActionInvocation,
@@ -118,6 +122,8 @@ class LangGraphAgentBackend:
                 },
                 context={"runtime_ctx": runtime_ctx},
             )
+        except UpstreamApiUnavailableError:
+            raise
         except Exception as exc:
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
             return self._fallback_decision(invocation, reason=str(exc))
@@ -291,6 +297,7 @@ class LangGraphAgentBackend:
             duration_ms = int((perf_counter() - started_at) * 1000)
         except Exception as exc:
             duration_ms = int((perf_counter() - started_at) * 1000)
+            self._raise_on_upstream_unavailable(exc)
             logger.warning(f"LangGraph {task} failed for {agent_id}: {exc}")
             logger.debug(
                 "langgraph_text_task_failed run_id=%s agent_id=%s task=%s duration_ms=%s "
@@ -415,6 +422,7 @@ class LangGraphAgentBackend:
         except RuntimeError:
             raise
         except Exception as exc:
+            self._raise_on_upstream_unavailable(exc)
             duration_ms = int((perf_counter() - started_at) * 1000)
             logger.warning(
                 f"LangGraph structured reactor decision failed for {invocation.agent_id}: {exc}"
@@ -466,6 +474,7 @@ class LangGraphAgentBackend:
         try:
             response = await self._decision_model.ainvoke(self._build_reactor_messages(invocation))
         except Exception as exc:
+            self._raise_on_upstream_unavailable(exc)
             logger.warning(
                 f"LangGraph text reactor decision failed for {invocation.agent_id}: {exc}"
             )
@@ -601,6 +610,13 @@ class LangGraphAgentBackend:
                         parts.append(text)
             return "\n".join(parts).strip()
         return ""
+
+    def _raise_on_upstream_unavailable(self, exc: Exception) -> None:
+        if not self._settings.agent_fail_fast_on_api_unavailable:
+            return
+        if not is_upstream_api_unavailable_error(exc):
+            return
+        raise UpstreamApiUnavailableError(str(exc)) from exc
 
     def _maybe_record_usage(
         self,
