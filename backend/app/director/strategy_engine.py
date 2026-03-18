@@ -68,7 +68,8 @@ class StrategyConditionEngine:
             else None,
             "continuity_risk": assessment.continuity_risk,
             "recent_rejections": assessment.recent_rejections,
-            "truman_suspicion_score": assessment.truman_suspicion_score,
+            "subject_alert_score": assessment.subject_alert_score,
+            "truman_suspicion_score": assessment.subject_alert_score,
         }
         return metric_map.get(metric_name)
 
@@ -136,7 +137,7 @@ class StrategyExecutor:
         strategies: dict[str, Any],
         assessment: DirectorAssessment,
         recent_goals: set[str],
-        truman_agent_id: str | None,
+        subject_agent_id: str | None,
         primary_cast_id: str | None,
     ) -> dict[str, Any] | None:
         """Evaluate all strategies and return the first triggered one.
@@ -151,7 +152,7 @@ class StrategyExecutor:
             strategies: Strategy configurations from director.yml
             assessment: Current world state assessment
             recent_goals: Recently used goals to avoid repetition
-            truman_agent_id: Truman's agent ID
+            subject_agent_id: Primary subject agent ID
             primary_cast_id: Primary cast agent ID for intervention
 
         Returns:
@@ -199,7 +200,7 @@ class StrategyExecutor:
                     return {
                         "strategy_id": strategy_id,
                         "config": strategy_config,
-                        "truman_agent_id": truman_agent_id,
+                        "subject_agent_id": subject_agent_id,
                         "primary_cast_id": primary_cast_id,
                     }
 
@@ -279,11 +280,11 @@ class StrategyExecutor:
 
         return {
             "scene_goal": scene_goal,
-            "target_cast_ids": [triggered["primary_cast_id"]],
+            "target_agent_ids": [triggered["primary_cast_id"]],
             "priority": priority,
             "urgency": urgency,
             "message_hint": message_hint,
-            "target_agent_id": triggered["truman_agent_id"],
+            "target_agent_id": triggered["subject_agent_id"],
             "reason": reason,
             "cooldown_ticks": cooldown_ticks,
         }

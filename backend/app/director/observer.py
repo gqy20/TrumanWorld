@@ -17,21 +17,88 @@ class SuspicionTrend:
     trend_type: str  # "rapid_rise" | "gradual_rise" | "stable" | "declining"
 
 
-@dataclass
+@dataclass(init=False)
 class DirectorAssessment:
     run_id: str
     current_tick: int
-    truman_agent_id: str | None
-    truman_suspicion_score: float
+    subject_agent_id: str | None
+    subject_alert_score: float
     suspicion_level: str
     continuity_risk: str
     suspicion_trend: SuspicionTrend | None = None
     focus_agent_ids: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
-    # 新增场景感知字段
     truman_isolation_ticks: int = 0  # Truman 独处时长
     recent_rejections: int = 0  # 最近被拒绝的次数
-    active_cast_count: int = 0  # 当前可用的 cast 数量
+    active_support_count: int = 0  # 当前可用的支援角色数量
+
+    def __init__(
+        self,
+        *,
+        run_id: str,
+        current_tick: int,
+        subject_agent_id: str | None = None,
+        truman_agent_id: str | None = None,
+        subject_alert_score: float | None = None,
+        truman_suspicion_score: float | None = None,
+        suspicion_level: str,
+        continuity_risk: str,
+        suspicion_trend: SuspicionTrend | None = None,
+        focus_agent_ids: list[str] | None = None,
+        notes: list[str] | None = None,
+        truman_isolation_ticks: int = 0,
+        recent_rejections: int = 0,
+        active_support_count: int | None = None,
+        active_cast_count: int | None = None,
+    ) -> None:
+        resolved_subject_agent_id = (
+            subject_agent_id if subject_agent_id is not None else truman_agent_id
+        )
+        resolved_subject_alert_score = (
+            subject_alert_score
+            if subject_alert_score is not None
+            else (truman_suspicion_score if truman_suspicion_score is not None else 0.0)
+        )
+        resolved_active_support_count = (
+            active_support_count if active_support_count is not None else active_cast_count or 0
+        )
+
+        self.run_id = run_id
+        self.current_tick = current_tick
+        self.subject_agent_id = resolved_subject_agent_id
+        self.subject_alert_score = resolved_subject_alert_score
+        self.suspicion_level = suspicion_level
+        self.continuity_risk = continuity_risk
+        self.suspicion_trend = suspicion_trend
+        self.focus_agent_ids = list(focus_agent_ids or [])
+        self.notes = list(notes or [])
+        self.truman_isolation_ticks = truman_isolation_ticks
+        self.recent_rejections = recent_rejections
+        self.active_support_count = resolved_active_support_count
+
+    @property
+    def truman_agent_id(self) -> str | None:
+        return self.subject_agent_id
+
+    @truman_agent_id.setter
+    def truman_agent_id(self, value: str | None) -> None:
+        self.subject_agent_id = value
+
+    @property
+    def truman_suspicion_score(self) -> float:
+        return self.subject_alert_score
+
+    @truman_suspicion_score.setter
+    def truman_suspicion_score(self, value: float) -> None:
+        self.subject_alert_score = value
+
+    @property
+    def active_cast_count(self) -> int:
+        return self.active_support_count
+
+    @active_cast_count.setter
+    def active_cast_count(self, value: int) -> None:
+        self.active_support_count = value
 
 
 class DirectorObserver:
@@ -98,8 +165,8 @@ class DirectorObserver:
         return DirectorAssessment(
             run_id=run_id,
             current_tick=current_tick,
-            truman_agent_id=truman.id if truman else None,
-            truman_suspicion_score=suspicion_score,
+            subject_agent_id=truman.id if truman else None,
+            subject_alert_score=suspicion_score,
             suspicion_level=self._label_suspicion(suspicion_score),
             suspicion_trend=suspicion_trend,
             continuity_risk=self._label_continuity(continuity_score),
@@ -107,7 +174,7 @@ class DirectorObserver:
             notes=notes,
             truman_isolation_ticks=truman_isolation_ticks,
             recent_rejections=rejected_count,
-            active_cast_count=cast_count,
+            active_support_count=cast_count,
         )
 
     def _compute_suspicion_trend(

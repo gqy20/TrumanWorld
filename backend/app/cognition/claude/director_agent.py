@@ -102,7 +102,7 @@ class DirectorAgent:
             return None
 
         cast_agents = [a for a in context.agents if get_world_role(a.get("profile")) == "cast"]
-        if not cast_agents or context.assessment.truman_agent_id is None:
+        if not cast_agents or context.assessment.subject_agent_id is None:
             return None
 
         prompt = self._build_decision_prompt(context, cast_agents, recent_goals)
@@ -152,8 +152,8 @@ class DirectorAgent:
             "world_time": context.world_time,
             "current_tick": context.current_tick,
             "run_id": context.run_id,
-            "truman_agent_id": assessment.truman_agent_id or "unknown",
-            "truman_suspicion_score": f"{assessment.truman_suspicion_score:.2f}",
+            "truman_agent_id": assessment.subject_agent_id or "unknown",
+            "truman_suspicion_score": f"{assessment.subject_alert_score:.2f}",
             "suspicion_level": assessment.suspicion_level,
             "truman_isolation_ticks": assessment.truman_isolation_ticks,
             "recent_rejections": assessment.recent_rejections,
@@ -276,23 +276,23 @@ class DirectorAgent:
                 return None
 
             target_cast_names = data.get("target_cast_names", [])
-            target_cast_ids = []
+            target_agent_ids = []
             for name in target_cast_names:
                 for agent in cast_agents:
                     if (agent.get("name") or "").lower() == name.lower():
-                        target_cast_ids.append(agent.get("id", ""))
+                        target_agent_ids.append(agent.get("id", ""))
                         break
 
-            if not target_cast_ids and cast_agents:
-                target_cast_ids = [cast_agents[0].get("id", "")]
+            if not target_agent_ids and cast_agents:
+                target_agent_ids = [cast_agents[0].get("id", "")]
 
             return DirectorPlan(
                 scene_goal=scene_goal,
-                target_cast_ids=target_cast_ids,
+                target_agent_ids=target_agent_ids,
                 priority=data.get("priority", "normal"),
                 urgency=data.get("urgency", "advisory"),
                 message_hint=data.get("message_hint"),
-                target_agent_id=context.assessment.truman_agent_id,
+                target_agent_id=context.assessment.subject_agent_id,
                 reason=data.get("reasoning", "LLM-based intervention decision"),
                 cooldown_ticks=data.get("cooldown_ticks", 3),
             )

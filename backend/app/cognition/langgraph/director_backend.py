@@ -55,7 +55,7 @@ class LangGraphDirectorBackend:
         cast_agents = [
             a for a in context.agents if a.get("profile", {}).get("world_role") == "cast"
         ]
-        if not cast_agents or context.assessment.truman_agent_id is None:
+        if not cast_agents or context.assessment.subject_agent_id is None:
             return None
 
         prompt = self._agent._build_decision_prompt(context, cast_agents, invocation.recent_goals)

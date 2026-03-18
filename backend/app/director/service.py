@@ -62,7 +62,7 @@ class DirectorEventService:
             payload=payload,
             location_id=location_id,
             agents=agents,
-            truman_agent_id=truman.id if truman else None,
+            subject_agent_id=truman.id if truman else None,
         )
         if plan is None:
             msg = f"Unsupported director event type: {event_type}"
@@ -72,7 +72,7 @@ class DirectorEventService:
             run_id=run_id,
             tick_no=run.current_tick,
             scene_goal=plan.scene_goal,
-            target_cast_ids=plan.target_cast_ids,
+            target_cast_ids=plan.target_agent_ids,
             priority=plan.priority,
             urgency=plan.urgency,
             message_hint=plan.message_hint,

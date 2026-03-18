@@ -59,8 +59,8 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
             assessment=DirectorAssessment(
                 run_id="run-1",
                 current_tick=5,
-                truman_agent_id="truman-1",
-                truman_suspicion_score=0.86,
+                subject_agent_id="truman-1",
+                subject_alert_score=0.86,
                 suspicion_level="high",
                 continuity_risk="watch",
                 focus_agent_ids=["truman-1"],
@@ -91,6 +91,7 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
 
     assert result is not None
     assert result.scene_goal == "soft_check_in"
+    assert result.target_agent_ids == ["cast-spouse"]
     assert result.target_cast_ids == ["cast-spouse"]
     assert result.priority == "high"
     assert result.urgency == "immediate"

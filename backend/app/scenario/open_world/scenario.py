@@ -40,8 +40,8 @@ class OpenWorldScenario(Scenario):
         return DirectorAssessment(
             run_id=run_id,
             current_tick=0,
-            truman_agent_id=None,
-            truman_suspicion_score=0.0,
+            subject_agent_id=None,
+            subject_alert_score=0.0,
             suspicion_level="low",
             continuity_risk="stable",
             focus_agent_ids=[],
@@ -59,8 +59,8 @@ class OpenWorldScenario(Scenario):
         return DirectorAssessment(
             run_id=run_id,
             current_tick=current_tick,
-            truman_agent_id=None,
-            truman_suspicion_score=0.0,
+            subject_agent_id=None,
+            subject_alert_score=0.0,
             suspicion_level="low",
             continuity_risk="stable",
             focus_agent_ids=[agent.id for agent in agents[:1]],

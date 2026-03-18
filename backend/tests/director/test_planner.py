@@ -48,8 +48,8 @@ async def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=5,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.86,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.86,
         suspicion_level="high",
         continuity_risk="watch",
         focus_agent_ids=["truman-1"],
@@ -60,6 +60,7 @@ async def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
 
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
+    assert plan.target_agent_ids == ["cast-spouse"]
     assert plan.target_cast_ids == ["cast-spouse"]
     assert plan.priority == "advisory"
     assert plan.target_agent_id == "truman-1"

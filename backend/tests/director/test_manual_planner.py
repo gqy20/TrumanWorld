@@ -49,6 +49,7 @@ def test_manual_planner_builds_gather_plan_for_broadcast():
 
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_GATHER
+    assert plan.target_agent_ids == ["cast-a", "cast-b"]
     assert plan.target_cast_ids == ["cast-a", "cast-b"]
     assert plan.location_hint == "square"
     assert plan.target_agent_id == "truman"
@@ -91,6 +92,7 @@ def test_manual_planner_builds_activity_shutdown_weather_and_power_outage_plans(
 
     assert activity is not None
     assert activity.scene_goal == DIRECTOR_SCENE_ACTIVITY
+    assert activity.target_agent_ids == ["cast-a"]
     assert activity.priority == "high"
     assert activity.urgency == "immediate"
 

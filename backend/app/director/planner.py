@@ -76,7 +76,7 @@ class DirectorPlanner:
             DirectorPlan 或 None（无需干预时）
         """
         cast_agents = [agent for agent in agents if get_world_role(agent.profile) == "cast"]
-        if not cast_agents or assessment.truman_agent_id is None:
+        if not cast_agents or assessment.subject_agent_id is None:
             return None
 
         # 检查最近已执行的干预，避免重复
@@ -92,7 +92,7 @@ class DirectorPlanner:
                     if plan is not None:
                         logger.info(
                             f"DirectorAgent async decision completed at tick {current_tick}: "
-                            f"{plan.scene_goal} targeting {plan.target_cast_ids}"
+                            f"{plan.scene_goal} targeting {plan.target_agent_ids}"
                         )
                         return plan
                 except Exception as exc:
@@ -160,7 +160,7 @@ class DirectorPlanner:
             strategies=self._config.strategies,
             assessment=assessment,
             recent_goals=recent_goals,
-            truman_agent_id=assessment.truman_agent_id,
+            subject_agent_id=assessment.subject_agent_id,
             primary_cast_id=primary_cast.id,
         )
 
@@ -174,7 +174,7 @@ class DirectorPlanner:
 
         return DirectorPlan(
             scene_goal=plan_data["scene_goal"],
-            target_cast_ids=plan_data["target_cast_ids"],
+            target_agent_ids=plan_data["target_agent_ids"],
             priority=plan_data["priority"],
             urgency=plan_data["urgency"],
             message_hint=plan_data["message_hint"],

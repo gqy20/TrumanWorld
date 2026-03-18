@@ -53,8 +53,12 @@ def test_director_observer_assesses_truman_world_state():
         events=events,
     )
 
-    assert assessment.truman_agent_id == "truman-1"
-    assert assessment.truman_suspicion_score == 0.68
+    assert assessment.subject_agent_id == "truman-1"
+    assert assessment.subject_alert_score == 0.68
+    assert assessment.active_support_count == 1
+    assert assessment.truman_agent_id == assessment.subject_agent_id
+    assert assessment.truman_suspicion_score == assessment.subject_alert_score
+    assert assessment.active_cast_count == assessment.active_support_count
     assert assessment.suspicion_level == "alerted"
     assert assessment.continuity_risk in {"watch", "elevated", "critical"}
     assert assessment.focus_agent_ids[0] == "truman-1"
