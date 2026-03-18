@@ -212,6 +212,27 @@ async def test_create_open_world_run_uses_open_world_scenario(client):
 
 
 @pytest.mark.asyncio
+async def test_create_run_rejects_unknown_scenario_type(client):
+    response = await client.post(
+        "/api/runs",
+        json={"name": "invalid-scenario-run", "scenario_type": "missing_world"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown scenario_type: missing_world"
+
+
+@pytest.mark.asyncio
+async def test_list_scenarios_returns_registered_bundles(client):
+    response = await client.get("/api/scenarios")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {"id": "open_world", "name": "Open World", "version": 1} in body
+    assert {"id": "truman_world", "name": "Truman World", "version": 1} in body
+
+
+@pytest.mark.asyncio
 async def test_list_runs_returns_created_runs(client):
     await client.post("/api/runs", json={"name": "run-a"})
     await client.post("/api/runs", json={"name": "run-b", "seed_demo": False})

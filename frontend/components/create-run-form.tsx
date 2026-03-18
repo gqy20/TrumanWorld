@@ -1,17 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, useRef, useCallback } from "react";
+import { useEffect, useState, useTransition, useRef, useCallback } from "react";
 
-import { createRunResult } from "@/lib/api";
+import { createRunResult, listScenariosResult } from "@/lib/api";
+import type { ScenarioSummary } from "@/lib/types";
 import { useRuns } from "@/components/runs-provider";
 import { WorldOpeningAnimation } from "@/components/world-opening-animation";
+
+const FALLBACK_SCENARIOS: ScenarioSummary[] = [
+  { id: "truman_world", name: "Truman World", version: 1 },
+  { id: "open_world", name: "Open World", version: 1 },
+];
 
 export function CreateRunForm() {
   const router = useRouter();
   const { refreshRuns } = useRuns();
   const [name, setName] = useState("demo-run");
-  const [scenarioType, setScenarioType] = useState<"truman_world" | "open_world">("truman_world");
+  const [scenarioType, setScenarioType] = useState("truman_world");
+  const [scenarios, setScenarios] = useState<ScenarioSummary[]>(FALLBACK_SCENARIOS);
   const [tickMinutes, setTickMinutes] = useState(5);
   const [message, setMessage] = useState<string>("");
   const [isPending, startTransition] = useTransition();
@@ -32,6 +39,28 @@ export function CreateRunForm() {
     animationDone.current = true;
     doNavigate();
   }, [doNavigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const result = await listScenariosResult();
+      const availableScenarios = result.data;
+      if (cancelled || !availableScenarios || availableScenarios.length === 0) {
+        return;
+      }
+      setScenarios(availableScenarios);
+      setScenarioType((current) =>
+        availableScenarios.some((scenario) => scenario.id === current)
+          ? current
+          : availableScenarios[0].id,
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
@@ -54,9 +83,10 @@ export function CreateRunForm() {
 
         startTransition(async () => {
           const result = await createRunResult(name, scenarioType, true, tickMinutes);
-          if (result.data) {
+          const createdRun = result.data;
+          if (createdRun) {
             await refreshRuns();
-            pendingRunId.current = result.data.id;
+            pendingRunId.current = createdRun.id;
             // 如果动画已经先播完，立即跳转
             if (animationDone.current) {
               doNavigate();
@@ -84,28 +114,20 @@ export function CreateRunForm() {
         />
         {/* 场景选择器 */}
         <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
-          <button
-            type="button"
-            onClick={() => setScenarioType("truman_world")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
-              scenarioType === "truman_world"
-                ? "bg-moss text-white shadow-xs"
-                : "text-slate-500 hover:bg-white hover:text-slate-700"
-            }`}
-          >
-            Truman World
-          </button>
-          <button
-            type="button"
-            onClick={() => setScenarioType("open_world")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
-              scenarioType === "open_world"
-                ? "bg-moss text-white shadow-xs"
-                : "text-slate-500 hover:bg-white hover:text-slate-700"
-            }`}
-          >
-            Open World
-          </button>
+          {scenarios.map((scenario) => (
+            <button
+              key={scenario.id}
+              type="button"
+              onClick={() => setScenarioType(scenario.id)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
+                scenarioType === scenario.id
+                  ? "bg-moss text-white shadow-xs"
+                  : "text-slate-500 hover:bg-white hover:text-slate-700"
+              }`}
+            >
+              {scenario.name}
+            </button>
+          ))}
         </div>
         {/* 时间速度选择器 */}
         <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">

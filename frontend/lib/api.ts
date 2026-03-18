@@ -5,6 +5,7 @@ import type {
   DemoAccessStatus,
   DirectorMemory,
   RunSummary,
+  ScenarioSummary,
   SystemMetrics,
   SystemOverview,
   TickResponse,
@@ -22,6 +23,7 @@ export type {
   DemoAccessStatus,
   DirectorMemory,
   RunSummary,
+  ScenarioSummary,
   SystemMetrics,
   SystemOverview,
   TickResponse,
@@ -252,6 +254,10 @@ export async function listAgentsResult(
   runId: string,
 ): Promise<ApiResult<{ run_id: string; agents: AgentSummary[] }>> {
   return fetchResult<{ run_id: string; agents: AgentSummary[] }>(`/runs/${runId}/agents`);
+}
+
+export async function listScenariosResult(): Promise<ApiResult<ScenarioSummary[]>> {
+  return fetchResult<ScenarioSummary[]>("/scenarios");
 }
 
 export async function createRunResult(

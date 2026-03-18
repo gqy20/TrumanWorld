@@ -22,6 +22,12 @@ export type CreateRunResponse = {
   scenario_type?: string;
 };
 
+export type ScenarioSummary = {
+  id: string;
+  name: string;
+  version: number;
+};
+
 export type TickResponse = {
   run_id: string;
   tick_no: number;

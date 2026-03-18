@@ -18,6 +18,7 @@ from app.api.schemas.simulation import (
 from app.cognition.registry import get_cognition_registry
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
+from app.scenario.bundle_registry import get_scenario_bundle_registry
 from app.scenario.factory import create_scenario
 from app.sim.run_lifecycle import ensure_run_started, pause_run_execution
 from app.sim.scheduler import get_scheduler
@@ -89,6 +90,12 @@ async def create_run(
     session: AsyncSession = Depends(get_db_session),
 ) -> RunResponse:
     logger.info(f"Creating new run: {payload.name}")
+    scenario_bundle = get_scenario_bundle_registry().get_bundle(payload.scenario_type)
+    if scenario_bundle is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown scenario_type: {payload.scenario_type}",
+        )
     repo = RunRepository(session)
     run = SimulationRun(
         id=str(uuid4()),

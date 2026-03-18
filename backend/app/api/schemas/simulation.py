@@ -108,7 +108,7 @@ class RunCreateRequest(BaseModel):
         description="运行名称",
         examples=["My First World", "Alice Town"],
     )
-    scenario_type: Literal["truman_world", "open_world"] = Field(
+    scenario_type: str = Field(
         default="truman_world",
         description="运行场景类型",
         examples=["truman_world", "open_world"],
@@ -154,6 +154,12 @@ class StatusResponse(BaseModel):
 
 class RunDetailResponse(RunBaseResponse):
     pass
+
+
+class ScenarioSummaryResponse(BaseModel):
+    id: str = Field(..., description="场景 ID", examples=["truman_world"])
+    name: str = Field(..., description="场景名称", examples=["Truman World"])
+    version: int = Field(..., description="场景版本", ge=1, examples=[1])
 
 
 class DirectorEventRequest(BaseModel):
