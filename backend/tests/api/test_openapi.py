@@ -9,6 +9,10 @@ def _response_ref(document: dict, path: str, method: str, status_code: str) -> s
     return schema.get("$ref")
 
 
+def _schema_property(document: dict, schema_name: str, property_name: str) -> dict:
+    return document["components"]["schemas"][schema_name]["properties"][property_name]
+
+
 @pytest.mark.asyncio
 async def test_openapi_exposes_expected_tag_groups(client):
     response = await client.get("/api/openapi.json")
@@ -54,3 +58,22 @@ async def test_openapi_documents_core_response_models(client):
         "#/components/schemas/DirectorMemoriesResponse"
     )
     assert "/api/metrics" not in document["paths"]
+
+
+@pytest.mark.asyncio
+async def test_openapi_marks_legacy_director_fields_as_deprecated(client):
+    response = await client.get("/api/openapi.json")
+
+    assert response.status_code == 200
+    document = response.json()
+
+    legacy_fields = [
+        ("DirectorObservationResponse", "truman_agent_id"),
+        ("DirectorObservationResponse", "truman_suspicion_score"),
+        ("DirectorMemoryResponse", "target_cast_ids"),
+        ("DirectorMemoryResponse", "target_cast_names"),
+        ("DirectorMemoryResponse", "trigger_suspicion_score"),
+    ]
+
+    for schema_name, property_name in legacy_fields:
+        assert _schema_property(document, schema_name, property_name)["deprecated"] is True

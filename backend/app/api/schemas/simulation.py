@@ -245,9 +245,18 @@ class DirectorObservationResponse(BaseModel):
     subject_alert_score: float = Field(
         ..., description="主要观察对象警觉/异常分数", ge=0, le=1, examples=[0.35]
     )
-    truman_agent_id: str | None = Field(None, description="Truman agent ID")
+    truman_agent_id: str | None = Field(
+        None,
+        description="Legacy alias for subject agent ID",
+        deprecated=True,
+    )
     truman_suspicion_score: float = Field(
-        ..., description="怀疑度分数", ge=0, le=1, examples=[0.35]
+        ...,
+        description="Legacy alias for subject alert score",
+        ge=0,
+        le=1,
+        examples=[0.35],
+        deprecated=True,
     )
     suspicion_level: str = Field(..., description="怀疑级别", examples=["low", "medium", "high"])
     continuity_risk: str = Field(
@@ -422,8 +431,16 @@ class DirectorMemoryResponse(BaseModel):
     target_agent_name: str | None = Field(None, description="目标 agent 名称")
     target_agent_ids: list[str] = Field(default_factory=list, description="目标 agent IDs")
     target_agent_names: list[str] = Field(default_factory=list, description="目标 agent 名称列表")
-    target_cast_ids: list[str] = Field(default_factory=list, description="目标 cast IDs")
-    target_cast_names: list[str] = Field(default_factory=list, description="目标 cast 名称")
+    target_cast_ids: list[str] = Field(
+        default_factory=list,
+        description="Legacy alias for target agent IDs",
+        deprecated=True,
+    )
+    target_cast_names: list[str] = Field(
+        default_factory=list,
+        description="Legacy alias for target agent names",
+        deprecated=True,
+    )
     location_hint: str | None = Field(None, description="地点提示")
     location_name: str | None = Field(None, description="地点名称")
     reason: str | None = Field(None, description="原因说明")
@@ -433,7 +450,13 @@ class DirectorMemoryResponse(BaseModel):
     )
     effectiveness_score: float | None = Field(None, description="效果分数", ge=0, le=1)
     trigger_subject_alert_score: float = Field(0.0, description="触发主体告警度", ge=0, le=1)
-    trigger_suspicion_score: float = Field(0.0, description="触发怀疑度", ge=0, le=1)
+    trigger_suspicion_score: float = Field(
+        0.0,
+        description="Legacy alias for trigger subject alert score",
+        ge=0,
+        le=1,
+        deprecated=True,
+    )
     trigger_continuity_risk: str = Field("stable", description="触发连续性风险")
     cooldown_ticks: int = Field(0, description="冷却 tick 数", ge=0)
     cooldown_until_tick: int | None = Field(None, description="冷却结束 tick")

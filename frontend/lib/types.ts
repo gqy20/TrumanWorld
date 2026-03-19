@@ -185,8 +185,8 @@ export type DirectorMemory = {
   target_agent_name?: string | null;
   target_agent_ids: string[];
   target_agent_names: string[];
-  target_cast_ids: string[];
-  target_cast_names: string[];
+  target_cast_ids?: string[];
+  target_cast_names?: string[];
   location_hint?: string | null;
   location_name?: string | null;
   reason?: string | null;
@@ -194,7 +194,7 @@ export type DirectorMemory = {
   delivery_status: "queued" | "consumed" | "expired";
   effectiveness_score?: number | null;
   trigger_subject_alert_score: number;
-  trigger_suspicion_score: number;
+  trigger_suspicion_score?: number;
   trigger_continuity_risk: string;
   cooldown_ticks: number;
   cooldown_until_tick?: number | null;
