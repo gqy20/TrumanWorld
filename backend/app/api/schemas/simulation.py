@@ -241,6 +241,10 @@ class TimelineResponse(BaseModel):
 class DirectorObservationResponse(BaseModel):
     run_id: str = Field(..., description="运行 ID")
     current_tick: int = Field(..., description="当前 tick")
+    subject_agent_id: str | None = Field(None, description="主要观察对象 agent ID")
+    subject_alert_score: float = Field(
+        ..., description="主要观察对象警觉/异常分数", ge=0, le=1, examples=[0.35]
+    )
     truman_agent_id: str | None = Field(None, description="Truman agent ID")
     truman_suspicion_score: float = Field(
         ..., description="怀疑度分数", ge=0, le=1, examples=[0.35]
@@ -416,6 +420,8 @@ class DirectorMemoryResponse(BaseModel):
     message_hint: str | None = Field(None, description="消息提示")
     target_agent_id: str | None = Field(None, description="目标 agent ID")
     target_agent_name: str | None = Field(None, description="目标 agent 名称")
+    target_agent_ids: list[str] = Field(default_factory=list, description="目标 agent IDs")
+    target_agent_names: list[str] = Field(default_factory=list, description="目标 agent 名称列表")
     target_cast_ids: list[str] = Field(default_factory=list, description="目标 cast IDs")
     target_cast_names: list[str] = Field(default_factory=list, description="目标 cast 名称")
     location_hint: str | None = Field(None, description="地点提示")

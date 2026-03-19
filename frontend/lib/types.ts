@@ -183,6 +183,8 @@ export type DirectorMemory = {
   message_hint?: string | null;
   target_agent_id?: string | null;
   target_agent_name?: string | null;
+  target_agent_ids: string[];
+  target_agent_names: string[];
   target_cast_ids: string[];
   target_cast_names: string[];
   location_hint?: string | null;

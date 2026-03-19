@@ -12,6 +12,7 @@ from app.store.models import (
     Relationship,
     SimulationRun,
 )
+from app.store.repositories import DirectorMemoryRepository
 
 
 class _FakeCognitionRegistry:
@@ -130,6 +131,9 @@ async def test_get_director_memories_marks_consumed_and_expired_entries(client, 
     memories = {memory["id"]: memory for memory in response.json()["memories"]}
     assert memories["director-memory-consumed"]["delivery_status"] == "consumed"
     assert memories["director-memory-consumed"]["target_agent_name"] == "Truman"
+    assert memories["director-memory-consumed"]["target_agent_ids"] == ["agent-cast-memory"]
+    assert memories["director-memory-consumed"]["target_cast_ids"] == ["agent-cast-memory"]
+    assert memories["director-memory-consumed"]["target_agent_names"] == ["Meryl"]
     assert memories["director-memory-consumed"]["target_cast_names"] == ["Meryl"]
     assert memories["director-memory-consumed"]["location_name"] == "Plaza"
     assert memories["director-memory-expired"]["delivery_status"] == "expired"
@@ -146,11 +150,31 @@ async def test_get_director_observation_returns_assessment(client):
     assert response.status_code == 200
     body = response.json()
     assert body["run_id"] == run_id
+    assert body["subject_agent_id"]
+    assert isinstance(body["subject_alert_score"], float)
     assert body["truman_agent_id"]
+    assert body["truman_agent_id"] == body["subject_agent_id"]
+    assert body["truman_suspicion_score"] == body["subject_alert_score"]
     assert body["suspicion_level"] in {"low", "guarded", "alerted", "high"}
     assert body["continuity_risk"] in {"stable", "watch", "elevated", "critical"}
     assert isinstance(body["notes"], list)
     assert isinstance(body["focus_agent_ids"], list)
+
+
+@pytest.mark.asyncio
+async def test_director_memory_repository_accepts_generic_target_agent_ids(db_session):
+    repo = DirectorMemoryRepository(db_session)
+
+    memory = await repo.create(
+        run_id="run-generic-memory",
+        tick_no=3,
+        scene_goal="gather",
+        target_agent_ids=["agent-a", "agent-b"],
+        target_agent_id="subject-a",
+    )
+
+    assert memory.target_cast_ids == '["agent-a", "agent-b"]'
+    assert memory.target_agent_ids == memory.target_cast_ids
 
 
 @pytest.mark.asyncio

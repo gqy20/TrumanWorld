@@ -72,7 +72,7 @@ class DirectorEventService:
             run_id=run_id,
             tick_no=run.current_tick,
             scene_goal=plan.scene_goal,
-            target_cast_ids=plan.target_agent_ids,
+            target_agent_ids=plan.target_agent_ids,
             priority=plan.priority,
             urgency=plan.urgency,
             message_hint=plan.message_hint,
