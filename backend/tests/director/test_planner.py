@@ -61,7 +61,6 @@ async def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
     assert plan is not None
     assert plan.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
     assert plan.target_agent_ids == ["cast-spouse"]
-    assert plan.target_cast_ids == ["cast-spouse"]
     assert plan.priority == "advisory"
     assert plan.target_agent_id == "truman-1"
 
@@ -85,8 +84,8 @@ async def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=5,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.35,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.35,
         suspicion_level="guarded",  # 不高，但趋势是快速上升
         suspicion_trend=trend,
         continuity_risk="stable",
@@ -113,8 +112,8 @@ async def test_director_planner_builds_break_isolation_for_lonely_truman():
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=10,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.2,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.2,
         suspicion_level="low",
         continuity_risk="stable",
         truman_isolation_ticks=6,  # 长时间独处
@@ -140,8 +139,8 @@ async def test_director_planner_builds_rejection_recovery_for_multiple_rejection
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=8,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.4,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.4,
         suspicion_level="guarded",
         continuity_risk="elevated",
         recent_rejections=3,  # 多次被拒绝
@@ -168,8 +167,8 @@ async def test_director_planner_avoids_duplicate_interventions():
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=10,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.86,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.86,
         suspicion_level="high",
         continuity_risk="stable",
         focus_agent_ids=["truman-1"],
@@ -213,8 +212,8 @@ async def test_director_planner_prioritizes_rapid_rise_over_high_suspicion():
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=5,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.85,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.85,
         suspicion_level="high",
         suspicion_trend=trend,
         continuity_risk="stable",
@@ -275,8 +274,8 @@ async def test_director_planner_consumes_langgraph_backend_async_result():
     assessment = DirectorAssessment(
         run_id="run-1",
         current_tick=5,
-        truman_agent_id="truman-1",
-        truman_suspicion_score=0.1,
+        subject_agent_id="truman-1",
+        subject_alert_score=0.1,
         suspicion_level="low",
         continuity_risk="stable",
         focus_agent_ids=["truman-1"],
@@ -302,4 +301,4 @@ async def test_director_planner_consumes_langgraph_backend_async_result():
     assert first is None
     assert second is not None
     assert second.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
-    assert second.target_cast_ids == ["cast-spouse"]
+    assert second.target_agent_ids == ["cast-spouse"]

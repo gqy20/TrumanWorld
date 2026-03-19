@@ -92,7 +92,6 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
     assert result is not None
     assert result.scene_goal == "soft_check_in"
     assert result.target_agent_ids == ["cast-spouse"]
-    assert result.target_cast_ids == ["cast-spouse"]
     assert result.priority == "high"
     assert result.urgency == "immediate"
     assert result.target_agent_id == "truman-1"
