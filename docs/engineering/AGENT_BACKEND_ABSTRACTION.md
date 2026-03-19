@@ -380,7 +380,7 @@ class ReflectionDecision(BaseModel):
 
 ```python
 class DirectorObservation(BaseModel):
-    truman_suspicion_score: float
+    subject_alert_score: float
     suspicion_level: str
     continuity_risk: str
     focus_agent_ids: list[str] = []
@@ -390,9 +390,9 @@ class DirectorObservation(BaseModel):
 
 ```python
 class DirectorDecision(BaseModel):
+    subject_agent_id: str | None = None
     scene_goal: str | None = None
-    target_agent_id: str | None = None
-    target_cast_ids: list[str] = []
+    target_agent_ids: list[str] = []
     message_hint: str | None = None
     location_hint: str | None = None
     reason: str | None = None
