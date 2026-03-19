@@ -36,6 +36,7 @@ DIRECTOR_DECISION_SCHEMA = {
                 "none",
             ],
         },
+        "target_agent_names": {"type": "array", "items": {"type": "string"}},
         "target_cast_names": {"type": "array", "items": {"type": "string"}},
         "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"]},
         "urgency": {"type": "string", "enum": ["advisory", "immediate", "emergency"]},
@@ -241,7 +242,7 @@ class DirectorAgent:
                 {
                     "should_intervene": True,
                     "scene_goal": "break_isolation",
-                    "target_cast_names": ["Alice"],
+                    "target_agent_names": ["Alice"],
                     "priority": "normal",
                     "urgency": "advisory",
                     "reasoning": "Truman has been isolated for several ticks. A natural encounter would help maintain engagement.",
@@ -275,9 +276,11 @@ class DirectorAgent:
             if scene_goal == "none":
                 return None
 
-            target_cast_names = data.get("target_cast_names", [])
+            target_names = data.get("target_agent_names")
+            if not isinstance(target_names, list):
+                target_names = data.get("target_cast_names", [])
             target_agent_ids = []
-            for name in target_cast_names:
+            for name in target_names:
                 for agent in cast_agents:
                     if (agent.get("name") or "").lower() == name.lower():
                         target_agent_ids.append(agent.get("id", ""))

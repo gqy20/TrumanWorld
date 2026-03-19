@@ -246,7 +246,7 @@ async def test_director_planner_consumes_langgraph_backend_async_result():
                 {
                   "should_intervene": true,
                   "scene_goal": "soft_check_in",
-                  "target_cast_names": ["Meryl"],
+                  "target_agent_names": ["Meryl"],
                   "priority": "normal",
                   "urgency": "advisory",
                   "reasoning": "A gentle check-in keeps the scene natural.",

@@ -67,7 +67,7 @@ Respond with a JSON object:
 {
   "should_intervene": true/false,
   "scene_goal": "one of: soft_check_in, preemptive_comfort, keep_scene_natural, break_isolation, rejection_recovery, or none",
-  "target_cast_names": ["name of cast agent(s) to involve"],
+  "target_agent_names": ["name of agent(s) to involve"],
   "priority": "low/normal/high/critical",
   "urgency": "advisory/immediate/emergency",
   "reasoning": "detailed explanation of why this intervention is needed",
@@ -81,7 +81,7 @@ Respond with a JSON object:
 
 - **should_intervene**: Set to `false` if no intervention is needed at this moment
 - **scene_goal**: Choose based on the situation analysis above
-- **target_cast_names**: Select 1-2 appropriate cast agents by their names
+- **target_agent_names**: Select 1-2 appropriate agents by their names
 - **priority**: 
   - `critical`: Truman is about to discover the truth
   - `high`: Suspicion is rapidly rising or major continuity issue

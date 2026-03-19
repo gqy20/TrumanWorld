@@ -118,7 +118,7 @@ Current Tick: {{current_tick}}
 Truman Suspicion: {{truman_suspicion_score}}
 Isolation Ticks: {{truman_isolation_ticks}}
 
-Decide whether to intervene. Output JSON with should_intervene, scene_goal, target_cast_names, priority, urgency, reasoning, message_hint, strategy, cooldown_ticks."""
+Decide whether to intervene. Output JSON with should_intervene, scene_goal, target_agent_names, priority, urgency, reasoning, message_hint, strategy, cooldown_ticks. Legacy target_cast_names is still accepted for compatibility."""
 
     def get_strategy(self, strategy_id: str) -> DirectorStrategy | None:
         """Get a strategy by ID."""
