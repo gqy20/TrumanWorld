@@ -68,7 +68,7 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
         home_location_id="home",
         nearby_agent_id="bob",
         current_status={"energy": 0.8},
-        truman_suspicion_score=0.25,
+        subject_alert_score=0.25,
         world_role="cast",
         director_guidance=build_director_guidance(
             scene_goal="soft_check_in",

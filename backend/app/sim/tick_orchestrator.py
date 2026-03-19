@@ -9,12 +9,13 @@ from app.cognition.errors import UpstreamApiUnavailableError
 from app.infra.logging import get_logger
 from app.scenario.base import Scenario
 from app.scenario.types import get_agent_config_id, get_scenario_guidance, get_world_role
+from app.sim.action_resolver import ActionIntent
 from app.sim.agent_snapshot_builder import build_agent_recent_events
 from app.sim.llm_call_collector import LlmCallCollector
 from app.sim.runner import SimulationRunner, TickResult
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
-    extract_truman_suspicion_from_agent_data,
+    extract_subject_alert_from_agent_data,
     inject_profile_fields_into_context,
 )
 from app.sim.world import WorldState
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.agent.runtime import AgentRuntime
-    from app.sim.action_resolver import ActionIntent
     from app.sim.context import ContextBuilder
     from app.sim.types import AgentDecisionSnapshot
     from app.store.models import Agent, LlmCall
@@ -58,9 +58,7 @@ class TickOrchestrator:
         started_at = perf_counter()
         agents = await self.agent_repo.list_for_run(run_id)
         intents: list[ActionIntent] = []
-        truman_suspicion_score = self.context_builder.extract_truman_suspicion_from_agents(
-            agents, world
-        )
+        subject_alert_score = self.context_builder.extract_subject_alert_from_agents(agents, world)
         plan = await self.scenario.build_director_plan(run_id, agents)
         agent_recent_events = await build_agent_recent_events(
             session=self.session,
@@ -88,7 +86,7 @@ class TickOrchestrator:
                     current_status=state.status,
                     profile=profile,
                     recent_events=agent_recent_events.get(agent.id, []),
-                    truman_suspicion_score=truman_suspicion_score,
+                    subject_alert_score=subject_alert_score,
                 )
             )
 
@@ -139,7 +137,7 @@ class TickOrchestrator:
 
             profile = agent_snapshot.profile
             runtime_agent_id = get_agent_config_id(profile) or agent_id
-            truman_suspicion_score = extract_truman_suspicion_from_agent_data(agent_data, world)
+            subject_alert_score = extract_subject_alert_from_agent_data(agent_data, world)
 
             runtime_ctx = None
             if run_id is not None:
@@ -193,7 +191,7 @@ class TickOrchestrator:
                     current_status=state.status,
                     profile=profile if isinstance(profile, dict) else {},
                     recent_events=agent_snapshot.recent_events,
-                    truman_suspicion_score=truman_suspicion_score,
+                    subject_alert_score=subject_alert_score,
                     runtime_ctx=runtime_ctx,
                     workplace_location_id=workplace_location_id,
                     current_plan=agent_snapshot.current_plan,
@@ -305,7 +303,8 @@ class TickOrchestrator:
         current_status: dict | None,
         profile: dict,
         recent_events: list[dict],
-        truman_suspicion_score: float,
+        subject_alert_score: float = 0.0,
+        truman_suspicion_score: float = 0.0,
         runtime_ctx=None,
         workplace_location_id: str | None = None,
         current_plan: dict | None = None,
@@ -324,6 +323,7 @@ class TickOrchestrator:
             home_location_id=home_location_id,
             nearby_agent_id=nearby_agent_id,
             current_status=current_status,
+            subject_alert_score=subject_alert_score,
             truman_suspicion_score=truman_suspicion_score,
             world_role=get_world_role(profile),
             director_guidance=director_guidance,

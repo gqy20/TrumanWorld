@@ -29,11 +29,13 @@ from .test_service import FakeScenario, MixedOutcomeDecisionProvider
 class TokenCapturingDecisionProvider(AgentDecisionProvider):
     def __init__(self, usage: dict | None = None, cost: float = 0.01) -> None:
         self.captured_ctx: list = []
+        self.captured_invocations: list[RuntimeInvocation] = []
         self._usage = usage or {"input_tokens": 100, "output_tokens": 200}
         self._cost = cost
 
     async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
         self.captured_ctx.append(runtime_ctx)
+        self.captured_invocations.append(invocation)
         if runtime_ctx and runtime_ctx.on_llm_call:
             runtime_ctx.on_llm_call(
                 agent_id=invocation.agent_id,
@@ -231,6 +233,11 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
     assert len(llm_records) == 1
     assert llm_records[0].input_tokens == 130
     assert len(intents) == 1
+    assert provider.captured_invocations[0].context["world"]["subject_alert_score"] == 0.0
+    assert (
+        provider.captured_invocations[0].context["world"]["truman_suspicion_score"]
+        == provider.captured_invocations[0].context["world"]["subject_alert_score"]
+    )
 
     shutil.rmtree(tmp_path)
 

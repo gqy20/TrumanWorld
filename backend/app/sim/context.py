@@ -112,6 +112,7 @@ class ContextBuilder:
         home_location_id: str | None,
         nearby_agent_id: str | None,
         current_status: dict | None = None,
+        subject_alert_score: float = 0.0,
         truman_suspicion_score: float = 0.0,
         world_role: str | None = None,
         director_guidance: ScenarioGuidance | None = None,
@@ -125,7 +126,8 @@ class ContextBuilder:
             home_location_id: Agent's home location
             nearby_agent_id: ID of nearby agent for interaction
             current_status: Agent's current status dict
-            truman_suspicion_score: Truman's suspicion score
+            subject_alert_score: Primary subject alert score
+            truman_suspicion_score: Legacy alias for subject alert score
             world_role: Agent's role (truman/cast)
             director_guidance: Director guidance payload
 
@@ -139,6 +141,7 @@ class ContextBuilder:
             home_location_id=home_location_id,
             nearby_agent_id=nearby_agent_id,
             current_status=current_status,
+            subject_alert_score=subject_alert_score,
             truman_suspicion_score=truman_suspicion_score,
             world_role=world_role,
             director_guidance=director_guidance,
@@ -208,6 +211,14 @@ class ContextBuilder:
                 continue
             return float((state.status or {}).get("suspicion_score", 0.0) or 0.0)
         return 0.0
+
+    def extract_subject_alert_from_agents(
+        self,
+        agents: list[Agent],
+        world: WorldState,
+    ) -> float:
+        """Extract the primary subject alert score from agent objects."""
+        return self.extract_truman_suspicion_from_agents(agents, world)
 
     def format_event_for_context(
         self,
