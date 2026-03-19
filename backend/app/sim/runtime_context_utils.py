@@ -19,15 +19,11 @@ def build_agent_world_context(
     nearby_agent_id: str | None,
     current_status: dict | None = None,
     subject_alert_score: float = 0.0,
-    truman_suspicion_score: float = 0.0,
     world_role: str | None = None,
     director_guidance: ScenarioGuidance | None = None,
     workplace_location_id: str | None = None,
     current_plan: dict | None = None,
 ) -> RuntimeWorldContext:
-    resolved_subject_alert_score = (
-        subject_alert_score if subject_alert_score != 0.0 or truman_suspicion_score == 0.0 else truman_suspicion_score
-    )
     # Identify social locations (plaza / cafe) for talk-goal navigation
     social_location_ids = [
         loc_id for loc_id, loc in world.locations.items() if loc.location_type in {"plaza", "cafe"}
@@ -42,8 +38,7 @@ def build_agent_world_context(
         "social_location_ids": social_location_ids,
         "nearby_agent_id": nearby_agent_id,
         "self_status": current_status or {},
-        "subject_alert_score": resolved_subject_alert_score,
-        "truman_suspicion_score": resolved_subject_alert_score,
+        "subject_alert_score": subject_alert_score,
         **world.time_context(),
     }
 

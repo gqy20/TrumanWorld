@@ -338,11 +338,7 @@ class TrumanWorldCoordinator:
         scenario_state: dict | None = None,
         scenario_guidance=None,
     ) -> ActionIntent | None:
-        subject_alert_score = float(
-            (scenario_state or {}).get("subject_alert_score")
-            or (scenario_state or {}).get("truman_suspicion_score", 0.0)
-            or 0.0
-        )
+        subject_alert_score = float((scenario_state or {}).get("subject_alert_score") or 0.0)
         director_guidance: DirectorGuidance = {}
         if scenario_guidance:
             director_guidance = build_director_guidance(
@@ -363,7 +359,6 @@ class TrumanWorldCoordinator:
             "world_role": world_role,
             "self_status": current_status or {},
             "subject_alert_score": subject_alert_score,
-            "truman_suspicion_score": subject_alert_score,
             **director_guidance,
         }
         decision = build_truman_world_decision(

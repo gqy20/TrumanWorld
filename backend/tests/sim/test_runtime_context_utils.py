@@ -90,7 +90,7 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
     assert context["director_priority"] == "advisory"
     assert context["director_message_hint"] == "keep it casual"
     assert context["subject_alert_score"] == 0.25
-    assert context["truman_suspicion_score"] == context["subject_alert_score"]
+    assert "truman_suspicion_score" not in context
     assert context["workplace_location_id"] == "cafe"
     assert context["active_world_effects"] == ["power_outage"]
     assert context["current_location_power_status"] == "off"

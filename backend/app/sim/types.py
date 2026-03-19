@@ -37,7 +37,6 @@ class RuntimeWorldContext(ScenarioGuidance, total=False):
     nearby_agent: NearbyAgentContext
     self_status: dict[str, Any]
     subject_alert_score: float
-    truman_suspicion_score: float
     world_role: str
     tick_no: int
     tick_minutes: int

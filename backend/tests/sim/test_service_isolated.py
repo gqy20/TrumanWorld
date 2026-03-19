@@ -234,10 +234,7 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
     assert llm_records[0].input_tokens == 130
     assert len(intents) == 1
     assert provider.captured_invocations[0].context["world"]["subject_alert_score"] == 0.0
-    assert (
-        provider.captured_invocations[0].context["world"]["truman_suspicion_score"]
-        == provider.captured_invocations[0].context["world"]["subject_alert_score"]
-    )
+    assert "truman_suspicion_score" not in provider.captured_invocations[0].context["world"]
 
     shutil.rmtree(tmp_path)
 
