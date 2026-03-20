@@ -154,6 +154,7 @@ async def test_get_director_observation_returns_assessment(client):
     body = response.json()
     assert body["run_id"] == run_id
     assert body["subject_agent_id"]
+    assert body["subject_alert_tracking_enabled"] is True
     assert isinstance(body["subject_alert_score"], float)
     assert "truman_agent_id" not in body
     assert "truman_suspicion_score" not in body
@@ -161,6 +162,43 @@ async def test_get_director_observation_returns_assessment(client):
     assert body["continuity_risk"] in {"stable", "watch", "elevated", "critical"}
     assert isinstance(body["notes"], list)
     assert isinstance(body["focus_agent_ids"], list)
+
+
+@pytest.mark.asyncio
+async def test_get_director_observation_returns_null_alert_score_when_tracking_disabled(
+    client, monkeypatch: pytest.MonkeyPatch
+):
+    import app.api.routes.run_director as run_director_module
+    from app.director.observer import DirectorAssessment
+
+    create_response = await client.post(
+        "/api/runs",
+        json={"name": "observer-run-no-alert", "scenario_type": "open_world"},
+    )
+    run_id = create_response.json()["id"]
+
+    async def _fake_observe_run(self, run_id: str):
+        return DirectorAssessment(
+            run_id=run_id,
+            current_tick=3,
+            subject_agent_id="subject-1",
+            subject_alert_score=0.0,
+            subject_alert_tracking_enabled=False,
+            suspicion_level="low",
+            continuity_risk="watch",
+            focus_agent_ids=["subject-1"],
+            notes=["Open world does not use subject alert tracking."],
+        )
+
+    monkeypatch.setattr(run_director_module.SimulationService, "observe_run", _fake_observe_run)
+
+    response = await client.get(f"/api/runs/{run_id}/director/observation")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["subject_alert_tracking_enabled"] is False
+    assert body["subject_alert_score"] is None
+    assert body["continuity_risk"] == "watch"
 
 
 @pytest.mark.asyncio

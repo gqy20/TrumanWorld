@@ -242,8 +242,16 @@ class DirectorObservationResponse(BaseModel):
     run_id: str = Field(..., description="运行 ID")
     current_tick: int = Field(..., description="当前 tick")
     subject_agent_id: str | None = Field(None, description="主要观察对象 agent ID")
-    subject_alert_score: float = Field(
-        ..., description="主要观察对象警觉/异常分数", ge=0, le=1, examples=[0.35]
+    subject_alert_tracking_enabled: bool = Field(
+        True,
+        description="当前场景是否启用了主体告警跟踪能力",
+    )
+    subject_alert_score: float | None = Field(
+        None,
+        description="主要观察对象警觉/异常分数；未启用主体告警跟踪时为空",
+        ge=0,
+        le=1,
+        examples=[0.35],
     )
     suspicion_level: str = Field(..., description="怀疑级别", examples=["low", "medium", "high"])
     continuity_risk: str = Field(

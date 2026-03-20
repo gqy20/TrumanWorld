@@ -22,6 +22,7 @@
 
 ### Director Observation
 
+- `subject_alert_tracking_enabled`
 - `subject_agent_id`
 - `subject_alert_score`
 - `suspicion_level`
@@ -92,7 +93,7 @@
 - `semantics.support_roles`
 - `semantics.alert_metric`
 - `capabilities.director`
-- `capabilities.alert_tracking`
+- `capabilities.subject_alert_tracking`
 - `capabilities.scene_guidance`
 
 其中：
@@ -101,11 +102,13 @@
 - `subject_role` 决定 observer / state updater / runtime context 中的主体角色
 - `support_roles` 决定 director planner / manual planner / director backend / fallback heuristics 中的支援角色
 - `alert_metric` 决定主体告警值读取与写入的状态字段
+- `subject_alert_tracking` 决定是否启用主体告警跟踪链路；关闭后 state updater / runtime context / observer / alert-driven strategies 都会跳过这类信号
 
 这意味着：
 
 - 新场景不再必须使用 `truman` / `cast` / `suspicion_score`
 - 只要复用现有 adapter，就可以通过 `scenario.yml` 派生不同角色语义的场景 bundle
+- 主体告警值不再是平台默认世界机制，而是场景可选能力
 
 ## 当前已支持的 initial.yml 兼容输入
 
@@ -142,8 +145,10 @@ plan:
 
 - `spawn.location` 优先于 `initial_location`
 - `spawn.goal` 优先于 `initial_goal`
+- `status.<alert_metric>` 优先作为主体告警输入
+- `status.alert_score` 次之
 - `status.suspicion_score` 仍是兼容输入字段
-- seed 会根据 `scenario.yml` 的 `semantics.alert_metric` 把该值写入对应状态字段
+- seed 会根据 `scenario.yml` 的 `semantics.alert_metric` 把最终值写入对应状态字段
 
 因此，场景作者已经可以在不改公共 schema 的前提下：
 

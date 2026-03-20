@@ -76,7 +76,7 @@ def serialize_director_memory(
     "/{run_id}/director/observation",
     response_model=DirectorObservationResponse,
     summary="获取导演观察",
-    description="获取只读导演观察结果，包括 Truman 怀疑度和世界连续性风险",
+    description="获取只读导演观察结果，包括主体告警信号（若启用）和世界连续性风险",
     responses={
         **COMMON_RESPONSES,
         200: {"description": "导演观察结果", "model": DirectorObservationResponse},
@@ -92,7 +92,10 @@ async def get_director_observation(
         run_id=str(run_id),
         current_tick=assessment.current_tick,
         subject_agent_id=assessment.subject_agent_id,
-        subject_alert_score=assessment.subject_alert_score,
+        subject_alert_tracking_enabled=assessment.subject_alert_tracking_enabled,
+        subject_alert_score=(
+            assessment.subject_alert_score if assessment.subject_alert_tracking_enabled else None
+        ),
         suspicion_level=assessment.suspicion_level,
         continuity_risk=assessment.continuity_risk,
         focus_agent_ids=assessment.focus_agent_ids,
