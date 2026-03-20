@@ -95,7 +95,7 @@ def test_bundle_registry_loads_scenario_semantics_and_capabilities(tmp_path):
                 "  alert_metric: anomaly_score",
                 "capabilities:",
                 "  director: true",
-                "  alert_tracking: false",
+                "  subject_alert_tracking: false",
                 "  scene_guidance: true",
             ]
         ),
@@ -109,7 +109,7 @@ def test_bundle_registry_loads_scenario_semantics_and_capabilities(tmp_path):
     assert bundle.semantics.support_roles == ["cast", "ally"]
     assert bundle.semantics.alert_metric == "anomaly_score"
     assert bundle.capabilities.director is True
-    assert bundle.capabilities.alert_tracking is False
+    assert bundle.capabilities.subject_alert_tracking is False
     assert bundle.capabilities.scene_guidance is True
 
 
@@ -136,8 +136,33 @@ def test_bundle_registry_uses_empty_defaults_when_semantics_and_capabilities_mis
     assert bundle.semantics.support_roles == []
     assert bundle.semantics.alert_metric is None
     assert bundle.capabilities.director is None
-    assert bundle.capabilities.alert_tracking is None
+    assert bundle.capabilities.subject_alert_tracking is None
     assert bundle.capabilities.scene_guidance is None
+
+
+def test_bundle_registry_normalizes_legacy_alert_tracking_capability(tmp_path):
+    scenario_root = tmp_path / "scenarios" / "legacy_alert_world"
+    scenario_root.mkdir(parents=True)
+    (scenario_root / "scenario.yml").write_text(
+        "\n".join(
+            [
+                "id: legacy_alert_world",
+                "name: Legacy Alert World",
+                "version: 1",
+                "adapter: truman_world",
+                "capabilities:",
+                "  alert_tracking: false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    registry = ScenarioBundleRegistry(tmp_path / "scenarios")
+
+    bundle = registry.get_bundle("legacy_alert_world")
+
+    assert bundle is not None
+    assert bundle.capabilities.subject_alert_tracking is False
 
 
 def test_bundle_registry_prefers_bundle_agents_directory(tmp_path, monkeypatch):

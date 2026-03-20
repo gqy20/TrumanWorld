@@ -52,6 +52,7 @@ class TickOrchestrator:
         self.agent_repo = agent_repo
         scenario_id = getattr(scenario, "scenario_id", "truman_world")
         self._runtime_role_semantics = build_runtime_role_semantics(scenario_id)
+        self._subject_alert_tracking_enabled = self._runtime_role_semantics.subject_alert_tracking
 
     async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
         if self.session is None or self.context_builder is None or self.agent_repo is None:
@@ -61,10 +62,14 @@ class TickOrchestrator:
         started_at = perf_counter()
         agents = await self.agent_repo.list_for_run(run_id)
         intents: list[ActionIntent] = []
-        subject_alert_score = self.context_builder.extract_subject_alert_from_agents(
-            agents,
-            world,
-            semantics=self._runtime_role_semantics,
+        subject_alert_score = (
+            self.context_builder.extract_subject_alert_from_agents(
+                agents,
+                world,
+                semantics=self._runtime_role_semantics,
+            )
+            if self._subject_alert_tracking_enabled
+            else None
         )
         plan = await self.scenario.build_director_plan(run_id, agents)
         agent_recent_events = await build_agent_recent_events(
@@ -144,10 +149,14 @@ class TickOrchestrator:
 
             profile = agent_snapshot.profile
             runtime_agent_id = get_agent_config_id(profile) or agent_id
-            subject_alert_score = extract_subject_alert_from_agent_data(
-                agent_data,
-                world,
-                semantics=self._runtime_role_semantics,
+            subject_alert_score = (
+                extract_subject_alert_from_agent_data(
+                    agent_data,
+                    world,
+                    semantics=self._runtime_role_semantics,
+                )
+                if self._subject_alert_tracking_enabled
+                else None
             )
 
             runtime_ctx = None
@@ -314,7 +323,7 @@ class TickOrchestrator:
         current_status: dict | None,
         profile: dict,
         recent_events: list[dict],
-        subject_alert_score: float = 0.0,
+        subject_alert_score: float | None = 0.0,
         runtime_ctx=None,
         workplace_location_id: str | None = None,
         current_plan: dict | None = None,

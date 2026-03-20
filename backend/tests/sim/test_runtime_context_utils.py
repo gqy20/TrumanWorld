@@ -98,6 +98,23 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
     assert context["current_location_effects"][0]["effect_type"] == "power_outage"
 
 
+def test_build_agent_world_context_omits_subject_alert_score_when_disabled():
+    world = _build_world()
+
+    context = build_agent_world_context(
+        world=world,
+        current_goal="rest",
+        current_location_id="home",
+        home_location_id="home",
+        nearby_agent_id=None,
+        current_status={"energy": 0.8},
+        subject_alert_score=None,
+        world_role="protagonist",
+    )
+
+    assert "subject_alert_score" not in context
+
+
 def test_extract_truman_suspicion_from_agent_data_returns_first_truman_score():
     world = _build_world()
     agent_data = [

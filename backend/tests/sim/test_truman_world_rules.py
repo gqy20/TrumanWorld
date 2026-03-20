@@ -95,6 +95,23 @@ def test_rules_support_semantics_for_subject_support_and_alert_metric():
     assert build_scene_guidance("protagonist", {"director_scene_goal": "ignored"}, semantics=semantics) == {}
 
 
+def test_build_role_context_omits_alert_fields_when_subject_alert_tracking_disabled():
+    semantics = build_runtime_role_semantics("truman_world")
+    semantics.subject_role = "protagonist"
+    semantics.alert_metric = "anomaly_score"
+    semantics.subject_alert_tracking = False
+
+    role_context = build_role_context(
+        "protagonist",
+        {"self_status": {"anomaly_score": 0.6}},
+        semantics=semantics,
+    )
+
+    assert role_context["perspective"] == "subjective"
+    assert "current_alert_score" not in role_context
+    assert "current_suspicion_score" not in role_context
+
+
 def test_build_perception_context_for_agent_uses_location_and_relationships():
     world = WorldState(
         current_time=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),

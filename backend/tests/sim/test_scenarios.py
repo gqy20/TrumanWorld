@@ -188,6 +188,12 @@ async def test_truman_world_scenario_seed_and_state_update(db_session):
     assert truman.status["suspicion_score"] > starting_score
 
 
+def test_truman_world_scenario_defaults_subject_alert_tracking_enabled():
+    scenario = TrumanWorldScenario()
+
+    assert scenario.subject_alert_tracking_enabled is True
+
+
 @pytest.mark.asyncio
 async def test_truman_world_adapter_updates_configured_subject_alert_metric(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
@@ -277,6 +283,101 @@ async def test_truman_world_adapter_updates_configured_subject_alert_metric(
     await db_session.refresh(protagonist)
 
     assert protagonist.status["anomaly_score"] > starting_score
+
+
+@pytest.mark.asyncio
+async def test_truman_world_adapter_skips_subject_alert_updates_when_tracking_disabled(
+    db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    bundle_root = tmp_path / "scenarios" / "alt_world_no_alert"
+    agent_dir = bundle_root / "agents" / "hero"
+    agent_dir.mkdir(parents=True)
+    (bundle_root / "scenario.yml").write_text(
+        "\n".join(
+            [
+                "id: alt_world_no_alert",
+                "name: Alt World No Alert",
+                "version: 1",
+                "adapter: truman_world",
+                "semantics:",
+                "  subject_role: protagonist",
+                "  support_roles:",
+                "    - ally",
+                "  alert_metric: anomaly_score",
+                "capabilities:",
+                "  subject_alert_tracking: false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (bundle_root / "world.yml").write_text(
+        "\n".join(
+            [
+                "locations:",
+                "  - id_suffix: library",
+                "    name: 静水图书馆",
+                "    location_type: library",
+                "    capacity: 4",
+                "    x: 5",
+                "    y: 6",
+                "    attributes:",
+                "      kind: quiet",
+                "location_id_map:",
+                "  apartment: library",
+                "occupation_names:",
+                "  resident: 住户",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: hero",
+                "name: Hero",
+                "world_role: protagonist",
+                "occupation: resident",
+                "home: apartment",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
+    (agent_dir / "bio.md").write_text("Alt bundle hero", encoding="utf-8")
+
+    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+    run = SimulationRun(
+        id="run-alt-world-no-alert",
+        name="alt-world-no-alert",
+        status="running",
+        scenario_type="alt_world_no_alert",
+    )
+    db_session.add(run)
+    await db_session.commit()
+
+    scenario = create_scenario("alt_world_no_alert", db_session)
+    await scenario.seed_demo_run(run)
+
+    agents = await AgentRepository(db_session).list_for_run(run.id)
+    protagonist = next(
+        agent for agent in agents if (agent.profile or {}).get("world_role") == "protagonist"
+    )
+    starting_score = float((protagonist.status or {}).get("anomaly_score", 0.0))
+    event = Event(
+        id="evt-alt-world-no-alert",
+        run_id=run.id,
+        tick_no=1,
+        event_type="move_rejected",
+        actor_agent_id=protagonist.id,
+        payload={"agent_id": protagonist.id},
+    )
+
+    await scenario.update_state_from_events(run.id, [event])
+    await db_session.refresh(protagonist)
+
+    assert protagonist.status["anomaly_score"] == starting_score
 
 
 @pytest.mark.asyncio

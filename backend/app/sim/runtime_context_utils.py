@@ -19,7 +19,7 @@ def build_agent_world_context(
     home_location_id: str | None,
     nearby_agent_id: str | None,
     current_status: dict | None = None,
-    subject_alert_score: float = 0.0,
+    subject_alert_score: float | None = 0.0,
     world_role: str | None = None,
     director_guidance: ScenarioGuidance | None = None,
     workplace_location_id: str | None = None,
@@ -39,9 +39,10 @@ def build_agent_world_context(
         "social_location_ids": social_location_ids,
         "nearby_agent_id": nearby_agent_id,
         "self_status": current_status or {},
-        "subject_alert_score": subject_alert_score,
         **world.time_context(),
     }
+    if subject_alert_score is not None:
+        context["subject_alert_score"] = subject_alert_score
 
     # Inject daily schedule so LLM can self-determine appropriate behavior per time period
     if current_plan:

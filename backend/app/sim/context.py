@@ -113,7 +113,7 @@ class ContextBuilder:
         home_location_id: str | None,
         nearby_agent_id: str | None,
         current_status: dict | None = None,
-        subject_alert_score: float = 0.0,
+        subject_alert_score: float | None = 0.0,
         world_role: str | None = None,
         director_guidance: ScenarioGuidance | None = None,
     ) -> dict:
@@ -126,7 +126,7 @@ class ContextBuilder:
             home_location_id: Agent's home location
             nearby_agent_id: ID of nearby agent for interaction
             current_status: Agent's current status dict
-            subject_alert_score: Primary subject alert score
+            subject_alert_score: Primary subject alert score when enabled
             world_role: Agent's role (truman/cast)
             director_guidance: Director guidance payload
 

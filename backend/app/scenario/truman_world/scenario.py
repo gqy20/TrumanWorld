@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from app.agent.context_builder import ScenarioContextHooks
 from app.scenario.base import Scenario
+from app.scenario.bundle_registry import get_scenario_bundle
 from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
 from app.scenario.truman_world.rules import (
     build_role_context,
@@ -35,13 +36,20 @@ class TrumanWorldScenario(Scenario):
     ) -> None:
         self.session = session
         self.scenario_id = scenario_id
+        bundle = get_scenario_bundle(scenario_id)
+        capabilities = bundle.capabilities if bundle is not None else None
+        self.subject_alert_tracking_enabled = (
+            capabilities.subject_alert_tracking
+            if capabilities is not None and capabilities.subject_alert_tracking is not None
+            else True
+        )
         self.coordinator = TrumanWorldCoordinator(session, scenario_id=scenario_id)
         self.state_updater = (
             TrumanWorldStateUpdater(
                 session,
                 semantics=build_alert_state_semantics(scenario_id),
             )
-            if session is not None
+            if session is not None and self.subject_alert_tracking_enabled
             else None
         )
         self.seed_builder = (
@@ -128,6 +136,8 @@ class TrumanWorldScenario(Scenario):
         await self.seed_builder.seed_demo_run(run)
 
     async def update_state_from_events(self, run_id: str, events: list[Event]) -> None:
+        if not self.subject_alert_tracking_enabled:
+            return
         if self.state_updater is None:
             msg = "TrumanWorldScenario.update_state_from_events requires a database session"
             raise RuntimeError(msg)

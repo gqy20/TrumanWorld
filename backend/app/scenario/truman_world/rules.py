@@ -33,17 +33,24 @@ class RuntimeRoleSemantics:
     subject_role: str = "truman"
     support_roles: list[str] = field(default_factory=lambda: ["cast"])
     alert_metric: str = "suspicion_score"
+    subject_alert_tracking: bool = True
 
 
 def build_runtime_role_semantics(scenario_id: str) -> RuntimeRoleSemantics:
     bundle = get_scenario_bundle(scenario_id)
     semantics = bundle.semantics if bundle is not None else None
+    capabilities = bundle.capabilities if bundle is not None else None
     return RuntimeRoleSemantics(
         subject_role=semantics.subject_role or "truman" if semantics else "truman",
         support_roles=semantics.support_roles or ["cast"] if semantics else ["cast"],
         alert_metric=semantics.alert_metric or "suspicion_score"
         if semantics
         else "suspicion_score",
+        subject_alert_tracking=(
+            capabilities.subject_alert_tracking
+            if capabilities is not None and capabilities.subject_alert_tracking is not None
+            else True
+        ),
     )
 
 
@@ -131,17 +138,19 @@ def build_role_context(
     """Build role-specific context for agent."""
     resolved = semantics or RuntimeRoleSemantics()
     if world_role == resolved.subject_role:
-        current_alert_score = world.get("self_status", {}).get(resolved.alert_metric, 0.0)
-        return {
+        context = {
             "perspective": "subjective",
             "focus": "以普通居民的身份体验世界，只根据亲身经历理解周围发生的事",
-            "current_alert_score": current_alert_score,
-            "current_suspicion_score": current_alert_score,
             "guidance": [
                 "不要假设自己知道幕后信息",
                 "优先依据眼前线索和熟悉的日常节奏做判断",
             ],
         }
+        if resolved.subject_alert_tracking:
+            current_alert_score = world.get("self_status", {}).get(resolved.alert_metric, 0.0)
+            context["current_alert_score"] = current_alert_score
+            context["current_suspicion_score"] = current_alert_score
+        return context
     if world_role in set(resolved.support_roles):
         return {
             "perspective": "supporting_cast",

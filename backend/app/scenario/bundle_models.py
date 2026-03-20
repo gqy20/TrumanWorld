@@ -39,8 +39,20 @@ class ScenarioCapabilities(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     director: bool | None = None
-    alert_tracking: bool | None = None
+    subject_alert_tracking: bool | None = None
     scene_guidance: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_subject_alert_tracking_alias(cls, data):
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        subject_alert_tracking = normalized.get("subject_alert_tracking")
+        legacy_alert_tracking = normalized.get("alert_tracking")
+        if subject_alert_tracking is None and legacy_alert_tracking is not None:
+            normalized["subject_alert_tracking"] = legacy_alert_tracking
+        return normalized
 
 
 class ScenarioBundle(BaseModel):
