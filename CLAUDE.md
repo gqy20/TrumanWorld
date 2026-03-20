@@ -173,26 +173,14 @@ NOT in:
 
 ## Environment Variables
 
-Create `.env` from `.env.example`:
-
-```
-TRUMANWORLD_APP_ENV=development
-TRUMANWORLD_API_PREFIX=/api
-TRUMANWORLD_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/trumanworld
-TRUMANWORLD_REDIS_URL=redis://localhost:6379/0
-TRUMANWORLD_ANTHROPIC_API_KEY=<your-key>
-TRUMANWORLD_ANTHROPIC_BASE_URL=
-TRUMANWORLD_AGENT_BACKEND=heuristic
-TRUMANWORLD_AGENT_MODEL=
-TRUMANWORLD_CORS_ALLOWED_ORIGINS=["http://127.0.0.1:13000","http://localhost:13000"]
-TRUMANWORLD_LOG_LEVEL=INFO
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18080/api
-```
+Create `.env` from `.env.example`. See [docs/engineering/CONFIGURATION.md](docs/engineering/CONFIGURATION.md) for complete reference.
 
 Key variables:
-- `TRUMANWORLD_ANTHROPIC_API_KEY`: Required for Claude cognition
-- `TRUMANWORLD_AGENT_BACKEND`: `heuristic`, `claude_sdk`, or `langgraph`
-- `TRUMANWORLD_CORS_ALLOWED_ORIGINS`: Must include frontend URL
+- `TRUMANWORLD_LLM_PROVIDER`: `anthropic` (default) or `openai`
+- `TRUMANWORLD_LLM_API_KEY`: API key for LLM provider
+- `TRUMANWORLD_LLM_BASE_URL`: API endpoint (optional, defaults vary by provider)
+- `TRUMANWORLD_AGENT_BACKEND`: `heuristic`, `claude_sdk` (default), or `langgraph`
+- `TRUMANWORLD_DATABASE_URL`: PostgreSQL connection URL (required)
 
 ## Coding Style
 

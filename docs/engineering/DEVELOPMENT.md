@@ -545,6 +545,7 @@ make kill-ports
 |------|------|
 | [PRD](../product/PRD.md) | 产品需求文档 |
 | [当前架构](../engineering/CURRENT_ARCHITECTURE.md) | 当前技术架构说明 |
+| [环境变量配置](../engineering/CONFIGURATION.md) | 所有环境变量完整说明 |
 | [MVP 架构历史稿](../references/MVP_ARCHITECTURE.md) | 历史架构基线 |
 | [任务拆解](../references/TASK_BREAKDOWN.md) | 开发任务分解 |
 | [Build vs Buy](../references/BUILD_VS_BUY.md) | 复用/自研分析 |
