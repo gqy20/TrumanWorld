@@ -17,8 +17,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
-from app.scenario.truman_world.scenario import TrumanWorldScenario
+from app.scenario.narrative_world.coordinator import NarrativeWorldCoordinator
+from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 from app.director.service import DirectorEventService
 from app.infra.settings import get_settings
 from app.sim.world_loader import load_tick_data
@@ -121,7 +121,7 @@ async def test_build_director_plan_does_not_write_db_in_read_phase(db_session):
     monkey_settings = get_settings()
     original = monkey_settings.director_auto_intervention_enabled
     monkey_settings.director_auto_intervention_enabled = True
-    coordinator = TrumanWorldCoordinator(db_session)
+    coordinator = NarrativeWorldCoordinator(db_session)
     agents = [cast, truman]
 
     try:
@@ -265,7 +265,7 @@ async def test_manual_director_plan_is_marked_executed_only_in_write_phase(db_se
     ).scalar_one()
     assert memory.was_executed is False
 
-    coordinator = TrumanWorldCoordinator(db_session)
+    coordinator = NarrativeWorldCoordinator(db_session)
     plan = await coordinator.build_director_plan(run_id, [cast, truman])
     await db_session.refresh(memory)
 
@@ -308,7 +308,7 @@ async def test_load_tick_data_returns_director_plan_for_high_suspicion(db_sessio
     original = monkey_settings.director_auto_intervention_enabled
     monkey_settings.director_auto_intervention_enabled = True
     try:
-        scenario = TrumanWorldScenario(db_session)
+        scenario = NarrativeWorldScenario(db_session)
         loaded = await load_tick_data(
             session=db_session,
             run_id=run_id,
@@ -346,7 +346,7 @@ async def test_build_director_plan_returns_none_when_auto_intervention_disabled(
     monkey_settings = get_settings()
     original = monkey_settings.director_auto_intervention_enabled
     monkey_settings.director_auto_intervention_enabled = False
-    coordinator = TrumanWorldCoordinator(db_session)
+    coordinator = NarrativeWorldCoordinator(db_session)
 
     try:
         plan = await coordinator.build_director_plan(run_id, [cast, truman])

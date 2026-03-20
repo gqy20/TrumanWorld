@@ -6,7 +6,7 @@ from app.infra.settings import get_settings
 from app.scenario.adapter_registry import ScenarioAdapterRegistry
 from app.scenario.factory import create_scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.truman_world.scenario import TrumanWorldScenario
+from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 
 
 def test_factory_resolves_runtime_adapter_from_bundle_registry(tmp_path, monkeypatch: pytest.MonkeyPatch):
@@ -45,7 +45,7 @@ def test_factory_resolves_runtime_adapter_from_bundle_registry(tmp_path, monkeyp
     truman_world = create_scenario("truman_world")
 
     assert isinstance(open_world, OpenWorldScenario)
-    assert isinstance(truman_world, TrumanWorldScenario)
+    assert isinstance(truman_world, NarrativeWorldScenario)
 
 
 def test_factory_falls_back_to_truman_world_when_bundle_missing(tmp_path, monkeypatch: pytest.MonkeyPatch):
@@ -69,7 +69,7 @@ def test_factory_falls_back_to_truman_world_when_bundle_missing(tmp_path, monkey
 
     scenario = create_scenario("unknown_world")
 
-    assert isinstance(scenario, TrumanWorldScenario)
+    assert isinstance(scenario, NarrativeWorldScenario)
 
 
 def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: pytest.MonkeyPatch):
@@ -93,7 +93,7 @@ def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: py
 
     scenario = create_scenario("truman_world")
 
-    assert isinstance(scenario, TrumanWorldScenario)
+    assert isinstance(scenario, NarrativeWorldScenario)
 
 
 def test_adapter_registry_builds_registered_adapter():
@@ -101,12 +101,12 @@ def test_adapter_registry_builds_registered_adapter():
 
     registry.register(
         "custom_world",
-        lambda scenario_id, session: TrumanWorldScenario(session, scenario_id=scenario_id),
+        lambda scenario_id, session: NarrativeWorldScenario(session, scenario_id=scenario_id),
     )
 
     scenario = registry.build("custom_world", scenario_id="custom_world")
 
-    assert isinstance(scenario, TrumanWorldScenario)
+    assert isinstance(scenario, NarrativeWorldScenario)
     assert scenario.scenario_id == "custom_world"
 
 

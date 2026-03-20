@@ -243,7 +243,7 @@ class TestDirectorPlanNoDuplicateEventQuery:
     @pytest.mark.asyncio
     async def test_events_queried_only_once_in_auto_plan(self, db_session):
         """_build_auto_plan 中事件只应被查询一次。"""
-        from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
+        from app.scenario.narrative_world.coordinator import NarrativeWorldCoordinator
         from app.store.repositories import EventRepository
 
         run_id = "perf-director-events"
@@ -269,7 +269,7 @@ class TestDirectorPlanNoDuplicateEventQuery:
             return await original_list_for_run(self, run_id, limit=limit, **kwargs)
 
         with patch.object(EventRepository, "list_for_run", tracking_list_for_run):
-            coordinator = TrumanWorldCoordinator(db_session)
+            coordinator = NarrativeWorldCoordinator(db_session)
             agents = [cast, truman]
             await coordinator._build_auto_plan(run_id, agents)
 
@@ -640,7 +640,7 @@ class TestObserveRunParallelQueries:
     @pytest.mark.asyncio
     async def test_observe_run_queries_parallel(self, db_session):
         """observe_run 的 agents 和 events 查询应并行，不串行。"""
-        from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
+        from app.scenario.narrative_world.coordinator import NarrativeWorldCoordinator
         from app.store.repositories import AgentRepository, EventRepository
 
         call_log: list[tuple[str, float]] = []
@@ -674,7 +674,7 @@ class TestObserveRunParallelQueries:
             patch.object(AgentRepository, "list_for_run", slow_agent_list),
             patch.object(EventRepository, "list_for_run", slow_event_list),
         ):
-            coordinator = TrumanWorldCoordinator(db_session)
+            coordinator = NarrativeWorldCoordinator(db_session)
             t0 = time.monotonic()
             await coordinator.observe_run(run_id)
             elapsed = time.monotonic() - t0

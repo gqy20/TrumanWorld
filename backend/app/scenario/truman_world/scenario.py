@@ -7,15 +7,15 @@ from app.agent.context_builder import ScenarioContextHooks
 from app.scenario.base import Scenario
 from app.scenario.bundle_registry import get_scenario_bundle
 from app.scenario.runtime_config import build_scenario_runtime_config
-from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
+from app.scenario.truman_world.coordinator import NarrativeWorldCoordinator
 from app.scenario.truman_world.rules import (
     build_role_context,
     build_scene_guidance,
     build_world_common_knowledge,
     filter_world_for_role,
 )
-from app.scenario.truman_world.seed import TrumanWorldSeedBuilder
-from app.scenario.truman_world.state import TrumanWorldStateUpdater, build_alert_state_semantics
+from app.scenario.truman_world.seed import NarrativeWorldSeedBuilder
+from app.scenario.truman_world.state import NarrativeWorldStateUpdater, build_alert_state_semantics
 from app.scenario.types import AgentProfile, ScenarioGuidance
 
 if TYPE_CHECKING:
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
     from app.store.models import Agent, Event, SimulationRun
 
 
-class TrumanWorldScenario(Scenario):
-    """Scenario implementation for the Truman world."""
+class NarrativeWorldScenario(Scenario):
+    """Scenario implementation for the narrative-world adapter."""
 
     def __init__(
         self,
@@ -44,9 +44,9 @@ class TrumanWorldScenario(Scenario):
             if capabilities is not None and capabilities.subject_alert_tracking is not None
             else True
         )
-        self.coordinator = TrumanWorldCoordinator(session, scenario_id=scenario_id)
+        self.coordinator = NarrativeWorldCoordinator(session, scenario_id=scenario_id)
         self.state_updater = (
-            TrumanWorldStateUpdater(
+            NarrativeWorldStateUpdater(
                 session,
                 semantics=build_alert_state_semantics(scenario_id),
             )
@@ -54,11 +54,13 @@ class TrumanWorldScenario(Scenario):
             else None
         )
         self.seed_builder = (
-            TrumanWorldSeedBuilder(session, scenario_id=scenario_id) if session is not None else None
+            NarrativeWorldSeedBuilder(session, scenario_id=scenario_id)
+            if session is not None
+            else None
         )
 
-    def with_session(self, session: AsyncSession | None) -> TrumanWorldScenario:
-        return TrumanWorldScenario(session, scenario_id=self.scenario_id)
+    def with_session(self, session: AsyncSession | None) -> NarrativeWorldScenario:
+        return NarrativeWorldScenario(session, scenario_id=self.scenario_id)
 
     def configure_runtime(self, agent_runtime: AgentRuntime) -> None:
         agent_runtime.configure_allowed_actions(self.allowed_actions())
@@ -131,7 +133,7 @@ class TrumanWorldScenario(Scenario):
 
     async def seed_demo_run(self, run: SimulationRun) -> None:
         if self.seed_builder is None:
-            msg = "TrumanWorldScenario.seed_demo_run requires a database session"
+            msg = "NarrativeWorldScenario.seed_demo_run requires a database session"
             raise RuntimeError(msg)
         await self.seed_builder.seed_demo_run(run)
 
@@ -139,6 +141,9 @@ class TrumanWorldScenario(Scenario):
         if not self.subject_alert_tracking_enabled:
             return
         if self.state_updater is None:
-            msg = "TrumanWorldScenario.update_state_from_events requires a database session"
+            msg = "NarrativeWorldScenario.update_state_from_events requires a database session"
             raise RuntimeError(msg)
         await self.state_updater.persist_subject_alert(run_id, events)
+
+
+TrumanWorldScenario = NarrativeWorldScenario

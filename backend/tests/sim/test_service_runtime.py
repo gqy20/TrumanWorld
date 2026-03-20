@@ -4,7 +4,7 @@ from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 import app.director.service as director_service_module
 from app.director.service import DirectorEventService
 from app.infra.settings import get_settings
-from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
+from app.scenario.narrative_world.coordinator import NarrativeWorldCoordinator
 from app.scenario.truman_world.rules import RuntimeRoleSemantics
 from app.sim.action_resolver import ActionIntent
 from app.sim.service import SimulationService
@@ -269,7 +269,7 @@ async def test_manual_director_intervention_is_not_consumed_in_read_phase(db_ses
     )
 
     agents = list(await AgentRepository(db_session).list_for_run(run.id))
-    coordinator = TrumanWorldCoordinator(db_session)
+    coordinator = NarrativeWorldCoordinator(db_session)
 
     first_plan = await coordinator.build_director_plan(run.id, agents)
     pending = await DirectorMemoryRepository(db_session).get_pending_manual_interventions(

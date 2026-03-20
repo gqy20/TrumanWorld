@@ -10,7 +10,7 @@ from app.scenario.truman_world.rules import (
     build_scene_guidance,
     filter_world_for_role,
 )
-from app.scenario.truman_world.heuristics import build_truman_world_decision
+from app.scenario.narrative_world.heuristics import build_narrative_world_decision
 from app.sim.world import AgentState, LocationState, WorldState
 
 
@@ -153,7 +153,7 @@ def test_heuristics_support_semantics_for_support_roles():
     semantics.subject_role = "protagonist"
     semantics.support_roles = ["ally"]
 
-    decision = build_truman_world_decision(
+    decision = build_narrative_world_decision(
         world={"world_role": "ally"},
         nearby_agent_id="hero",
         current_location_id="square",

@@ -9,7 +9,7 @@ from app.director.types import DirectorPlan
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.scenario.runtime_config import build_scenario_runtime_config
-from app.scenario.truman_world.heuristics import build_truman_world_decision
+from app.scenario.truman_world.heuristics import build_narrative_world_decision
 from app.scenario.truman_world.types import (
     DirectorGuidance,
     build_director_guidance,
@@ -34,8 +34,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class TrumanWorldCoordinator:
-    """Coordinates Truman-world specific director and fallback behavior."""
+class NarrativeWorldCoordinator:
+    """Coordinates narrative-world director and fallback behavior."""
 
     def __init__(
         self,
@@ -73,7 +73,7 @@ class TrumanWorldCoordinator:
 
     async def observe_run(self, run_id: str, event_limit: int = 20) -> DirectorAssessment:
         if self.run_repo is None or self.agent_repo is None or self.event_repo is None:
-            msg = "TrumanWorldCoordinator.observe_run requires a database session"
+            msg = "NarrativeWorldCoordinator.observe_run requires a database session"
             raise RuntimeError(msg)
         run = await self.run_repo.get(run_id)
         if run is None:
@@ -103,7 +103,7 @@ class TrumanWorldCoordinator:
     async def build_director_plan(self, run_id: str, agents: list[Agent]) -> DirectorPlan | None:
         """构建导演干预计划 - 优先使用手动注入，其次自动触发"""
         if self.run_repo is None:
-            msg = "TrumanWorldCoordinator.build_director_plan requires a database session"
+            msg = "NarrativeWorldCoordinator.build_director_plan requires a database session"
             raise RuntimeError(msg)
 
         run = await self.run_repo.get(run_id)
@@ -341,7 +341,7 @@ class TrumanWorldCoordinator:
         home_location_id: str | None,
         agent_id: str | None = None,
     ):
-        return build_truman_world_decision(
+        return build_narrative_world_decision(
             world=world,
             nearby_agent_id=nearby_agent_id,
             current_location_id=current_location_id,
@@ -385,7 +385,7 @@ class TrumanWorldCoordinator:
             "subject_alert_score": subject_alert_score,
             **director_guidance,
         }
-        decision = build_truman_world_decision(
+        decision = build_narrative_world_decision(
             world=runtime_world,
             nearby_agent_id=nearby_agent_id,
             current_location_id=current_location_id,
@@ -405,3 +405,6 @@ class TrumanWorldCoordinator:
             )
 
         return None
+
+
+TrumanWorldCoordinator = NarrativeWorldCoordinator

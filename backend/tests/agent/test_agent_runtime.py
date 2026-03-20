@@ -16,7 +16,7 @@ from app.agent.system_prompt import build_system_prompt
 import app.cognition.claude.decision_provider as provider_module
 from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
 from app.infra.settings import get_settings
-from app.scenario.truman_world.scenario import TrumanWorldScenario
+from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def runtime(tmp_path: Path) -> AgentRuntime:
 
     registry = AgentRegistry(tmp_path)
     runtime = AgentRuntime(registry=registry, context_builder=ContextBuilder())
-    TrumanWorldScenario().configure_runtime(runtime)
+    NarrativeWorldScenario().configure_runtime(runtime)
     return runtime
 
 
@@ -113,7 +113,7 @@ def test_runtime_prepare_reactor_adds_truman_role_context(tmp_path: Path):
     (agent_dir / "prompt.md").write_text("# Truman\nBase prompt", encoding="utf-8")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
-    TrumanWorldScenario().configure_runtime(runtime)
+    NarrativeWorldScenario().configure_runtime(runtime)
     invocation = runtime.prepare_reactor(
         "truman",
         world={
@@ -147,7 +147,7 @@ def test_runtime_prepare_reactor_adds_cast_scene_guidance(tmp_path: Path):
     (agent_dir / "prompt.md").write_text("# Cast Agent\nBase prompt", encoding="utf-8")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
-    TrumanWorldScenario().configure_runtime(runtime)
+    NarrativeWorldScenario().configure_runtime(runtime)
     invocation = runtime.prepare_reactor(
         "cast_agent",
         world={

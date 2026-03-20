@@ -46,8 +46,8 @@ def _get_occupation_names(scenario_id: str) -> dict[str, str]:
     return _get_world_config(scenario_id).get("occupation_names", {})
 
 
-class TrumanWorldSeedBuilder:
-    """Builds the default Truman-world demo seed from agent configuration files."""
+class NarrativeWorldSeedBuilder:
+    """Builds the default narrative-world demo seed from agent configuration files."""
 
     def __init__(
         self,
@@ -236,3 +236,6 @@ class TrumanWorldSeedBuilder:
         if relationships:
             self.session.add_all(relationships)
         await self.session.commit()
+
+
+TrumanWorldSeedBuilder = NarrativeWorldSeedBuilder

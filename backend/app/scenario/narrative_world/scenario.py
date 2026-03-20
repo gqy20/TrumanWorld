@@ -1,3 +1,3 @@
-from app.scenario.truman_world.scenario import TrumanWorldScenario as NarrativeWorldScenario
+from app.scenario.truman_world.scenario import NarrativeWorldScenario
 
 __all__ = ["NarrativeWorldScenario"]

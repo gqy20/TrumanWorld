@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.truman_world.scenario import TrumanWorldScenario
+from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 from app.sim.world_loader import load_tick_data
 from app.store.models import Agent, Event, Location, SimulationRun
 
@@ -103,7 +103,7 @@ async def test_load_tick_data_includes_director_system_events_for_cast_only(db_s
     loaded = await load_tick_data(
         session=db_session,
         run_id=run.id,
-        scenario=TrumanWorldScenario(db_session),
+        scenario=NarrativeWorldScenario(db_session),
     )
 
     cast_snapshot = next(item for item in loaded.agent_data if item.id == cast.id)

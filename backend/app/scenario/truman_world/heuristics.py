@@ -1,4 +1,4 @@
-"""Heuristics for TrumanWorld scenario fallback decisions."""
+"""Heuristics for narrative-world scenario fallback decisions."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _build_fallback_message(
     return "嗨，今天怎么样？"
 
 
-def build_truman_world_decision(
+def build_narrative_world_decision(
     *,
     world: RuntimeWorldContext,
     nearby_agent_id: str | None,
@@ -69,3 +69,6 @@ def build_truman_world_decision(
         )
 
     return RuntimeDecision(action_type="rest")
+
+
+build_truman_world_decision = build_narrative_world_decision
