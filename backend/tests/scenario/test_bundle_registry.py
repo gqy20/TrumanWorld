@@ -9,6 +9,7 @@ from app.scenario.bundle_registry import (
     load_director_prompt_template_for_scenario,
     load_ui_config_for_scenario,
     load_world_config_for_scenario,
+    resolve_default_scenario_id,
     resolve_agents_root_for_scenario,
     resolve_sleep_config_for_scenario,
 )
@@ -138,6 +139,51 @@ def test_bundle_registry_uses_empty_defaults_when_semantics_and_capabilities_mis
     assert bundle.capabilities.director is None
     assert bundle.capabilities.subject_alert_tracking is None
     assert bundle.capabilities.scene_guidance is None
+
+
+def test_bundle_registry_prefers_truman_world_as_default_when_present(tmp_path):
+    scenarios_root = tmp_path / "scenarios"
+    for scenario_id, adapter in (("open_world", "open_world"), ("truman_world", "truman_world")):
+        bundle_root = scenarios_root / scenario_id
+        bundle_root.mkdir(parents=True)
+        (bundle_root / "scenario.yml").write_text(
+            "\n".join(
+                [
+                    f"id: {scenario_id}",
+                    f"name: {scenario_id}",
+                    "version: 1",
+                    f"adapter: {adapter}",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    registry = ScenarioBundleRegistry(scenarios_root)
+
+    assert registry.get_default_scenario_id() == "truman_world"
+
+
+def test_resolve_default_scenario_id_uses_first_bundle_when_truman_missing(tmp_path, monkeypatch):
+    scenarios_root = tmp_path / "scenarios"
+    for scenario_id in ("alpha_world", "open_world"):
+        bundle_root = scenarios_root / scenario_id
+        bundle_root.mkdir(parents=True)
+        (bundle_root / "scenario.yml").write_text(
+            "\n".join(
+                [
+                    f"id: {scenario_id}",
+                    f"name: {scenario_id}",
+                    "version: 1",
+                    "adapter: open_world",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+    assert resolve_default_scenario_id() == "alpha_world"
 
 
 def test_bundle_registry_normalizes_legacy_alert_tracking_capability(tmp_path):

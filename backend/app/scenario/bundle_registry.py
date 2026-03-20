@@ -37,6 +37,13 @@ class ScenarioBundleRegistry:
                 return bundle
         return None
 
+    def get_default_scenario_id(self) -> str:
+        bundles = self.list_bundles()
+        if not bundles:
+            return "truman_world"
+        preferred = next((bundle for bundle in bundles if bundle.manifest.id == "truman_world"), None)
+        return preferred.manifest.id if preferred is not None else bundles[0].manifest.id
+
     def _load_bundle(self, manifest_path: Path) -> ScenarioBundle:
         with manifest_path.open("r", encoding="utf-8") as file:
             raw = yaml.safe_load(file) or {}
@@ -72,6 +79,16 @@ class ScenarioBundleRegistry:
 def get_scenario_bundle_registry() -> ScenarioBundleRegistry:
     settings = get_settings()
     return ScenarioBundleRegistry(settings.project_root / "scenarios")
+
+
+def resolve_default_scenario_id(
+    *,
+    project_root: Path | None = None,
+) -> str:
+    settings = get_settings()
+    base_root = project_root or settings.project_root
+    registry = ScenarioBundleRegistry(base_root / "scenarios")
+    return registry.get_default_scenario_id()
 
 
 def get_scenario_bundle(

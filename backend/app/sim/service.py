@@ -13,7 +13,7 @@ from app.infra.logging import get_logger
 from app.infra.metrics import observe_tick
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
-from app.scenario.bundle_registry import resolve_agents_root_for_scenario
+from app.scenario.bundle_registry import resolve_agents_root_for_scenario, resolve_default_scenario_id
 from app.scenario.factory import create_scenario
 from app.sim.action_resolver import ActionIntent
 from app.sim.context import ContextBuilder
@@ -59,7 +59,7 @@ class SimulationService:
         self._scenario = (
             scenario.with_session(session)
             if scenario is not None
-            else create_scenario("truman_world", session)
+            else create_scenario(resolve_default_scenario_id(), session)
         )
         settings = get_settings()
         self.agent_runtime = agent_runtime or AgentRuntime(
@@ -96,7 +96,7 @@ class SimulationService:
             scenario=(
                 scenario.with_session(None)
                 if scenario is not None
-                else create_scenario("truman_world")
+                else create_scenario(resolve_default_scenario_id())
             ),
         )
 

@@ -270,16 +270,19 @@ export async function listScenariosResult(): Promise<ApiResult<ScenarioSummary[]
 
 export async function createRunResult(
   name: string,
-  scenarioType = "truman_world",
+  scenarioType?: string,
   seedDemo = true,
   tickMinutes = 5,
 ): Promise<ApiResult<CreateRunResponse>> {
-  return postResult<CreateRunResponse>("/runs", {
+  const payload: Record<string, unknown> = {
     name,
-    scenario_type: scenarioType,
     seed_demo: seedDemo,
     tick_minutes: tickMinutes,
-  });
+  };
+  if (scenarioType) {
+    payload.scenario_type = scenarioType;
+  }
+  return postResult<CreateRunResponse>("/runs", payload);
 }
 
 export async function startRunResult(runId: string): Promise<ApiResult<RunSummary>> {
