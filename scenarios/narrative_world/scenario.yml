@@ -1,0 +1,4 @@
+id: narrative_world
+name: Narrative World
+version: 1
+runtime_adapter: narrative_world

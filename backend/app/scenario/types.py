@@ -1,7 +1,7 @@
 """Generic scenario types shared across all scenario implementations.
 
 These types are scenario-agnostic and must not import from any concrete
-scenario (e.g. truman_world).  Concrete scenarios may extend these types
+scenario (e.g. narrative_world).  Concrete scenarios may extend these types
 with their own private structures.
 """
 

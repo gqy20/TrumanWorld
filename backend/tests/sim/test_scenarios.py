@@ -207,7 +207,7 @@ async def test_truman_world_adapter_updates_configured_subject_alert_metric(
                 "id: alt_world",
                 "name: Alt World",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  support_roles:",
@@ -298,7 +298,7 @@ async def test_truman_world_adapter_skips_subject_alert_updates_when_tracking_di
                 "id: alt_world_no_alert",
                 "name: Alt World No Alert",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  support_roles:",
@@ -393,7 +393,7 @@ async def test_truman_world_adapter_seed_supports_spawn_aliases(
                 "id: alt_world_spawn",
                 "name: Alt World Spawn",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  alert_metric: anomaly_score",
@@ -487,7 +487,7 @@ async def test_truman_world_adapter_seed_supports_generic_alert_status_inputs(
                 "id: alt_world_alert_seed",
                 "name: Alt World Alert Seed",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  alert_metric: anomaly_score",
@@ -565,15 +565,15 @@ async def test_truman_world_adapter_seed_supports_generic_alert_status_inputs(
 async def test_truman_world_seed_builder_prefers_scenario_bundle_agents(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
-    scenario_agents_root = tmp_path / "scenarios" / "truman_world" / "agents" / "bundle_agent"
+    scenario_agents_root = tmp_path / "scenarios" / "narrative_world" / "agents" / "bundle_agent"
     scenario_agents_root.mkdir(parents=True)
-    (tmp_path / "scenarios" / "truman_world" / "scenario.yml").write_text(
+    (tmp_path / "scenarios" / "narrative_world" / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -636,7 +636,7 @@ async def test_truman_world_adapter_seed_demo_run_uses_active_bundle_files(
                 "id: alt_world",
                 "name: Alt World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -725,7 +725,7 @@ async def test_open_world_scenario_persist_director_plan_is_noop(db_session):
 
 def test_scenario_factory_returns_expected_implementation(db_session):
     assert isinstance(create_scenario("open_world", db_session), OpenWorldScenario)
-    assert isinstance(create_scenario("truman_world", db_session), NarrativeWorldScenario)
+    assert isinstance(create_scenario("narrative_world", db_session), NarrativeWorldScenario)
     assert isinstance(create_scenario(None, db_session), NarrativeWorldScenario)
 
 
@@ -741,7 +741,7 @@ def test_truman_world_adapter_uses_active_bundle_world_knowledge(
                 "id: alt_world",
                 "name: Alt World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",

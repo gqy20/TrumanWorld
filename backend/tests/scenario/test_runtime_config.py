@@ -23,7 +23,7 @@ def test_build_scenario_runtime_config_reads_bundle_semantics_and_capabilities(
                 "id: alt_world",
                 "name: Alt World",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  support_roles:",

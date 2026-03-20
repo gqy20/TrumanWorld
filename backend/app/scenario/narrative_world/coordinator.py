@@ -41,7 +41,7 @@ class NarrativeWorldCoordinator:
         self,
         session: AsyncSession | None = None,
         *,
-        scenario_id: str = "truman_world",
+        scenario_id: str = "narrative_world",
     ) -> None:
         self.session = session
         self.scenario_id = scenario_id

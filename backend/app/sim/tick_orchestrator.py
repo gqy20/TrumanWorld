@@ -50,7 +50,7 @@ class TickOrchestrator:
         self.session = session
         self.context_builder = context_builder
         self.agent_repo = agent_repo
-        scenario_id = getattr(scenario, "scenario_id", "truman_world")
+        scenario_id = getattr(scenario, "scenario_id", "narrative_world")
         self._runtime_role_semantics = build_runtime_role_semantics(scenario_id)
         self._subject_alert_tracking_enabled = self._runtime_role_semantics.subject_alert_tracking
 

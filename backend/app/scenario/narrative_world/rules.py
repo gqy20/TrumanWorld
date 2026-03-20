@@ -37,7 +37,7 @@ def build_runtime_role_semantics(scenario_id: str) -> RuntimeRoleSemantics:
     return build_scenario_runtime_config(scenario_id)
 
 
-def load_world_config(scenario_id: str = "truman_world") -> dict[str, Any]:
+def load_world_config(scenario_id: str = "narrative_world") -> dict[str, Any]:
     """Load world configuration from YAML file.
 
     Uses caching to avoid repeated file reads.
@@ -45,8 +45,8 @@ def load_world_config(scenario_id: str = "truman_world") -> dict[str, Any]:
     """
     if scenario_id not in _WORLD_CONFIG_CACHE:
         config = load_world_config_for_scenario(scenario_id)
-        if not config and scenario_id != "truman_world":
-            config = load_world_config_for_scenario("truman_world")
+        if not config and scenario_id != "narrative_world":
+            config = load_world_config_for_scenario("narrative_world")
         _WORLD_CONFIG_CACHE[scenario_id] = config
     return _WORLD_CONFIG_CACHE[scenario_id]
 
@@ -151,7 +151,7 @@ def build_role_context(
     }
 
 
-def build_world_common_knowledge(scenario_id: str = "truman_world") -> dict[str, Any]:
+def build_world_common_knowledge(scenario_id: str = "narrative_world") -> dict[str, Any]:
     """Build world common knowledge shared by all agents in TrumanWorld.
 
     This defines the shared understanding of how the world works,

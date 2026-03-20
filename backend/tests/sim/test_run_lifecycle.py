@@ -88,7 +88,7 @@ async def test_ensure_run_started_warms_pool_and_registers_tick_callback(db_sess
         id="run-lifecycle-2",
         name="demo",
         status="draft",
-        scenario_type="truman_world",
+        scenario_type="narrative_world",
     )
     db_session.add_all(
         [

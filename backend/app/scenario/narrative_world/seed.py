@@ -54,7 +54,7 @@ class NarrativeWorldSeedBuilder:
         session: AsyncSession,
         registry: AgentRegistry | None = None,
         *,
-        scenario_id: str = "truman_world",
+        scenario_id: str = "narrative_world",
     ) -> None:
         self.session = session
         self.scenario_id = scenario_id

@@ -167,7 +167,7 @@ describe('API', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({ id: '1', name: 'Test', status: 'created', scenario_type: 'truman_world' }),
+        json: async () => ({ id: '1', name: 'Test', status: 'created', scenario_type: 'narrative_world' }),
       } as Response)
 
       await createRunResult('Test')

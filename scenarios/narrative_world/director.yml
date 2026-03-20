@@ -19,7 +19,7 @@ decision_interval: 5
 
 # 提示词配置
 prompt:
-  # 提示词文件路径（相对于 scenario/truman_world/）
+  # 提示词文件路径（相对于 scenario/narrative_world/）
   file: "director_prompt.md"
   
   # 上下文窗口大小（最近事件数）

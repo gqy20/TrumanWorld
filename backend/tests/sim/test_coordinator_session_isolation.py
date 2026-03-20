@@ -187,7 +187,7 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
 
     async with AsyncSessionType(engine, expire_on_commit=False) as setup_session:
         run = _make_run(run_id, current_tick=3)
-        run.scenario_type = "truman_world"
+        run.scenario_type = "narrative_world"
         loc = _make_location(loc_id, run_id)
         cast = _make_cast(cast_id, run_id, loc_id)
         truman = _make_truman(truman_id, run_id, loc_id, suspicion=0.9)

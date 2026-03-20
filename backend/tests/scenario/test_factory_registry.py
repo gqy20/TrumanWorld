@@ -11,15 +11,15 @@ from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 
 def test_factory_resolves_runtime_adapter_from_bundle_registry(tmp_path, monkeypatch: pytest.MonkeyPatch):
     scenarios_root = tmp_path / "scenarios"
-    truman_root = scenarios_root / "truman_world"
+    truman_root = scenarios_root / "narrative_world"
     truman_root.mkdir(parents=True)
     (truman_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -42,23 +42,23 @@ def test_factory_resolves_runtime_adapter_from_bundle_registry(tmp_path, monkeyp
     get_settings.cache_clear()
 
     open_world = create_scenario("open_world")
-    truman_world = create_scenario("truman_world")
+    narrative_world = create_scenario("narrative_world")
 
     assert isinstance(open_world, OpenWorldScenario)
-    assert isinstance(truman_world, NarrativeWorldScenario)
+    assert isinstance(narrative_world, NarrativeWorldScenario)
 
 
 def test_factory_falls_back_to_truman_world_when_bundle_missing(tmp_path, monkeypatch: pytest.MonkeyPatch):
     scenarios_root = tmp_path / "scenarios"
-    truman_root = scenarios_root / "truman_world"
+    truman_root = scenarios_root / "narrative_world"
     truman_root.mkdir(parents=True)
     (truman_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -74,15 +74,15 @@ def test_factory_falls_back_to_truman_world_when_bundle_missing(tmp_path, monkey
 
 def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: pytest.MonkeyPatch):
     scenarios_root = tmp_path / "scenarios"
-    truman_root = scenarios_root / "truman_world"
+    truman_root = scenarios_root / "narrative_world"
     truman_root.mkdir(parents=True)
     (truman_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -91,7 +91,7 @@ def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: py
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    scenario = create_scenario("truman_world")
+    scenario = create_scenario("narrative_world")
 
     assert isinstance(scenario, NarrativeWorldScenario)
 

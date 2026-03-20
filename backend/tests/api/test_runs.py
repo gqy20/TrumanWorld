@@ -184,7 +184,7 @@ async def test_create_run_returns_running_status(client):
     body = response.json()
     assert body["name"] == "test-run"
     assert body["status"] == "running"
-    assert body["scenario_type"] == "truman_world"
+    assert body["scenario_type"] == "narrative_world"
     assert body["id"]
     assert get_scheduler().is_running(body["id"])
 
@@ -203,7 +203,7 @@ async def test_create_run_accepts_missing_scenario_type_and_uses_default(client)
     assert response.status_code == 200
     body = response.json()
     assert body["name"] == "default-scenario-run"
-    assert body["scenario_type"] == "truman_world"
+    assert body["scenario_type"] == "narrative_world"
 
 
 @pytest.mark.asyncio
@@ -242,7 +242,7 @@ async def test_list_scenarios_returns_registered_bundles(client):
     assert response.status_code == 200
     body = response.json()
     assert {"id": "open_world", "name": "Open World", "version": 1} in body
-    assert {"id": "truman_world", "name": "Truman World", "version": 1} in body
+    assert {"id": "narrative_world", "name": "Narrative World", "version": 1} in body
 
 
 @pytest.mark.asyncio

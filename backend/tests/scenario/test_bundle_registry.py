@@ -17,15 +17,15 @@ from app.scenario.bundle_registry import (
 
 def test_bundle_registry_loads_scenarios_from_directory(tmp_path):
     scenarios_root = tmp_path / "scenarios"
-    truman_root = scenarios_root / "truman_world"
+    truman_root = scenarios_root / "narrative_world"
     truman_root.mkdir(parents=True)
     (truman_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -49,29 +49,29 @@ def test_bundle_registry_loads_scenarios_from_directory(tmp_path):
 
     bundles = registry.list_bundles()
 
-    assert [bundle.manifest.id for bundle in bundles] == ["open_world", "truman_world"]
-    assert bundles[0].root == open_world_root
-    assert bundles[1].root == truman_root
+    assert [bundle.manifest.id for bundle in bundles] == ["narrative_world", "open_world"]
+    assert bundles[0].root == truman_root
+    assert bundles[1].root == open_world_root
 
 
 def test_bundle_registry_returns_bundle_by_id(tmp_path):
     scenarios_root = tmp_path / "scenarios"
-    bundle_root = scenarios_root / "truman_world"
+    bundle_root = scenarios_root / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
     )
 
     registry = ScenarioBundleRegistry(scenarios_root)
-    bundle = registry.get_bundle("truman_world")
+    bundle = registry.get_bundle("narrative_world")
 
     assert bundle is not None
     assert bundle.manifest.name == "Truman World"
@@ -87,7 +87,7 @@ def test_bundle_registry_loads_scenario_semantics_and_capabilities(tmp_path):
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  support_roles:",
@@ -143,7 +143,7 @@ def test_bundle_registry_uses_empty_defaults_when_semantics_and_capabilities_mis
 
 def test_bundle_registry_prefers_truman_world_as_default_when_present(tmp_path):
     scenarios_root = tmp_path / "scenarios"
-    for scenario_id, adapter in (("open_world", "open_world"), ("truman_world", "truman_world")):
+    for scenario_id, adapter in (("open_world", "open_world"), ("narrative_world", "narrative_world")):
         bundle_root = scenarios_root / scenario_id
         bundle_root.mkdir(parents=True)
         (bundle_root / "scenario.yml").write_text(
@@ -160,7 +160,7 @@ def test_bundle_registry_prefers_truman_world_as_default_when_present(tmp_path):
 
     registry = ScenarioBundleRegistry(scenarios_root)
 
-    assert registry.get_default_scenario_id() == "truman_world"
+    assert registry.get_default_scenario_id() == "narrative_world"
 
 
 def test_resolve_default_scenario_id_uses_first_bundle_when_truman_missing(tmp_path, monkeypatch):
@@ -195,7 +195,7 @@ def test_bundle_registry_normalizes_legacy_alert_tracking_capability(tmp_path):
                 "id: legacy_alert_world",
                 "name: Legacy Alert World",
                 "version: 1",
-                "adapter: truman_world",
+                "adapter: narrative_world",
                 "capabilities:",
                 "  alert_tracking: false",
             ]
@@ -213,15 +213,15 @@ def test_bundle_registry_normalizes_legacy_alert_tracking_capability(tmp_path):
 
 def test_bundle_registry_prefers_bundle_agents_directory(tmp_path, monkeypatch):
     scenarios_root = tmp_path / "scenarios"
-    bundle_root = scenarios_root / "truman_world"
+    bundle_root = scenarios_root / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -233,7 +233,7 @@ def test_bundle_registry_prefers_bundle_agents_directory(tmp_path, monkeypatch):
     get_settings.cache_clear()
 
     registry = ScenarioBundleRegistry(scenarios_root)
-    bundle = registry.get_bundle("truman_world")
+    bundle = registry.get_bundle("narrative_world")
 
     assert bundle is not None
     assert bundle.agents_root == agents_root
@@ -243,15 +243,15 @@ def test_resolve_agents_root_falls_back_to_project_agents_when_bundle_agents_mis
     tmp_path, monkeypatch
 ):
     scenarios_root = tmp_path / "scenarios"
-    bundle_root = scenarios_root / "truman_world"
+    bundle_root = scenarios_root / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -262,21 +262,21 @@ def test_resolve_agents_root_falls_back_to_project_agents_when_bundle_agents_mis
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    resolved = resolve_agents_root_for_scenario("truman_world")
+    resolved = resolve_agents_root_for_scenario("narrative_world")
 
     assert resolved == project_agents_root
 
 
 def test_load_world_config_for_scenario_reads_bundle_world_file(tmp_path, monkeypatch):
-    bundle_root = tmp_path / "scenarios" / "truman_world"
+    bundle_root = tmp_path / "scenarios" / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -299,22 +299,22 @@ def test_load_world_config_for_scenario_reads_bundle_world_file(tmp_path, monkey
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    world_config = load_world_config_for_scenario("truman_world")
+    world_config = load_world_config_for_scenario("narrative_world")
 
     assert world_config["daily_rhythm"]["sleep_hours"]["start"] == 22
     assert world_config["health_metrics"]["continuity"]["penalty_factor"] == 150
 
 
 def test_resolve_sleep_config_for_scenario_reads_bundle_world_file(tmp_path, monkeypatch):
-    bundle_root = tmp_path / "scenarios" / "truman_world"
+    bundle_root = tmp_path / "scenarios" / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -334,21 +334,21 @@ def test_resolve_sleep_config_for_scenario_reads_bundle_world_file(tmp_path, mon
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    sleep_config = resolve_sleep_config_for_scenario("truman_world")
+    sleep_config = resolve_sleep_config_for_scenario("narrative_world")
 
     assert sleep_config == {"sleep_start_hour": 21, "sleep_end_hour": 8}
 
 
 def test_load_director_config_and_prompt_for_scenario_reads_bundle_files(tmp_path, monkeypatch):
-    bundle_root = tmp_path / "scenarios" / "truman_world"
+    bundle_root = tmp_path / "scenarios" / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -372,9 +372,9 @@ def test_load_director_config_and_prompt_for_scenario_reads_bundle_files(tmp_pat
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    director_config = load_director_config_dict_for_scenario("truman_world")
+    director_config = load_director_config_dict_for_scenario("narrative_world")
     prompt_template = load_director_prompt_template_for_scenario(
-        "truman_world", "director_prompt.md"
+        "narrative_world", "director_prompt.md"
     )
 
     assert director_config["decision_interval"] == 9
@@ -382,15 +382,15 @@ def test_load_director_config_and_prompt_for_scenario_reads_bundle_files(tmp_pat
 
 
 def test_load_ui_config_for_scenario_reads_bundle_ui_file(tmp_path, monkeypatch):
-    bundle_root = tmp_path / "scenarios" / "truman_world"
+    bundle_root = tmp_path / "scenarios" / "narrative_world"
     bundle_root.mkdir(parents=True)
     (bundle_root / "scenario.yml").write_text(
         "\n".join(
             [
-                "id: truman_world",
+                "id: narrative_world",
                 "name: Truman World",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",
@@ -410,7 +410,7 @@ def test_load_ui_config_for_scenario_reads_bundle_ui_file(tmp_path, monkeypatch)
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    ui_config = load_ui_config_for_scenario("truman_world")
+    ui_config = load_ui_config_for_scenario("narrative_world")
 
     assert ui_config["location_detail"]["max_events_display"] == 42
     assert ui_config["intelligence_stream"]["poll_interval_ms"] == 1234
@@ -425,7 +425,7 @@ def test_bundle_registry_rejects_invalid_manifest(tmp_path):
             [
                 "name: Missing Id",
                 "version: 1",
-                "runtime_adapter: truman_world",
+                "runtime_adapter: narrative_world",
             ]
         ),
         encoding="utf-8",

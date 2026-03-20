@@ -52,7 +52,7 @@ def test_build_role_context_and_scene_guidance_follow_world_role():
 
 
 def test_rules_support_semantics_for_subject_support_and_alert_metric():
-    semantics = build_runtime_role_semantics("truman_world")
+    semantics = build_runtime_role_semantics("narrative_world")
     semantics.subject_role = "protagonist"
     semantics.support_roles = ["ally"]
     semantics.alert_metric = "anomaly_score"
@@ -94,7 +94,7 @@ def test_rules_support_semantics_for_subject_support_and_alert_metric():
 
 
 def test_build_role_context_omits_alert_fields_when_subject_alert_tracking_disabled():
-    semantics = build_runtime_role_semantics("truman_world")
+    semantics = build_runtime_role_semantics("narrative_world")
     semantics.subject_role = "protagonist"
     semantics.alert_metric = "anomaly_score"
     semantics.subject_alert_tracking = False
@@ -149,7 +149,7 @@ def test_build_perception_context_for_agent_uses_location_and_relationships():
 
 
 def test_heuristics_support_semantics_for_support_roles():
-    semantics = build_runtime_role_semantics("truman_world")
+    semantics = build_runtime_role_semantics("narrative_world")
     semantics.subject_role = "protagonist"
     semantics.support_roles = ["ally"]
 

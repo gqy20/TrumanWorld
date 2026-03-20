@@ -23,7 +23,7 @@ async def create_clock_run(
     tick_minutes: int = 5,
     world_start_time: str = "2026-03-02T06:00:00+00:00",
     include_agent: bool = False,
-    scenario_type: str = "truman_world",
+    scenario_type: str = "narrative_world",
 ) -> SimulationRun:
     run = SimulationRun(
         id=run_id,

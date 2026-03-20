@@ -82,7 +82,7 @@ class DirectorConfig:
     strategies: dict[str, DirectorStrategy] = field(default_factory=dict)
     effectiveness: DirectorEffectivenessConfig = field(default_factory=DirectorEffectivenessConfig)
     scene_goals: dict[str, dict[str, str]] = field(default_factory=dict)
-    scenario_id: str = "truman_world"
+    scenario_id: str = "narrative_world"
 
     # Internal
     _prompt_template: str | None = None
@@ -130,7 +130,7 @@ Decide whether to intervene. Output JSON with should_intervene, scene_goal, targ
 
 
 def load_director_config(
-    scenario_id: str = "truman_world",
+    scenario_id: str = "narrative_world",
     force_reload: bool = False,
 ) -> DirectorConfig:
     """Load director configuration from YAML file.
@@ -154,8 +154,8 @@ def load_director_config(
     # Load from file
     try:
         config_dict = load_director_config_dict_for_scenario(scenario_id)
-        if not config_dict and scenario_id != "truman_world":
-            config_dict = load_director_config_dict_for_scenario("truman_world")
+        if not config_dict and scenario_id != "narrative_world":
+            config_dict = load_director_config_dict_for_scenario("narrative_world")
         if not config_dict:
             with open(_DIRECTOR_CONFIG_PATH, encoding="utf-8") as f:
                 config_dict = yaml.safe_load(f)
@@ -175,7 +175,7 @@ def load_director_config(
 def _parse_config(
     config_dict: dict[str, Any],
     *,
-    scenario_id: str = "truman_world",
+    scenario_id: str = "narrative_world",
 ) -> DirectorConfig:
     """Parse configuration dictionary into DirectorConfig."""
     if not config_dict:

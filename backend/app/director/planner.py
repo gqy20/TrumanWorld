@@ -45,7 +45,7 @@ class DirectorPlanner:
         self,
         backend: DirectorCognitionBackend | None = None,
         *,
-        scenario_id: str = "truman_world",
+        scenario_id: str = "narrative_world",
         semantics: DirectorPlannerSemantics | None = None,
     ) -> None:
         self._scenario_id = scenario_id

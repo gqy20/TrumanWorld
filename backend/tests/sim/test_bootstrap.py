@@ -100,7 +100,7 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
         id="run-bootstrap-1",
         name="demo",
         status="running",
-        scenario_type="truman_world",
+        scenario_type="narrative_world",
     )
     db_session.add_all(
         [
@@ -145,7 +145,7 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
             created_runtimes.append((registry, cognition_registry, self))
 
     def fake_create_scenario(scenario_type: str):
-        assert scenario_type == "truman_world"
+        assert scenario_type == "narrative_world"
         return scenario
 
     def fake_create_for_scheduler(agent_runtime, scenario):
