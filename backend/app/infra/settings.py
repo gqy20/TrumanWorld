@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_api_key: str | None = None
     llm_base_url: str | None = None
+    llm_enable_thinking: bool | None = None
+    llm_thinking_budget: int | None = None
+    llm_session_cache_enabled: bool = False
     langgraph_reactor_structured_enabled: bool = False
     langgraph_reactor_prompt_cache_enabled: bool = True
     langgraph_reactor_max_concurrency: int = 4

@@ -57,6 +57,18 @@ def build_langgraph_chat_model(
     }
     if settings.llm_base_url:
         model_kwargs["base_url"] = settings.llm_base_url
+    if provider == "openai":
+        extra_body: dict[str, Any] = {}
+        if settings.llm_enable_thinking is not None:
+            extra_body["enable_thinking"] = settings.llm_enable_thinking
+        if settings.llm_thinking_budget is not None:
+            extra_body["thinking_budget"] = settings.llm_thinking_budget
+        if extra_body:
+            model_kwargs["extra_body"] = extra_body
+        if settings.llm_session_cache_enabled:
+            model_kwargs["default_headers"] = {
+                "x-dashscope-session-cache": "enable",
+            }
 
     try:
         if provider == "openai":

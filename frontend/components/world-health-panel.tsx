@@ -39,19 +39,20 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
   const modal = searchParams.get("modal");
   const isDirectorExpanded = modal === "director";
   const isSystemExpanded = modal === "system";
+  const systemRefreshInterval = world?.run.status === "running" ? 5000 : 0;
   const { refresh } = useWorld();
   const { data: systemMetrics } = useSWR<SystemMetrics | null>("/metrics", getSystemMetrics, {
-    refreshInterval: isSystemExpanded ? 5000 : 0,
+    refreshInterval: systemRefreshInterval,
     revalidateOnFocus: false,
-    revalidateIfStale: isSystemExpanded,
+    revalidateIfStale: isSystemExpanded || systemRefreshInterval > 0,
   });
   const { data: systemOverview } = useSWR<SystemOverview | null>(
     "/system/overview",
     getSystemOverview,
     {
-      refreshInterval: isSystemExpanded ? 5000 : 0,
+      refreshInterval: systemRefreshInterval,
       revalidateOnFocus: false,
-      revalidateIfStale: isSystemExpanded,
+      revalidateIfStale: isSystemExpanded || systemRefreshInterval > 0,
     }
   );
 
@@ -158,6 +159,7 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
         <SystemStatusPanel
           overview={systemOverview}
           metrics={systemMetrics}
+          llmModel={world?.daily_stats?.llm_model}
           onClick={() => replaceSearchParams({ modal: "system" })}
         />
         <SystemStatusModal
@@ -165,6 +167,7 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
           onClose={() => replaceSearchParams({ modal: null })}
           overview={systemOverview}
           metrics={systemMetrics}
+          llmModel={world?.daily_stats?.llm_model}
         />
       </div>
 

@@ -287,6 +287,8 @@ def test_langgraph_director_backend_builds_openai_model_from_langgraph_settings(
         llm_model="gpt-4.1-mini",
         llm_api_key="openai-key",
         llm_base_url="https://example.invalid/v1",
+        llm_enable_thinking=False,
+        llm_thinking_budget=64,
     )
     captured: dict = {}
 
@@ -302,3 +304,7 @@ def test_langgraph_director_backend_builds_openai_model_from_langgraph_settings(
     assert captured["api_key"] == "openai-key"
     assert captured["base_url"] == "https://example.invalid/v1"
     assert captured["temperature"] == 0
+    assert captured["extra_body"] == {
+        "enable_thinking": False,
+        "thinking_budget": 64,
+    }

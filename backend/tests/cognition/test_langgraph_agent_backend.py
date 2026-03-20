@@ -95,7 +95,10 @@ async def test_langgraph_backend_prefers_text_json_by_default() -> None:
             """
 
     model = FakeTextFirstModel()
-    backend = LangGraphAgentBackend(decision_model=model)
+    backend = LangGraphAgentBackend(
+        settings=Settings(agent_backend="langgraph", llm_provider="anthropic"),
+        decision_model=model,
+    )
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
@@ -631,6 +634,7 @@ def test_langgraph_backend_builds_default_model_from_langgraph_settings() -> Non
 
     settings = Settings(
         agent_backend="langgraph",
+        llm_provider="anthropic",
         llm_model="claude-sonnet-test",
         llm_api_key="langgraph-key",
         llm_base_url="https://proxy.invalid/anthropic",
@@ -656,7 +660,10 @@ def test_langgraph_backend_builds_default_model_from_shared_env_fields() -> None
 
     settings = Settings(
         agent_backend="langgraph",
+        llm_provider="anthropic",
         llm_model="shared-agent-model",
+        llm_api_key="",
+        llm_base_url="",
         anthropic_api_key="shared-anthropic-key",
         anthropic_base_url="https://shared.invalid/anthropic",
     )
@@ -684,6 +691,9 @@ def test_langgraph_backend_builds_openai_model_from_langgraph_settings() -> None
         llm_model="gpt-4.1-mini",
         llm_api_key="openai-key",
         llm_base_url="https://example.invalid/v1",
+        llm_enable_thinking=False,
+        llm_thinking_budget=256,
+        llm_session_cache_enabled=True,
     )
     captured: dict = {}
 
@@ -699,6 +709,13 @@ def test_langgraph_backend_builds_openai_model_from_langgraph_settings() -> None
     assert captured["api_key"] == "openai-key"
     assert captured["base_url"] == "https://example.invalid/v1"
     assert captured["temperature"] == 0
+    assert captured["extra_body"] == {
+        "enable_thinking": False,
+        "thinking_budget": 256,
+    }
+    assert captured["default_headers"] == {
+        "x-dashscope-session-cache": "enable",
+    }
 
 
 async def test_langgraph_backend_uses_plain_text_prompt_for_openai_provider() -> None:

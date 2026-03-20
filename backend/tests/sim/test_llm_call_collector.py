@@ -87,3 +87,27 @@ def test_llm_call_collector_reads_openai_reasoning_token_fields() -> None:
 
     assert len(collector.records) == 1
     assert collector.records[0].reasoning_tokens == 22
+
+
+def test_llm_call_collector_reads_dashscope_cache_token_fields() -> None:
+    collector = LlmCallCollector()
+    callback = collector.build_callback(run_id="run-1", db_agent_id="agent-1", tick_no=12)
+
+    callback(
+        agent_id="alice",
+        task_type="reactor",
+        usage={
+            "input_tokens": 90,
+            "output_tokens": 40,
+            "prompt_tokens_details": {
+                "cached_tokens": 33,
+            },
+            "cache_creation": 11,
+        },
+        total_cost_usd=0.0,
+        duration_ms=789,
+    )
+
+    assert len(collector.records) == 1
+    assert collector.records[0].cache_read_tokens == 33
+    assert collector.records[0].cache_creation_tokens == 11

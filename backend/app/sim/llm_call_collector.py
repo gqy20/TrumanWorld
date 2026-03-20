@@ -26,13 +26,25 @@ class LlmCallCollector:
         usage = usage or {}
         input_token_details = usage.get("input_token_details")
         if isinstance(input_token_details, dict):
-            return (
-                int(input_token_details.get("cache_read", 0) or 0),
-                int(input_token_details.get("cache_creation", 0) or 0),
-            )
+            cache_read = int(input_token_details.get("cache_read", 0) or 0)
+            cache_creation = int(input_token_details.get("cache_creation", 0) or 0)
+            if cache_read or cache_creation:
+                return (cache_read, cache_creation)
+        prompt_token_details = usage.get("prompt_tokens_details")
+        if isinstance(prompt_token_details, dict):
+            cache_read = int(prompt_token_details.get("cached_tokens", 0) or 0)
+            if cache_read:
+                return (
+                    cache_read,
+                    int(usage.get("cache_creation", 0) or 0),
+                )
         return (
             int(usage.get("cache_read_input_tokens", 0) or 0),
-            int(usage.get("cache_creation_input_tokens", 0) or 0),
+            int(
+                usage.get("cache_creation_input_tokens", 0)
+                or usage.get("cache_creation", 0)
+                or 0
+            ),
         )
 
     def build_callback(

@@ -1,0 +1,39 @@
+{
+  "currency": "CNY",
+  "unit": "per_million_tokens",
+  "sources": {
+    "aliyun_qwen": "https://help.aliyun.com/zh/model-studio/model-pricing",
+    "aliyun_cache": "https://help.aliyun.com/zh/model-studio/context-cache",
+    "minimax": "https://platform.minimaxi.com/docs/guides/pricing-paygo"
+  },
+  "models": {
+    "qwen3.5-flash": {
+      "display_name": "Qwen 3.5 Flash",
+      "input": 0.2,
+      "output": 2.0,
+      "cache_read": 0.02,
+      "cache_creation": 0.25
+    },
+    "qwen3.5-plus": {
+      "display_name": "Qwen 3.5 Plus",
+      "input": 0.8,
+      "output": 4.8,
+      "cache_read": 0.08,
+      "cache_creation": 1.0
+    },
+    "minimax-m2.7": {
+      "display_name": "MiniMax M2.7",
+      "input": 2.1,
+      "output": 8.4,
+      "cache_read": 0.42,
+      "cache_creation": 2.625
+    },
+    "minimax-m2.7-highspeed": {
+      "display_name": "MiniMax M2.7 Highspeed",
+      "input": 4.2,
+      "output": 16.8,
+      "cache_read": 0.42,
+      "cache_creation": 2.625
+    }
+  }
+}

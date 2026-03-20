@@ -5,11 +5,13 @@ import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 
 import { Modal, WorkspaceModalShell } from "@/components/modal";
+import { getLlmPricing } from "@/lib/llm-pricing";
 import type { SystemMetrics, SystemOverview } from "@/lib/types";
 
 interface SystemStatusPanelProps {
   overview: SystemOverview | null | undefined;
   metrics: SystemMetrics | null | undefined;
+  llmModel?: string | null;
   onClick: () => void;
 }
 
@@ -18,18 +20,13 @@ interface SystemStatusModalProps {
   onClose: () => void;
   overview: SystemOverview | null | undefined;
   metrics: SystemMetrics | null | undefined;
+  llmModel?: string | null;
 }
-
-const TOKEN_PRICE_CNY_PER_MILLION = {
-  input: 2.1,
-  output: 8.4,
-  cacheRead: 0.21,
-  cacheCreation: 2.625,
-} as const;
 
 export function SystemStatusPanel({
   overview,
   metrics,
+  llmModel,
   onClick,
 }: SystemStatusPanelProps) {
   const total = overview?.components.total;
@@ -62,6 +59,11 @@ export function SystemStatusPanel({
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium text-slate-700">🖥️ 系统状态</div>
         <div className="flex items-center gap-2">
+          {llmModel ? (
+            <div className="hidden rounded-full bg-white px-2 py-0.5 text-[11px] text-slate-500 md:block">
+              {llmModel}
+            </div>
+          ) : null}
           <div className="text-[11px] text-slate-400">
             刷新于 {refreshedAt ? formatAge(refreshedAt) : "—"}
           </div>
@@ -90,10 +92,12 @@ export function SystemStatusModal({
   onClose,
   overview,
   metrics,
+  llmModel,
 }: SystemStatusModalProps) {
   const [selectedSection, setSelectedSection] = useState<"overview" | "ticks" | "llm">(
     "overview"
   );
+  const pricing = getLlmPricing(llmModel);
   const totalTicks = metrics
     ? metrics.tickTotal.inlineSuccess +
       metrics.tickTotal.inlineError +
@@ -130,18 +134,18 @@ export function SystemStatusModal({
   const isolatedErrorValue = metrics ? formatCount(metrics.tickTotal.isolatedError) : "—";
   const llmCallTotalValue = metrics ? formatCount(metrics.llmCallTotal) : "—";
   const inputCostCny = metrics
-    ? calculateTokenCostCny(metrics.llmTokensTotal.input, TOKEN_PRICE_CNY_PER_MILLION.input)
+    ? calculateTokenCostCny(metrics.llmTokensTotal.input, pricing?.input ?? 0)
     : 0;
   const outputCostCny = metrics
-    ? calculateTokenCostCny(metrics.llmTokensTotal.output, TOKEN_PRICE_CNY_PER_MILLION.output)
+    ? calculateTokenCostCny(metrics.llmTokensTotal.output, pricing?.output ?? 0)
     : 0;
   const cacheReadCostCny = metrics
-    ? calculateTokenCostCny(metrics.llmTokensTotal.cacheRead, TOKEN_PRICE_CNY_PER_MILLION.cacheRead)
+    ? calculateTokenCostCny(metrics.llmTokensTotal.cacheRead, pricing?.cacheRead ?? 0)
     : 0;
   const cacheCreationCostCny = metrics
     ? calculateTokenCostCny(
         metrics.llmTokensTotal.cacheCreation,
-        TOKEN_PRICE_CNY_PER_MILLION.cacheCreation
+        pricing?.cacheCreation ?? 0
       )
     : 0;
   const llmCostTotalCny =
@@ -303,7 +307,7 @@ export function SystemStatusModal({
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <MiniStatusChip label="调用次数" value={llmCallTotalValue} />
-                    <MiniStatusChip label="总成本" value={llmCostValue} />
+                    <MiniStatusChip label="总成本" value={pricing ? llmCostValue : "未配置"} />
                     <MiniStatusChip label="总 Tokens" value={formatCount(totalTokens)} />
                     <MiniStatusChip label="缓存 Tokens" value={cacheTokenValue} />
                   </div>
@@ -317,22 +321,27 @@ export function SystemStatusModal({
                     </div>
                   </div>
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                    <div className="text-sm font-semibold text-slate-700">费用明细（元 / 百万 tokens）</div>
+                    <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+                      <span>费用明细（元 / 百万 tokens）</span>
+                      <span className="text-xs font-medium text-slate-400">
+                        {pricing ? `按 ${pricing.displayName}` : "当前模型未配置价格"}
+                      </span>
+                    </div>
                     <div className="mt-3 space-y-2">
                       <StatusRow
-                        label={`输入 @ ${TOKEN_PRICE_CNY_PER_MILLION.input}`}
+                        label={`输入 @ ${pricing?.input ?? 0}`}
                         value={formatCnyCost(inputCostCny)}
                       />
                       <StatusRow
-                        label={`输出 @ ${TOKEN_PRICE_CNY_PER_MILLION.output}`}
+                        label={`输出 @ ${pricing?.output ?? 0}`}
                         value={formatCnyCost(outputCostCny)}
                       />
                       <StatusRow
-                        label={`缓存读取 @ ${TOKEN_PRICE_CNY_PER_MILLION.cacheRead}`}
+                        label={`缓存读取 @ ${pricing?.cacheRead ?? 0}`}
                         value={formatCnyCost(cacheReadCostCny)}
                       />
                       <StatusRow
-                        label={`缓存写入 @ ${TOKEN_PRICE_CNY_PER_MILLION.cacheCreation}`}
+                        label={`缓存写入 @ ${pricing?.cacheCreation ?? 0}`}
                         value={formatCnyCost(cacheCreationCostCny)}
                       />
                       <StatusRow label="合计" value={formatCnyCost(llmCostTotalCny)} />
