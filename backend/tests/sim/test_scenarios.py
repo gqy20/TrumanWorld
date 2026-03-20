@@ -14,7 +14,7 @@ from app.store.models import Event, SimulationRun
 from app.store.repositories import AgentRepository
 
 
-def test_truman_world_scenario_configures_runtime_context(tmp_path):
+def test_narrative_world_scenario_configures_runtime_context(tmp_path):
     agent_dir = tmp_path / "truman"
     agent_dir.mkdir(parents=True)
     (agent_dir / "agent.yml").write_text(
@@ -47,7 +47,7 @@ def test_truman_world_scenario_configures_runtime_context(tmp_path):
     assert "director_hint" not in invocation.context["world"]
 
 
-def test_truman_world_scenario_registers_fallback_hook_on_runtime(tmp_path):
+def test_narrative_world_scenario_registers_fallback_hook_on_runtime(tmp_path):
     agent_dir = tmp_path / "demo_agent"
     agent_dir.mkdir(parents=True)
     (agent_dir / "agent.yml").write_text(
@@ -91,7 +91,7 @@ def test_truman_world_scenario_registers_fallback_hook_on_runtime(tmp_path):
     assert backend.hook is not None
 
 
-def test_truman_world_scenario_fallback_talks_to_nearby_agent():
+def test_narrative_world_scenario_fallback_talks_to_nearby_agent():
     scenario = NarrativeWorldScenario()
 
     intent = scenario.fallback_intent(
@@ -110,7 +110,7 @@ def test_truman_world_scenario_fallback_talks_to_nearby_agent():
     assert intent.target_agent_id == "truman-1"
 
 
-def test_truman_world_scenario_fallback_uses_director_guidance_location_hint():
+def test_narrative_world_scenario_fallback_uses_director_guidance_location_hint():
     scenario = NarrativeWorldScenario()
 
     intent = scenario.fallback_intent(
@@ -133,7 +133,7 @@ def test_truman_world_scenario_fallback_uses_director_guidance_location_hint():
     assert intent.target_location_id == "loc-plaza"
 
 
-def test_truman_world_scenario_fallback_returns_home_when_idle_and_away():
+def test_narrative_world_scenario_fallback_returns_home_when_idle_and_away():
     scenario = NarrativeWorldScenario()
 
     intent = scenario.fallback_intent(
@@ -153,7 +153,7 @@ def test_truman_world_scenario_fallback_returns_home_when_idle_and_away():
 
 
 @pytest.mark.asyncio
-async def test_truman_world_scenario_seed_and_state_update(db_session):
+async def test_narrative_world_scenario_seed_and_state_update(db_session):
     run = SimulationRun(id="run-scenario-seed", name="scenario-seed", status="running")
     db_session.add(run)
     await db_session.commit()
@@ -188,14 +188,14 @@ async def test_truman_world_scenario_seed_and_state_update(db_session):
     assert truman.status["suspicion_score"] > starting_score
 
 
-def test_truman_world_scenario_defaults_subject_alert_tracking_enabled():
+def test_narrative_world_scenario_defaults_subject_alert_tracking_enabled():
     scenario = NarrativeWorldScenario()
 
     assert scenario.subject_alert_tracking_enabled is True
 
 
 @pytest.mark.asyncio
-async def test_truman_world_adapter_updates_configured_subject_alert_metric(
+async def test_narrative_world_adapter_updates_configured_subject_alert_metric(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     bundle_root = tmp_path / "scenarios" / "alt_world"
@@ -286,7 +286,7 @@ async def test_truman_world_adapter_updates_configured_subject_alert_metric(
 
 
 @pytest.mark.asyncio
-async def test_truman_world_adapter_skips_subject_alert_updates_when_tracking_disabled(
+async def test_narrative_world_adapter_skips_subject_alert_updates_when_tracking_disabled(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     bundle_root = tmp_path / "scenarios" / "alt_world_no_alert"
@@ -381,7 +381,7 @@ async def test_truman_world_adapter_skips_subject_alert_updates_when_tracking_di
 
 
 @pytest.mark.asyncio
-async def test_truman_world_adapter_seed_supports_spawn_aliases(
+async def test_narrative_world_adapter_seed_supports_spawn_aliases(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     bundle_root = tmp_path / "scenarios" / "alt_world_spawn"
@@ -475,7 +475,7 @@ async def test_truman_world_adapter_seed_supports_spawn_aliases(
 
 
 @pytest.mark.asyncio
-async def test_truman_world_adapter_seed_supports_generic_alert_status_inputs(
+async def test_narrative_world_adapter_seed_supports_generic_alert_status_inputs(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     bundle_root = tmp_path / "scenarios" / "alt_world_alert_seed"
@@ -562,7 +562,7 @@ async def test_truman_world_adapter_seed_supports_generic_alert_status_inputs(
 
 
 @pytest.mark.asyncio
-async def test_truman_world_seed_builder_prefers_scenario_bundle_agents(
+async def test_narrative_world_seed_builder_prefers_scenario_bundle_agents(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     scenario_agents_root = tmp_path / "scenarios" / "narrative_world" / "agents" / "bundle_agent"
@@ -571,7 +571,7 @@ async def test_truman_world_seed_builder_prefers_scenario_bundle_agents(
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -624,7 +624,7 @@ async def test_truman_world_seed_builder_prefers_scenario_bundle_agents(
 
 
 @pytest.mark.asyncio
-async def test_truman_world_adapter_seed_demo_run_uses_active_bundle_files(
+async def test_narrative_world_adapter_seed_demo_run_uses_active_bundle_files(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     bundle_root = tmp_path / "scenarios" / "alt_world"
@@ -729,7 +729,7 @@ def test_scenario_factory_returns_expected_implementation(db_session):
     assert isinstance(create_scenario(None, db_session), NarrativeWorldScenario)
 
 
-def test_truman_world_adapter_uses_active_bundle_world_knowledge(
+def test_narrative_world_adapter_uses_active_bundle_world_knowledge(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     bundle_root = tmp_path / "scenarios" / "alt_world"

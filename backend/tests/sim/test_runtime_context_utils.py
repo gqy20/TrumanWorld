@@ -5,7 +5,6 @@ from app.scenario.narrative_world.rules import RuntimeRoleSemantics
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
-    extract_truman_suspicion_from_agent_data,
 )
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import AgentState, LocationState, WorldState
@@ -137,10 +136,7 @@ def test_extract_subject_alert_from_agent_data_returns_first_subject_score():
     ]
 
     alert_score = extract_subject_alert_from_agent_data(agent_data, world)
-    suspicion = extract_truman_suspicion_from_agent_data(agent_data, world)
-
     assert alert_score == 0.75
-    assert suspicion == alert_score
 
 
 def test_extract_subject_alert_from_agent_data_returns_zero_without_matching_state():
@@ -157,10 +153,7 @@ def test_extract_subject_alert_from_agent_data_returns_zero_without_matching_sta
     ]
 
     alert_score = extract_subject_alert_from_agent_data(agent_data, world)
-    suspicion = extract_truman_suspicion_from_agent_data(agent_data, world)
-
     assert alert_score == 0.0
-    assert suspicion == alert_score
 
 
 def test_extract_subject_alert_from_agent_data_supports_runtime_semantics():

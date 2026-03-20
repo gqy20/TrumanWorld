@@ -23,7 +23,7 @@ def test_bundle_registry_loads_scenarios_from_directory(tmp_path):
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -62,7 +62,7 @@ def test_bundle_registry_returns_bundle_by_id(tmp_path):
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -74,7 +74,7 @@ def test_bundle_registry_returns_bundle_by_id(tmp_path):
     bundle = registry.get_bundle("narrative_world")
 
     assert bundle is not None
-    assert bundle.manifest.name == "Truman World"
+    assert bundle.manifest.name == "Narrative World"
 
 
 def test_bundle_registry_loads_scenario_semantics_and_capabilities(tmp_path):
@@ -141,7 +141,7 @@ def test_bundle_registry_uses_empty_defaults_when_semantics_and_capabilities_mis
     assert bundle.capabilities.scene_guidance is None
 
 
-def test_bundle_registry_prefers_truman_world_as_default_when_present(tmp_path):
+def test_bundle_registry_prefers_narrative_world_as_default_when_present(tmp_path):
     scenarios_root = tmp_path / "scenarios"
     for scenario_id, adapter in (("open_world", "open_world"), ("narrative_world", "narrative_world")):
         bundle_root = scenarios_root / scenario_id
@@ -219,7 +219,7 @@ def test_bundle_registry_prefers_bundle_agents_directory(tmp_path, monkeypatch):
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -249,7 +249,7 @@ def test_resolve_agents_root_falls_back_to_project_agents_when_bundle_agents_mis
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -274,7 +274,7 @@ def test_load_world_config_for_scenario_reads_bundle_world_file(tmp_path, monkey
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -312,7 +312,7 @@ def test_resolve_sleep_config_for_scenario_reads_bundle_world_file(tmp_path, mon
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -346,7 +346,7 @@ def test_load_director_config_and_prompt_for_scenario_reads_bundle_files(tmp_pat
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]
@@ -388,7 +388,7 @@ def test_load_ui_config_for_scenario_reads_bundle_ui_file(tmp_path, monkeypatch)
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]

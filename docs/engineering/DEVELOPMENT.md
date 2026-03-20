@@ -1,6 +1,6 @@
 # 开发指南
 
-> 快速上手 TrumanWorld 开发环境
+> 快速上手项目开发环境
 
 - 类型：`guide`
 - 状态：`active`
@@ -190,10 +190,9 @@ TrumanWorld/
 ```text
 backend/app/scenario/
   base.py
-  truman_world/
+  narrative_world/
     scenario.py
     coordinator.py
-    context.py
     heuristics.py
     seed.py
     state.py
@@ -203,7 +202,7 @@ backend/app/scenario/
 
 含义是：
 
-- `sim` 不再直接绑定 Truman world 具体实现
+- `sim` 不再直接绑定 narrative world 具体实现
 - `SimulationService` 依赖 `Scenario` 接口
 - 题材特定的 heuristic、seed、state update 放在各自 scenario 下
 
@@ -231,7 +230,7 @@ backend/app/scenario/
 id: harbor_mystery
 name: Harbor Mystery
 version: 1
-adapter: truman_world
+adapter: narrative_world
 
 semantics:
   subject_role: protagonist
@@ -240,7 +239,7 @@ semantics:
 
 capabilities:
   director: true
-  alert_tracking: true
+  subject_alert_tracking: true
   scene_guidance: true
 ```
 

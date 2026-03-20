@@ -209,4 +209,4 @@ health_metrics_config:
 | API | `backend/app/api/routes/runs.py` | 端点添加 `since_tick` 查询参数 |
 | Frontend API | `frontend/lib/api.ts` | `getRunEventsResult` 传递 `sinceTick` |
 | Frontend Component | `frontend/components/intelligence-stream-modal.tsx` | 追踪 `latestTickRef` |
-| Config | `backend/app/scenario/truman_world/world_config.yml` | `poll_interval_ms` 配置 |
+| Config | `backend/app/scenario/narrative_world/world_config.yml` | `poll_interval_ms` 配置 |

@@ -1,4 +1,4 @@
-# Director Agent Configuration for TrumanWorld
+# Director Agent Configuration for Narrative World
 # 导演智能体配置文件
 
 # 基础配置
@@ -31,10 +31,10 @@ prompt:
 strategies:
   break_isolation:
     name: "打破隔离"
-    description: "当 Truman 独处时间过长时，引导 Cast 自然接触"
+    description: "当主体独处时间过长时，引导支援角色自然接触"
     condition:
       type: "threshold"
-      metric: "truman_isolation_ticks"
+      metric: "subject_isolation_ticks"
       operator: "gte"
       value: 5
     action:
@@ -42,11 +42,11 @@ strategies:
       priority: "normal"
       urgency: "advisory"
       cooldown_ticks: 4
-    message_hint: "Truman 已经独处较长时间，如果有自然理由（如路过、办完事），可以尝试发起简单互动，比如打个招呼或聊聊日常。"
+    message_hint: "主体已经独处较长时间，如果有自然理由（如路过、办完事），可以尝试发起简单互动，比如打个招呼或聊聊日常。"
     
   preemptive_comfort:
     name: "预防性安抚"
-    description: "当怀疑度快速上升时，提前干预防止恶化"
+    description: "当主体告警快速上升时，提前干预防止恶化"
     condition:
       type: "trend"
       metric: "suspicion_trend"
@@ -57,11 +57,11 @@ strategies:
       priority: "high"
       urgency: "immediate"
       cooldown_ticks: 2
-    message_hint: "Truman 最近似乎有些不安，如果自然遇到，可以用轻松的日常话题转移注意力，比如聊聊天气或最近的小事。"
+    message_hint: "主体最近似乎有些不安，如果自然遇到，可以用轻松的日常话题转移注意力，比如聊聊天气或最近的小事。"
     
   soft_check_in:
     name: "温和关注"
-    description: "当怀疑度较高时，通过熟人互动稳定场面"
+    description: "当主体告警较高时，通过熟人互动稳定场面"
     condition:
       type: "eq"
       metric: "suspicion_level"
@@ -72,7 +72,7 @@ strategies:
       priority: "advisory"
       urgency: "advisory"
       cooldown_ticks: 3
-    message_hint: "如果你刚好和 Truman 有自然互动，可以顺着熟悉的话题聊几句，保持日常节奏，不必刻意安抚。"
+    message_hint: "如果你刚好和主体有自然互动，可以顺着熟悉的话题聊几句，保持日常节奏，不必刻意安抚。"
     
   keep_scene_natural:
     name: "保持自然"

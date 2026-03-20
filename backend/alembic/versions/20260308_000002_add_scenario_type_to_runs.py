@@ -23,11 +23,11 @@ def upgrade() -> None:
             "scenario_type",
             sa.String(length=30),
             nullable=False,
-            server_default="truman_world",
+            server_default="narrative_world",
         ),
     )
     op.execute(
-        "UPDATE simulation_runs SET scenario_type = 'truman_world' WHERE scenario_type IS NULL"
+        "UPDATE simulation_runs SET scenario_type = 'narrative_world' WHERE scenario_type IS NULL"
     )
     op.alter_column("simulation_runs", "scenario_type", server_default=None)
 

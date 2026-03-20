@@ -17,7 +17,7 @@ def test_factory_resolves_runtime_adapter_from_bundle_registry(tmp_path, monkeyp
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "adapter: narrative_world",
             ]
@@ -48,7 +48,9 @@ def test_factory_resolves_runtime_adapter_from_bundle_registry(tmp_path, monkeyp
     assert isinstance(narrative_world, NarrativeWorldScenario)
 
 
-def test_factory_falls_back_to_truman_world_when_bundle_missing(tmp_path, monkeypatch: pytest.MonkeyPatch):
+def test_factory_falls_back_to_default_scenario_when_bundle_missing(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+):
     scenarios_root = tmp_path / "scenarios"
     truman_root = scenarios_root / "narrative_world"
     truman_root.mkdir(parents=True)
@@ -56,7 +58,7 @@ def test_factory_falls_back_to_truman_world_when_bundle_missing(tmp_path, monkey
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "adapter: narrative_world",
             ]
@@ -80,7 +82,7 @@ def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: py
         "\n".join(
             [
                 "id: narrative_world",
-                "name: Truman World",
+                "name: Narrative World",
                 "version: 1",
                 "runtime_adapter: narrative_world",
             ]

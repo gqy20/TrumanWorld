@@ -2,7 +2,7 @@ from app.director.observer import DirectorObserver, DirectorObserverSemantics
 from app.store.models import Agent, Event
 
 
-def test_director_observer_assesses_truman_world_state():
+def test_director_observer_assesses_narrative_world_state():
     observer = DirectorObserver()
     agents = [
         Agent(

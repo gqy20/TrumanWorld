@@ -1,4 +1,4 @@
-# AI Truman World 当前架构设计
+# AI Narrative World 当前架构设计
 
 - 类型：`engineering`
 - 状态：`active`
@@ -7,7 +7,7 @@
 
 ## 1. 系统定位
 
-TrumanWorld 是一个面向实验与观测的 AI 社会模拟系统：
+当前系统是一个面向实验与观测的 AI 社会模拟系统：
 
 - 可持续运行的 AI 小镇仿真器
 - 带导演层观察、干预和统计面板的控制台
@@ -26,7 +26,7 @@ backend/app/
 ├── sim/           # tick 编排、world state、调度与持久化主流程
 ├── agent/         # Agent runtime、prompt、provider、连接池
 ├── store/         # SQLAlchemy models、repository、持久化
-├── scenario/      # 题材抽象层（truman_world / open_world）
+├── scenario/      # 题材抽象层（narrative_world / open_world）
 ├── director/      # 观察、策略、计划、干预记忆
 ├── infra/         # settings、logging、db
 └── protocol/      # 协议定义
@@ -58,7 +58,7 @@ backend/app/
 - timeline / world snapshot / agent detail 查询
 - director manual injection
 - director automatic planning
-- Truman suspicion / continuity risk 观测
+- subject alert / continuity risk 观测
 - director memories 持久化
 - LLM token 与成本统计
 - scenario_type 持久化与按题材运行
@@ -68,7 +68,7 @@ backend/app/
 
 当前实现大体可用，但仍存在一些需要后续收敛的点：
 
-- `scenario` 抽象还未完全收口，主流程仍残留 Truman world 特定耦合
+- `scenario` 抽象已基本收口，但仍保留少量兼容层与历史命名
 - 文档里宣称的 `Redis` / `pgvector` 能力目前更多是预留而非主链路依赖
 - API 和前端暴露了不少内部运行与观测细节
 - 测试主链路仍以 SQLite 为主，和生产 PostgreSQL 有差距

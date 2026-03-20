@@ -158,7 +158,7 @@ class RunDetailResponse(RunBaseResponse):
 
 class ScenarioSummaryResponse(BaseModel):
     id: str = Field(..., description="场景 ID", examples=["narrative_world"])
-    name: str = Field(..., description="场景名称", examples=["Truman World"])
+    name: str = Field(..., description="场景名称", examples=["Narrative World"])
     version: int = Field(..., description="场景版本", ge=1, examples=[1])
 
 

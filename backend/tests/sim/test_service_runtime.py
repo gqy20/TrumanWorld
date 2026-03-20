@@ -359,7 +359,7 @@ async def test_director_event_service_uses_subject_role_semantics_for_manual_eve
 
 
 @pytest.mark.asyncio
-async def test_seed_demo_run_creates_truman_world_agents(db_session):
+async def test_seed_demo_run_creates_narrative_world_agents(db_session):
     run = SimulationRun(id="run-demo-seed", name="demo-seed", status="running")
     db_session.add(run)
     await db_session.commit()
@@ -384,7 +384,7 @@ async def test_seed_demo_run_creates_truman_world_agents(db_session):
 
 
 @pytest.mark.asyncio
-async def test_simulation_service_updates_truman_suspicion_from_rejected_events(db_session):
+async def test_simulation_service_updates_subject_alert_from_rejected_events(db_session):
     run = SimulationRun(
         id="run-truman-suspicion",
         name="suspicion",
