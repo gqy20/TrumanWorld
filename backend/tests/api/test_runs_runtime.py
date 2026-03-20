@@ -227,7 +227,7 @@ async def test_director_memory_repository_accepts_generic_target_agent_ids(db_se
 
 
 @pytest.mark.asyncio
-async def test_director_memory_repository_supports_subject_alert_score_aliases(db_session):
+async def test_director_memory_repository_returns_latest_subject_alert_score(db_session):
     repo = DirectorMemoryRepository(db_session)
 
     await repo.create(
@@ -238,10 +238,7 @@ async def test_director_memory_repository_supports_subject_alert_score_aliases(d
     )
 
     latest_alert = await repo.get_latest_subject_alert_score("run-alert-alias")
-    latest_suspicion = await repo.get_latest_suspicion_score("run-alert-alias")
-
     assert latest_alert == 0.55
-    assert latest_suspicion == 0.55
 
 
 @pytest.mark.asyncio

@@ -132,7 +132,6 @@ def build_role_context(
         if resolved.subject_alert_tracking:
             current_alert_score = world.get("self_status", {}).get(resolved.alert_metric, 0.0)
             context["current_alert_score"] = current_alert_score
-            context["current_suspicion_score"] = current_alert_score
         return context
     if world_role in resolved.support_role_set():
         return {

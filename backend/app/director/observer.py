@@ -106,11 +106,10 @@ class DirectorObserver:
         agents: list[Agent],
         events: list[Event],
         previous_subject_alert_score: float = 0.0,
-        previous_suspicion_score: float = 0.0,
         subject_isolation_ticks: int = 0,
         truman_isolation_ticks: int = 0,
     ) -> DirectorAssessment:
-        previous_alert_score = previous_subject_alert_score or previous_suspicion_score
+        previous_alert_score = previous_subject_alert_score
         isolation_ticks = max(subject_isolation_ticks, truman_isolation_ticks)
         subject = next(
             (

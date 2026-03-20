@@ -119,7 +119,7 @@ def test_director_observer_uses_semantics_for_subject_support_and_alert_metric()
         current_tick=2,
         agents=agents,
         events=events,
-        previous_suspicion_score=0.42,
+        previous_subject_alert_score=0.42,
     )
 
     assert assessment.subject_agent_id == "hero-1"
@@ -177,7 +177,7 @@ def test_director_observer_skips_alert_tracking_when_disabled():
         current_tick=2,
         agents=agents,
         events=events,
-        previous_suspicion_score=0.42,
+        previous_subject_alert_score=0.42,
     )
 
     assert assessment.subject_agent_id == "hero-1"

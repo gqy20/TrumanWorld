@@ -17,7 +17,6 @@ from app.sim.event_utils import format_event_for_context
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
-    extract_truman_suspicion_from_agent_data,
 )
 from app.sim.world import AgentState, LocationState, WorldState
 from app.sim.world_queries import find_nearby_agent, get_agent
@@ -173,20 +172,6 @@ class ContextBuilder:
         """Extract the primary subject alert score from agent data."""
         return extract_subject_alert_from_agent_data(agent_data, world, semantics=semantics)
 
-    def extract_truman_suspicion_from_agent_data(
-        self,
-        agent_data: list[dict],
-        world: WorldState,
-        *,
-        semantics: RuntimeRoleSemantics | None = None,
-    ) -> float:
-        """Legacy alias for extract_subject_alert_from_agent_data."""
-        return self.extract_subject_alert_from_agent_data(
-            agent_data,
-            world,
-            semantics=semantics,
-        )
-
     def extract_subject_alert_from_agents(
         self,
         agents: list[Agent],
@@ -204,16 +189,6 @@ class ContextBuilder:
                 continue
             return float((state.status or {}).get(resolved.alert_metric, 0.0) or 0.0)
         return 0.0
-
-    def extract_truman_suspicion_from_agents(
-        self,
-        agents: list[Agent],
-        world: WorldState,
-        *,
-        semantics: RuntimeRoleSemantics | None = None,
-    ) -> float:
-        """Legacy alias for extract_subject_alert_from_agents."""
-        return self.extract_subject_alert_from_agents(agents, world, semantics=semantics)
 
     def format_event_for_context(
         self,

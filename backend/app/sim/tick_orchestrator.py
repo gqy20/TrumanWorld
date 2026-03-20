@@ -17,6 +17,7 @@ from app.sim.runner import SimulationRunner, TickResult
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
+    extract_subject_alert_from_agents,
     inject_profile_fields_into_context,
 )
 from app.sim.world import WorldState
@@ -63,7 +64,7 @@ class TickOrchestrator:
         agents = await self.agent_repo.list_for_run(run_id)
         intents: list[ActionIntent] = []
         subject_alert_score = (
-            self.context_builder.extract_subject_alert_from_agents(
+            extract_subject_alert_from_agents(
                 agents,
                 world,
                 semantics=self._runtime_role_semantics,

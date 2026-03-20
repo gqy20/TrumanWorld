@@ -8,6 +8,7 @@ from app.sim.types import AgentDecisionSnapshot, RuntimeWorldContext
 from app.sim.world_queries import get_agent, get_location, get_location_occupants
 
 if TYPE_CHECKING:
+    from app.store.models import Agent
     from app.sim.world import WorldState
 
 
@@ -112,14 +113,21 @@ def extract_subject_alert_from_agent_data(
     return 0.0
 
 
-def extract_truman_suspicion_from_agent_data(
-    agent_data: list[AgentDecisionSnapshot],
+def extract_subject_alert_from_agents(
+    agents: list[Agent],
     world: WorldState,
     *,
     semantics: RuntimeRoleSemantics | None = None,
 ) -> float:
-    """Legacy alias for extract_subject_alert_from_agent_data."""
-    return extract_subject_alert_from_agent_data(agent_data, world, semantics=semantics)
+    resolved = semantics or RuntimeRoleSemantics()
+    for agent in agents:
+        if get_world_role(agent.profile) != resolved.subject_role:
+            continue
+        state = get_agent(world, agent.id)
+        if state is None:
+            continue
+        return float((state.status or {}).get(resolved.alert_metric, 0.0) or 0.0)
+    return 0.0
 
 
 def _normalize_director_guidance(guidance: ScenarioGuidance) -> ScenarioGuidance:

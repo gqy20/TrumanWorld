@@ -306,7 +306,6 @@ class NarrativeWorldCoordinator:
         agents: list[Agent],
         events: list[Event],
         previous_subject_alert_score: float = 0.0,
-        previous_suspicion_score: float = 0.0,
     ) -> DirectorAssessment:
         return self.observer.assess(
             run_id=run_id,
@@ -314,7 +313,6 @@ class NarrativeWorldCoordinator:
             agents=list(agents),
             events=list(events),
             previous_subject_alert_score=previous_subject_alert_score,
-            previous_suspicion_score=previous_suspicion_score,
         )
 
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:

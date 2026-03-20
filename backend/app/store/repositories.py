@@ -896,10 +896,6 @@ class DirectorMemoryRepository:
         memory = result.scalar_one_or_none()
         return memory.trigger_subject_alert_score if memory else 0.0
 
-    async def get_latest_suspicion_score(self, run_id: str) -> float:
-        """Legacy alias for get_latest_subject_alert_score."""
-        return await self.get_latest_subject_alert_score(run_id)
-
     async def get_pending_manual_interventions(
         self,
         run_id: str,

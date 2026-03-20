@@ -38,10 +38,6 @@ class NarrativeWorldStateUpdater:
         self.agent_repo = AgentRepository(session)
         self._semantics = semantics or AlertStateSemantics()
 
-    async def persist_truman_suspicion(self, run_id: str, events: list[Event]) -> None:
-        """Legacy alias for persist_subject_alert."""
-        await self.persist_subject_alert(run_id, events)
-
     async def persist_subject_alert(self, run_id: str, events: list[Event]) -> None:
         agents = await self.agent_repo.list_for_run(run_id)
         changed = False
