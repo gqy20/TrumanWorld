@@ -39,6 +39,7 @@ class TrumanWorldStateUpdater:
         self._semantics = semantics or AlertStateSemantics()
 
     async def persist_truman_suspicion(self, run_id: str, events: list[Event]) -> None:
+        """Legacy alias for persist_subject_alert."""
         await self.persist_subject_alert(run_id, events)
 
     async def persist_subject_alert(self, run_id: str, events: list[Event]) -> None:

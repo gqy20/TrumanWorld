@@ -45,7 +45,6 @@ def test_build_role_context_and_scene_guidance_follow_world_role():
 
     assert truman_context["perspective"] == "subjective"
     assert truman_context["current_alert_score"] == 0.4
-    assert truman_context["current_suspicion_score"] == 0.4
     assert cast_context["perspective"] == "supporting_cast"
     assert cast_guidance["scene_goal"] == "guide_truman_home"
     assert cast_guidance["priority"] == "high"
@@ -89,7 +88,6 @@ def test_rules_support_semantics_for_subject_support_and_alert_metric():
         "public_weather": "sunny",
     }
     assert role_context["current_alert_score"] == 0.6
-    assert role_context["current_suspicion_score"] == 0.6
     assert support_context["perspective"] == "supporting_cast"
     assert support_guidance["scene_goal"] == "guide_subject_home"
     assert build_scene_guidance("protagonist", {"director_scene_goal": "ignored"}, semantics=semantics) == {}

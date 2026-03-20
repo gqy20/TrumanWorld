@@ -126,7 +126,6 @@ def test_runtime_prepare_reactor_adds_truman_role_context(tmp_path: Path):
     assert invocation.context["world_role"] == "truman"
     assert invocation.context["role_context"]["perspective"] == "subjective"
     assert invocation.context["role_context"]["current_alert_score"] == 0.25
-    assert invocation.context["role_context"]["current_suspicion_score"] == 0.25
     assert "director_hint" not in invocation.context["world"]
 
 
