@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.protocol.simulation import (
@@ -12,7 +11,10 @@ from app.protocol.simulation import (
     EVENT_TALK,
     EVENT_WORK,
 )
-from app.scenario.bundle_registry import get_scenario_bundle
+from app.scenario.runtime_config import (
+    ScenarioRuntimeConfig,
+    build_scenario_runtime_config,
+)
 from app.scenario.truman_world.types import get_world_role
 from app.store.repositories import AgentRepository
 
@@ -21,11 +23,7 @@ if TYPE_CHECKING:
 
     from app.store.models import Event
 
-
-@dataclass
-class AlertStateSemantics:
-    subject_role: str = "truman"
-    alert_metric: str = "suspicion_score"
+AlertStateSemantics = ScenarioRuntimeConfig
 
 
 class TrumanWorldStateUpdater:
@@ -83,11 +81,4 @@ class TrumanWorldStateUpdater:
 
 
 def build_alert_state_semantics(scenario_id: str) -> AlertStateSemantics:
-    bundle = get_scenario_bundle(scenario_id)
-    semantics = bundle.semantics if bundle is not None else None
-    return AlertStateSemantics(
-        subject_role=semantics.subject_role or "truman" if semantics else "truman",
-        alert_metric=semantics.alert_metric or "suspicion_score"
-        if semantics
-        else "suspicion_score",
-    )
+    return build_scenario_runtime_config(scenario_id)

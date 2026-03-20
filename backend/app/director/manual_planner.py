@@ -8,8 +8,6 @@ flows.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 from app.director.types import DirectorPlan
 from app.protocol.simulation import (
     DIRECTOR_SCENE_ACTIVITY,
@@ -18,13 +16,11 @@ from app.protocol.simulation import (
     DIRECTOR_SCENE_SHUTDOWN,
     DIRECTOR_SCENE_WEATHER_CHANGE,
 )
+from app.scenario.runtime_config import ScenarioRuntimeConfig
 from app.scenario.types import get_world_role
 from app.store.models import Agent
 
-
-@dataclass
-class ManualDirectorPlannerSemantics:
-    support_roles: list[str] = field(default_factory=lambda: ["cast"])
+ManualDirectorPlannerSemantics = ScenarioRuntimeConfig
 
 
 class ManualDirectorPlanner:
@@ -61,7 +57,7 @@ class ManualDirectorPlanner:
         support_agents = [
             agent
             for agent in agents
-            if get_world_role(agent.profile) in set(self._semantics.support_roles)
+            if get_world_role(agent.profile) in self._semantics.support_role_set()
         ]
         if not support_agents:
             return None

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from app.cognition.claude.director_agent import DirectorContext
@@ -12,6 +11,7 @@ from app.director.observer import DirectorAssessment
 from app.director.strategy_engine import StrategyExecutor
 from app.director.types import DirectorPlan
 from app.infra.logging import get_logger
+from app.scenario.runtime_config import ScenarioRuntimeConfig
 from app.scenario.truman_world.director_config import load_director_config
 from app.scenario.types import get_agent_config_id, get_world_role
 
@@ -21,9 +21,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass
-class DirectorPlannerSemantics:
-    support_roles: list[str] = field(default_factory=lambda: ["cast"])
+DirectorPlannerSemantics = ScenarioRuntimeConfig
 
 
 class DirectorPlanner:
@@ -92,7 +90,7 @@ class DirectorPlanner:
         support_agents = [
             agent
             for agent in agents
-            if get_world_role(agent.profile) in set(self._semantics.support_roles)
+            if get_world_role(agent.profile) in self._semantics.support_role_set()
         ]
         if not support_agents or assessment.subject_agent_id is None:
             return None

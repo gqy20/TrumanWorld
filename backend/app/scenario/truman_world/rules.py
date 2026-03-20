@@ -9,10 +9,13 @@ Architecture only passes raw data, LLM infers:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from app.scenario.bundle_registry import get_scenario_bundle, load_world_config_for_scenario
+from app.scenario.bundle_registry import load_world_config_for_scenario
+from app.scenario.runtime_config import (
+    ScenarioRuntimeConfig,
+    build_scenario_runtime_config,
+)
 from app.scenario.truman_world.types import get_director_guidance
 from app.sim.world_queries import (
     build_familiarity_map,
@@ -27,31 +30,11 @@ if TYPE_CHECKING:
 
 _WORLD_CONFIG_CACHE: dict[str, dict[str, Any]] = {}
 
-
-@dataclass
-class RuntimeRoleSemantics:
-    subject_role: str = "truman"
-    support_roles: list[str] = field(default_factory=lambda: ["cast"])
-    alert_metric: str = "suspicion_score"
-    subject_alert_tracking: bool = True
+RuntimeRoleSemantics = ScenarioRuntimeConfig
 
 
 def build_runtime_role_semantics(scenario_id: str) -> RuntimeRoleSemantics:
-    bundle = get_scenario_bundle(scenario_id)
-    semantics = bundle.semantics if bundle is not None else None
-    capabilities = bundle.capabilities if bundle is not None else None
-    return RuntimeRoleSemantics(
-        subject_role=semantics.subject_role or "truman" if semantics else "truman",
-        support_roles=semantics.support_roles or ["cast"] if semantics else ["cast"],
-        alert_metric=semantics.alert_metric or "suspicion_score"
-        if semantics
-        else "suspicion_score",
-        subject_alert_tracking=(
-            capabilities.subject_alert_tracking
-            if capabilities is not None and capabilities.subject_alert_tracking is not None
-            else True
-        ),
-    )
+    return build_scenario_runtime_config(scenario_id)
 
 
 def load_world_config(scenario_id: str = "truman_world") -> dict[str, Any]:
@@ -151,7 +134,7 @@ def build_role_context(
             context["current_alert_score"] = current_alert_score
             context["current_suspicion_score"] = current_alert_score
         return context
-    if world_role in set(resolved.support_roles):
+    if world_role in resolved.support_role_set():
         return {
             "perspective": "supporting_cast",
             "focus": "优先保持自然、熟悉、不过分用力的日常互动",
@@ -197,7 +180,7 @@ def build_scene_guidance(
     and manual injection goals (gather, activity, shutdown, weather_change, power_outage).
     """
     resolved = semantics or RuntimeRoleSemantics()
-    if world_role not in set(resolved.support_roles):
+    if world_role not in resolved.support_role_set():
         return {}
 
     guidance = get_director_guidance(world)

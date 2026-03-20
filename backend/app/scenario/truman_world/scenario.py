@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 from app.agent.context_builder import ScenarioContextHooks
 from app.scenario.base import Scenario
 from app.scenario.bundle_registry import get_scenario_bundle
+from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.truman_world.coordinator import TrumanWorldCoordinator
 from app.scenario.truman_world.rules import (
     build_role_context,
     build_scene_guidance,
-    build_runtime_role_semantics,
     build_world_common_knowledge,
     filter_world_for_role,
 )
@@ -38,6 +38,7 @@ class TrumanWorldScenario(Scenario):
         self.scenario_id = scenario_id
         bundle = get_scenario_bundle(scenario_id)
         capabilities = bundle.capabilities if bundle is not None else None
+        self.runtime_config = build_scenario_runtime_config(scenario_id)
         self.subject_alert_tracking_enabled = (
             capabilities.subject_alert_tracking
             if capabilities is not None and capabilities.subject_alert_tracking is not None
@@ -65,12 +66,11 @@ class TrumanWorldScenario(Scenario):
         self.configure_agent_context(agent_runtime.context_builder)
 
     def configure_agent_context(self, context_builder) -> None:
-        semantics = build_runtime_role_semantics(self.scenario_id)
         context_builder.configure_policy(
             ScenarioContextHooks(
-                world_filter_hook=partial(filter_world_for_role, semantics=semantics),
-                role_context_hook=partial(build_role_context, semantics=semantics),
-                scene_guidance_hook=partial(build_scene_guidance, semantics=semantics),
+                world_filter_hook=partial(filter_world_for_role, semantics=self.runtime_config),
+                role_context_hook=partial(build_role_context, semantics=self.runtime_config),
+                scene_guidance_hook=partial(build_scene_guidance, semantics=self.runtime_config),
                 world_knowledge_hook=partial(build_world_common_knowledge, self.scenario_id),
             )
         )

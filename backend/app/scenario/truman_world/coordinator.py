@@ -8,9 +8,8 @@ from app.director.planner import DirectorPlanner, DirectorPlannerSemantics
 from app.director.types import DirectorPlan
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
-from app.scenario.bundle_registry import get_scenario_bundle
+from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.truman_world.heuristics import build_truman_world_decision
-from app.scenario.truman_world.rules import build_runtime_role_semantics
 from app.scenario.truman_world.types import (
     DirectorGuidance,
     build_director_guidance,
@@ -52,9 +51,7 @@ class TrumanWorldCoordinator:
         self.director_memory_repo = (
             DirectorMemoryRepository(session) if session is not None else None
         )
-        bundle = get_scenario_bundle(scenario_id)
-        semantics = bundle.semantics if bundle is not None else None
-        self._runtime_role_semantics = build_runtime_role_semantics(scenario_id)
+        self._runtime_role_semantics = build_scenario_runtime_config(scenario_id)
         self.observer = DirectorObserver(
             DirectorObserverSemantics(
                 subject_role=self._runtime_role_semantics.subject_role,
@@ -66,7 +63,10 @@ class TrumanWorldCoordinator:
         self.planner = DirectorPlanner(
             scenario_id=scenario_id,
             semantics=DirectorPlannerSemantics(
-                support_roles=semantics.support_roles or ["cast"] if semantics else ["cast"]
+                subject_role=self._runtime_role_semantics.subject_role,
+                support_roles=self._runtime_role_semantics.support_roles,
+                alert_metric=self._runtime_role_semantics.alert_metric,
+                subject_alert_tracking=self._runtime_role_semantics.subject_alert_tracking,
             ),
         )
         self.settings = get_settings()

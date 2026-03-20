@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.protocol.simulation import DIRECTOR_EVENT_PREFIX
+from app.scenario.runtime_config import ScenarioRuntimeConfig
 from app.scenario.types import get_world_role
 from app.store.models import Agent, Event
 
@@ -78,12 +79,7 @@ class DirectorAssessment:
         self.active_support_count = value
 
 
-@dataclass
-class DirectorObserverSemantics:
-    subject_role: str = "truman"
-    support_roles: list[str] = field(default_factory=lambda: ["cast"])
-    alert_metric: str = "suspicion_score"
-    subject_alert_tracking: bool = True
+DirectorObserverSemantics = ScenarioRuntimeConfig
 
 
 class DirectorObserver:
@@ -147,7 +143,7 @@ class DirectorObserver:
         support_count = sum(
             1
             for agent in agents
-            if get_world_role(agent.profile) in set(self._semantics.support_roles)
+            if get_world_role(agent.profile) in self._semantics.support_role_set()
         )
 
         notes: list[str] = []
