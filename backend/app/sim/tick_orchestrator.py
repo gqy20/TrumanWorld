@@ -8,6 +8,7 @@ from app.agent.runtime import RuntimeContext
 from app.cognition.errors import UpstreamApiUnavailableError
 from app.infra.logging import get_logger
 from app.scenario.base import Scenario
+from app.scenario.truman_world.rules import build_runtime_role_semantics
 from app.scenario.types import get_agent_config_id, get_scenario_guidance, get_world_role
 from app.sim.action_resolver import ActionIntent
 from app.sim.agent_snapshot_builder import build_agent_recent_events
@@ -49,6 +50,8 @@ class TickOrchestrator:
         self.session = session
         self.context_builder = context_builder
         self.agent_repo = agent_repo
+        scenario_id = getattr(scenario, "scenario_id", "truman_world")
+        self._runtime_role_semantics = build_runtime_role_semantics(scenario_id)
 
     async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
         if self.session is None or self.context_builder is None or self.agent_repo is None:
@@ -58,7 +61,11 @@ class TickOrchestrator:
         started_at = perf_counter()
         agents = await self.agent_repo.list_for_run(run_id)
         intents: list[ActionIntent] = []
-        subject_alert_score = self.context_builder.extract_subject_alert_from_agents(agents, world)
+        subject_alert_score = self.context_builder.extract_subject_alert_from_agents(
+            agents,
+            world,
+            semantics=self._runtime_role_semantics,
+        )
         plan = await self.scenario.build_director_plan(run_id, agents)
         agent_recent_events = await build_agent_recent_events(
             session=self.session,
@@ -137,7 +144,11 @@ class TickOrchestrator:
 
             profile = agent_snapshot.profile
             runtime_agent_id = get_agent_config_id(profile) or agent_id
-            subject_alert_score = extract_subject_alert_from_agent_data(agent_data, world)
+            subject_alert_score = extract_subject_alert_from_agent_data(
+                agent_data,
+                world,
+                semantics=self._runtime_role_semantics,
+            )
 
             runtime_ctx = None
             if run_id is not None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.scenario.truman_world.rules import RuntimeRoleSemantics
 from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.types import AgentDecisionSnapshot, RuntimeWorldContext
 from app.sim.world_queries import get_agent, get_location, get_location_occupants
@@ -95,23 +96,28 @@ def inject_profile_fields_into_context(
 def extract_truman_suspicion_from_agent_data(
     agent_data: list[AgentDecisionSnapshot],
     world: WorldState,
+    *,
+    semantics: RuntimeRoleSemantics | None = None,
 ) -> float:
+    resolved = semantics or RuntimeRoleSemantics()
     for agent_snapshot in agent_data:
         profile = agent_snapshot.profile or {}
-        if get_world_role(profile) != "truman":
+        if get_world_role(profile) != resolved.subject_role:
             continue
         state = get_agent(world, agent_snapshot.id)
         if state is None:
             continue
-        return float((state.status or {}).get("suspicion_score", 0.0) or 0.0)
+        return float((state.status or {}).get(resolved.alert_metric, 0.0) or 0.0)
     return 0.0
 
 
 def extract_subject_alert_from_agent_data(
     agent_data: list[AgentDecisionSnapshot],
     world: WorldState,
+    *,
+    semantics: RuntimeRoleSemantics | None = None,
 ) -> float:
-    return extract_truman_suspicion_from_agent_data(agent_data, world)
+    return extract_truman_suspicion_from_agent_data(agent_data, world, semantics=semantics)
 
 
 def _normalize_director_guidance(guidance: ScenarioGuidance) -> ScenarioGuidance:

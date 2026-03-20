@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.scenario.truman_world.types import build_director_guidance
+from app.scenario.truman_world.rules import RuntimeRoleSemantics
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
@@ -141,3 +142,41 @@ def test_extract_truman_suspicion_from_agent_data_returns_zero_without_matching_
     suspicion = extract_truman_suspicion_from_agent_data(agent_data, world)
 
     assert suspicion == 0.0
+
+
+def test_extract_subject_alert_from_agent_data_supports_runtime_semantics():
+    world = WorldState(
+        current_time=datetime(2026, 1, 5, 9, 30),
+        tick_minutes=5,
+        locations={},
+        agents={
+            "hero": AgentState(
+                id="hero",
+                name="Hero",
+                location_id="home",
+                status={"anomaly_score": 0.55},
+            )
+        },
+    )
+    agent_data = [
+        AgentDecisionSnapshot(
+            id="hero",
+            profile={"world_role": "protagonist"},
+            current_goal="rest",
+            home_location_id="home",
+            current_location_id="home",
+            recent_events=[],
+        )
+    ]
+
+    alert_score = extract_subject_alert_from_agent_data(
+        agent_data,
+        world,
+        semantics=RuntimeRoleSemantics(
+            subject_role="protagonist",
+            support_roles=["ally"],
+            alert_metric="anomaly_score",
+        ),
+    )
+
+    assert alert_score == 0.55

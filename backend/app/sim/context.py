@@ -10,6 +10,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from app.scenario.truman_world.rules import RuntimeRoleSemantics
 from app.scenario.bundle_registry import resolve_sleep_config_for_scenario
 from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.event_utils import format_event_for_context
@@ -166,6 +167,8 @@ class ContextBuilder:
         self,
         agent_data: list[dict],
         world: WorldState,
+        *,
+        semantics: RuntimeRoleSemantics | None = None,
     ) -> float:
         """Extract Truman's suspicion score from agent data.
 
@@ -176,20 +179,24 @@ class ContextBuilder:
         Returns:
             Truman's suspicion score, or 0.0 if not found
         """
-        return extract_truman_suspicion_from_agent_data(agent_data, world)
+        return extract_truman_suspicion_from_agent_data(agent_data, world, semantics=semantics)
 
     def extract_subject_alert_from_agent_data(
         self,
         agent_data: list[dict],
         world: WorldState,
+        *,
+        semantics: RuntimeRoleSemantics | None = None,
     ) -> float:
         """Extract the primary subject alert score from agent data."""
-        return extract_subject_alert_from_agent_data(agent_data, world)
+        return extract_subject_alert_from_agent_data(agent_data, world, semantics=semantics)
 
     def extract_truman_suspicion_from_agents(
         self,
         agents: list[Agent],
         world: WorldState,
+        *,
+        semantics: RuntimeRoleSemantics | None = None,
     ) -> float:
         """Extract Truman's suspicion score from agent objects.
 
@@ -200,22 +207,25 @@ class ContextBuilder:
         Returns:
             Truman's suspicion score, or 0.0 if not found
         """
+        resolved = semantics or RuntimeRoleSemantics()
         for agent in agents:
-            if get_world_role(agent.profile) != "truman":
+            if get_world_role(agent.profile) != resolved.subject_role:
                 continue
             state = get_agent(world, agent.id)
             if state is None:
                 continue
-            return float((state.status or {}).get("suspicion_score", 0.0) or 0.0)
+            return float((state.status or {}).get(resolved.alert_metric, 0.0) or 0.0)
         return 0.0
 
     def extract_subject_alert_from_agents(
         self,
         agents: list[Agent],
         world: WorldState,
+        *,
+        semantics: RuntimeRoleSemantics | None = None,
     ) -> float:
         """Extract the primary subject alert score from agent objects."""
-        return self.extract_truman_suspicion_from_agents(agents, world)
+        return self.extract_truman_suspicion_from_agents(agents, world, semantics=semantics)
 
     def format_event_for_context(
         self,
