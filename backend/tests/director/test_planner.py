@@ -138,8 +138,8 @@ async def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
 
 
 @pytest.mark.asyncio
-async def test_director_planner_builds_break_isolation_for_lonely_truman():
-    """测试 Truman 长时间独处时触发打破隔离"""
+async def test_director_planner_builds_break_isolation_for_lonely_subject():
+    """测试主体长时间独处时触发打破隔离"""
     planner = DirectorPlanner()
     agents = [
         _make_cast_agent("cast-neighbor", "Neighbor", "neighbor"),
@@ -152,7 +152,7 @@ async def test_director_planner_builds_break_isolation_for_lonely_truman():
         subject_alert_score=0.2,
         suspicion_level="low",
         continuity_risk="stable",
-        truman_isolation_ticks=6,  # 长时间独处
+        subject_isolation_ticks=6,  # 长时间独处
         focus_agent_ids=["truman-1"],
         notes=[],
     )

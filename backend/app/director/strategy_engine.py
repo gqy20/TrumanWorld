@@ -67,6 +67,7 @@ class StrategyConditionEngine:
         ):
             return None
         metric_map = {
+            "subject_isolation_ticks": assessment.subject_isolation_ticks,
             "truman_isolation_ticks": assessment.truman_isolation_ticks,
             "suspicion_level": assessment.suspicion_level,
             "suspicion_trend": assessment.suspicion_trend.trend_type
@@ -253,6 +254,7 @@ class StrategyExecutor:
             else strategy_id
         )
         reason_map = {
+            "subject_isolation_ticks": f"主体已经连续独处较长时间，触发 '{config_name}' 策略",
             "truman_isolation_ticks": f"Truman 已经连续独处较长时间，触发 '{config_name}' 策略",
             "suspicion_trend": f"怀疑度趋势为 {value}，触发 '{config_name}' 策略",
             "suspicion_level": f"怀疑度等级为 {value}，触发 '{config_name}' 策略",

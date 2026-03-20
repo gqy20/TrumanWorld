@@ -30,7 +30,7 @@ class DirectorAssessment:
     suspicion_trend: SuspicionTrend | None = None
     focus_agent_ids: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
-    truman_isolation_ticks: int = 0  # Legacy alias for subject isolation duration
+    subject_isolation_ticks: int = 0
     recent_rejections: int = 0  # 最近被拒绝的次数
     active_support_count: int = 0  # 当前可用的支援角色数量
 
@@ -47,11 +47,13 @@ class DirectorAssessment:
         suspicion_trend: SuspicionTrend | None = None,
         focus_agent_ids: list[str] | None = None,
         notes: list[str] | None = None,
+        subject_isolation_ticks: int = 0,
         truman_isolation_ticks: int = 0,
         recent_rejections: int = 0,
         active_support_count: int | None = None,
         active_cast_count: int | None = None,
     ) -> None:
+        resolved_subject_isolation_ticks = max(subject_isolation_ticks, truman_isolation_ticks)
         resolved_active_support_count = (
             active_support_count if active_support_count is not None else active_cast_count or 0
         )
@@ -66,9 +68,17 @@ class DirectorAssessment:
         self.suspicion_trend = suspicion_trend
         self.focus_agent_ids = list(focus_agent_ids or [])
         self.notes = list(notes or [])
-        self.truman_isolation_ticks = truman_isolation_ticks
+        self.subject_isolation_ticks = resolved_subject_isolation_ticks
         self.recent_rejections = recent_rejections
         self.active_support_count = resolved_active_support_count
+
+    @property
+    def truman_isolation_ticks(self) -> int:
+        return self.subject_isolation_ticks
+
+    @truman_isolation_ticks.setter
+    def truman_isolation_ticks(self, value: int) -> None:
+        self.subject_isolation_ticks = value
 
     @property
     def active_cast_count(self) -> int:
@@ -97,9 +107,11 @@ class DirectorObserver:
         events: list[Event],
         previous_subject_alert_score: float = 0.0,
         previous_suspicion_score: float = 0.0,
+        subject_isolation_ticks: int = 0,
         truman_isolation_ticks: int = 0,
     ) -> DirectorAssessment:
         previous_alert_score = previous_subject_alert_score or previous_suspicion_score
+        isolation_ticks = max(subject_isolation_ticks, truman_isolation_ticks)
         subject = next(
             (
                 agent
@@ -157,8 +169,8 @@ class DirectorObserver:
             notes.append("最近存在被拒绝或受阻的动作，可能削弱世界的自然感。")
         if director_count > 0:
             notes.append("最近出现了导演级事件，需要关注连续性修补效果。")
-        if truman_isolation_ticks >= 3:
-            notes.append(f"主体已经连续 {truman_isolation_ticks} 个 tick 独处，可能感到孤独。")
+        if isolation_ticks >= 3:
+            notes.append(f"主体已经连续 {isolation_ticks} 个 tick 独处，可能感到孤独。")
         if not notes:
             notes.append("世界整体保持平稳，暂无明显异常信号。")
 
@@ -177,7 +189,7 @@ class DirectorObserver:
             continuity_risk=self._label_continuity(continuity_score),
             focus_agent_ids=focus_agent_ids,
             notes=notes,
-            truman_isolation_ticks=truman_isolation_ticks,
+            subject_isolation_ticks=isolation_ticks,
             recent_rejections=rejected_count,
             active_support_count=support_count,
         )
