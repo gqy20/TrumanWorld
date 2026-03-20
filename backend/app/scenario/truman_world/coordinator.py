@@ -57,11 +57,10 @@ class TrumanWorldCoordinator:
         self._runtime_role_semantics = build_runtime_role_semantics(scenario_id)
         self.observer = DirectorObserver(
             DirectorObserverSemantics(
-                subject_role=semantics.subject_role or "truman" if semantics else "truman",
-                support_roles=semantics.support_roles or ["cast"] if semantics else ["cast"],
-                alert_metric=semantics.alert_metric or "suspicion_score"
-                if semantics
-                else "suspicion_score",
+                subject_role=self._runtime_role_semantics.subject_role,
+                support_roles=self._runtime_role_semantics.support_roles,
+                alert_metric=self._runtime_role_semantics.alert_metric,
+                subject_alert_tracking=self._runtime_role_semantics.subject_alert_tracking,
             )
         )
         self.planner = DirectorPlanner(

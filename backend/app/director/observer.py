@@ -80,6 +80,7 @@ class DirectorObserverSemantics:
     subject_role: str = "truman"
     support_roles: list[str] = field(default_factory=lambda: ["cast"])
     alert_metric: str = "suspicion_score"
+    subject_alert_tracking: bool = True
 
 
 class DirectorObserver:
@@ -106,11 +107,11 @@ class DirectorObserver:
             ),
             None,
         )
-        subject_alert_score = (
-            float((subject.status or {}).get(self._semantics.alert_metric, 0.0) or 0.0)
-            if subject
-            else 0.0
-        )
+        subject_alert_score = 0.0
+        if self._semantics.subject_alert_tracking and subject:
+            subject_alert_score = float(
+                (subject.status or {}).get(self._semantics.alert_metric, 0.0) or 0.0
+            )
 
         rejected_count = sum(1 for event in events if event.event_type.endswith("_rejected"))
         director_count = sum(
@@ -119,9 +120,13 @@ class DirectorObserver:
         continuity_score = min(1.0, (rejected_count * 0.18) + (director_count * 0.22))
 
         # 计算告警度趋势
-        suspicion_trend = self._compute_suspicion_trend(
-            current_score=subject_alert_score,
-            previous_score=previous_suspicion_score,
+        suspicion_trend = (
+            self._compute_suspicion_trend(
+                current_score=subject_alert_score,
+                previous_score=previous_suspicion_score,
+            )
+            if self._semantics.subject_alert_tracking
+            else None
         )
 
         focus_agent_ids = [subject.id] if subject else []
@@ -143,7 +148,7 @@ class DirectorObserver:
         )
 
         notes: list[str] = []
-        if subject_alert_score >= 0.6:
+        if self._semantics.subject_alert_tracking and subject_alert_score >= 0.6:
             notes.append("主体告警值已进入需要重点观察的区间。")
         if suspicion_trend and suspicion_trend.trend_type == "rapid_rise":
             notes.append(f"警告：主体告警值正在快速上升（+{suspicion_trend.delta:.2f}）。")
@@ -161,7 +166,11 @@ class DirectorObserver:
             current_tick=current_tick,
             subject_agent_id=subject.id if subject else None,
             subject_alert_score=subject_alert_score,
-            suspicion_level=self._label_suspicion(subject_alert_score),
+            suspicion_level=(
+                self._label_suspicion(subject_alert_score)
+                if self._semantics.subject_alert_tracking
+                else "low"
+            ),
             suspicion_trend=suspicion_trend,
             continuity_risk=self._label_continuity(continuity_score),
             focus_agent_ids=focus_agent_ids,

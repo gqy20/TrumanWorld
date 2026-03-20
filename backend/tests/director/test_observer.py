@@ -128,3 +128,61 @@ def test_director_observer_uses_semantics_for_subject_support_and_alert_metric()
     assert assessment.suspicion_level == "alerted"
     assert assessment.focus_agent_ids[0] == "hero-1"
     assert any("主体告警值" in note for note in assessment.notes)
+
+
+def test_director_observer_skips_alert_tracking_when_disabled():
+    observer = DirectorObserver(
+        DirectorObserverSemantics(
+            subject_role="protagonist",
+            support_roles=["ally"],
+            alert_metric="anomaly_score",
+            subject_alert_tracking=False,
+        )
+    )
+    agents = [
+        Agent(
+            id="hero-1",
+            run_id="run-3",
+            name="Hero",
+            occupation="resident",
+            profile={"world_role": "protagonist"},
+            status={"anomaly_score": 0.74},
+            personality={},
+            current_plan={},
+        ),
+        Agent(
+            id="ally-1",
+            run_id="run-3",
+            name="Ally",
+            occupation="friend",
+            profile={"world_role": "ally"},
+            status={},
+            personality={},
+            current_plan={},
+        ),
+    ]
+    events = [
+        Event(
+            id="evt-20",
+            run_id="run-3",
+            tick_no=2,
+            event_type="move_rejected",
+            actor_agent_id="hero-1",
+            payload={"agent_id": "hero-1"},
+        )
+    ]
+
+    assessment = observer.assess(
+        run_id="run-3",
+        current_tick=2,
+        agents=agents,
+        events=events,
+        previous_suspicion_score=0.42,
+    )
+
+    assert assessment.subject_agent_id == "hero-1"
+    assert assessment.subject_alert_score == 0.0
+    assert assessment.suspicion_level == "low"
+    assert assessment.suspicion_trend is None
+    assert assessment.continuity_risk in {"watch", "elevated", "critical"}
+    assert all("主体告警值" not in note for note in assessment.notes)
