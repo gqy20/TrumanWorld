@@ -49,3 +49,28 @@ def test_strategy_condition_engine_skips_alert_metrics_when_tracking_disabled():
     )
 
     assert matched is False
+
+
+def test_strategy_condition_engine_supports_subject_isolation_metric():
+    engine = StrategyConditionEngine()
+    assessment = DirectorAssessment(
+        run_id="run-1",
+        current_tick=6,
+        subject_agent_id="subject-1",
+        subject_alert_score=0.2,
+        suspicion_level="low",
+        continuity_risk="stable",
+        subject_isolation_ticks=5,
+    )
+
+    matched = engine.evaluate(
+        {
+            "type": "threshold",
+            "metric": "subject_isolation_ticks",
+            "operator": "gte",
+            "value": 3,
+        },
+        assessment,
+    )
+
+    assert matched is True

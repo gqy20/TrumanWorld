@@ -164,6 +164,7 @@ class DirectorAgent:
             "subject_agent_id": assessment.subject_agent_id or "unknown",
             "subject_alert_score": f"{assessment.subject_alert_score:.2f}",
             "suspicion_level": assessment.suspicion_level,
+            "subject_isolation_ticks": assessment.subject_isolation_ticks,
             "truman_isolation_ticks": assessment.truman_isolation_ticks,
             "recent_rejections": assessment.recent_rejections,
             "continuity_risk": assessment.continuity_risk,
