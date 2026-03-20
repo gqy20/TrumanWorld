@@ -194,6 +194,19 @@ async def test_create_run_returns_running_status(client):
 
 
 @pytest.mark.asyncio
+async def test_create_run_accepts_missing_scenario_type_and_uses_default(client):
+    response = await client.post(
+        "/api/runs",
+        json={"name": "default-scenario-run", "seed_demo": False},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "default-scenario-run"
+    assert body["scenario_type"] == "truman_world"
+
+
+@pytest.mark.asyncio
 async def test_create_open_world_run_uses_open_world_scenario(client):
     response = await client.post(
         "/api/runs",

@@ -108,9 +108,9 @@ class RunCreateRequest(BaseModel):
         description="运行名称",
         examples=["My First World", "Alice Town"],
     )
-    scenario_type: str = Field(
-        default="truman_world",
-        description="运行场景类型",
+    scenario_type: str | None = Field(
+        default=None,
+        description="运行场景类型；未提供时使用系统默认场景",
         examples=["truman_world", "open_world"],
     )
     seed_demo: bool = Field(

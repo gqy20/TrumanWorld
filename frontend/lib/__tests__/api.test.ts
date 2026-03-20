@@ -133,14 +133,15 @@ describe('API', () => {
         expect.stringContaining('/runs'),
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({
-            name: 'Test',
-            scenario_type: 'open_world',
-            seed_demo: true,
-            tick_minutes: 10,
-          }),
         })
       )
+      const [, requestInit] = mockFetch.mock.calls[0]
+      expect(JSON.parse(requestInit?.body as string)).toEqual({
+        name: 'Test',
+        scenario_type: 'open_world',
+        seed_demo: true,
+        tick_minutes: 10,
+      })
       expect(result).toEqual({
         data: mockResponse,
         error: null,
@@ -159,6 +160,29 @@ describe('API', () => {
         data: null,
         error: 'request_failed',
         status: 500,
+      })
+    })
+
+    it('omits scenario_type when caller does not provide one', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: '1', name: 'Test', status: 'created', scenario_type: 'truman_world' }),
+      } as Response)
+
+      await createRunResult('Test')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/runs'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      )
+      const [, requestInit] = mockFetch.mock.calls[0]
+      expect(JSON.parse(requestInit?.body as string)).toEqual({
+        name: 'Test',
+        seed_demo: true,
+        tick_minutes: 5,
       })
     })
   })
