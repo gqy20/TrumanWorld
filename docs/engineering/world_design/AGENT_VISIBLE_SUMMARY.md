@@ -18,9 +18,9 @@ agent 不应直接读取完整 `rules.yml` 或 `policies/*.yml`。
 当前实现状态：
 
 - 已实现一个轻量版 `world_rules_summary`
-- 当前已注入 `policy_notices / blocked_constraints / recent_rule_feedback`
-- 尚未实现 `available_actions / current_risks`
-- 当前摘要主要来自世界效果和最近事件中的 `rule_evaluation / governance_execution`
+- 当前已注入 `policy_notices / blocked_constraints / current_risks / recent_rule_feedback`
+- 尚未实现 `available_actions`
+- 当前摘要主要来自世界效果、最近事件，以及 agent 自身的治理状态
 
 ## 2. 为什么要有这一层
 
@@ -67,6 +67,7 @@ world_rules_summary:
 world_rules_summary:
   policy_notices: []
   blocked_constraints: []
+  current_risks: []
   recent_rule_feedback: []
 ```
 
@@ -117,6 +118,7 @@ world_rules_summary:
 说明：
 
 - 重点是让 agent 理解“风险上升”，而不是直接禁止
+- 当前已经实现基础版，主要由 `governance_attention_score` 派生三档风险提示
 
 ### 5.4 `policy_notices`
 
@@ -217,5 +219,5 @@ world_rules_summary:
 - 摘要是纯文本还是结构化对象
 - 如何控制摘要长度
 - 哪些治理事件应写入长期记忆
-- 如何从 `rule_evaluation` 稳定派生 `current_risks`
+- 如何让 `current_risks` 同时吸收 policy、地点、关系与治理状态
 - 如何把 `blocked_constraints` 和长期治理后果衔接

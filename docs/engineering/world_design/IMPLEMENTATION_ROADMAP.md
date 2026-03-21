@@ -15,6 +15,7 @@
 
 - 已完成阶段 1、阶段 2、阶段 3 的最小可用版本
 - 已完成阶段 4 的最小可用版本
+- 已完成治理后果层的最小可用版本
 - 已补上解释链的最小暴露路径：timeline `rule_evaluation / governance_execution`、agent context `world_rules_summary`
 - 阶段 5 关系后果层仍停留在设计阶段
 
@@ -114,9 +115,33 @@
 
 - 选择性执法
 - 观测概率 / 巡查概率
-- 长期处罚或违规记录持久化
+- 更细的长期处罚或违规记录持久化
 - 政府或治理 agent
 - 更细的 policy overlay 与运行时动态调度
+
+### 阶段 4.5：治理后果层
+
+状态：`已完成（最小版）`
+
+目标：
+
+- 把 `warn / block` 写入 agent 的长期状态
+- 让治理执行真正形成跨 tick 的制度记忆
+- 为 `current_risks` 和后续治理升级提供稳定输入
+
+当前已落地：
+
+- 已有 `governance_consequences.py`
+- 当前会把 `warn / block` 写回 actor 自身的运行时 `status`
+- 当前已落地的状态字段包括 `warning_count` 与 `governance_attention_score`
+- `warn` 与 `block` 会以不同强度提升 `governance_attention_score`
+- `governance_attention_score` 已开始驱动 agent context 中的 `current_risks`
+
+当前明确未实现：
+
+- 持久化层面的独立违规记录模型
+- attention / warning 的时间衰减
+- 治理后果对 relationship / reputation / economy 的外溢
 
 ### 阶段 5：关系后果层
 
@@ -183,8 +208,8 @@
 
 按当前代码状态，下一步应优先做：
 
-1. 治理后果层最小实现，把 `warn / block` 稳定写入长期状态
-2. `policy` 到执行层的映射继续细化，而不只是 inspection-level 级别
-3. `world_rules_summary` 扩展到 `current_risks`
-4. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
-5. relationship 后果层与规则裁决、治理处置结果打通
+1. `policy` 到执行层和后果层的映射继续细化，而不只是 inspection-level 与固定 attention delta
+2. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
+3. relationship 后果层与规则裁决、治理处置结果打通
+4. attention / warning 的衰减与恢复机制
+5. 动态 policy overlay 与运行时调参
