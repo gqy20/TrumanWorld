@@ -45,7 +45,14 @@ export type {
 export type ApiResult<T> = {
   data: T | null;
   error: string | null;
+  errorCode: string | null;
+  errorDetail: string | null;
   status: number | null;
+};
+
+type ErrorPayload = {
+  detail?: string | Array<{ msg?: string }>;
+  code?: string;
 };
 
 declare global {
@@ -62,6 +69,40 @@ const DEMO_ADMIN_STORAGE_KEY = "trumanworld.demo_admin_password";
 const RAILWAY_BACKEND_API_BASE_URL = process.env.RAILWAY_SERVICE_BACKEND_URL
   ? `https://${process.env.RAILWAY_SERVICE_BACKEND_URL.replace(/\/$/, "")}/api`
   : undefined;
+
+async function readErrorPayload(response: Response): Promise<ErrorPayload | null> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return null;
+  }
+
+  try {
+    return (await response.json()) as ErrorPayload;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeError(response: Response, payload: ErrorPayload | null) {
+  const detail = payload?.detail;
+  const firstValidationMessage =
+    Array.isArray(detail) && detail.length > 0 ? detail[0]?.msg ?? null : null;
+
+  return {
+    data: null,
+    error:
+      response.status === 404
+        ? "not_found"
+        : response.status === 401
+          ? "unauthorized"
+          : response.status === 422
+            ? "validation_error"
+            : "request_failed",
+    errorCode: payload?.code ?? null,
+    errorDetail: typeof detail === "string" ? detail : firstValidationMessage,
+    status: response.status,
+  } satisfies ApiResult<never>;
+}
 
 function resolveApiBaseUrl() {
   const runtimeBaseUrl =
@@ -130,22 +171,22 @@ async function fetchResultUrl<T>(url: string): Promise<ApiResult<T>> {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return {
-        data: null,
-        error: response.status === 404 ? "not_found" : "request_failed",
-        status: response.status,
-      };
+      return normalizeError(response, await readErrorPayload(response));
     }
 
     return {
       data: (await response.json()) as T,
       error: null,
+      errorCode: null,
+      errorDetail: null,
       status: response.status,
     };
   } catch {
     return {
       data: null,
       error: "network_error",
+      errorCode: null,
+      errorDetail: null,
       status: null,
     };
   }
@@ -174,22 +215,22 @@ async function postResult<T>(path: string, body: unknown): Promise<ApiResult<T>>
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return {
-        data: null,
-        error: response.status === 404 ? "not_found" : "request_failed",
-        status: response.status,
-      };
+      return normalizeError(response, await readErrorPayload(response));
     }
 
     return {
       data: (await response.json()) as T,
       error: null,
+      errorCode: null,
+      errorDetail: null,
       status: response.status,
     };
   } catch {
     return {
       data: null,
       error: "network_error",
+      errorCode: null,
+      errorDetail: null,
       status: null,
     };
   }
@@ -362,22 +403,22 @@ async function deleteResult<T>(path: string): Promise<ApiResult<T>> {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return {
-        data: null,
-        error: response.status === 404 ? "not_found" : "request_failed",
-        status: response.status,
-      };
+      return normalizeError(response, await readErrorPayload(response));
     }
 
     return {
       data: (await response.json()) as T,
       error: null,
+      errorCode: null,
+      errorDetail: null,
       status: response.status,
     };
   } catch {
     return {
       data: null,
       error: "network_error",
+      errorCode: null,
+      errorDetail: null,
       status: null,
     };
   }

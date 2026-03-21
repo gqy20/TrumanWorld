@@ -270,7 +270,11 @@ async def test_run_not_found_returns_404(client):
     response = await client.get("/api/runs/00000000-0000-0000-0000-000000000001")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Run not found"
+    assert response.json() == {
+        "detail": "Run not found",
+        "code": "RUN_NOT_FOUND",
+        "context": {"run_id": "00000000-0000-0000-0000-000000000001"},
+    }
 
 
 @pytest.mark.asyncio
@@ -278,7 +282,11 @@ async def test_get_run_events_returns_404_for_missing_run(client):
     response = await client.get("/api/runs/00000000-0000-0000-0000-000000000206/events")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Run not found"
+    assert response.json() == {
+        "detail": "Run not found",
+        "code": "RUN_NOT_FOUND",
+        "context": {"run_id": "00000000-0000-0000-0000-000000000206"},
+    }
 
 
 @pytest.mark.asyncio
@@ -314,7 +322,11 @@ async def test_inject_director_event_rejects_unknown_location_id(client):
     )
 
     assert inject_response.status_code == 422
-    assert inject_response.json()["detail"] == "Invalid location_id for this run: missing-location"
+    assert inject_response.json() == {
+        "detail": "Invalid location_id for this run: missing-location",
+        "code": "DIRECTOR_EVENT_INVALID",
+        "context": {"run_id": run_id, "event_type": "shutdown"},
+    }
 
 
 @pytest.mark.asyncio
@@ -463,5 +475,9 @@ async def test_delete_run_returns_404_for_missing_run_and_still_cleans_runtime_r
     response = await client.delete("/api/runs/00000000-0000-0000-0000-000000000208")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Run not found"
+    assert response.json() == {
+        "detail": "Run not found",
+        "code": "RUN_NOT_FOUND",
+        "context": {"run_id": "00000000-0000-0000-0000-000000000208"},
+    }
     assert fake_registry.cleaned_runs == ["00000000-0000-0000-0000-000000000208"]

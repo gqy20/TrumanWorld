@@ -1,14 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { RunControls } from "@/components/run-controls";
+import { useDemoAccess } from "@/components/demo-access-provider";
 import { useRuns } from "@/components/runs-provider";
 import * as api from "@/lib/api";
 import type { RunSummary } from "@/lib/types";
 import type { ApiResult } from "@/lib/api";
 
 // Mock dependencies
+jest.mock("@/components/demo-access-provider");
 jest.mock("@/components/runs-provider");
 jest.mock("@/lib/api");
 
+const mockUseDemoAccess = useDemoAccess as jest.MockedFunction<typeof useDemoAccess>;
 const mockUseRuns = useRuns as jest.MockedFunction<typeof useRuns>;
 const mockPauseRunResult = api.pauseRunResult as jest.MockedFunction<typeof api.pauseRunResult>;
 const mockResumeRunResult = api.resumeRunResult as jest.MockedFunction<typeof api.resumeRunResult>;
@@ -27,6 +30,8 @@ function createMockApiResult<T>(data: T): ApiResult<T> {
   return {
     data,
     error: null,
+    errorCode: null,
+    errorDetail: null,
     status: 200,
   };
 }
@@ -36,6 +41,14 @@ describe("RunControls", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseDemoAccess.mockReturnValue({
+      ready: true,
+      writeProtected: false,
+      adminAuthorized: false,
+      unlock: jest.fn(),
+      lock: jest.fn(),
+      refreshAccess: jest.fn(),
+    });
     mockUseRuns.mockReturnValue({
       runs: [],
       error: null,

@@ -130,16 +130,16 @@ make db-status      # 查看容器状态
 ### 代码质量
 
 ```bash
-make lint           # Ruff 检查
+make lint           # 后端 Ruff + mypy，前端 ESLint + TypeScript
 make format         # Ruff 格式化
 make pre-commit     # 运行 pre-commit hooks
-cd frontend && npm run lint   # ESLint + TypeScript
+cd frontend && npm run lint   # 单独执行前端 lint
 ```
 
 ### 测试
 
 ```bash
-make test           # 运行所有测试
+make test           # 后端 pytest + 前端 Jest
 cd frontend && npm run build  # 前端生产构建检查
 ```
 

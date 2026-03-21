@@ -163,7 +163,11 @@ async def test_create_run_requires_admin_header_when_demo_password_configured(
     try:
         unauthorized = await client.post("/api/runs", json={"name": "blocked-run"})
         assert unauthorized.status_code == 401
-        assert unauthorized.json()["detail"] == "Admin access required for write operations"
+        assert unauthorized.json() == {
+            "detail": "Admin access required for write operations",
+            "code": "DEMO_ADMIN_ACCESS_REQUIRED",
+            "context": {},
+        }
 
         authorized = await client.post(
             "/api/runs",

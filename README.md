@@ -100,7 +100,7 @@ make frontend-dev  # http://127.0.0.1:13000
 ```bash
 make test
 make lint
-cd frontend && npm run lint && npm run build
+cd frontend && npm run build
 ```
 
 ---

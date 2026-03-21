@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     anthropic_api_key: str | None = None
     anthropic_base_url: str | None = None
-    agent_backend: Literal["heuristic", "claude_sdk", "langgraph"] = "heuristic"
+    agent_backend: Literal["heuristic", "claude_sdk", "langgraph"] = "claude_sdk"
     agent_budget_usd: float = 1.0
     llm_provider: Literal["anthropic", "openai"] = "anthropic"
     llm_model: str | None = None
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     director_auto_intervention_enabled: bool = False
     director_backend: Literal["heuristic", "claude_sdk", "langgraph"] = "claude_sdk"
     director_agent_model: str | None = None
-    director_decision_interval: int = 1
+    director_decision_interval: int = 5
     scheduler_interval_seconds: float = 1.0
     # 连续失败多少次后自动暂停（0 表示不限制）
     scheduler_max_consecutive_errors: int = 5
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_empty_strings(cls, data):
+    def normalize_empty_strings(cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)

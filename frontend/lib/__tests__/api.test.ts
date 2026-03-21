@@ -31,12 +31,14 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockRun,
-      } as Response)
+      } as unknown as Response)
 
       const result = await getRunResult('1')
       expect(result).toEqual({
         data: mockRun,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
@@ -45,12 +47,18 @@ describe('API', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
-      } as Response)
+        headers: {
+          get: () => 'application/json',
+        },
+        json: async () => ({ detail: 'Run not found', code: 'RUN_NOT_FOUND' }),
+      } as unknown as Response)
 
       const result = await getRunResult('missing')
       expect(result).toEqual({
         data: null,
         error: 'not_found',
+        errorCode: 'RUN_NOT_FOUND',
+        errorDetail: 'Run not found',
         status: 404,
       })
     })
@@ -62,6 +70,8 @@ describe('API', () => {
       expect(result).toEqual({
         data: null,
         error: 'network_error',
+        errorCode: null,
+        errorDetail: null,
         status: null,
       })
     })
@@ -72,12 +82,18 @@ describe('API', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-      } as Response)
+        headers: {
+          get: () => 'application/json',
+        },
+        json: async () => ({ detail: 'Boom', code: 'INTERNAL_SERVER_ERROR' }),
+      } as unknown as Response)
 
       const result = await fetchApiResult<RunSummary[]>('/api/runs')
       expect(result).toEqual({
         data: null,
         error: 'request_failed',
+        errorCode: 'INTERNAL_SERVER_ERROR',
+        errorDetail: 'Boom',
         status: 500,
       })
     })
@@ -95,27 +111,37 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockTimeline,
-      } as Response)
+      } as unknown as Response)
 
       const result = await getTimelineResult('1')
       expect(result).toEqual({
         data: mockTimeline,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
 
-    it('returns request_failed on error', async () => {
+    it('returns validation_error on 422 with validation details', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
-        status: 500,
-      } as Response)
+        status: 422,
+        headers: {
+          get: () => 'application/json',
+        },
+        json: async () => ({
+          detail: [{ msg: 'Field required' }],
+        }),
+      } as unknown as Response)
 
       const result = await getTimelineResult('1')
       expect(result).toEqual({
         data: null,
-        error: 'request_failed',
-        status: 500,
+        error: 'validation_error',
+        errorCode: null,
+        errorDetail: 'Field required',
+        status: 422,
       })
     })
   })
@@ -133,7 +159,7 @@ describe('API', () => {
           memories: [],
           relationships: [],
         }),
-      } as Response)
+      } as unknown as Response)
 
       await getAgentResult('run-1', 'agent-1', {
         event_type: 'speech',
@@ -175,7 +201,7 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockResponse,
-      } as Response)
+      } as unknown as Response)
 
       const result = await createRunResult('Test', 'open_world', true, 10)
       expect(mockFetch).toHaveBeenCalledWith(
@@ -194,6 +220,8 @@ describe('API', () => {
       expect(result).toEqual({
         data: mockResponse,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
@@ -202,12 +230,18 @@ describe('API', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-      } as Response)
+        headers: {
+          get: () => 'application/json',
+        },
+        json: async () => ({ detail: 'Failed to create', code: 'INTERNAL_SERVER_ERROR' }),
+      } as unknown as Response)
 
       const result = await createRunResult('Test')
       expect(result).toEqual({
         data: null,
         error: 'request_failed',
+        errorCode: 'INTERNAL_SERVER_ERROR',
+        errorDetail: 'Failed to create',
         status: 500,
       })
     })
@@ -217,7 +251,7 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => ({ id: '1', name: 'Test', status: 'created', scenario_type: 'narrative_world' }),
-      } as Response)
+      } as unknown as Response)
 
       await createRunResult('Test')
 
@@ -243,7 +277,7 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockRun,
-      } as Response)
+      } as unknown as Response)
 
       const result = await startRunResult('1')
       expect(mockFetch).toHaveBeenCalledWith(
@@ -253,6 +287,8 @@ describe('API', () => {
       expect(result).toEqual({
         data: mockRun,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
@@ -265,7 +301,7 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockRun,
-      } as Response)
+      } as unknown as Response)
 
       const result = await pauseRunResult('1')
       expect(mockFetch).toHaveBeenCalledWith(
@@ -275,6 +311,8 @@ describe('API', () => {
       expect(result).toEqual({
         data: mockRun,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
@@ -287,7 +325,7 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockRun,
-      } as Response)
+      } as unknown as Response)
 
       const result = await resumeRunResult('1')
       expect(mockFetch).toHaveBeenCalledWith(
@@ -297,6 +335,8 @@ describe('API', () => {
       expect(result).toEqual({
         data: mockRun,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
@@ -314,7 +354,7 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockResponse,
-      } as Response)
+      } as unknown as Response)
 
       const result = await injectDirectorEventResult('1', eventData)
 
@@ -328,15 +368,21 @@ describe('API', () => {
       expect(result).toEqual({
         data: mockResponse,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
 
-    it('returns request_failed when post is rejected by server', async () => {
+    it('returns validation_error when post is rejected by server', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 422,
-      } as Response)
+        headers: {
+          get: () => 'application/json',
+        },
+        json: async () => ({ detail: 'Invalid location', code: 'DIRECTOR_EVENT_INVALID' }),
+      } as unknown as Response)
 
       const result = await injectDirectorEventResult('1', {
         event_type: 'broadcast',
@@ -345,7 +391,9 @@ describe('API', () => {
 
       expect(result).toEqual({
         data: null,
-        error: 'request_failed',
+        error: 'validation_error',
+        errorCode: 'DIRECTOR_EVENT_INVALID',
+        errorDetail: 'Invalid location',
         status: 422,
       })
     })
@@ -358,12 +406,14 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockResponse,
-      } as Response)
+      } as unknown as Response)
 
       const result = await deleteRunResult('1')
       expect(result).toEqual({
         data: mockResponse,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })
@@ -376,12 +426,14 @@ describe('API', () => {
         ok: true,
         status: 200,
         json: async () => mockRuns,
-      } as Response)
+      } as unknown as Response)
 
       const result = await restoreAllRunsResult()
       expect(result).toEqual({
         data: mockRuns,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: 200,
       })
     })

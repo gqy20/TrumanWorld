@@ -112,7 +112,11 @@ async def test_list_agents_returns_404_when_run_missing(client):
     response = await client.get("/api/runs/00000000-0000-0000-0000-000000000999/agents")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Run not found"
+    assert response.json() == {
+        "detail": "Run not found",
+        "code": "RUN_NOT_FOUND",
+        "context": {"run_id": "00000000-0000-0000-0000-000000000999"},
+    }
 
 
 @pytest.mark.asyncio
@@ -216,7 +220,11 @@ async def test_get_agent_returns_404_when_agent_missing(client, db_session):
     response = await client.get(f"/api/runs/{run_id}/agents/missing-agent")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Agent not found"
+    assert response.json() == {
+        "detail": "Agent not found",
+        "code": "AGENT_NOT_FOUND",
+        "context": {"run_id": run_id, "agent_id": "missing-agent"},
+    }
 
 
 @pytest.mark.asyncio
@@ -244,7 +252,11 @@ async def test_get_agent_returns_404_when_agent_belongs_to_other_run(client, db_
     response = await client.get(f"/api/runs/{run_id}/agents/cross-run-agent")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Agent not found"
+    assert response.json() == {
+        "detail": "Agent not found",
+        "code": "AGENT_NOT_FOUND",
+        "context": {"run_id": run_id, "agent_id": "cross-run-agent"},
+    }
 
 
 @pytest.mark.asyncio

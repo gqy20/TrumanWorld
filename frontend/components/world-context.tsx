@@ -71,6 +71,8 @@ export function WorldProvider({ runId, initialData, children }: Props) {
       fallbackData: {
         data: initialData ?? null,
         error: null,
+        errorCode: null,
+        errorDetail: null,
         status: initialData ? 200 : null,
       },
       refreshInterval: (snapshot) =>

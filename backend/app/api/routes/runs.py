@@ -1,8 +1,9 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 
+from app.api.errors import api_error
 from app.api.auth import require_demo_admin_access
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +58,12 @@ async def get_required_run(session: AsyncSession, run_id: UUID) -> SimulationRun
     repo = RunRepository(session)
     run = await repo.get(str(run_id))
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+            code="RUN_NOT_FOUND",
+            context={"run_id": str(run_id)},
+        )
     return run
 
 
@@ -94,9 +100,11 @@ async def create_run(
     scenario_type = payload.scenario_type or resolve_default_scenario_id()
     scenario_bundle = get_scenario_bundle_registry().get_bundle(scenario_type)
     if scenario_bundle is None:
-        raise HTTPException(
+        raise api_error(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unknown scenario_type: {scenario_type}",
+            code="SCENARIO_TYPE_INVALID",
+            context={"scenario_type": scenario_type},
         )
     repo = RunRepository(session)
     run = SimulationRun(
@@ -323,7 +331,12 @@ async def delete_run(
     repo = RunRepository(session)
     run = await repo.get(run_id_str)
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+            code="RUN_NOT_FOUND",
+            context={"run_id": run_id_str},
+        )
 
     await repo.delete_with_related(run)
     logger.info(f"Run deleted: {run_id}")

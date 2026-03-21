@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from fastapi import status
 
 import app.main as main_module
 
@@ -41,3 +42,15 @@ async def test_lifespan_shutdown_stops_scheduler_and_closes_connection_pool(monk
 async def _empty_session_context():
     if False:
         yield None
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_returns_normalized_error_payload(client):
+    response = await client.get("/api/runs/00000000-0000-0000-0000-000000000001")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {
+        "detail": "Run not found",
+        "code": "RUN_NOT_FOUND",
+        "context": {"run_id": "00000000-0000-0000-0000-000000000001"},
+    }

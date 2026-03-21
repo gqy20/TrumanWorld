@@ -133,21 +133,23 @@ make lint
 ```bash
 cd frontend
 npm run lint
+npm run test
 npm run build
 ```
 
 ### 测试
 
 - 新功能的测试覆盖率应 ≥ 80%
-- 测试文件命名：`test_*.py`
-- 测试名称：`test_<function>_<scenario>_<expected>`
+- Python 测试文件命名：`test_*.py`
+- 前端测试文件命名：`*.test.ts(x)` 或 `__tests__/*`
+- 测试名称应聚焦行为而不是实现细节
 
 ```bash
 # 运行测试
 make test
 
 # 覆盖率报告
-pytest --cov=app --cov-report=html
+cd backend && uv run pytest --cov=app --cov-report=html
 ```
 
 ---

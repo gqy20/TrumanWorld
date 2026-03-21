@@ -26,7 +26,7 @@ Closes #
 # Example test commands
 make test
 make lint
-cd frontend && npm run lint && npm run build
+cd frontend && npm run build
 ```
 
 ## Screenshots (if appropriate):

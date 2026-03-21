@@ -1,9 +1,15 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.router import api_router
+from app.api.errors import default_error_code
+from app.api.schemas.simulation import ErrorResponse, ValidationErrorResponse
 from app.infra.db import get_db_session_context
 from app.infra.logging import get_logger, info
 from app.infra.settings import get_settings
@@ -153,6 +159,24 @@ Prometheus 指标暴露，供监控系统抓取。
         docs_url="/api/docs",
         redoc_url="/api/redoc",
     )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_exception(request, exc: StarletteHTTPException):
+        detail = exc.detail
+        if isinstance(detail, dict) and "detail" in detail:
+            payload = ErrorResponse(
+                detail=str(detail["detail"]),
+                code=str(detail.get("code") or default_error_code(exc.status_code)),
+                context=detail.get("context") or {},
+            )
+            return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
+        return await http_exception_handler(request, exc)
+
+    @app.exception_handler(RequestValidationError)
+    async def handle_validation_exception(_, exc: RequestValidationError):
+        payload = ValidationErrorResponse.model_validate({"detail": exc.errors()})
+        return JSONResponse(status_code=422, content=payload.model_dump())
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,

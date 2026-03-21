@@ -58,6 +58,7 @@ async def test_openapi_documents_core_response_models(client):
         "#/components/schemas/DirectorMemoriesResponse"
     )
     assert "/api/metrics" not in document["paths"]
+    assert _response_ref(document, "/api/runs", "post", "401") == "#/components/schemas/ErrorResponse"
 
 
 @pytest.mark.asyncio

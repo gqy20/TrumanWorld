@@ -2,8 +2,9 @@ import asyncio
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 
+from app.api.errors import api_error
 from app.api.auth import require_demo_admin_access
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -191,7 +192,10 @@ async def inject_director_event(
             importance=payload.importance,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        raise api_error(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+            code="DIRECTOR_EVENT_INVALID",
+            context={"run_id": str(run_id), "event_type": payload.event_type},
         ) from exc
     return StatusResponse(run_id=str(run_id), status="queued")

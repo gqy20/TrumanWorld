@@ -30,9 +30,21 @@ repos:
 
   - repo: local
     hooks:
+      - id: backend-mypy
+        name: backend-mypy
+        entry: bash -lc 'cd backend && uv run mypy app/api/errors.py app/api/auth.py app/infra/settings.py'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
       - id: backend-pytest
         name: backend-pytest
         entry: bash -lc 'cd backend && uv run pytest -q'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: frontend-jest
+        name: frontend-jest
+        entry: bash -lc 'cd frontend && npm run test -- --runInBand --passWithNoTests'
         language: system
         pass_filenames: false
         stages: [pre-push]

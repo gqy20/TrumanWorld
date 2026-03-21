@@ -3,10 +3,7 @@ import Link from "next/link";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { AgentSignalsPanel } from "@/components/agent-signals-panel";
 import {
-  formatAgentScore,
-  formatMemoryCategory,
   inferAgentStatus,
-  memoryCategoryBadgeClass,
   relationshipTone,
 } from "@/lib/agent-utils";
 import { MetricChip } from "@/components/metric-chip";

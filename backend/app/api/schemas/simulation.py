@@ -78,6 +78,10 @@ COMMON_RESPONSES = {
         "description": "请求参数错误",
         "model": ErrorResponse,
     },
+    401: {
+        "description": "未授权",
+        "model": ErrorResponse,
+    },
     404: {
         "description": "资源不存在",
         "model": ErrorResponse,

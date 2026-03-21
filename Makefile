@@ -2,11 +2,12 @@ PYTHON ?= python3.13
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 LOGS_DIR := logs
+BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py
 
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-lint backend-typecheck frontend-lint frontend-test lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -35,14 +36,29 @@ backend-dev:
 frontend-dev: sync-agent-logos
 	cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api npm run dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0
 
-lint:
+backend-lint:
 	cd $(BACKEND_DIR) && uv run ruff check app tests
+
+backend-typecheck:
+	cd $(BACKEND_DIR) && uv run mypy $(BACKEND_MYPY_TARGETS)
+
+frontend-lint:
+	cd $(FRONTEND_DIR) && npm run lint
+
+frontend-test:
+	cd $(FRONTEND_DIR) && npm run test -- --runInBand --passWithNoTests
+
+lint:
+	$(MAKE) backend-lint
+	$(MAKE) backend-typecheck
+	$(MAKE) frontend-lint
 
 format:
 	cd $(BACKEND_DIR) && uv run ruff format app tests
 
 test:
 	cd $(BACKEND_DIR) && uv run pytest
+	$(MAKE) frontend-test
 
 benchmark-reactor-pool:
 	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo

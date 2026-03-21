@@ -61,6 +61,7 @@ describe("AgentSignalsPanel", () => {
     expect(screen.getByText("Moved to cafe")).toBeInTheDocument();
     expect(screen.getByText("Worked quietly")).toBeInTheDocument();
 
+    fireEvent.click(screen.getAllByRole("button", { name: /筛选/ })[0]);
     fireEvent.change(screen.getByLabelText("事件类型"), {
       target: { value: "speech" },
     });
@@ -83,13 +84,14 @@ describe("AgentSignalsPanel", () => {
     expect(screen.getByText("Remembered Bob's secret plan.")).toBeInTheDocument();
     expect(screen.getByText("Worked during this tick.")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("记忆层级"), {
+    fireEvent.click(screen.getAllByRole("button", { name: /筛选/ })[1]);
+    fireEvent.change(screen.getByLabelText("层级"), {
       target: { value: "long_term" },
     });
     expect(screen.getByText("Remembered Bob's secret plan.")).toBeInTheDocument();
     expect(screen.queryByText("Worked during this tick.")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("记忆搜索"), {
+    fireEvent.change(screen.getByLabelText("搜索"), {
       target: { value: "bob" },
     });
     expect(screen.getByText("Remembered Bob's secret plan.")).toBeInTheDocument();
@@ -97,6 +99,6 @@ describe("AgentSignalsPanel", () => {
     fireEvent.change(screen.getByLabelText("最低重要性"), {
       target: { value: "0.95" },
     });
-    expect(screen.getByText("暂无匹配记忆。")).toBeInTheDocument();
+    expect(screen.getByText("暂无匹配记忆")).toBeInTheDocument();
   });
 });

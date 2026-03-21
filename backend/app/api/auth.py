@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from secrets import compare_digest
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header, status
 
+from app.api.errors import api_error
 from app.infra.settings import get_settings
 
 DEMO_ADMIN_HEADER = "x-demo-admin-password"
@@ -27,7 +28,8 @@ async def require_demo_admin_access(
 ) -> None:
     if has_demo_admin_access(demo_admin_password):
         return
-    raise HTTPException(
+    raise api_error(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Admin access required for write operations",
+        code="DEMO_ADMIN_ACCESS_REQUIRED",
     )
