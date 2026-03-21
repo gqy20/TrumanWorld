@@ -17,6 +17,9 @@
 - 已完成阶段 4 的最小可用版本
 - 已完成治理后果层的最小可用版本
 - 已补上解释链的最小暴露路径：timeline `rule_evaluation / governance_execution`、agent context `world_rules_summary`
+- 已补上 agent detail API 与 director console 对 `world_rules_summary` 的最小展示链路
+- 已补上会话连续性状态在 runtime context 中的最小暴露，并增加重复提议保护
+- 已补上规则反馈写入长期记忆的最小闭环
 - 阶段 5 关系后果层已进入最小实现阶段
 
 ## 2. 推荐阶段
@@ -137,6 +140,7 @@
 - `warn` 与 `block` 会通过 policy 参数以不同强度提升 `governance_attention_score`
 - `governance_attention_score` 已支持按天衰减
 - `governance_attention_score` 已开始驱动 agent context 中的 `current_risks`
+- 显著的 `warn / block` 当前也已写入 agent 长期记忆
 
 当前明确未实现：
 
@@ -201,6 +205,19 @@
 - rejected / accepted event payload 已可附带 `governance_execution`
 - timeline payload 已可透传 `rule_evaluation / governance_execution`
 - context event formatting 已补 `rule_feedback_reason / governance_feedback_reason`
+- agent detail API 已返回 `world_rules_summary`
+- 前端 agent detail 共享面板已展示 `world_rules_summary`
+
+### 3.4.1 Agent 学习闭环补充
+
+- `governance_execution.reason` 当前会写入长期记忆
+- 纯 `rule_evaluation.reason` 当前也会按最小规则写入长期记忆
+- 当前 memory summary 约定为：
+  - `Governance warning: <reason>`
+  - `Governance block: <reason>`
+  - `Rule risk: <reason>`
+  - `Rule block: <reason>`
+- 这让 `recent_rule_feedback` 不再只是瞬时 prompt 信息
 
 ### 3.5 Relationship 侧
 
@@ -223,8 +240,8 @@
 
 按当前代码状态，下一步应优先做：
 
-1. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
-2. `policy` 到 relationship 后果层的映射继续细化，扩展到更多风险标签与地点语义
-3. 更复杂的恢复机制与多因子衰减
-4. 动态 policy overlay 与运行时调参
-5. reputation / director / relationship 三者的联动
+1. `policy` 到 relationship 后果层的映射继续细化，扩展到更多风险标签与地点语义
+2. 更复杂的恢复机制与多因子衰减
+3. 动态 policy overlay 与运行时调参
+4. reputation / director / relationship 三者的联动
+5. agent-facing summary 与 memory/timeline 的统一 feedback schema

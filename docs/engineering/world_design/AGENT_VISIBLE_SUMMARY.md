@@ -18,9 +18,9 @@ agent 不应直接读取完整 `rules.yml` 或 `policies/*.yml`。
 当前实现状态：
 
 - 已实现一个轻量版 `world_rules_summary`
-- 当前已注入 `policy_notices / blocked_constraints / current_risks / recent_rule_feedback`
-- 尚未实现 `available_actions`
-- 当前摘要主要来自世界效果、最近事件，以及 agent 自身的治理状态
+- 当前已注入 `available_actions / policy_notices / blocked_constraints / current_risks / recent_rule_feedback`
+- 当前摘要已同时暴露到 agent runtime context、agent detail API 与 director console 的 agent 面板
+- 当前摘要主要来自世界效果、最近事件、活跃对话状态，以及 agent 自身的治理状态
 
 ## 2. 为什么要有这一层
 
@@ -65,6 +65,7 @@ world_rules_summary:
 
 ```yaml
 world_rules_summary:
+  available_actions: []
   policy_notices: []
   blocked_constraints: []
   current_risks: []
@@ -88,6 +89,11 @@ world_rules_summary:
 
 - 这不是全量系统能力枚举
 - 更偏“当前可行动作摘要”
+- 当前实现已支持最小版推导：
+  - 默认始终允许 `move`
+  - 附近存在可交互对象且当前地点未关闭时允许 `talk`
+  - 默认始终允许 `rest`
+  - 当前地点等于 workplace 且没有停电/关闭时允许 `work`
 
 ### 5.2 `blocked_constraints`
 
@@ -151,7 +157,10 @@ world_rules_summary:
 - 这是 agent 学习闭环的关键
 - 应尽量和最近事件、记忆形成一致
 - 当前已经实现基础版，优先读取最近 `governance_execution.decision == warn` 的原因，再补 `rule_evaluation.reason`
-- 显著的 `warn / block` 当前也已经开始写入 agent 可检索记忆
+- 显著的 `warn / block` 当前已经写入 agent 可检索记忆
+- 纯 `rule_evaluation` 反馈当前也已开始写入长期记忆：
+  - `soft_risk -> Rule risk: <reason>`
+  - `violates_rule / impossible -> Rule block: <reason>`
 
 ## 6. 按角色暴露
 
@@ -186,7 +195,13 @@ world_rules_summary:
 
 这样 agent 才能形成真正的长期策略，而不是只依赖单次上下文窗口。
 
-当前已经把显著的治理警告与拦截结果接入长期记忆，但摘要层和记忆层还没有完全统一编排。
+当前已经把显著的治理警告、拦截结果和纯规则反馈接入长期记忆。
+
+当前仍未完全统一的部分：
+
+- 摘要层与记忆层仍共用 `reason` 字符串，而不是统一的结构化 feedback 对象
+- 哪些 feedback 只进摘要、哪些同时进入长期记忆，仍主要依赖代码约定
+- 前端当前只做摘要展示，尚未把对应 memory 与摘要做显式串联
 
 ## 9. Narrative World 的建议摘要
 
@@ -212,7 +227,7 @@ world_rules_summary:
 - 可按角色差异化暴露
 - 近期显著反馈应与记忆系统衔接
 
-当前代码状态下，应把这段理解为目标结构，而不是完整已实现结构。
+当前代码状态下，这已经是一个可运行的第一版结构，但仍不是最终稳定接口。
 
 ## 11. 后续待展开问题
 
@@ -223,3 +238,4 @@ world_rules_summary:
 - 哪些治理事件应进入摘要、哪些应只进入长期记忆
 - 如何让 `current_risks` 同时吸收 policy、地点、关系与治理状态
 - 如何把 `blocked_constraints` 和长期治理后果衔接
+- 如何按角色做差异化可见摘要，而不是所有 agent 看到同一套字段

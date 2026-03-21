@@ -204,6 +204,16 @@ values:
 
 ## 7. Narrative World 第一阶段建议规则示例
 
+当前代码中已经落地的最小规则包括：
+
+- `location_closed_access`
+- `power_outage_work_restriction`
+- `late_night_stranger_talk_risk`
+- `subject_stranger_talk_risk`
+- `sensitive_location_stranger_talk_risk`
+
+其中前两条主要承接动态 world effects，后三条主要承接叙事连续性与社交风险。
+
 ### 7.1 关闭地点限制
 
 ```yaml
@@ -253,11 +263,56 @@ values:
 - 当前是否处于高风险时段
 - 最近哪些行为触发了风险或警告
 
+当前代码中已经最小落地的可见摘要包括：
+
+- `available_actions`
+- `policy_notices`
+- `blocked_constraints`
+- `current_risks`
+- `recent_rule_feedback`
+
+并且会把关闭地点、停电、最近治理反馈、最近规则风险，以及高 attention 风险一起压缩到这层。
+
 不建议直接看到：
 
 - 全部规则原文
 - 平台裁决优先级细节
 - 所有治理参数全集
+
+## 9. 当前已落地但文档需明确的实现细节
+
+### 9.1 动态 world effects 已接入 rule facts
+
+当前 `shutdown` 和 `power_outage` 已持久化为 run 级 `world_effects`，并在 runtime facts 中映射为：
+
+- `policy.closed_locations`
+- `policy.power_outage_locations`
+
+这意味着 Narrative World 已经具备最小动态 policy overlay，而不是只依赖静态 `policies/default.yml`。
+
+### 9.2 对话连续性已进入 runtime context
+
+当前活跃对话状态已经进入 agent runtime context，包含：
+
+- `last_message_summary`
+- `last_proposal`
+- `open_question`
+- `repeat_count`
+
+当前还额外有一层最小保护：
+
+- 当同一 agent 在连续对话里重复相同提议达到阈值时，orchestrator 会把该次 `talk` 降级为 `rest`
+
+这属于 Narrative World 下“自然行为约束”的最小执行版。
+
+### 9.3 规则反馈已进入长期记忆
+
+当前不仅治理警告/拦截会进入长期记忆，纯规则反馈也已经进入长期记忆：
+
+- `soft_risk -> Rule risk`
+- `violates_rule / impossible -> Rule block`
+
+这使得 Narrative World 中的“被提醒过什么、被拦过什么”开始形成跨 tick 学习闭环。
 
 补充建议：
 
