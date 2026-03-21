@@ -26,17 +26,22 @@ const PERSONALITY_LABELS: Record<string, string> = {
   optimism: "乐观",
 };
 
-// 角色配置中文映射
-const PROFILE_LABELS: Record<string, string> = {
-  bio: "个人简介",
-  world_role: "世界角色",
-  workplace: "工作地点",
-  work_description: "工作描述",
-  home: "居住地",
-  occupation: "职业",
-  capabilities: "能力",
-  model: "模型配置",
-  work_schedule: "工作时间",
+// 只展示有意义的角色配置字段（过滤 UUID / 路径等技术字段）
+const PROFILE_SHOW: Array<{ key: string; label: string }> = [
+  { key: "bio", label: "简介" },
+  { key: "world_role", label: "世界角色" },
+  { key: "occupation", label: "职业" },
+  { key: "work_description", label: "工作描述" },
+  { key: "work_schedule", label: "工作时间" },
+];
+
+// 状态样式
+const STATUS_STYLE: Record<string, { badge: string; label: string }> = {
+  talking:  { badge: "bg-sky-100 text-sky-700 border-sky-200",     label: "对话中" },
+  working:  { badge: "bg-emerald-100 text-emerald-700 border-emerald-200", label: "工作中" },
+  resting:  { badge: "bg-slate-100 text-slate-500 border-slate-200",  label: "休息中" },
+  moving:   { badge: "bg-amber-100 text-amber-700 border-amber-200",  label: "移动中" },
+  idle:     { badge: "bg-slate-50 text-slate-400 border-slate-100",   label: "空闲" },
 };
 
 interface AgentDetailModalProps {
@@ -59,10 +64,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
     setError(null);
     getAgentResult(runId, agentId)
       .then((agentRes) => {
-        if (agentRes.data) {
-          setAgent(agentRes.data);
-          return;
-        }
+        if (agentRes.data) { setAgent(agentRes.data); return; }
         setError(agentRes.error === "network_error" ? "网络错误" : "未找到智能体");
       })
       .catch(() => setError("加载失败"))
@@ -71,13 +73,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
   if (loading) {
     return (
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        variant="inspector"
-        showCloseButton={false}
-        title="智能体详情"
-      >
+      <Modal isOpen={isOpen} onClose={onClose} variant="inspector" showCloseButton>
         <div className="flex h-64 items-center justify-center text-slate-400">
           <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-moss" />
           加载中...
@@ -88,13 +84,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
   if (error || !agent) {
     return (
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        variant="panel"
-        showCloseButton={false}
-        title="智能体详情"
-      >
+      <Modal isOpen={isOpen} onClose={onClose} variant="panel" showCloseButton>
         <div className="flex h-64 items-center justify-center text-amber-600">
           ⚠️ {error || "未找到智能体"}
         </div>
@@ -106,21 +96,26 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
   const personality = agent.personality || {};
   const profile = agent.profile || {};
   const relationships = agent.relationships || [];
+  const { badge: statusBadge, label: statusLabel } = STATUS_STYLE[status] ?? STATUS_STYLE.idle;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       variant="inspector"
-      showCloseButton={false}
-      title="智能体详情"
+      showCloseButton
+      // 规范：标题直接显示 agent 名字，副标题显示职业，不重复弹窗外已有信息
+      title={agent.name}
+      subtitle={agent.occupation || "居民"}
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* 左侧：基本信息 */}
-        <aside className="flex w-80 shrink-0 flex-col border-r border-slate-100 bg-slate-50/50">
-          <div className="flex-1 overflow-y-auto p-4">
-            {/* 头像和状态 */}
-            <section className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
-              <div className="flex items-center gap-4">
+        {/* ── 左侧：身份档案 ── */}
+        <aside className="flex w-72 shrink-0 flex-col border-r border-slate-100 bg-slate-50/60">
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+
+            {/* 头像 + 状态 badge + 目标 */}
+            <section className="rounded-2xl border border-white/70 bg-white p-4 shadow-xs">
+              <div className="flex items-start gap-3">
                 <AgentAvatar
                   agentId={agent.agent_id}
                   name={agent.name}
@@ -129,54 +124,53 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                   size="lg"
                   configId={agent.config_id}
                 />
-                <div>
-                  <p className="text-lg font-semibold text-ink">{agent.name}</p>
-                  <p className="text-sm text-slate-500">{agent.occupation || "居民"}</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    当前目标: {agent.current_goal || "无"}
-                  </p>
+                <div className="min-w-0 pt-0.5">
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge}`}>
+                    {statusLabel}
+                  </span>
+                  {agent.current_goal && (
+                    <p className="mt-2 line-clamp-3 text-[11px] leading-relaxed text-slate-500">
+                      🎯 {agent.current_goal}
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
 
             {/* 人格特质 */}
             {Object.keys(personality).length > 0 && (
-              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
-                <p className="text-[11px] uppercase tracking-[0.15em] text-moss">人格特质</p>
-                <div className="mt-3 space-y-2">
+              <section className="rounded-2xl border border-white/70 bg-white p-4 shadow-xs">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-moss">人格</p>
+                <div className="mt-3 space-y-2.5">
                   {Object.entries(personality).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="w-14 shrink-0 text-[11px] text-slate-500">
                         {PERSONALITY_LABELS[key] || key}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="h-full rounded-full bg-moss"
-                            style={{ width: `${(value as number) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-slate-500">
-                          {(value as number).toFixed(1)}
-                        </span>
+                      <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-moss"
+                          style={{ width: `${(value as number) * 100}%` }}
+                        />
                       </div>
+                      <span className="w-7 shrink-0 text-right text-[10px] tabular-nums text-slate-400">
+                        {(value as number).toFixed(1)}
+                      </span>
                     </div>
                   ))}
                 </div>
               </section>
             )}
 
-            {/* 角色配置 */}
-            {Object.keys(profile).length > 0 && (
-              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
-                <p className="text-[11px] uppercase tracking-[0.15em] text-moss">角色设定</p>
-                <div className="mt-3 space-y-2">
-                  {Object.entries(profile).map(([key, value]) => (
+            {/* 角色设定（只展示有意义字段） */}
+            {PROFILE_SHOW.some(({ key }) => profile[key] != null && String(profile[key]).trim()) && (
+              <section className="rounded-2xl border border-white/70 bg-white p-4 shadow-xs">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-moss">角色设定</p>
+                <div className="mt-3 space-y-2.5">
+                  {PROFILE_SHOW.filter(({ key }) => profile[key] != null && String(profile[key]).trim()).map(({ key, label }) => (
                     <div key={key}>
-                      <span className="text-[10px] text-slate-400">
-                        {PROFILE_LABELS[key] || key}
-                      </span>
-                      <p className="text-sm text-slate-700">{String(value)}</p>
+                      <p className="text-[10px] text-slate-400">{label}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{String(profile[key])}</p>
                     </div>
                   ))}
                 </div>
@@ -185,33 +179,29 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
 
             {/* 关系网络 */}
             {relationships.length > 0 && (
-              <section className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-xs backdrop-blur-sm">
-                <p className="text-[11px] uppercase tracking-[0.15em] text-moss">
-                  关系网络 ({relationships.length})
-                </p>
-                <div className="mt-3 space-y-3">
+              <section className="rounded-2xl border border-white/70 bg-white p-4 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-moss">关系网络</p>
+                  <span className="text-[10px] text-slate-400">{relationships.length} 人</span>
+                </div>
+                <div className="mt-3 space-y-2.5">
                   {(showAllRelationships ? relationships : relationships.slice(0, 5)).map((rel: AgentRelationship, index: number) => {
-                    const familiarityPct = (rel.familiarity * 100).toFixed(0);
+                    const pct = rel.familiarity * 100;
                     const barColor = relationshipTone(rel.familiarity);
-                    const textColor = rel.familiarity >= 0.75
+                    const valColor = rel.familiarity >= 0.75
                       ? "text-emerald-600"
-                      : rel.familiarity >= 0.45
-                        ? "text-amber-600"
-                        : "text-slate-500";
+                      : rel.familiarity >= 0.45 ? "text-amber-600" : "text-slate-400";
                     return (
-                      <div key={`${rel.other_agent_id}-${index}`}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-700">{rel.other_agent_name || "未知"}</span>
-                          <span className={`text-[10px] ${textColor}`}>
-                            {familiarityPct}%
-                          </span>
+                      <div key={`${rel.other_agent_id}-${index}`} className="flex items-center gap-2">
+                        <span className="w-16 shrink-0 truncate text-[11px] text-slate-600">
+                          {rel.other_agent_name || "未知"}
+                        </span>
+                        <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct.toFixed(0)}%` }} />
                         </div>
-                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className={`h-full rounded-full ${barColor}`}
-                            style={{ width: `${familiarityPct}%` }}
-                          />
-                        </div>
+                        <span className={`w-8 shrink-0 text-right text-[10px] tabular-nums ${valColor}`}>
+                          {pct.toFixed(0)}%
+                        </span>
                       </div>
                     );
                   })}
@@ -220,9 +210,9 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                   <button
                     type="button"
                     onClick={() => setShowAllRelationships((v) => !v)}
-                    className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                    className="mt-3 w-full rounded-lg py-1 text-[11px] text-slate-400 transition hover:text-slate-600"
                   >
-                    {showAllRelationships ? "收起" : `查看全部 ${relationships.length} 个关系`}
+                    {showAllRelationships ? "收起" : `还有 ${relationships.length - 5} 个 ▾`}
                   </button>
                 )}
               </section>
@@ -230,7 +220,8 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
           </div>
         </aside>
 
-        <div className="flex min-h-0 flex-1 flex-col bg-slate-50/30 p-4">
+        {/* ── 右侧：行为流 + 记忆 ── */}
+        <div className="flex min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4">
           <AgentSignalsPanel agent={agent} world={world} compact />
         </div>
       </div>
