@@ -20,7 +20,7 @@ from app.sim.context import get_run_world_time
 from app.sim.service import SimulationService
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.types import AgentDecisionSnapshot
-from app.sim.world import WorldState
+from app.sim.world import AgentState, LocationState, WorldState
 from app.store.models import Agent, Base, Location, SimulationRun
 from app.store.repositories import EventRepository, LlmCallRepository, RunRepository
 
@@ -238,6 +238,160 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
     assert "truman_suspicion_score" not in provider.captured_invocations[0].context["world"]
 
     shutil.rmtree(tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_prepare_intents_from_data_biases_rest_to_reply_for_recent_question():
+    tmp_path = Path(tempfile.mkdtemp())
+    try:
+        agent_dir = tmp_path / "agent-reply"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "agent.yml").write_text(
+            "id: agent-reply\nname: Alice\noccupation: resident\nhome: loc-1\n",
+            encoding="utf-8",
+        )
+        (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+
+        provider = TokenCapturingDecisionProvider()
+        runtime = AgentRuntime(
+            registry=AgentRegistry(tmp_path),
+            backend=HeuristicAgentBackend(provider),
+        )
+        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+
+        world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
+        world.current_tick = 6
+        world.locations["loc-1"] = LocationState(
+            id="loc-1",
+            name="Dorm",
+            location_type="home",
+            occupants={"alice", "bob"},
+        )
+        world.agents["alice"] = AgentState(
+            id="alice",
+            name="Alice",
+            location_id="loc-1",
+            occupation="resident",
+            workplace_id=None,
+            status={},
+        )
+        world.agents["bob"] = AgentState(
+            id="bob",
+            name="Bob",
+            location_id="loc-1",
+            occupation="friend",
+            workplace_id=None,
+            status={},
+        )
+        snapshot = AgentDecisionSnapshot(
+            id="alice",
+            current_goal="rest",
+            current_location_id="loc-1",
+            home_location_id="loc-1",
+            profile={"agent_config_id": "agent-reply"},
+            recent_events=[
+                {
+                    "event_type": "speech",
+                    "tick_no": 5,
+                    "actor_agent_id": "bob",
+                    "actor_name": "Bob",
+                    "target_agent_id": "alice",
+                    "message": "要不要一起去咖啡馆？",
+                }
+            ],
+        )
+
+        intents, _ = await orchestrator.prepare_intents_from_data(
+            world=world,
+            agent_data=[snapshot],
+            engine=None,
+            run_id="run-pending-reply",
+            tick_no=6,
+        )
+
+        assert len(intents) == 1
+        assert intents[0].action_type == "talk"
+        assert intents[0].target_agent_id == "bob"
+        assert intents[0].payload["intent_source"] == "pending_reply_bias"
+        assert provider.captured_invocations[0].context["world"]["pending_reply"]["from_agent_id"] == "bob"
+    finally:
+        shutil.rmtree(tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_prepare_intents_from_data_keeps_rest_for_closing_message():
+    tmp_path = Path(tempfile.mkdtemp())
+    try:
+        agent_dir = tmp_path / "agent-closing"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "agent.yml").write_text(
+            "id: agent-closing\nname: Alice\noccupation: resident\nhome: loc-1\n",
+            encoding="utf-8",
+        )
+        (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+
+        provider = TokenCapturingDecisionProvider()
+        runtime = AgentRuntime(
+            registry=AgentRegistry(tmp_path),
+            backend=HeuristicAgentBackend(provider),
+        )
+        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+
+        world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
+        world.current_tick = 6
+        world.locations["loc-1"] = LocationState(
+            id="loc-1",
+            name="Dorm",
+            location_type="home",
+            occupants={"alice", "bob"},
+        )
+        world.agents["alice"] = AgentState(
+            id="alice",
+            name="Alice",
+            location_id="loc-1",
+            occupation="resident",
+            workplace_id=None,
+            status={},
+        )
+        world.agents["bob"] = AgentState(
+            id="bob",
+            name="Bob",
+            location_id="loc-1",
+            occupation="friend",
+            workplace_id=None,
+            status={},
+        )
+        snapshot = AgentDecisionSnapshot(
+            id="alice",
+            current_goal="rest",
+            current_location_id="loc-1",
+            home_location_id="loc-1",
+            profile={"agent_config_id": "agent-closing"},
+            recent_events=[
+                {
+                    "event_type": "speech",
+                    "tick_no": 5,
+                    "actor_agent_id": "bob",
+                    "actor_name": "Bob",
+                    "target_agent_id": "alice",
+                    "message": "那你先忙，下午见。",
+                }
+            ],
+        )
+
+        intents, _ = await orchestrator.prepare_intents_from_data(
+            world=world,
+            agent_data=[snapshot],
+            engine=None,
+            run_id="run-closing-reply",
+            tick_no=6,
+        )
+
+        assert len(intents) == 1
+        assert intents[0].action_type == "rest"
+        assert "pending_reply" not in provider.captured_invocations[0].context["world"]
+    finally:
+        shutil.rmtree(tmp_path)
 
 
 class UnavailableApiBackend:

@@ -346,6 +346,7 @@ class TickOrchestrator:
         director_guidance = get_scenario_guidance(profile)
 
         world_ctx = build_agent_world_context(
+            agent_id=agent_id,
             world=world,
             current_goal=current_goal,
             current_location_id=current_location_id,
@@ -370,7 +371,7 @@ class TickOrchestrator:
             runtime_ctx=runtime_ctx,
         )
         intent.agent_id = agent_id
-        return intent
+        return self._apply_pending_reply_bias(intent=intent, world_ctx=world_ctx)
 
     def execute_tick(
         self,
@@ -400,6 +401,58 @@ class TickOrchestrator:
             len(result.rejected),
         )
         return result
+
+    @staticmethod
+    def _apply_pending_reply_bias(intent: ActionIntent, world_ctx: dict) -> ActionIntent:
+        if intent.action_type != "rest":
+            return intent
+
+        pending_reply = world_ctx.get("pending_reply")
+        if not isinstance(pending_reply, dict):
+            return intent
+
+        target_agent_id = pending_reply.get("from_agent_id")
+        if not isinstance(target_agent_id, str) or not target_agent_id:
+            return intent
+
+        target_name = pending_reply.get("from_agent_name")
+        message = TickOrchestrator._build_pending_reply_message(
+            target_name=target_name if isinstance(target_name, str) else None,
+            previous_message=(
+                pending_reply.get("message") if isinstance(pending_reply.get("message"), str) else ""
+            ),
+            is_question=bool(pending_reply.get("is_question")),
+        )
+
+        return ActionIntent(
+            agent_id=intent.agent_id,
+            action_type="talk",
+            target_agent_id=target_agent_id,
+            payload={"message": message, "intent_source": "pending_reply_bias"},
+        )
+
+    @staticmethod
+    def _build_pending_reply_message(
+        *,
+        target_name: str | None,
+        previous_message: str,
+        is_question: bool,
+    ) -> str:
+        name = target_name or "你"
+        if is_question:
+            return (
+                f"{name}，我刚听到你刚才说的了。这个我愿意接着聊两句，"
+                "你刚才提到的那个点我也有点想法，我们顺着说下去吧。"
+            )
+        if "一起" in previous_message or "要不要" in previous_message:
+            return (
+                f"{name}，可以啊。我刚才听到你的提议了，"
+                "如果你现在方便，我们就顺着刚才的话题继续聊聊。"
+            )
+        return (
+            f"{name}，我刚才听到你说的了。"
+            "既然我们还在这儿，就顺着刚才的话题再聊两句吧。"
+        )
 
     @staticmethod
     def resolve_runtime_agent_id(agent: Agent) -> str:

@@ -182,6 +182,25 @@ def test_decision_prompt_requires_message_field_for_talk(runtime: AgentRuntime):
     )
 
 
+def test_runtime_prepare_reactor_highlights_pending_reply(runtime: AgentRuntime):
+    invocation = runtime.prepare_reactor(
+        "demo_agent",
+        world={
+            "current_goal": "rest",
+            "pending_reply": {
+                "from_agent_id": "bob",
+                "from_agent_name": "Bob",
+                "message": "要不要一起去咖啡馆？",
+                "priority": "high",
+            },
+        },
+    )
+
+    assert "# 待回应对话" in invocation.prompt
+    assert "如果对方还在附近，优先延续这段对话" in invocation.prompt
+    assert '对方刚才说: "要不要一起去咖啡馆？"' in invocation.prompt
+
+
 def test_runtime_prepare_reflector(runtime: AgentRuntime):
     invocation = runtime.prepare_reflector(
         "demo_agent",

@@ -66,6 +66,21 @@ class PromptLoader:
                     lines.append(f"- {period_zh}: {val}{marker}")
             lines.append("")
 
+        pending_reply = _world_ctx.get("pending_reply") if isinstance(_world_ctx, dict) else None
+        if pending_reply and isinstance(pending_reply, dict):
+            from_agent_name = pending_reply.get("from_agent_name", "对方")
+            message = pending_reply.get("message", "")
+            priority = pending_reply.get("priority", "medium")
+            lines.append("# 待回应对话")
+            lines.append(
+                "有人刚刚直接对你说话。如果对方还在附近，优先延续这段对话，不要无故转去 rest。"
+            )
+            lines.append(f"- 发言人: {from_agent_name}")
+            lines.append(f"- 优先级: {priority}")
+            if isinstance(message, str) and message:
+                lines.append(f'- 对方刚才说: "{message}"')
+            lines.append("")
+
         # 渲染对话历史（如果有）
         recent_events = context.get("recent_events", [])
         if recent_events:

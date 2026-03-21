@@ -62,6 +62,7 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
     }
 
     context = build_agent_world_context(
+        agent_id="alice",
         world=world,
         current_goal="talk",
         current_location_id="cafe",
@@ -121,6 +122,7 @@ def test_build_agent_world_context_includes_minimal_world_rules_summary():
     }
 
     context = build_agent_world_context(
+        agent_id="alice",
         world=world,
         current_goal="talk",
         current_location_id="cafe",
@@ -160,6 +162,7 @@ def test_build_agent_world_context_prefers_governance_warning_feedback():
     world = _build_world()
 
     context = build_agent_world_context(
+        agent_id="alice",
         world=world,
         current_goal="talk",
         current_location_id="cafe",
@@ -198,6 +201,7 @@ def test_build_agent_world_context_omits_subject_alert_score_when_disabled():
     world = _build_world()
 
     context = build_agent_world_context(
+        agent_id="truman",
         world=world,
         current_goal="rest",
         current_location_id="home",
@@ -209,6 +213,62 @@ def test_build_agent_world_context_omits_subject_alert_score_when_disabled():
     )
 
     assert "subject_alert_score" not in context
+
+
+def test_build_agent_world_context_includes_pending_reply_for_recent_question():
+    world = _build_world()
+    world.current_tick = 6
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="rest",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        recent_events=[
+            {
+                "event_type": "speech",
+                "tick_no": 5,
+                "actor_agent_id": "bob",
+                "actor_name": "Bob",
+                "target_agent_id": "alice",
+                "message": "要不要一起去喝杯咖啡？",
+            }
+        ],
+    )
+
+    assert context["pending_reply"]["from_agent_id"] == "bob"
+    assert context["pending_reply"]["is_question"] is True
+    assert context["pending_reply"]["priority"] == "high"
+
+
+def test_build_agent_world_context_omits_pending_reply_for_closing_message():
+    world = _build_world()
+    world.current_tick = 6
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="rest",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        recent_events=[
+            {
+                "event_type": "speech",
+                "tick_no": 5,
+                "actor_agent_id": "bob",
+                "actor_name": "Bob",
+                "target_agent_id": "alice",
+                "message": "那你先忙，下午见。",
+            }
+        ],
+    )
+
+    assert "pending_reply" not in context
 
 
 def test_extract_subject_alert_from_agent_data_returns_first_subject_score():

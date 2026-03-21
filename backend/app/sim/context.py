@@ -145,6 +145,7 @@ class ContextBuilder:
             Context dict for agent runtime
         """
         return build_agent_world_context(
+            agent_id=None,
             world=world,
             current_goal=current_goal,
             current_location_id=current_location_id,

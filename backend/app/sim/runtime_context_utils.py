@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from app.scenario.runtime_config import ScenarioRuntimeConfig
@@ -12,8 +13,34 @@ if TYPE_CHECKING:
     from app.sim.world import WorldState
 
 
+_QUESTION_REPLY_PATTERNS = (
+    "？",
+    "?",
+    "要不要",
+    "要一起",
+    "能不能",
+    "你觉得",
+    "要吗",
+    "方便吗",
+    "可以吗",
+)
+_CLOSING_REPLY_PATTERNS = (
+    "下午见",
+    "回头见",
+    "回头再聊",
+    "回头再联系",
+    "你先忙",
+    "先忙你的",
+    "各自忙",
+    "下次再聊",
+    "等会儿见",
+)
+_PENDING_REPLY_MAX_TICK_AGE = 1
+
+
 def build_agent_world_context(
     *,
+    agent_id: str | None = None,
     world: WorldState,
     current_goal: str | None,
     current_location_id: str | None,
@@ -74,6 +101,15 @@ def build_agent_world_context(
             if relationship_context and nearby_agent.id in relationship_context:
                 context["nearby_relationship"] = dict(relationship_context[nearby_agent.id])
 
+    pending_reply = extract_pending_reply(
+        recent_events=recent_events or [],
+        self_agent_id=agent_id,
+        current_tick=getattr(world, "current_tick", 0),
+        nearby_agent_id=nearby_agent_id,
+    )
+    if pending_reply is not None:
+        context["pending_reply"] = pending_reply
+
     if world_role:
         context["world_role"] = world_role
     _inject_world_effects(context, world, current_location_id)
@@ -82,6 +118,76 @@ def build_agent_world_context(
         context.update(_normalize_director_guidance(director_guidance))
 
     return context
+
+
+def extract_pending_reply(
+    *,
+    recent_events: list[dict],
+    self_agent_id: str | None,
+    current_tick: int,
+    nearby_agent_id: str | None = None,
+) -> dict[str, object] | None:
+    """Return the newest direct speech that should likely be answered next tick."""
+    if not recent_events or not self_agent_id:
+        return None
+
+    latest_outgoing_tick_by_target: dict[str, int] = {}
+    newest_direct_speech: dict[str, object] | None = None
+
+    for event in recent_events:
+        event_type = event.get("event_type")
+        actor_agent_id = event.get("actor_agent_id")
+        target_agent_id = event.get("target_agent_id")
+        tick_no = event.get("tick_no")
+        if not isinstance(tick_no, int):
+            continue
+
+        if event_type == "speech" and actor_agent_id == self_agent_id and isinstance(
+            target_agent_id, str
+        ):
+            previous_tick = latest_outgoing_tick_by_target.get(target_agent_id, -1)
+            latest_outgoing_tick_by_target[target_agent_id] = max(previous_tick, tick_no)
+            continue
+
+        if event_type != "speech":
+            continue
+        if target_agent_id != self_agent_id or not isinstance(actor_agent_id, str):
+            continue
+        if nearby_agent_id is not None and actor_agent_id != nearby_agent_id:
+            continue
+        if current_tick - tick_no > _PENDING_REPLY_MAX_TICK_AGE:
+            continue
+        if latest_outgoing_tick_by_target.get(actor_agent_id, -1) >= tick_no:
+            continue
+        if newest_direct_speech is None or tick_no > newest_direct_speech["tick_no"]:
+            message = event.get("message")
+            if not isinstance(message, str) or not message.strip():
+                continue
+            newest_direct_speech = {
+                "from_agent_id": actor_agent_id,
+                "from_agent_name": event.get("actor_name"),
+                "message": message.strip(),
+                "tick_no": tick_no,
+                "is_question": _looks_like_reply_seeking_message(message),
+                "is_closing": _looks_like_closing_message(message),
+            }
+
+    if newest_direct_speech is None or newest_direct_speech["is_closing"]:
+        return None
+
+    newest_direct_speech["priority"] = (
+        "high" if newest_direct_speech["is_question"] else "medium"
+    )
+    return newest_direct_speech
+
+
+def _looks_like_reply_seeking_message(message: str) -> bool:
+    return any(pattern in message for pattern in _QUESTION_REPLY_PATTERNS)
+
+
+def _looks_like_closing_message(message: str) -> bool:
+    normalized = re.sub(r"\s+", "", message)
+    return any(pattern in normalized for pattern in _CLOSING_REPLY_PATTERNS)
 
 
 def inject_profile_fields_into_context(
