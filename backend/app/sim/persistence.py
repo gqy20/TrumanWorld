@@ -99,6 +99,7 @@ class PersistenceManager:
             persisted = await self.event_repo.create_many(events)
             await self.persist_tick_governance_records(run_id, persisted)
             await self.persist_tick_governance_cases(run_id, result, world)
+            await self.persist_tick_economic_state(run_id, result, world)
             await self.persist_tick_memories(run_id, persisted)
             await self.persist_tick_relationships(run_id, persisted)
             return persisted
@@ -221,6 +222,60 @@ class PersistenceManager:
                     reason=restriction.reason,
                 )
                 world.add_restriction(agent_id, restriction_state)
+
+    async def persist_tick_economic_state(
+        self,
+        run_id: str,
+        result: TickResult,
+        world: WorldState,
+    ) -> None:
+        """Persist economic state changes and effect logs from tick results.
+
+        Processes economic effects for all agents:
+        - work_income for agents with accepted work actions
+        - food decay for agents without income for N ticks
+        - employment_status changes for agents with active work_ban
+        """
+        from app.sim.economic_state_service import EconomicStateService
+
+        service = EconomicStateService(self.session)
+
+        # Get all agents for this run
+        agents = await self.agent_repo.list_for_run(run_id)
+
+        # Build map of agents with accepted work actions
+        accepted_work_agents: set[str] = set()
+        for item in result.accepted:
+            if item.action_type == "work":
+                agent_id = item.event_payload.get("agent_id")
+                if isinstance(agent_id, str):
+                    accepted_work_agents.add(agent_id)
+
+        # Process each agent
+        for agent in agents:
+            agent_id = agent.id
+            tick_no = result.tick_no
+
+            # Get associated governance case if any (for work_ban tracking)
+            case_id = None
+
+            # Process work income if agent had accepted work action
+            if agent_id in accepted_work_agents:
+                await service.process_work_income(
+                    world=world,
+                    agent_id=agent_id,
+                    tick_no=tick_no,
+                    run_id=run_id,
+                )
+
+            # Process tick economic effects (food decay, employment status)
+            await service.process_tick_economic_effects(
+                world=world,
+                agent_id=agent_id,
+                tick_no=tick_no,
+                run_id=run_id,
+                case_id=case_id,
+            )
 
     def _build_tick_events(self, run_id: str, result: TickResult) -> list[Event]:
         """Build event objects from tick results."""
