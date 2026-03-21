@@ -3,9 +3,12 @@
 import { WorldCanvas } from "@/components/world-canvas";
 import { WorldStatusBar } from "@/components/world-status-bar";
 import { useWorld } from "@/components/world-context";
+import { useScenarioCatalog } from "@/hooks/use-scenario-catalog";
+import { formatScenarioLabel } from "@/lib/scenario";
 
 export default function WorldPage() {
   const { runId, world, error } = useWorld();
+  const { scenarioNameMap } = useScenarioCatalog();
 
   if (error) {
     return (
@@ -30,12 +33,23 @@ export default function WorldPage() {
     );
   }
 
+  const scenarioName =
+    scenarioNameMap[world.run.scenario_type ?? ""] ?? formatScenarioLabel(world.run.scenario_type);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)]">
         {/* 头部：标题 + 状态栏 */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/40 bg-white/55 px-6 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-6">
           <div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 font-medium text-sky-700">
+                {scenarioName}
+              </span>
+              {world.run.scenario_type && (
+                <span className="font-mono text-slate-400">{world.run.scenario_type}</span>
+              )}
+            </div>
             <div className="mt-0.5 flex items-baseline gap-3">
               <h1 className="text-xl font-semibold text-ink">{world.run.name ?? "Run"}</h1>
               <span className="text-sm text-slate-500">地图与实时事件</span>

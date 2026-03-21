@@ -5,6 +5,8 @@ import { useState, useTransition, useRef, useCallback } from "react";
 import { useDemoAccess } from "@/components/demo-access-provider";
 import { deleteRunResult } from "@/lib/api";
 import { useRuns } from "@/components/runs-provider";
+import { useScenarioCatalog } from "@/hooks/use-scenario-catalog";
+import { formatScenarioLabel } from "@/lib/scenario";
 import { formatRelativeTime } from "@/lib/time";
 import { WorldOpeningAnimation } from "@/components/world-opening-animation";
 
@@ -12,6 +14,7 @@ type Run = {
   id: string;
   name: string;
   status: string;
+  scenario_type?: string | null;
   current_tick?: number;
   was_running_before_restart?: boolean;
   agent_count?: number;
@@ -27,6 +30,7 @@ type RunListProps = {
 export function RunList({ runs }: RunListProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { scenarioNameMap } = useScenarioCatalog();
   const { adminAuthorized, writeProtected } = useDemoAccess();
   const { refreshRuns } = useRuns();
   const [isPending, startTransition] = useTransition();
@@ -97,6 +101,7 @@ export function RunList({ runs }: RunListProps) {
           const isPaused = run.status === "paused";
           const statusBg = isRunning ? "bg-emerald-50/50" : isPaused ? "bg-amber-50/50" : "bg-slate-50/50";
           const statusBorder = isRunning ? "border-emerald-200/60" : isPaused ? "border-amber-200/60" : "border-slate-200/60";
+          const scenarioName = scenarioNameMap[run.scenario_type ?? ""] ?? formatScenarioLabel(run.scenario_type);
 
           return (
             <div
@@ -122,6 +127,14 @@ export function RunList({ runs }: RunListProps) {
                     {run.name}
                   </h3>
                   <p className="mt-0.5 font-mono text-[10px] text-slate-400">{run.id.slice(0, 8)}…</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700">
+                      {scenarioName}
+                    </span>
+                    {run.scenario_type && (
+                      <span className="font-mono text-[10px] text-slate-400">{run.scenario_type}</span>
+                    )}
+                  </div>
                 </button>
                 {canWrite ? (
                   <button
