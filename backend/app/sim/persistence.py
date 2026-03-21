@@ -98,6 +98,7 @@ class PersistenceManager:
         if events:
             persisted = await self.event_repo.create_many(events)
             await self.persist_tick_governance_records(run_id, persisted)
+            await self.persist_tick_governance_cases(run_id, result, world)
             await self.persist_tick_memories(run_id, persisted)
             await self.persist_tick_relationships(run_id, persisted)
             return persisted
@@ -153,6 +154,73 @@ class PersistenceManager:
 
         if records:
             await self.governance_record_repo.create_many(records)
+
+    async def persist_tick_governance_cases(
+        self,
+        run_id: str,
+        result: TickResult,
+        world: WorldState,
+    ) -> None:
+        """Persist governance cases and restrictions from tick results.
+
+        Processes warn/block decisions to create or update cases,
+        and generates restrictions when thresholds are met.
+        """
+        from app.sim.governance_case_service import GovernanceCaseService
+        from app.sim.world import RestrictionState
+
+        service = GovernanceCaseService(self.session)
+
+        # Process both accepted and rejected actions
+        all_results = list(result.accepted) + list(result.rejected)
+
+        for item in all_results:
+            governance_execution = item.governance_execution
+            if governance_execution is None:
+                continue
+
+            decision = governance_execution.decision
+            if decision not in {"warn", "block"}:
+                continue
+
+            agent_id = item.event_payload.get("agent_id")
+            if not isinstance(agent_id, str) or not agent_id:
+                continue
+
+            # Build ActionResult-like object for service
+            action_result = item
+
+            # Process governance case
+            case = await service.process_governance_record(
+                world=world,
+                result=action_result,
+                run_id=run_id,
+                agent_id=agent_id,
+                tick_no=result.tick_no,
+            )
+
+            # Maybe create restriction
+            restriction = await service.maybe_create_restriction(
+                world=world,
+                result=action_result,
+                case=case,
+                run_id=run_id,
+                agent_id=agent_id,
+                tick_no=result.tick_no,
+            )
+
+            if restriction is not None:
+                # Add restriction to world state for runtime checks
+                restriction_state = RestrictionState(
+                    id=restriction.id,
+                    restriction_type=restriction.restriction_type,
+                    scope_type=restriction.scope_type,
+                    scope_value=restriction.scope_value,
+                    start_tick=restriction.start_tick,
+                    end_tick=restriction.end_tick,
+                    reason=restriction.reason,
+                )
+                world.add_restriction(agent_id, restriction_state)
 
     def _build_tick_events(self, run_id: str, result: TickResult) -> list[Event]:
         """Build event objects from tick results."""

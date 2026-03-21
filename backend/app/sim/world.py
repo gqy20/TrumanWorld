@@ -61,6 +61,19 @@ class InteractionEdgeState:
     redundancy_risk: float = 0.0
 
 
+@dataclass
+class RestrictionState:
+    """Represents an active restriction in the world state."""
+
+    id: str
+    restriction_type: str
+    scope_type: str
+    scope_value: str | None
+    start_tick: int
+    end_tick: int | None
+    reason: str | None = None
+
+
 class WorldState:
     """Authoritative in-memory world state facade."""
 
@@ -75,6 +88,7 @@ class WorldState:
         relationship_contexts: dict[str, dict[str, dict[str, Any]]] | None = None,
         active_conversations: dict[str, ActiveConversationState] | None = None,
         interaction_edges: dict[str, InteractionEdgeState] | None = None,
+        active_restrictions: dict[str, list[RestrictionState]] | None = None,
         sleep_start_hour: int = 23,
         sleep_end_hour: int = 6,
     ) -> None:
@@ -87,6 +101,7 @@ class WorldState:
         self.relationship_contexts = relationship_contexts or {}
         self.active_conversations = active_conversations or {}
         self.interaction_edges = interaction_edges or {}
+        self.active_restrictions = active_restrictions or {}
         self.sleep_start_hour = sleep_start_hour
         self.sleep_end_hour = sleep_end_hour
 
@@ -186,6 +201,35 @@ class WorldState:
 
     def get_location(self, location_id: str) -> LocationState | None:
         return self.locations.get(location_id)
+
+    def add_restriction(self, agent_id: str, restriction: RestrictionState) -> None:
+        """Add an active restriction for an agent."""
+        if agent_id not in self.active_restrictions:
+            self.active_restrictions[agent_id] = []
+        self.active_restrictions[agent_id].append(restriction)
+
+    def has_restriction(
+        self,
+        agent_id: str,
+        restriction_type: str,
+        scope_value: str | None = None,
+    ) -> bool:
+        """Check if agent has an active restriction of given type."""
+        if agent_id not in self.active_restrictions:
+            return False
+        tick = self.current_tick
+        for restriction in self.active_restrictions[agent_id]:
+            if restriction.restriction_type != restriction_type:
+                continue
+            if scope_value is not None and restriction.scope_value != scope_value:
+                continue
+            # Check if restriction is active at current tick
+            if restriction.start_tick > tick:
+                continue
+            if restriction.end_tick is not None and restriction.end_tick < tick:
+                continue
+            return True
+        return False
 
     def move_agent(self, agent_id: str, destination_id: str) -> None:
         agent = self.agents[agent_id]

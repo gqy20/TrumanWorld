@@ -139,6 +139,56 @@ class GovernanceRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class GovernanceCase(Base):
+    """Groups multiple governance records into a single case for an agent."""
+
+    __tablename__ = "governance_cases"
+    __table_args__ = (
+        Index("ix_governance_cases_run_id", "run_id"),
+        Index("ix_governance_cases_run_id_agent_id", "run_id", "agent_id"),
+        Index("ix_governance_cases_run_id_agent_id_status", "run_id", "agent_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("simulation_runs.id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="open")  # open / warned / restricted / closed
+    opened_tick: Mapped[int] = mapped_column(Integer, default=0)
+    last_updated_tick: Mapped[int] = mapped_column(Integer, default=0)
+    primary_reason: Mapped[str] = mapped_column(String(255), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), default="low")  # low / medium / high
+    record_count: Mapped[int] = mapped_column(Integer, default=0)
+    active_restriction_count: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GovernanceRestriction(Base):
+    """Represents an active restriction on an agent from a governance case."""
+
+    __tablename__ = "governance_restrictions"
+    __table_args__ = (
+        Index("ix_governance_restrictions_run_id", "run_id"),
+        Index("ix_governance_restrictions_run_id_agent_id", "run_id", "agent_id"),
+        Index("ix_governance_restrictions_agent_active", "agent_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("simulation_runs.id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    case_id: Mapped[str | None] = mapped_column(ForeignKey("governance_cases.id"), nullable=True)
+    restriction_type: Mapped[str] = mapped_column(String(30), nullable=False)  # work_ban / location_ban / heightened_watch
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active / expired / lifted
+    scope_type: Mapped[str] = mapped_column(String(20), default="action")  # action / location / world
+    scope_value: Mapped[str] = mapped_column(String(100), nullable=True)  # e.g., "work", "loc_cafe"
+    reason: Mapped[str | None] = mapped_column(String(255))
+    start_tick: Mapped[int] = mapped_column(Integer, default=0)
+    end_tick: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    severity: Mapped[str] = mapped_column(String(20), default="low")  # low / medium / high
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Memory(Base):
     __tablename__ = "memories"
     __table_args__ = (
