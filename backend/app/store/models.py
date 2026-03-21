@@ -189,6 +189,31 @@ class GovernanceRestriction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class AgentEconomicState(Base):
+    """Tracks economic state for an agent: cash, employment, food/housing security."""
+
+    __tablename__ = "agent_economic_states"
+    __table_args__ = (
+        Index("ix_agent_economic_states_run_id_agent_id", "run_id", "agent_id", unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("simulation_runs.id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    cash: Mapped[float] = mapped_column(Float, default=100.0)
+    employment_status: Mapped[str] = mapped_column(String(20), default="stable")  # stable / unstable / suspended
+    food_security: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0 to 1.0
+    housing_security: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0 to 1.0
+    work_restriction_until_tick: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_income_tick: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class Memory(Base):
     __tablename__ = "memories"
     __table_args__ = (
