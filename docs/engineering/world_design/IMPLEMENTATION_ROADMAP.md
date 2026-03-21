@@ -14,8 +14,8 @@
 当前实现状态：
 
 - 已完成阶段 1、阶段 2、阶段 3 的最小可用版本
-- 已补上解释链的最小暴露路径：timeline `rule_evaluation`、agent context `world_rules_summary`
-- 阶段 4 治理执行层尚未开始
+- 已完成阶段 4 的最小可用版本
+- 已补上解释链的最小暴露路径：timeline `rule_evaluation / governance_execution`、agent context `world_rules_summary`
 - 阶段 5 关系后果层仍停留在设计阶段
 
 ## 2. 推荐阶段
@@ -84,12 +84,12 @@
 - 当前支持按 `action_types` 触发、按事实条件匹配、按 `priority + decision` 排序裁决
 - 当前决策类型为 `allowed / soft_risk / violates_rule / impossible`
 - `soft_risk` 允许动作继续执行，但会附带解释结果
-- `violates_rule` 与 `impossible` 当前都直接走拒绝路径
+- `RuleEvaluationResult` 已可输出 `matched_tags`
 - 这是最小实现，不代表最终治理语义
 
 ### 阶段 4：治理执行层
 
-状态：`未开始`
+状态：`已完成（最小版）`
 
 目标：
 
@@ -99,13 +99,24 @@
 
 第一阶段不必实现完整政府组织模拟。
 
+当前已落地：
+
+- 已有 `governance_executor.py`
+- 当前把 `rule_evaluation` 映射为 `allow / warn / block / record_only`
+- `impossible` 当前固定映射为 `block`
+- `soft_risk` 当前默认映射为 `warn`
+- `violates_rule` 当前会根据 `inspection_level` 和命中的治理信号决定 `warn` 或 `block`
+- `subject` / `sensitive_location` 等信号会把治理结果提升为更严格处置
+- accepted / rejected event payload 已可附带 `governance_execution`
+- agent context 已可读取最近 `block / warn` 结果形成轻量反馈
+
 当前明确未实现：
 
 - 选择性执法
 - 观测概率 / 巡查概率
-- 警告、记录、处罚等分层处置
+- 长期处罚或违规记录持久化
 - 政府或治理 agent
-- policy 对执行力度的真正控制
+- 更细的 policy overlay 与运行时动态调度
 
 ### 阶段 5：关系后果层
 
@@ -147,8 +158,9 @@
 当前已落地：
 
 - rejected / accepted event payload 已可附带 `rule_evaluation`
-- timeline schema 已暴露 `rule_evaluation`
-- context event formatting 已补 `rule_feedback_reason`
+- rejected / accepted event payload 已可附带 `governance_execution`
+- timeline payload 已可透传 `rule_evaluation / governance_execution`
+- context event formatting 已补 `rule_feedback_reason / governance_feedback_reason`
 
 ### 3.5 Relationship 侧
 
@@ -171,8 +183,8 @@
 
 按当前代码状态，下一步应优先做：
 
-1. 治理执行层最小接口，把 `violates_rule` 从“直接拒绝”演进为“先裁决、再执行决定”
-2. `policy` 到执行层的真实映射，而不只是 facts 输入
-3. `world_rules_summary` 扩展到 `blocked_constraints / current_risks`
+1. 治理后果层最小实现，把 `warn / block` 稳定写入长期状态
+2. `policy` 到执行层的映射继续细化，而不只是 inspection-level 级别
+3. `world_rules_summary` 扩展到 `current_risks`
 4. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
-5. relationship 后果层与规则裁决结果打通
+5. relationship 后果层与规则裁决、治理处置结果打通

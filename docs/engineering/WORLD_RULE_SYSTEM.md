@@ -23,14 +23,14 @@
 - scenario bundle 已支持 `rules.yml`、`policies/default.yml`、`constitution.md`
 - runtime 已有统一 `WorldDesignRuntimePackage`
 - rule engine 已支持基于 facts 的最小规则裁决
-- sim 已在动作执行前做规则评估
-- timeline / event payload 已暴露 `rule_evaluation`
+- sim 已在动作执行前做规则评估与最小治理执行
+- timeline / event payload 已暴露 `rule_evaluation / governance_execution`
 - agent context 已注入轻量 `world_rules_summary`
 
 尚未落地的部分：
 
-- 真正的治理执行层
-- `violates_rule` 的选择性执法与后续处置
+- 治理后果层的长期状态写回
+- 更完整的选择性执法与运行时动态治理
 - 动态 policy overlay
 - relationship / reputation / economy 的完整后果层
 

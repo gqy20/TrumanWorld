@@ -18,9 +18,9 @@ agent 不应直接读取完整 `rules.yml` 或 `policies/*.yml`。
 当前实现状态：
 
 - 已实现一个轻量版 `world_rules_summary`
-- 当前只注入 `policy_notices` 与 `recent_rule_feedback`
-- 尚未实现 `available_actions / blocked_constraints / current_risks`
-- 当前摘要主要来自世界效果和最近事件中的 `rule_evaluation`
+- 当前已注入 `policy_notices / blocked_constraints / recent_rule_feedback`
+- 尚未实现 `available_actions / current_risks`
+- 当前摘要主要来自世界效果和最近事件中的 `rule_evaluation / governance_execution`
 
 ## 2. 为什么要有这一层
 
@@ -66,6 +66,7 @@ world_rules_summary:
 ```yaml
 world_rules_summary:
   policy_notices: []
+  blocked_constraints: []
   recent_rule_feedback: []
 ```
 
@@ -101,6 +102,7 @@ world_rules_summary:
 
 - 可以是人类可读短句
 - 也可以附带结构化 `reason_code`
+- 当前已经实现基础版，来源主要是最近被 `governance_execution.decision == block` 的原因
 
 ### 5.3 `current_risks`
 
@@ -145,7 +147,7 @@ world_rules_summary:
 
 - 这是 agent 学习闭环的关键
 - 应尽量和最近事件、记忆形成一致
-- 当前已经实现基础版，来源主要是 recent events 中的 `rule_evaluation.reason`
+- 当前已经实现基础版，优先读取最近 `governance_execution.decision == warn` 的原因，再补 `rule_evaluation.reason`
 
 ## 6. 按角色暴露
 
@@ -216,4 +218,4 @@ world_rules_summary:
 - 如何控制摘要长度
 - 哪些治理事件应写入长期记忆
 - 如何从 `rule_evaluation` 稳定派生 `current_risks`
-- 如何从拒绝结果稳定派生 `blocked_constraints`
+- 如何把 `blocked_constraints` 和长期治理后果衔接
