@@ -88,6 +88,26 @@ class ScenarioBundleRegistry:
             raw = yaml.safe_load(file) or {}
         return raw if isinstance(raw, dict) else {}
 
+    def load_bundle_nested_yaml(self, scenario_id: str | None, *path_parts: str) -> dict:
+        bundle = self.get_bundle(scenario_id)
+        if bundle is None:
+            return {}
+        path = bundle.root.joinpath(*path_parts)
+        if not path.exists():
+            return {}
+        with path.open("r", encoding="utf-8") as file:
+            raw = yaml.safe_load(file) or {}
+        return raw if isinstance(raw, dict) else {}
+
+    def load_bundle_text(self, scenario_id: str | None, filename: str) -> str | None:
+        bundle = self.get_bundle(scenario_id)
+        if bundle is None:
+            return None
+        path = bundle.root / filename
+        if not path.exists():
+            return None
+        return path.read_text(encoding="utf-8")
+
 
 def get_scenario_bundle_registry() -> ScenarioBundleRegistry:
     settings = get_settings()
@@ -178,6 +198,40 @@ def load_ui_config_for_scenario(
     base_root = project_root or settings.project_root
     registry = ScenarioBundleRegistry(base_root / "scenarios")
     return registry.load_bundle_yaml(scenario_id, "ui.yml")
+
+
+def load_rules_config_for_scenario(
+    scenario_id: str | None,
+    *,
+    project_root: Path | None = None,
+) -> dict:
+    settings = get_settings()
+    base_root = project_root or settings.project_root
+    registry = ScenarioBundleRegistry(base_root / "scenarios")
+    return registry.load_bundle_yaml(scenario_id, "rules.yml")
+
+
+def load_policy_config_dict_for_scenario(
+    scenario_id: str | None,
+    policy_id: str = "default",
+    *,
+    project_root: Path | None = None,
+) -> dict:
+    settings = get_settings()
+    base_root = project_root or settings.project_root
+    registry = ScenarioBundleRegistry(base_root / "scenarios")
+    return registry.load_bundle_nested_yaml(scenario_id, "policies", f"{policy_id}.yml")
+
+
+def load_constitution_text_for_scenario(
+    scenario_id: str | None,
+    *,
+    project_root: Path | None = None,
+) -> str | None:
+    settings = get_settings()
+    base_root = project_root or settings.project_root
+    registry = ScenarioBundleRegistry(base_root / "scenarios")
+    return registry.load_bundle_text(scenario_id, "constitution.md")
 
 
 def resolve_sleep_config_for_scenario(
