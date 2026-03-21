@@ -28,8 +28,9 @@
 
 1. 看 [engineering/CURRENT_ARCHITECTURE.md](engineering/CURRENT_ARCHITECTURE.md)
 2. 看 [engineering/WORLD_RULE_SYSTEM.md](engineering/WORLD_RULE_SYSTEM.md)
-3. 看 [references/BUILD_VS_BUY.md](references/BUILD_VS_BUY.md)
-4. 如需回看 MVP 方案，看 [references/MVP_ARCHITECTURE.md](references/MVP_ARCHITECTURE.md)
+3. 看 [engineering/world_design/README.md](engineering/world_design/README.md)
+4. 看 [references/BUILD_VS_BUY.md](references/BUILD_VS_BUY.md)
+5. 如需回看 MVP 方案，看 [references/MVP_ARCHITECTURE.md](references/MVP_ARCHITECTURE.md)
 
 ### 我想部署和排障
 
@@ -48,6 +49,7 @@
 
 - 新功能文档优先放在 `product/`
 - 与代码实现直接相关的说明优先放在 `engineering/`
+- 世界制度、规则资产、治理执行、world bundle 设计细节优先放在 `engineering/world_design/`
 - 部署、运行和排障优先放在 `operations/`
 - 估算、历史稿和分析材料放在 `references/`
 

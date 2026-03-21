@@ -17,3 +17,4 @@
 - [AGENT_BACKEND_ABSTRACTION.md](AGENT_BACKEND_ABSTRACTION.md) - Agent backend 解耦与 Claude/LangGraph 双选设计
 - [SCENARIO_DECOUPLING_MIGRATION.md](SCENARIO_DECOUPLING_MIGRATION.md) - 场景解耦迁移结果与当前规范字段
 - [WORLD_RULE_SYSTEM.md](WORLD_RULE_SYSTEM.md) - 平台级世界宪法 / 规则系统 / 社会演化机制设计
+- [world_design/README.md](world_design/README.md) - world 设计专题目录，细化资产层、治理执行层与落地路线
