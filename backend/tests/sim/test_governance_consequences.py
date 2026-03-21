@@ -48,6 +48,32 @@ def test_apply_governance_consequences_warn_updates_status():
     assert world.agents["alice"].status["governance_attention_score"] == 0.08
 
 
+def test_apply_governance_consequences_record_only_updates_observation_state():
+    world = _build_world()
+    result = ActionResult(
+        accepted=True,
+        action_type="talk",
+        reason="accepted",
+        event_payload={"agent_id": "alice"},
+        governance_execution=GovernanceExecutionResult(
+            decision="record_only",
+            reason="late_night_talk_risk",
+            enforcement_action="record",
+            observed=True,
+        ),
+    )
+
+    apply_governance_consequences(
+        world,
+        result,
+        policy_values={"record_attention_delta": 0.02, "attention_score_cap": 1.0},
+    )
+
+    assert world.agents["alice"].status["observation_count"] == 1
+    assert world.agents["alice"].status["governance_attention_score"] == 0.02
+    assert "warning_count" not in world.agents["alice"].status
+
+
 def test_apply_governance_consequences_block_adds_stronger_attention():
     world = _build_world()
     world.agents["alice"].status = {"warning_count": 1, "governance_attention_score": 0.2}

@@ -143,6 +143,112 @@ world 里的“审核”不应直接等于硬性规则命中。
 - 记忆写入规则仍未抽成独立可配置 policy
 - 动态 overlay 目前主要覆盖 world effects，到更细粒度执行调参还不完整
 
+### 4.3 选择性执法的实现分层
+
+建议把“是否需要执法 agent”拆成两个阶段处理。
+
+第一阶段：
+
+- 不引入执法智能体
+- 先做平台级 `enforcement provider`
+- 由 deterministic / probabilistic 模型决定：
+  - 是否被观察到
+  - 是否被记录
+  - 是否升级为 `warn`
+  - 是否升级为 `block`
+
+第二阶段：
+
+- 保留同一套 enforcement provider 接口
+- 再允许其中一部分决策由执法 agent 接管
+- 执法 agent 负责“谁在场、谁看见、谁介入”
+- 规则裁决、审计格式、后果持久化仍由平台掌握
+
+默认建议：
+
+- 当前仓库先实现第一阶段
+- 不要在治理语义尚未稳定时先引入执法 agent
+
+## 4.4 第一阶段选择性执法的最小输入
+
+平台级选择性执法模型，建议最少读取以下输入：
+
+- `rule_evaluation.decision`
+- `rule_evaluation.risk_level`
+- `rule_evaluation.matched_tags`
+- `policy.inspection_level`
+- `policy.sensitive_locations`
+- `policy.subject_protection_bias`
+- `world.time_period`
+- `actor.status.governance_attention_score`
+- 当前地点与主体距离或主体相关信号
+
+它们不一定都直接决定拦截，但至少应共同影响：
+
+- `observation_score`
+- `intervention_score`
+- `record_only / warn / block` 的升级路径
+
+## 4.5 第一阶段建议的执行语义
+
+建议把当前“命中规则后直接映射治理结果”的模型，逐步过渡为：
+
+1. 规则层先输出 `allowed / soft_risk / violates_rule / impossible`
+2. 执行层先计算 `observed: true/false`
+3. 若未观察到，可输出 `allow` 或 `record_only`
+4. 若已观察到，再根据风险、地点、主体保护等级决定 `warn / block`
+5. 后果层再决定写入多少长期状态
+
+这样可以表达：
+
+- 同样的违规，不一定每次都被发现
+- 同样被发现，不一定每次都被拦截
+- 高风险、主体附近、敏感地点更容易从 `warn` 升级为 `block`
+
+## 4.6 为什么第一阶段不直接上执法 agent
+
+如果现在直接引入执法 agent，会同时引入大量新的未决问题：
+
+- 执法者是否有位置与巡逻路线
+- 执法者是否也受世界规则约束
+- 执法者如何获得观察信息
+- 多个执法者如何分工
+- 执法者的权限层级与误判如何建模
+
+这些问题本身是一个独立子系统。
+
+因此更合理的顺序是：
+
+- 先稳定治理语义
+- 再抽象 enforcement provider 接口
+- 最后再考虑把 provider 的一部分实现替换为执法 agent
+
+## 4.7 建议的 provider 接口草案
+
+为了后续可平滑替换成执法 agent，第一阶段就应把执行器收敛成稳定接口。
+
+建议最小输出结构至少包含：
+
+```yaml
+governance_execution:
+  decision: allow | record_only | warn | block
+  reason: string
+  observed: true | false
+  observation_score: 0.0
+  intervention_score: 0.0
+  matched_signals: []
+```
+
+说明：
+
+- `decision` 继续作为现有兼容主字段
+- `observed` 用于表达是否真的被世界治理机制发现
+- `observation_score` 用于解释“为什么这次被看到/没被看到”
+- `intervention_score` 用于解释“为什么只是警告/为什么升级到拦截”
+- `matched_signals` 保持解释链兼容
+
+这样未来即便改成执法 agent，也仍可以要求它输出同一份结构，再交给平台持久化。
+
 ## 5. 对智能体能力的意义
 
 这套结构不会压死智能体，前提是保留灰区。

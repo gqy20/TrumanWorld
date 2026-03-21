@@ -79,4 +79,7 @@ class GovernanceExecutionResult(BaseModel):
     decision: GovernanceDecision = "allow"
     reason: str | None = None
     enforcement_action: Literal["none", "warning", "intercept", "record"] = "none"
+    observed: bool = False
+    observation_score: float = 0.0
+    intervention_score: float = 0.0
     matched_signals: list[str] = Field(default_factory=list)

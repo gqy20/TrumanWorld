@@ -415,7 +415,7 @@ def _inject_world_rules_summary(
             if governance_decision == "block" and isinstance(governance_reason, str) and governance_reason:
                 blocked_constraints.append(governance_reason)
             elif (
-                governance_decision == "warn"
+                governance_decision in {"warn", "record_only"}
                 and isinstance(governance_reason, str)
                 and governance_reason
             ):

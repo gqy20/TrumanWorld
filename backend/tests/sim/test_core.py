@@ -375,8 +375,107 @@ def test_action_resolver_allows_low_inspection_violation_with_governance_warning
     assert result.accepted is True
     assert result.reason == "accepted"
     assert result.event_payload["to_location_id"] == "park"
+    assert result.event_payload["governance_execution"]["decision"] == "allow"
+    assert result.event_payload["governance_execution"]["observed"] is False
+    assert result.event_payload["governance_execution"]["enforcement_action"] == "none"
+
+
+def test_action_resolver_warns_for_low_inspection_violation_in_high_attention_location():
+    world = build_world()
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="closed_location",
+                    name="Closed Location",
+                    trigger=RuleTriggerConfig(action_types=["move"]),
+                    conditions=[
+                        RuleConditionConfig(
+                            fact="target_location.id",
+                            op="in",
+                            value_from="policy.closed_locations",
+                        )
+                    ],
+                    outcome=RuleOutcomeConfig(
+                        decision="violates_rule",
+                        reason="location_closed",
+                    ),
+                    priority=100,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(
+            version=1,
+            policy_id="default",
+            values={
+                "closed_locations": ["cafe"],
+                "inspection_level": "low",
+                "high_attention_locations": ["cafe"],
+                "sensitive_locations": [],
+            },
+        ),
+        constitution_text="",
+    )
+    resolver = ActionResolver(world_design_package=package)
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="move", target_location_id="cafe"),
+    )
+
+    assert result.accepted is True
+    assert result.reason == "accepted"
     assert result.event_payload["governance_execution"]["decision"] == "warn"
+    assert result.event_payload["governance_execution"]["observed"] is True
     assert result.event_payload["governance_execution"]["enforcement_action"] == "warning"
+
+
+def test_action_resolver_preserves_record_only_governance_execution_for_observed_soft_risk():
+    world = _build_collocated_world()
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="late_night_talk_risk",
+                    name="Late Night Talk Risk",
+                    trigger=RuleTriggerConfig(action_types=["talk"]),
+                    conditions=[],
+                    outcome=RuleOutcomeConfig(
+                        decision="soft_risk",
+                        reason="late_night_talk_risk",
+                        risk_level="low",
+                    ),
+                    priority=100,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(
+            version=1,
+            policy_id="default",
+            values={
+                "high_attention_locations": [],
+                "warn_intervention_threshold": 0.7,
+            },
+        ),
+        constitution_text="",
+    )
+    resolver = ActionResolver(world_design_package=package)
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob"),
+    )
+
+    assert result.accepted is True
+    assert result.event_payload["governance_execution"]["decision"] == "record_only"
+    assert result.event_payload["governance_execution"]["observed"] is True
+    assert result.event_payload["governance_execution"]["enforcement_action"] == "record"
 
 
 def test_action_resolver_includes_soft_risk_metadata_in_event_payload():
@@ -418,7 +517,7 @@ def test_action_resolver_includes_soft_risk_metadata_in_event_payload():
     assert result.event_payload["governance_execution"]["decision"] == "warn"
 
 
-def test_simulation_runner_applies_governance_warning_consequences():
+def test_simulation_runner_does_not_apply_governance_consequences_when_violation_is_unobserved():
     world = build_world()
     package = WorldDesignRuntimePackage(
         scenario_id="narrative_world",
@@ -468,6 +567,66 @@ def test_simulation_runner_applies_governance_warning_consequences():
     )
 
     assert len(result.accepted) == 1
+    assert result.accepted[0].governance_execution is not None
+    assert result.accepted[0].governance_execution.decision == "allow"
+    assert result.accepted[0].governance_execution.observed is False
+    assert "warning_count" not in world.agents["alice"].status
+    assert "governance_attention_score" not in world.agents["alice"].status
+
+
+def test_simulation_runner_applies_governance_warning_consequences_when_violation_is_observed():
+    world = build_world()
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="closed_location",
+                    name="Closed Location",
+                    trigger=RuleTriggerConfig(action_types=["move"]),
+                    conditions=[
+                        RuleConditionConfig(
+                            fact="target_location.id",
+                            op="in",
+                            value_from="policy.closed_locations",
+                        )
+                    ],
+                    outcome=RuleOutcomeConfig(
+                        decision="violates_rule",
+                        reason="location_closed",
+                    ),
+                    priority=100,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(
+            version=1,
+            policy_id="default",
+            values={
+                "closed_locations": ["cafe"],
+                "inspection_level": "low",
+                "high_attention_locations": ["cafe"],
+                "sensitive_locations": [],
+                "warn_attention_delta": 0.07,
+                "block_attention_delta": 0.15,
+                "attention_score_cap": 1.0,
+                "attention_decay_per_day": 0.05,
+            },
+        ),
+        constitution_text="",
+    )
+    runner = SimulationRunner(world, resolver=ActionResolver(world_design_package=package))
+
+    result = runner.tick(
+        [ActionIntent(agent_id="alice", action_type="move", target_location_id="cafe")]
+    )
+
+    assert len(result.accepted) == 1
+    assert result.accepted[0].governance_execution is not None
+    assert result.accepted[0].governance_execution.decision == "warn"
+    assert result.accepted[0].governance_execution.observed is True
     assert world.agents["alice"].status["warning_count"] == 1
     assert world.agents["alice"].status["governance_attention_score"] == 0.07
 

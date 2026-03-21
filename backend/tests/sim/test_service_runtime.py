@@ -1151,6 +1151,62 @@ async def test_persist_tick_memories_includes_governance_block_for_rejected_even
 
 
 @pytest.mark.asyncio
+async def test_persist_tick_memories_adds_governance_record_memory(db_session):
+    run = SimulationRun(
+        id="run-governance-record-memory",
+        name="governance-record-memory",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    plaza = Location(
+        id="loc-governance-record-memory",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-governance-record-memory",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice])
+    await db_session.commit()
+
+    event = Event(
+        id="event-governance-record-memory",
+        run_id=run.id,
+        tick_no=1,
+        event_type="talk",
+        actor_agent_id=alice.id,
+        location_id=plaza.id,
+        importance=0.6,
+        payload={
+            "governance_execution": {
+                "decision": "record_only",
+                "reason": "late_night_talk_risk",
+                "enforcement_action": "record",
+                "matched_signals": ["social"],
+            },
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_memories(run.id, [event])
+
+    memories = await AgentRepository(db_session).list_recent_memories(alice.id, limit=10)
+    summaries = [memory.summary for memory in memories]
+    assert "Governance record: late_night_talk_risk" in summaries
+
+
+@pytest.mark.asyncio
 async def test_persist_tick_memories_includes_soft_risk_rule_feedback_memory(db_session):
     run = SimulationRun(
         id="run-rule-feedback-memory",

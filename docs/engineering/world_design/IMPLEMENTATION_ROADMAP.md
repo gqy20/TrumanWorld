@@ -122,6 +122,12 @@
 - 政府或治理 agent
 - 更细的 policy overlay 与运行时动态调度
 
+下一步建议顺序：
+
+1. 先在无执法 agent 的前提下实现平台级选择性执法
+2. 把执行语义抽成可替换的 enforcement provider 接口
+3. 等治理语义稳定后，再评估是否引入执法 agent
+
 ### 阶段 4.5：治理后果层
 
 状态：`已完成（最小版）`
@@ -240,8 +246,8 @@
 
 按当前代码状态，下一步应优先做：
 
-1. `policy` 到 relationship 后果层的映射继续细化，扩展到更多风险标签与地点语义
-2. 更复杂的恢复机制与多因子衰减
-3. 动态 policy overlay 与运行时调参
+1. 选择性执法与观测概率模型，先采用无执法 agent 的平台级执行器
+2. `policy` 到 relationship 后果层的映射继续细化，扩展到更多风险标签与地点语义
+3. 更复杂的恢复机制与多因子衰减
 4. reputation / director / relationship 三者的联动
 5. agent-facing summary 与 memory/timeline 的统一 feedback schema

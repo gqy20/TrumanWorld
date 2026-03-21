@@ -294,6 +294,43 @@ def test_build_agent_world_context_prefers_governance_warning_feedback():
     ]
 
 
+def test_build_agent_world_context_includes_governance_record_only_feedback():
+    world = _build_world()
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="talk",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        recent_events=[
+            {
+                "event_type": "talk",
+                "tick_no": 4,
+                "payload": {
+                    "governance_execution": {
+                        "decision": "record_only",
+                        "reason": "late_night_talk_risk",
+                        "enforcement_action": "record",
+                        "matched_signals": ["social"],
+                    },
+                    "rule_evaluation": {
+                        "decision": "soft_risk",
+                        "primary_rule_id": "late_night_stranger_talk_risk",
+                        "reason": "late_night_talk_risk",
+                    },
+                },
+            }
+        ],
+    )
+
+    assert context["world_rules_summary"]["recent_rule_feedback"] == [
+        "late_night_talk_risk",
+    ]
+
+
 def test_build_agent_world_context_derives_current_risks_from_governance_attention():
     world = _build_world()
     world.agents["alice"].status["governance_attention_score"] = 0.6

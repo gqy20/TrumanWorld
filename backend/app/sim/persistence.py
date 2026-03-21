@@ -681,12 +681,21 @@ class PersistenceManager:
 
         decision = governance_execution.get("decision")
         reason = governance_execution.get("reason")
-        if decision not in {"warn", "block"} or not isinstance(reason, str) or not reason:
+        if decision not in {"record_only", "warn", "block"} or not isinstance(reason, str) or not reason:
             return []
 
         loc_id = str(payload.get("location_id") or event.location_id or "")
         loc = location_name(loc_id)
         actor = agent_name(actor_agent_id)
+        if decision == "record_only":
+            return [
+                (
+                    actor_agent_id,
+                    f"{actor} was observed by governance at {loc}: {reason}.",
+                    f"Governance record: {reason}",
+                    None,
+                )
+            ]
         if decision == "warn":
             return [
                 (
