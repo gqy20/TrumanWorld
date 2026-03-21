@@ -18,7 +18,7 @@ from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
 )
-from app.sim.world import AgentState, LocationState, WorldState
+from app.sim.world import ActiveConversationState, AgentState, LocationState, WorldState
 from app.sim.world_queries import find_nearby_agent, get_agent
 from app.store.repositories import AgentRepository, EventRepository, LocationRepository
 
@@ -70,6 +70,10 @@ class ContextBuilder:
             run_id=run_id,
             agents=list(agents),
         )
+        active_conversations = await self._load_active_conversations(
+            run_id=run_id,
+            current_tick=run.current_tick or 0,
+        )
 
         location_states = {
             location.id: LocationState(
@@ -110,8 +114,64 @@ class ContextBuilder:
             agents=agent_states,
             world_effects=get_run_world_effects(run),
             relationship_contexts=relationship_contexts,
+            active_conversations=active_conversations,
             **resolve_sleep_config_for_scenario(run.scenario_type),
         )
+
+    async def _load_active_conversations(
+        self,
+        *,
+        run_id: str,
+        current_tick: int,
+    ) -> dict[str, ActiveConversationState]:
+        if current_tick <= 0:
+            return {}
+
+        recent_events, _total = await self.event_repo.list_timeline_api_rows(
+            run_id=run_id,
+            tick_from=current_tick,
+            tick_to=current_tick,
+            event_type="speech,listen,conversation_started,conversation_joined",
+            limit=50,
+            order_desc=False,
+        )
+
+        conversations: dict[str, ActiveConversationState] = {}
+        for event in recent_events:
+            payload = event.payload or {}
+            conversation_id = payload.get("conversation_id")
+            if not isinstance(conversation_id, str) or not conversation_id:
+                continue
+            participant_ids = payload.get("participant_ids")
+            if not isinstance(participant_ids, list):
+                continue
+            normalized_participants = [pid for pid in participant_ids if isinstance(pid, str)]
+            if len(normalized_participants) < 2:
+                continue
+
+            speaker_agent_id = payload.get("speaker_agent_id")
+            if not isinstance(speaker_agent_id, str) or not speaker_agent_id:
+                speaker_agent_id = event.actor_agent_id
+            if not isinstance(speaker_agent_id, str) or not speaker_agent_id:
+                continue
+
+            existing = conversations.get(conversation_id)
+            if existing is None:
+                conversations[conversation_id] = ActiveConversationState(
+                    id=conversation_id,
+                    location_id=event.location_id or "",
+                    participant_ids=normalized_participants,
+                    active_speaker_id=speaker_agent_id,
+                    last_tick_no=event.tick_no,
+                )
+                continue
+
+            existing.location_id = event.location_id or existing.location_id
+            existing.participant_ids = normalized_participants
+            existing.active_speaker_id = speaker_agent_id
+            existing.last_tick_no = max(existing.last_tick_no, event.tick_no)
+
+        return {cid: conv for cid, conv in conversations.items() if conv.location_id}
 
     def build_agent_world_context(
         self,

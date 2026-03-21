@@ -13,7 +13,7 @@ from app.sim.governance_consequences import (
     apply_governance_attention_decay,
     apply_governance_consequences,
 )
-from app.sim.world import WorldState
+from app.sim.world import ActiveConversationState, WorldState
 
 
 @dataclass
@@ -70,6 +70,7 @@ class SimulationRunner:
         accepted.extend(self._build_listen_results(sessions, assignments))
 
         advanced = self.world.advance_tick()
+        self._store_active_conversations(sessions, tick_no=self.tick_no + advanced.tick_delta)
         days_elapsed = advanced.current_time.toordinal() - previous_day_index
         apply_governance_attention_decay(
             self.world,
@@ -103,7 +104,10 @@ class SimulationRunner:
         # A joiner already produces conversation_joined + listen events.
         # Re-processing the original talk intent would turn a successful join
         # into a synthetic talk_rejected, which pollutes rejection metrics.
-        return intent.action_type == "talk" and assignment.reason == "conversation_joiner"
+        return intent.action_type == "talk" and assignment.reason in {
+            "conversation_joiner",
+            "reciprocal_talk_listener",
+        }
 
     def _build_conversation_structure_results(
         self,
@@ -113,6 +117,8 @@ class SimulationRunner:
         structure_results: list[ActionResult] = []
 
         for session in sessions:
+            if not session.is_new:
+                continue
             primary_listener_id = next(
                 (
                     participant_id
@@ -199,3 +205,20 @@ class SimulationRunner:
             )
 
         return listen_results
+
+    def _store_active_conversations(
+        self,
+        sessions: list[ConversationSession],
+        *,
+        tick_no: int,
+    ) -> None:
+        self.world.active_conversations = {
+            session.id: ActiveConversationState(
+                id=session.id,
+                location_id=session.location_id,
+                participant_ids=list(session.participant_ids),
+                active_speaker_id=session.active_speaker_id,
+                last_tick_no=tick_no,
+            )
+            for session in sessions
+        }

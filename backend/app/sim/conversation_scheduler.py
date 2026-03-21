@@ -14,6 +14,7 @@ class ConversationSession:
     participant_ids: list[str]
     active_speaker_id: str
     turn_order: list[str] = field(default_factory=list)
+    is_new: bool = True
 
 
 @dataclass(frozen=True)
@@ -43,10 +44,23 @@ class ConversationScheduler:
         session_by_id: dict[str, ConversationSession] = {}
         session_by_participant: dict[str, str] = {}
 
-        for intent in intents:
-            if intent.action_type != "talk":
+        for conversation in world.active_conversations.values():
+            if conversation.last_tick_no < max(0, world.current_tick - 1):
                 continue
+            session = ConversationSession(
+                id=conversation.id,
+                location_id=conversation.location_id,
+                participant_ids=list(conversation.participant_ids),
+                active_speaker_id=conversation.active_speaker_id,
+                turn_order=list(conversation.participant_ids),
+                is_new=False,
+            )
+            sessions.append(session)
+            session_by_id[session.id] = session
+            for participant_id in session.participant_ids:
+                session_by_participant[participant_id] = session.id
 
+        for intent in self._ordered_talk_intents(intents):
             actor = world.get_agent(intent.agent_id)
             target_id = intent.target_agent_id
             target = world.get_agent(target_id) if target_id else None
@@ -54,7 +68,23 @@ class ConversationScheduler:
                 continue
             if actor.location_id != target.location_id:
                 continue
+            target_session_id = session_by_participant.get(target.id)
+            actor_session_id = session_by_participant.get(actor.id)
             if actor.id in occupied_agents:
+                existing_assignment = assignments.get(actor.id)
+                if (
+                    existing_assignment is not None
+                    and existing_assignment.role == "listener"
+                    and existing_assignment.conversation_id is not None
+                    and existing_assignment.conversation_id == target_session_id
+                ):
+                    assignments[actor.id] = ConversationAssignment(
+                        agent_id=actor.id,
+                        conversation_id=existing_assignment.conversation_id,
+                        role="listener",
+                        reason="reciprocal_talk_listener",
+                    )
+                    continue
                 if actor.id not in assignments:
                     assignments[actor.id] = ConversationAssignment(
                         agent_id=actor.id,
@@ -64,7 +94,32 @@ class ConversationScheduler:
                     )
                 continue
 
-            target_session_id = session_by_participant.get(target.id)
+            if (
+                actor_session_id is not None
+                and actor_session_id == target_session_id
+                and actor_session_id in session_by_id
+            ):
+                session = session_by_id[actor_session_id]
+                session.active_speaker_id = actor.id
+                occupied_agents.add(actor.id)
+                assignments[actor.id] = ConversationAssignment(
+                    agent_id=actor.id,
+                    conversation_id=session.id,
+                    role="speaker",
+                    reason="conversation_continues",
+                )
+                for participant_id in session.participant_ids:
+                    if participant_id == actor.id:
+                        continue
+                    occupied_agents.add(participant_id)
+                    assignments[participant_id] = ConversationAssignment(
+                        agent_id=participant_id,
+                        conversation_id=session.id,
+                        role="listener",
+                        reason="conversation_continuation_listener",
+                    )
+                continue
+
             if target_session_id is not None:
                 session = session_by_id[target_session_id]
                 # If actor is already the active speaker in this session (e.g., Lin
@@ -128,3 +183,15 @@ class ConversationScheduler:
             )
 
         return sessions, assignments
+
+    @staticmethod
+    def _ordered_talk_intents(intents: list[ActionIntent]) -> list[ActionIntent]:
+        talk_intents = [intent for intent in intents if intent.action_type == "talk"]
+        return sorted(
+            talk_intents,
+            key=lambda intent: (
+                0
+                if intent.payload.get("intent_source") == "pending_reply_bias"
+                else 1
+            ),
+        )

@@ -1284,3 +1284,91 @@ async def test_talk_memories_use_subjective_importance_per_agent(db_session):
     assert bob_memories[0].memory_category == "medium_term"
     assert alice_memories[0].self_relevance < bob_memories[0].self_relevance
     assert "Alice said" in bob_memories[0].content
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_reuses_conversation_id_across_ticks(db_session):
+    run = SimulationRun(
+        id="run-service-conversation-continuity",
+        name="conversation-continuity",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+        scenario_type="narrative_world",
+    )
+    cafe = Location(
+        id="loc-cafe-conversation-continuity",
+        run_id=run.id,
+        name="Cafe",
+        location_type="cafe",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-continuity",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=cafe.id,
+        current_location_id=cafe.id,
+        current_goal="talk",
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-continuity",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=cafe.id,
+        current_location_id=cafe.id,
+        current_goal="talk",
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, cafe, alice, bob])
+    await db_session.commit()
+
+    service = SimulationService(db_session)
+
+    await service.run_tick(
+        run.id,
+        [
+            ActionIntent(
+                agent_id=alice.id,
+                action_type="talk",
+                target_agent_id=bob.id,
+                payload={"message": "First tick"},
+            )
+        ],
+    )
+    await service.run_tick(
+        run.id,
+        [
+            ActionIntent(
+                agent_id=bob.id,
+                action_type="talk",
+                target_agent_id=alice.id,
+                payload={"message": "Second tick"},
+            )
+        ],
+    )
+
+    timeline_events, _total = await EventRepository(db_session).list_timeline_events(
+        run.id,
+        order_desc=False,
+    )
+    conversation_started = [
+        event for event in timeline_events if event.event_type == "conversation_started"
+    ]
+    speeches = [event for event in timeline_events if event.event_type == "speech"]
+
+    assert len(conversation_started) == 1
+    assert len(speeches) == 2
+    conversation_id = conversation_started[0].payload["conversation_id"]
+    assert speeches[0].payload["conversation_id"] == conversation_id
+    assert speeches[1].payload["conversation_id"] == conversation_id

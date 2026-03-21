@@ -226,6 +226,106 @@ def test_action_resolver_rejects_action_when_rule_evaluator_returns_violation():
     assert result.event_payload["governance_execution"]["decision"] == "block"
 
 
+def test_action_resolver_applies_run_level_shutdown_overlay_to_closed_location_rules():
+    world = build_world()
+    world.current_tick = 2
+    world.world_effects = {
+        "location_shutdowns": [
+            {
+                "location_id": "park",
+                "start_tick": 1,
+                "end_tick": 5,
+                "message": "Park closed",
+            }
+        ]
+    }
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="closed_location",
+                    name="Closed Location",
+                    trigger=RuleTriggerConfig(action_types=["move"]),
+                    conditions=[
+                        RuleConditionConfig(
+                            fact="target_location.id",
+                            op="in",
+                            value_from="policy.closed_locations",
+                        )
+                    ],
+                    outcome=RuleOutcomeConfig(
+                        decision="violates_rule",
+                        reason="location_closed",
+                    ),
+                    priority=100,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(version=1, policy_id="default", values={}),
+        constitution_text="",
+    )
+    resolver = ActionResolver(world_design_package=package)
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="move", target_location_id="park"),
+    )
+
+    assert result.accepted is False
+    assert result.reason == "location_closed"
+    assert result.event_payload["rule_evaluation"]["decision"] == "violates_rule"
+    assert result.event_payload["governance_execution"]["decision"] == "block"
+
+
+def test_action_resolver_with_narrative_world_package_blocks_move_into_shutdown_location():
+    from app.scenario.runtime.world_design import load_world_design_runtime_package
+
+    world = WorldState(
+        current_time=datetime(2026, 3, 21, 10, 0, 0),
+        current_tick=2,
+        locations={
+            "home": LocationState(id="home", name="Home", capacity=2, occupants={"alice"}),
+            "plaza": LocationState(id="plaza", name="Plaza", capacity=6, occupants=set()),
+        },
+        agents={
+            "alice": AgentState(
+                id="alice",
+                name="Alice",
+                location_id="home",
+                status={"world_role": "cast"},
+            )
+        },
+        world_effects={
+            "location_shutdowns": [
+                {
+                    "location_id": "plaza",
+                    "start_tick": 1,
+                    "end_tick": 6,
+                    "message": "Plaza closed",
+                }
+            ]
+        },
+    )
+    resolver = ActionResolver(
+        world_design_package=load_world_design_runtime_package(
+            "narrative_world",
+            force_reload=True,
+        )
+    )
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="move", target_location_id="plaza"),
+    )
+
+    assert result.accepted is False
+    assert result.reason == "location_closed"
+    assert result.event_payload["governance_execution"]["decision"] == "block"
+
+
 def test_action_resolver_allows_low_inspection_violation_with_governance_warning():
     world = build_world()
     package = WorldDesignRuntimePackage(
@@ -791,7 +891,7 @@ def test_action_resolver_resets_talked_agents_between_ticks():
 
 def test_simulation_runner_resets_talked_agents_each_tick():
     """SimulationRunner.tick() must call reset_tick() so consecutive ticks
-    each allow exactly one talk per pair."""
+    each allow a clean reciprocal exchange without synthetic rejections."""
     world = _build_collocated_world()
     runner = SimulationRunner(world)
 
@@ -813,15 +913,14 @@ def test_simulation_runner_resets_talked_agents_each_tick():
         ]
     )
     assert len(result1.accepted) == 3
-    assert len(result1.rejected) == 1
+    assert len(result1.rejected) == 0
     assert {item.action_type for item in result1.accepted} == {
         "conversation_started",
         "talk",
         "listen",
     }
-    assert result1.rejected[0].reason == "conversation_turn_taken"
 
-    # Tick 2: both try again – only first accepted (reset happened)
+    # Tick 2: both try again – the new tick should still stay rejection-free.
     result2 = runner.tick(
         [
             ActionIntent(
@@ -838,10 +937,70 @@ def test_simulation_runner_resets_talked_agents_each_tick():
             ),
         ]
     )
-    assert len(result2.accepted) == 3
-    assert len(result2.rejected) == 1
-    assert {item.action_type for item in result2.accepted} == {
-        "conversation_started",
-        "talk",
-        "listen",
-    }
+    assert len(result2.accepted) == 2
+    assert len(result2.rejected) == 0
+    assert {item.action_type for item in result2.accepted} == {"talk", "listen"}
+
+
+def test_simulation_runner_prioritizes_pending_reply_bias_for_reciprocal_talk():
+    world = _build_collocated_world()
+    runner = SimulationRunner(world)
+
+    result = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Want to sync?"},
+            ),
+            ActionIntent(
+                agent_id="bob",
+                action_type="talk",
+                target_agent_id="alice",
+                payload={
+                    "message": "Replying to your earlier question.",
+                    "intent_source": "pending_reply_bias",
+                },
+            ),
+        ]
+    )
+
+    assert len(result.rejected) == 0
+    accepted_talk = next(item for item in result.accepted if item.action_type == "talk")
+    assert accepted_talk.event_payload["agent_id"] == "bob"
+    assert accepted_talk.event_payload["target_agent_id"] == "alice"
+
+
+def test_simulation_runner_reuses_conversation_id_across_adjacent_ticks():
+    world = _build_collocated_world()
+    runner = SimulationRunner(world)
+
+    tick1 = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={"message": "Tick 1 Alice"},
+            )
+        ]
+    )
+    started_tick1 = next(item for item in tick1.accepted if item.action_type == "conversation_started")
+    speech_tick1 = next(item for item in tick1.accepted if item.action_type == "talk")
+
+    tick2 = runner.tick(
+        [
+            ActionIntent(
+                agent_id="bob",
+                action_type="talk",
+                target_agent_id="alice",
+                payload={"message": "Tick 2 Bob"},
+            )
+        ]
+    )
+    speech_tick2 = next(item for item in tick2.accepted if item.action_type == "talk")
+
+    assert not any(item.action_type == "conversation_started" for item in tick2.accepted)
+    assert speech_tick1.event_payload["conversation_id"] == started_tick1.event_payload["conversation_id"]
+    assert speech_tick2.event_payload["conversation_id"] == started_tick1.event_payload["conversation_id"]

@@ -79,3 +79,27 @@ def test_conversation_scheduler_adds_joiner_to_existing_session():
     assert assignments["carol"].role == "listener"
     assert assignments["carol"].reason == "conversation_joiner"
     assert assignments["carol"].conversation_id == sessions[0].id
+
+
+def test_conversation_scheduler_prioritizes_pending_reply_and_skips_reciprocal_rejection():
+    world = _build_collocated_world()
+    scheduler = ConversationScheduler()
+
+    sessions, assignments = scheduler.schedule(
+        [
+            ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob"),
+            ActionIntent(
+                agent_id="bob",
+                action_type="talk",
+                target_agent_id="alice",
+                payload={"intent_source": "pending_reply_bias"},
+            ),
+        ],
+        world,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].active_speaker_id == "bob"
+    assert assignments["bob"].role == "speaker"
+    assert assignments["alice"].role == "listener"
+    assert assignments["alice"].reason == "reciprocal_talk_listener"

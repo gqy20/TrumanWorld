@@ -31,6 +31,15 @@ class TickAdvance:
     tick_delta: int
 
 
+@dataclass
+class ActiveConversationState:
+    id: str
+    location_id: str
+    participant_ids: list[str]
+    active_speaker_id: str
+    last_tick_no: int
+
+
 class WorldState:
     """Authoritative in-memory world state facade."""
 
@@ -43,6 +52,7 @@ class WorldState:
         agents: dict[str, AgentState] | None = None,
         world_effects: dict[str, Any] | None = None,
         relationship_contexts: dict[str, dict[str, dict[str, Any]]] | None = None,
+        active_conversations: dict[str, ActiveConversationState] | None = None,
         sleep_start_hour: int = 23,
         sleep_end_hour: int = 6,
     ) -> None:
@@ -53,6 +63,7 @@ class WorldState:
         self.agents = agents or {}
         self.world_effects = world_effects or {}
         self.relationship_contexts = relationship_contexts or {}
+        self.active_conversations = active_conversations or {}
         self.sleep_start_hour = sleep_start_hour
         self.sleep_end_hour = sleep_end_hour
 
@@ -73,6 +84,15 @@ class WorldState:
             },
             "world_effects": deepcopy(self.world_effects),
             "relationship_contexts": deepcopy(self.relationship_contexts),
+            "active_conversations": {
+                conversation_id: {
+                    "location_id": conversation.location_id,
+                    "participant_ids": list(conversation.participant_ids),
+                    "active_speaker_id": conversation.active_speaker_id,
+                    "last_tick_no": conversation.last_tick_no,
+                }
+                for conversation_id, conversation in self.active_conversations.items()
+            },
             "agents": {
                 agent_id: {
                     "name": agent.name,
