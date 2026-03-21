@@ -1,0 +1,10 @@
+lin:
+  familiarity: 0.56
+  trust: 0.64
+  affinity: 0.46
+  relation_type: mentor
+mei:
+  familiarity: 0.42
+  trust: 0.45
+  affinity: 0.34
+  relation_type: academic_contact

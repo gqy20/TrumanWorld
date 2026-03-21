@@ -1,0 +1,10 @@
+mei:
+  familiarity: 0.78
+  trust: 0.7
+  affinity: 0.72
+  relation_type: close_friend
+chen:
+  familiarity: 0.55
+  trust: 0.62
+  affinity: 0.45
+  relation_type: mentor

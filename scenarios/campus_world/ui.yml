@@ -1,0 +1,7 @@
+location_detail:
+  max_events_display: 50
+intelligence_stream:
+  max_events_load: 500
+  poll_interval_ms: 3000
+director_panel:
+  max_memories_load: 100

@@ -1,0 +1,10 @@
+lin:
+  familiarity: 0.8
+  trust: 0.72
+  affinity: 0.74
+  relation_type: close_friend
+chen:
+  familiarity: 0.4
+  trust: 0.42
+  affinity: 0.35
+  relation_type: academic_contact

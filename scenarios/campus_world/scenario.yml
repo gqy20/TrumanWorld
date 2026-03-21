@@ -1,0 +1,20 @@
+id: campus_world
+name: Campus World
+version: 1
+adapter: bundle_world
+semantics:
+  subject_role: student
+  support_roles:
+    - mentor
+    - friend
+  alert_metric: anomaly_score
+capabilities:
+  subject_alert_tracking: true
+modules:
+  director_policy: standard_director
+  agent_context_policy: standard_context
+  allowed_actions_policy: standard_actions
+  profile_merge_policy: director_guidance_merge
+  fallback_policy: social_default
+  seed_policy: standard_bundle_seed
+  state_update_policy: alert_tracking

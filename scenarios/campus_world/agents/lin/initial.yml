@@ -1,0 +1,9 @@
+status:
+  energy: 0.82
+  anomaly_score: 0.0
+plan:
+  morning: commute
+  daytime: study
+  evening: socialize
+initial_goal: study
+initial_location: home

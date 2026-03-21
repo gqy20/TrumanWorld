@@ -1,0 +1,97 @@
+daily_rhythm:
+  lunch_time: 11:30-13:00
+  social_time: 17:30-21:30
+  work_days:
+  - monday
+  - tuesday
+  - wednesday
+  - thursday
+  - friday
+  sleep_hours:
+    start: 23
+    end: 7
+location_purposes:
+  dorm:
+  - 休息
+  - 室友交流
+  lecture_hall:
+  - 上课
+  - 讲座
+  library:
+  - 自习
+  - 查资料
+  quad:
+  - 散步
+  - 社交
+  cafe:
+  - 用餐
+  - 见面
+  - 休息
+social_norms:
+- 校园内的人通常在中午去咖啡馆或草坪短暂休息
+- 图书馆保持安静，适合自习和轻声交流
+- 导师和熟人更适合用自然的学习或生活话题接近主体
+- 傍晚时分，学生常在中央草坪散步或闲聊
+location_descriptions:
+  dorm: 学生宿舍，生活节奏稳定
+  lecture_hall: 日常上课与公开讲座的主要地点
+  library: 安静的学习空间
+  quad: 校园中心草坪，适合自然相遇
+  cafe: 校园咖啡馆，常见午餐和短暂会面
+time_suggestions:
+  morning: 早晨，去上课或在宿舍准备一天
+  noon: 中午，适合短暂休息和简单社交
+  afternoon: 下午，上课、自习或与导师交流
+  evening: 傍晚，适合散步、复盘和轻度社交
+  night: 夜晚，逐步回到宿舍休息
+locations:
+- id_suffix: dorm
+  name: Maple Dorm
+  location_type: dorm
+  capacity: 6
+  x: 0
+  y: 0
+  attributes:
+    kind: private
+- id_suffix: lecture-hall
+  name: North Lecture Hall
+  location_type: lecture_hall
+  capacity: 18
+  x: 2
+  y: 0
+  attributes:
+    kind: study
+- id_suffix: library
+  name: Glass Library
+  location_type: library
+  capacity: 16
+  x: 3
+  y: 1
+  attributes:
+    kind: study
+- id_suffix: quad
+  name: Central Quad
+  location_type: quad
+  capacity: 20
+  x: 1
+  y: 1
+  attributes:
+    kind: social
+- id_suffix: cafe
+  name: Studio Cafe
+  location_type: cafe
+  capacity: 10
+  x: 2
+  y: 2
+  attributes:
+    kind: social
+location_id_map:
+  dorm: dorm
+  lecture_hall: lecture-hall
+  library: library
+  quad: quad
+  cafe: cafe
+occupation_names:
+  student: 学生
+  professor: 教授
+  grad assistant: 助教

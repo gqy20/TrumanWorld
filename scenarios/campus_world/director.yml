@@ -1,0 +1,80 @@
+enabled: true
+llm:
+  model: null
+  temperature: 0.7
+  max_tokens: 2000
+  max_budget_usd: 0.1
+  max_turns: 1
+decision_interval: 5
+prompt:
+  file: "director_prompt.md"
+  recent_events_limit: 10
+  recent_interventions_limit: 5
+strategies:
+  gentle_check_in:
+    name: "自然关心"
+    description: "当主体告警升高时，由熟人用学习或生活话题自然接触"
+    condition:
+      type: "eq"
+      metric: "suspicion_level"
+      operator: "eq"
+      value: "high"
+    action:
+      scene_goal: "gentle_check_in"
+      priority: "advisory"
+      urgency: "advisory"
+      cooldown_ticks: 3
+    message_hint: "如果自然遇到主体，可以从课程、作业或午餐安排聊起，不要显得刻意。"
+  break_isolation:
+    name: "打破独处"
+    description: "当主体长时间独处时，让熟人自然出现"
+    condition:
+      type: "threshold"
+      metric: "subject_isolation_ticks"
+      operator: "gte"
+      value: 5
+    action:
+      scene_goal: "break_isolation"
+      priority: "normal"
+      urgency: "advisory"
+      cooldown_ticks: 4
+    message_hint: "如果正好顺路，可以与主体同行、打招呼或邀请一起去咖啡馆。"
+  keep_scene_natural:
+    name: "维持日常"
+    description: "当连续性风险升高时，优先保证场景自然"
+    condition:
+      type: "in"
+      metric: "continuity_risk"
+      operator: "in"
+      value: ["critical", "elevated"]
+    action:
+      scene_goal: "keep_scene_natural"
+      priority: "advisory"
+      urgency: "advisory"
+      cooldown_ticks: 3
+    message_hint: "保持校园日常感，用熟悉、平稳、不过度主动的互动覆盖最近的小异常。"
+effectiveness:
+  evaluation_delay_ticks: 5
+  metrics:
+    suspicion_change:
+      weight: 0.6
+      success_threshold: 0.1
+    isolation_reduction:
+      weight: 0.3
+      success_threshold: 3
+    social_interaction:
+      weight: 0.1
+      success_threshold: 1
+scene_goals:
+  gentle_check_in:
+    description: "高告警时的自然关心"
+    priority: "advisory"
+  break_isolation:
+    description: "打破主体长时间独处"
+    priority: "normal"
+  keep_scene_natural:
+    description: "维持校园场景自然连续"
+    priority: "advisory"
+  none:
+    description: "无需干预"
+    priority: "low"

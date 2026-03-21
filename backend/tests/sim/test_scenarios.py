@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.infra.settings import get_settings
@@ -187,6 +189,35 @@ async def test_narrative_world_scenario_seed_and_state_update(db_session):
     await db_session.refresh(truman)
 
     assert truman.status["suspicion_score"] > starting_score
+
+
+@pytest.mark.asyncio
+async def test_campus_world_bundle_seeds_from_repo_scenarios(db_session, monkeypatch: pytest.MonkeyPatch):
+    project_root = Path(__file__).resolve().parents[3]
+    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(project_root))
+    get_settings.cache_clear()
+
+    run = SimulationRun(
+        id="run-campus-world",
+        name="campus-world",
+        status="running",
+        scenario_type="campus_world",
+    )
+    db_session.add(run)
+    await db_session.commit()
+
+    scenario = create_scenario("campus_world", db_session)
+    await scenario.seed_demo_run(run)
+
+    agents = await AgentRepository(db_session).list_for_run(run.id)
+
+    assert sorted(agent.name for agent in agents) == ["Lin", "Mei", "Professor Chen"]
+
+    lin = next(agent for agent in agents if (agent.profile or {}).get("world_role") == "student")
+    assert lin.occupation == "学生"
+    assert lin.status["anomaly_score"] == 0.0
+    assert lin.home_location_id == f"{run.id}-dorm"
+    assert lin.profile["workplace_location_id"] == f"{run.id}-lecture-hall"
 
 
 def test_narrative_world_scenario_defaults_subject_alert_tracking_enabled():

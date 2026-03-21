@@ -1,0 +1,8 @@
+status:
+  energy: 0.79
+plan:
+  morning: work
+  daytime: work
+  evening: rest
+initial_goal: work
+initial_location: workplace

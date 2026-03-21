@@ -1,0 +1,8 @@
+status:
+  energy: 0.76
+plan:
+  morning: study
+  daytime: work
+  evening: socialize
+initial_goal: work
+initial_location: workplace
