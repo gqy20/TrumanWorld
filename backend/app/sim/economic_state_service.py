@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 
 from app.sim.world import WorldState
+from app.store.models import AgentEconomicState
 from app.store.repositories import AgentEconomicStateRepository, EconomicEffectLogRepository
-
-if TYPE_CHECKING:
-    pass
 
 
 # Default values
@@ -103,9 +100,10 @@ class EconomicStateService:
         if world.has_restriction(agent_id, "work_ban", scope_value="work"):
             # Employment suspended while work banned
             if state.employment_status != "suspended":
-                state = await self.econ_repo.update_employment_status(
-                    run_id, agent_id, "suspended"
-                ) or state
+                state = (
+                    await self.econ_repo.update_employment_status(run_id, agent_id, "suspended")
+                    or state
+                )
                 # Log governance work loss
                 await self.effect_log_repo.create(
                     run_id=run_id,
@@ -124,10 +122,10 @@ class EconomicStateService:
             ticks_since_income = tick_no - state.last_income_tick
             if ticks_since_income >= DEFAULT_NO_INCOME_THRESHOLD:
                 # Apply food decay when no income for too long
-                decay = DEFAULT_FOOD_DECAY_RATE * (ticks_since_income - DEFAULT_NO_INCOME_THRESHOLD + 1)
-                state = await self.econ_repo.update_food_security(
-                    run_id, agent_id, -decay
-                ) or state
+                decay = DEFAULT_FOOD_DECAY_RATE * (
+                    ticks_since_income - DEFAULT_NO_INCOME_THRESHOLD + 1
+                )
+                state = await self.econ_repo.update_food_security(run_id, agent_id, -decay) or state
                 # Log food decay effect (only if actually decayed)
                 if state.food_security < food_before:
                     await self.effect_log_repo.create(
@@ -143,9 +141,12 @@ class EconomicStateService:
                 # Recover food security when agent is earning regular income
                 # Only recover if food_security is below maximum
                 if state.food_security < 1.0:
-                    state = await self.econ_repo.update_food_security(
-                        run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE
-                    ) or state
+                    state = (
+                        await self.econ_repo.update_food_security(
+                            run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE
+                        )
+                        or state
+                    )
                     # Log food recovery effect (only if actually increased)
                     if state.food_security > food_before:
                         await self.effect_log_repo.create(
@@ -155,7 +156,7 @@ class EconomicStateService:
                             effect_type="food_security_recovery",
                             cash_delta=0.0,
                             food_security_delta=state.food_security - food_before,
-                            reason=f"regular income, food security recovering",
+                            reason="regular income, food security recovering",
                         )
 
         return state
