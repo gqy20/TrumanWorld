@@ -194,7 +194,3 @@ class BundleWorldSeedBuilder:
         if relationships:
             self.session.add_all(relationships)
         await self.session.commit()
-
-
-class NarrativeWorldSeedBuilder(BundleWorldSeedBuilder):
-    """Legacy compatibility alias."""

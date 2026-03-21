@@ -19,7 +19,7 @@ from app.scenario.bundle_registry import (
 
 logger = get_logger(__name__)
 
-_LEGACY_SCENARIO_DIR = Path(__file__).resolve().parents[1] / "narrative_world"
+_LEGACY_SCENARIO_DIR = Path(__file__).resolve().parents[1] / "bundle_world"
 _LEGACY_DIRECTOR_CONFIG_PATH = _LEGACY_SCENARIO_DIR / "director.yml"
 
 _config_cache: dict[tuple[str, str], dict[str, Any]] = {}

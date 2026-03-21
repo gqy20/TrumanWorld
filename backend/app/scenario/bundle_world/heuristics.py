@@ -70,6 +70,3 @@ def build_bundle_world_decision(
 
     return RuntimeDecision(action_type="rest")
 
-
-def build_narrative_world_decision(**kwargs):
-    return build_bundle_world_decision(**kwargs)

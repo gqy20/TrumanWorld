@@ -11,7 +11,6 @@ from app.scenario.factory import create_scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
 from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
 from app.scenario.bundle_world.scenario import BundleWorldScenario
-from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 
 
 def test_factory_resolves_runtime_adapter_from_bundle_registry(
@@ -52,7 +51,7 @@ def test_factory_resolves_runtime_adapter_from_bundle_registry(
     narrative_world = create_scenario("narrative_world")
 
     assert isinstance(open_world, OpenWorldScenario)
-    assert isinstance(narrative_world, NarrativeWorldScenario)
+    assert isinstance(narrative_world, BundleWorldScenario)
 
 
 def test_factory_supports_bundle_world_adapter_for_configured_bundles(
@@ -78,7 +77,7 @@ def test_factory_supports_bundle_world_adapter_for_configured_bundles(
 
     scenario = create_scenario("hero_world")
 
-    assert isinstance(scenario, NarrativeWorldScenario)
+    assert isinstance(scenario, BundleWorldScenario)
     assert scenario.scenario_id == "hero_world"
 
 
@@ -105,7 +104,7 @@ def test_factory_falls_back_to_default_scenario_when_bundle_missing(
 
     scenario = create_scenario("unknown_world")
 
-    assert isinstance(scenario, NarrativeWorldScenario)
+    assert isinstance(scenario, BundleWorldScenario)
 
 
 def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: pytest.MonkeyPatch):
@@ -129,7 +128,7 @@ def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: py
 
     scenario = create_scenario("narrative_world")
 
-    assert isinstance(scenario, NarrativeWorldScenario)
+    assert isinstance(scenario, BundleWorldScenario)
 
 
 def test_adapter_registry_builds_registered_adapter():
@@ -137,12 +136,12 @@ def test_adapter_registry_builds_registered_adapter():
 
     registry.register(
         "custom_world",
-        lambda scenario_id, session: NarrativeWorldScenario(session, scenario_id=scenario_id),
+        lambda scenario_id, session: BundleWorldScenario(session, scenario_id=scenario_id),
     )
 
     scenario = registry.build("custom_world", scenario_id="custom_world")
 
-    assert isinstance(scenario, NarrativeWorldScenario)
+    assert isinstance(scenario, BundleWorldScenario)
     assert scenario.scenario_id == "custom_world"
 
 
@@ -152,7 +151,7 @@ def test_default_adapter_registry_keeps_bundle_world_and_legacy_alias_in_sync():
     narrative_world = registry.build("narrative_world", scenario_id="narrative_world")
     bundle_world = registry.build("bundle_world", scenario_id="hero_world")
 
-    assert isinstance(narrative_world, NarrativeWorldScenario)
+    assert isinstance(narrative_world, BundleWorldScenario)
     assert isinstance(bundle_world, BundleWorldScenario)
     assert narrative_world.scenario_id == "narrative_world"
     assert bundle_world.scenario_id == "hero_world"

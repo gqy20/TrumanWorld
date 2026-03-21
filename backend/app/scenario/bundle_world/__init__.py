@@ -1,15 +1,11 @@
-from app.scenario.bundle_world.coordinator import BundleWorldCoordinator, NarrativeWorldCoordinator
-from app.scenario.bundle_world.scenario import BundleWorldScenario, NarrativeWorldScenario
-from app.scenario.bundle_world.seed import BundleWorldSeedBuilder, NarrativeWorldSeedBuilder
-from app.scenario.bundle_world.state import BundleWorldStateUpdater, NarrativeWorldStateUpdater
+from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
+from app.scenario.bundle_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
+from app.scenario.bundle_world.state import BundleWorldStateUpdater
 
 __all__ = [
     "BundleWorldCoordinator",
     "BundleWorldScenario",
     "BundleWorldSeedBuilder",
     "BundleWorldStateUpdater",
-    "NarrativeWorldCoordinator",
-    "NarrativeWorldScenario",
-    "NarrativeWorldSeedBuilder",
-    "NarrativeWorldStateUpdater",
 ]

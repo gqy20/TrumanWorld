@@ -25,9 +25,7 @@ if TYPE_CHECKING:
     from app.store.models import Agent, Event, SimulationRun
 
 
-class NarrativeWorldScenario(Scenario):
-    """Legacy implementation name kept for compatibility."""
-
+class BundleWorldScenario(Scenario):
     def __init__(
         self,
         session: AsyncSession | None = None,
@@ -57,8 +55,8 @@ class NarrativeWorldScenario(Scenario):
             BundleWorldSeedBuilder(session, scenario_id=scenario_id) if session is not None else None
         )
 
-    def with_session(self, session: AsyncSession | None) -> NarrativeWorldScenario:
-        return NarrativeWorldScenario(session, scenario_id=self.scenario_id)
+    def with_session(self, session: AsyncSession | None) -> BundleWorldScenario:
+        return BundleWorldScenario(session, scenario_id=self.scenario_id)
 
     def configure_runtime(self, agent_runtime: AgentRuntime) -> None:
         agent_runtime.configure_allowed_actions(self.allowed_actions())
@@ -130,7 +128,7 @@ class NarrativeWorldScenario(Scenario):
 
     async def seed_demo_run(self, run: SimulationRun) -> None:
         if self.seed_builder is None:
-            msg = "NarrativeWorldScenario.seed_demo_run requires a database session"
+            msg = "BundleWorldScenario.seed_demo_run requires a database session"
             raise RuntimeError(msg)
         await self.seed_builder.seed_demo_run(run)
 
@@ -138,10 +136,6 @@ class NarrativeWorldScenario(Scenario):
         if not self.subject_alert_tracking_enabled:
             return
         if self.state_updater is None:
-            msg = "NarrativeWorldScenario.update_state_from_events requires a database session"
+            msg = "BundleWorldScenario.update_state_from_events requires a database session"
             raise RuntimeError(msg)
         await self.state_updater.persist_subject_alert(run_id, events)
-
-
-class BundleWorldScenario(NarrativeWorldScenario):
-    """Primary neutral alias for bundle-driven worlds."""

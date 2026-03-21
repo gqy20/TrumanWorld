@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.scenario.narrative_world.types import build_director_guidance
+from app.scenario.bundle_world.types import build_bundle_world_guidance
 from app.scenario.runtime_config import RuntimeRoleSemantics
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
@@ -70,7 +70,7 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
         current_status={"energy": 0.8},
         subject_alert_score=0.25,
         world_role="cast",
-        director_guidance=build_director_guidance(
+        director_guidance=build_bundle_world_guidance(
             scene_goal="soft_check_in",
             priority=None,
             message_hint="keep it casual",

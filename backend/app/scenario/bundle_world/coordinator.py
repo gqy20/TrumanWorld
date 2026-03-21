@@ -35,9 +35,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class NarrativeWorldCoordinator:
-    """Legacy implementation name kept for compatibility."""
-
+class BundleWorldCoordinator:
     def __init__(
         self,
         session: AsyncSession | None = None,
@@ -74,7 +72,7 @@ class NarrativeWorldCoordinator:
 
     async def observe_run(self, run_id: str, event_limit: int = 20) -> DirectorAssessment:
         if self.run_repo is None or self.agent_repo is None or self.event_repo is None:
-            msg = "NarrativeWorldCoordinator.observe_run requires a database session"
+            msg = "BundleWorldCoordinator.observe_run requires a database session"
             raise RuntimeError(msg)
         run = await self.run_repo.get(run_id)
         if run is None:
@@ -102,7 +100,7 @@ class NarrativeWorldCoordinator:
 
     async def build_director_plan(self, run_id: str, agents: list[Agent]) -> DirectorPlan | None:
         if self.run_repo is None:
-            msg = "NarrativeWorldCoordinator.build_director_plan requires a database session"
+            msg = "BundleWorldCoordinator.build_director_plan requires a database session"
             raise RuntimeError(msg)
 
         run = await self.run_repo.get(run_id)
@@ -376,7 +374,3 @@ class NarrativeWorldCoordinator:
                 payload=payload,
             )
         return None
-
-
-class BundleWorldCoordinator(NarrativeWorldCoordinator):
-    """Primary neutral alias for bundle-driven worlds."""
