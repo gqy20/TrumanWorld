@@ -32,7 +32,7 @@ def build_rule_facts(
         ),
         "target_location": _build_location_facts(target_location, intent.target_location_id),
         "world": _build_world_facts(world),
-        "policy": dict(package.policy_config.values),
+        "policy": _build_policy_facts(world, package),
     }
 
 
@@ -162,3 +162,65 @@ def _build_relationship_facts(
         "relation_type": relation_type,
         "relationship_level": relationship_level,
     }
+
+
+def _build_policy_facts(
+    world: WorldState,
+    package: WorldDesignRuntimePackage,
+) -> dict[str, Any]:
+    policy = dict(package.policy_config.values or {})
+    world_effects = getattr(world, "world_effects", {}) or {}
+
+    closed_locations = _merge_unique_str_lists(
+        policy.get("closed_locations"),
+        _active_effect_location_ids(
+            world,
+            world_effects.get("location_shutdowns"),
+        ),
+    )
+    if closed_locations:
+        policy["closed_locations"] = closed_locations
+
+    power_outage_locations = _merge_unique_str_lists(
+        policy.get("power_outage_locations"),
+        _active_effect_location_ids(
+            world,
+            world_effects.get("power_outages"),
+        ),
+    )
+    policy["power_outage_locations"] = power_outage_locations
+
+    return policy
+
+
+def _active_effect_location_ids(world: WorldState, effects: Any) -> list[str]:
+    if not isinstance(effects, list):
+        return []
+
+    active_location_ids: list[str] = []
+    current_tick = getattr(world, "current_tick", 0)
+    for effect in effects:
+        if not isinstance(effect, dict):
+            continue
+        location_id = effect.get("location_id")
+        if not isinstance(location_id, str) or not location_id:
+            continue
+        start_tick = effect.get("start_tick")
+        end_tick = effect.get("end_tick")
+        if isinstance(start_tick, int) and current_tick < start_tick:
+            continue
+        if isinstance(end_tick, int) and current_tick >= end_tick:
+            continue
+        active_location_ids.append(location_id)
+    return active_location_ids
+
+
+def _merge_unique_str_lists(*values: Any) -> list[str]:
+    merged: list[str] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if isinstance(item, str) and item not in merged:
+                merged.append(item)
+    return merged

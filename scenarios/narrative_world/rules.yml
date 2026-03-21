@@ -1,6 +1,46 @@
 version: 1
 
 rules:
+  - rule_id: location_closed_access
+    name: Location Closed Access
+    description: Moving into a closed location should be treated as a policy violation.
+    trigger:
+      action_types:
+        - move
+        - work
+        - talk
+        - rest
+    conditions:
+      - fact: target_location.id
+        op: in
+        value_from: policy.closed_locations
+    outcome:
+      decision: violates_rule
+      reason: location_closed
+      risk_level: medium
+      tags:
+        - closure
+    priority: 800
+
+  - rule_id: power_outage_work_restriction
+    name: Power Outage Work Restriction
+    description: Working in an outage-affected location should be treated as a policy violation.
+    trigger:
+      action_types:
+        - work
+    conditions:
+      - fact: actor.location_id
+        op: in
+        value_from: policy.power_outage_locations
+    outcome:
+      decision: violates_rule
+      reason: power_outage_restriction
+      risk_level: medium
+      tags:
+        - infrastructure
+        - outage
+    priority: 760
+
   - rule_id: late_night_stranger_talk_risk
     name: Late Night Stranger Talk Risk
     description: Deep-night conversations with strangers or weak ties increase narrative risk.

@@ -302,3 +302,93 @@ def test_narrative_world_assets_allow_family_talk_at_night_without_stranger_risk
     )
 
     assert result.decision == "allowed"
+
+
+def test_narrative_world_assets_mark_shutdown_location_move_as_violation():
+    from app.scenario.runtime.rule_evaluator import evaluate_rules
+    from app.scenario.runtime.world_design import load_world_design_runtime_package
+
+    world = WorldState(
+        current_time=datetime(2026, 3, 21, 10, 0, tzinfo=UTC),
+        current_tick=3,
+        world_effects={
+            "location_shutdowns": [
+                {
+                    "location_id": "plaza",
+                    "start_tick": 1,
+                    "end_tick": 6,
+                    "message": "Plaza closed",
+                }
+            ]
+        },
+        locations={
+            "home": LocationState(id="home", name="Home", capacity=4, occupants={"truman"}),
+            "plaza": LocationState(id="plaza", name="Plaza", capacity=6, location_type="plaza"),
+        },
+        agents={
+            "truman": AgentState(
+                id="truman",
+                name="Truman",
+                location_id="home",
+                status={"world_role": "truman"},
+            ),
+        },
+    )
+
+    result = evaluate_rules(
+        world=world,
+        intent=ActionIntent(agent_id="truman", action_type="move", target_location_id="plaza"),
+        package=load_world_design_runtime_package("narrative_world", force_reload=True),
+    )
+
+    assert result.decision == "violates_rule"
+    assert result.primary_rule_id == "location_closed_access"
+    assert result.reason == "location_closed"
+
+
+def test_narrative_world_assets_mark_work_in_power_outage_location_as_violation():
+    from app.scenario.runtime.rule_evaluator import evaluate_rules
+    from app.scenario.runtime.world_design import load_world_design_runtime_package
+
+    world = WorldState(
+        current_time=datetime(2026, 3, 21, 14, 0, tzinfo=UTC),
+        current_tick=4,
+        world_effects={
+            "power_outages": [
+                {
+                    "location_id": "hospital",
+                    "start_tick": 2,
+                    "end_tick": 8,
+                    "message": "Hospital outage",
+                }
+            ]
+        },
+        locations={
+            "hospital": LocationState(
+                id="hospital",
+                name="Hospital",
+                capacity=8,
+                occupants={"meryl"},
+                location_type="hospital",
+            )
+        },
+        agents={
+            "meryl": AgentState(
+                id="meryl",
+                name="Meryl",
+                location_id="hospital",
+                workplace_id="hospital",
+                status={"world_role": "cast"},
+            ),
+        },
+    )
+
+    result = evaluate_rules(
+        world=world,
+        intent=ActionIntent(agent_id="meryl", action_type="work"),
+        package=load_world_design_runtime_package("narrative_world", force_reload=True),
+    )
+
+    assert result.decision == "violates_rule"
+    assert result.primary_rule_id == "power_outage_work_restriction"
+    assert result.reason == "power_outage_restriction"

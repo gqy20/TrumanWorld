@@ -153,3 +153,88 @@ def test_resolve_fact_value_raises_for_unknown_namespace_or_path():
 
     with pytest.raises(KeyError):
         resolve_fact_value(facts, "actor.profile.secret")
+
+
+def test_build_rule_facts_merges_active_world_effects_into_policy_overlay():
+    from app.scenario.runtime.fact_resolver import build_rule_facts, resolve_fact_value
+
+    world = WorldState(
+        current_time=datetime(2026, 3, 21, 9, 0, tzinfo=UTC),
+        current_tick=4,
+        world_effects={
+            "location_shutdowns": [
+                {
+                    "location_id": "plaza",
+                    "start_tick": 1,
+                    "end_tick": 6,
+                    "message": "Plaza closed for maintenance",
+                }
+            ],
+            "power_outages": [
+                {
+                    "location_id": "hospital",
+                    "start_tick": 2,
+                    "end_tick": 5,
+                    "message": "Hospital outage",
+                }
+            ],
+        },
+        locations={
+            "home": LocationState(id="home", name="Home", capacity=2, occupants={"truman"}),
+            "plaza": LocationState(id="plaza", name="Plaza", capacity=4, location_type="plaza"),
+            "hospital": LocationState(
+                id="hospital",
+                name="Hospital",
+                capacity=4,
+                location_type="hospital",
+            ),
+        },
+        agents={
+            "truman": AgentState(id="truman", name="Truman", location_id="home", status={}),
+        },
+    )
+    intent = ActionIntent(agent_id="truman", action_type="move", target_location_id="plaza")
+
+    facts = build_rule_facts(world=world, intent=intent, package=_build_package())
+
+    assert resolve_fact_value(facts, "policy.closed_locations") == ["cafe", "plaza"]
+    assert resolve_fact_value(facts, "policy.power_outage_locations") == ["hospital"]
+
+
+def test_build_rule_facts_ignores_expired_world_effects_when_building_policy_overlay():
+    from app.scenario.runtime.fact_resolver import build_rule_facts, resolve_fact_value
+
+    world = WorldState(
+        current_time=datetime(2026, 3, 21, 9, 0, tzinfo=UTC),
+        current_tick=8,
+        world_effects={
+            "location_shutdowns": [
+                {
+                    "location_id": "plaza",
+                    "start_tick": 1,
+                    "end_tick": 6,
+                    "message": "Plaza closed for maintenance",
+                }
+            ],
+            "power_outages": [
+                {
+                    "location_id": "hospital",
+                    "start_tick": 2,
+                    "end_tick": 5,
+                    "message": "Hospital outage",
+                }
+            ],
+        },
+        locations={
+            "home": LocationState(id="home", name="Home", capacity=2, occupants={"truman"}),
+        },
+        agents={
+            "truman": AgentState(id="truman", name="Truman", location_id="home", status={}),
+        },
+    )
+    intent = ActionIntent(agent_id="truman", action_type="rest")
+
+    facts = build_rule_facts(world=world, intent=intent, package=_build_package())
+
+    assert resolve_fact_value(facts, "policy.closed_locations") == ["cafe"]
+    assert resolve_fact_value(facts, "policy.power_outage_locations") == []

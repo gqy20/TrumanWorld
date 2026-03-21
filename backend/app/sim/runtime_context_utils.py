@@ -113,7 +113,15 @@ def build_agent_world_context(
     if world_role:
         context["world_role"] = world_role
     _inject_world_effects(context, world, current_location_id)
-    _inject_world_rules_summary(context, world, agent_id, current_location_id, recent_events or [])
+    _inject_world_rules_summary(
+        context,
+        world,
+        agent_id,
+        current_location_id,
+        nearby_agent_id,
+        workplace_location_id,
+        recent_events or [],
+    )
     if director_guidance:
         context.update(_normalize_director_guidance(director_guidance))
 
@@ -271,16 +279,11 @@ def _inject_world_effects(
     active_world_effects: list[str] = []
     current_location_effects: list[dict] = []
 
-    for outage in world_effects.get("power_outages", []):
-        if not isinstance(outage, dict):
-            continue
-        start_tick = outage.get("start_tick")
-        end_tick = outage.get("end_tick")
-        current_tick = getattr(world, "current_tick", 0)
-        if isinstance(start_tick, int) and current_tick < start_tick:
-            continue
-        if isinstance(end_tick, int) and current_tick >= end_tick:
-            continue
+    for outage in _iter_active_location_effects(
+        world,
+        world_effects.get("power_outages"),
+        current_location_id=None,
+    ):
         active_world_effects.append("power_outage")
         if current_location_id and outage.get("location_id") == current_location_id:
             current_location_effects.append(
@@ -289,6 +292,22 @@ def _inject_world_effects(
                     "location_id": outage.get("location_id"),
                     "message": outage.get("message"),
                     "end_tick": outage.get("end_tick"),
+                }
+            )
+
+    for shutdown in _iter_active_location_effects(
+        world,
+        world_effects.get("location_shutdowns"),
+        current_location_id=None,
+    ):
+        active_world_effects.append("location_shutdown")
+        if current_location_id and shutdown.get("location_id") == current_location_id:
+            current_location_effects.append(
+                {
+                    "effect_type": "location_shutdown",
+                    "location_id": shutdown.get("location_id"),
+                    "message": shutdown.get("message"),
+                    "end_tick": shutdown.get("end_tick"),
                 }
             )
 
@@ -304,27 +323,37 @@ def _inject_world_rules_summary(
     world: WorldState,
     agent_id: str | None,
     current_location_id: str | None,
+    nearby_agent_id: str | None,
+    workplace_location_id: str | None,
     recent_events: list[dict],
 ) -> None:
+    available_actions = _derive_available_actions(
+        world,
+        current_location_id=current_location_id,
+        nearby_agent_id=nearby_agent_id,
+        workplace_location_id=workplace_location_id,
+    )
     policy_notices: list[str] = []
     blocked_constraints: list[str] = []
     current_risks: list[str] = []
     recent_rule_feedback: list[str] = []
 
     world_effects = getattr(world, "world_effects", {}) or {}
-    current_tick = getattr(world, "current_tick", 0)
-    for outage in world_effects.get("power_outages", []):
-        if not isinstance(outage, dict):
-            continue
-        if current_location_id and outage.get("location_id") != current_location_id:
-            continue
-        start_tick = outage.get("start_tick")
-        end_tick = outage.get("end_tick")
-        if isinstance(start_tick, int) and current_tick < start_tick:
-            continue
-        if isinstance(end_tick, int) and current_tick >= end_tick:
-            continue
-        message = outage.get("message")
+    for effect in _iter_active_location_effects(
+        world,
+        world_effects.get("power_outages"),
+        current_location_id=current_location_id,
+    ):
+        message = effect.get("message")
+        if isinstance(message, str) and message:
+            policy_notices.append(message)
+
+    for effect in _iter_active_location_effects(
+        world,
+        world_effects.get("location_shutdowns"),
+        current_location_id=current_location_id,
+    ):
+        message = effect.get("message")
         if isinstance(message, str) and message:
             policy_notices.append(message)
 
@@ -364,10 +393,76 @@ def _inject_world_rules_summary(
         if isinstance(reason, str) and reason and reason not in recent_rule_feedback:
             recent_rule_feedback.append(reason)
 
-    if policy_notices or blocked_constraints or current_risks or recent_rule_feedback:
+    if available_actions or policy_notices or blocked_constraints or current_risks or recent_rule_feedback:
         context["world_rules_summary"] = {
+            "available_actions": available_actions,
             "policy_notices": policy_notices,
             "blocked_constraints": blocked_constraints,
             "current_risks": current_risks,
             "recent_rule_feedback": recent_rule_feedback,
         }
+
+
+def _iter_active_location_effects(
+    world: WorldState,
+    effects: object,
+    *,
+    current_location_id: str | None,
+) -> list[dict]:
+    if not isinstance(effects, list):
+        return []
+
+    current_tick = getattr(world, "current_tick", 0)
+    active_effects: list[dict] = []
+    for effect in effects:
+        if not isinstance(effect, dict):
+            continue
+        if current_location_id and effect.get("location_id") != current_location_id:
+            continue
+        start_tick = effect.get("start_tick")
+        end_tick = effect.get("end_tick")
+        if isinstance(start_tick, int) and current_tick < start_tick:
+            continue
+        if isinstance(end_tick, int) and current_tick >= end_tick:
+            continue
+        active_effects.append(effect)
+    return active_effects
+
+
+def _derive_available_actions(
+    world: WorldState,
+    *,
+    current_location_id: str | None,
+    nearby_agent_id: str | None,
+    workplace_location_id: str | None,
+) -> list[str]:
+    actions: list[str] = ["move"]
+    location_has_shutdown = any(
+        effect.get("location_id") == current_location_id
+        for effect in _iter_active_location_effects(
+            world,
+            (getattr(world, "world_effects", {}) or {}).get("location_shutdowns"),
+            current_location_id=None,
+        )
+    )
+    if nearby_agent_id and not location_has_shutdown:
+        actions.append("talk")
+    actions.append("rest")
+
+    location = get_location(world, current_location_id) if current_location_id else None
+    location_type = location.location_type if location is not None else None
+    is_at_workplace = bool(workplace_location_id) and current_location_id == workplace_location_id
+    work_friendly_location = location_type in {"office", "hospital", "cafe", "shop"}
+    location_has_power_outage = any(
+        effect.get("location_id") == current_location_id
+        for effect in _iter_active_location_effects(
+            world,
+            (getattr(world, "world_effects", {}) or {}).get("power_outages"),
+            current_location_id=None,
+        )
+    )
+
+    if (is_at_workplace or work_friendly_location) and not location_has_power_outage and not location_has_shutdown:
+        actions.append("work")
+
+    return actions

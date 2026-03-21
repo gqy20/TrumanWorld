@@ -372,6 +372,43 @@ async def test_inject_power_outage_persists_world_effect_and_public_timeline_eve
 
 
 @pytest.mark.asyncio
+async def test_inject_shutdown_persists_location_shutdown_effect(client, db_session):
+    create_response = await client.post("/api/runs", json={"name": "director-run-shutdown"})
+    run_id = create_response.json()["id"]
+
+    square = (
+        await db_session.execute(
+            select(Location).where(Location.run_id == run_id, Location.location_type == "plaza")
+        )
+    ).scalar_one()
+
+    inject_response = await client.post(
+        f"/api/runs/{run_id}/director/events",
+        json={
+            "event_type": "shutdown",
+            "payload": {"message": "Town square closed", "duration_ticks": 4},
+            "location_id": square.id,
+            "importance": 0.8,
+        },
+    )
+    timeline_response = await client.get(f"/api/runs/{run_id}/timeline")
+
+    run = await db_session.get(SimulationRun, run_id)
+    world_effects = (run.metadata_json or {}).get("world_effects", {})
+    location_shutdowns = world_effects.get("location_shutdowns", [])
+
+    assert inject_response.status_code == 200
+    assert inject_response.json()["status"] == "queued"
+    assert len(location_shutdowns) == 1
+    assert location_shutdowns[0]["location_id"] == square.id
+    assert location_shutdowns[0]["message"] == "Town square closed"
+    assert location_shutdowns[0]["end_tick"] == location_shutdowns[0]["start_tick"] + 4
+
+    timeline = timeline_response.json()
+    assert any(event["event_type"] == "director_shutdown" for event in timeline["events"])
+
+
+@pytest.mark.asyncio
 async def test_delete_run_removes_related_records_and_cleans_pool(
     client, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ):

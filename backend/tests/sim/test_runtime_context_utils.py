@@ -51,6 +51,14 @@ def _build_world() -> WorldState:
 def test_build_agent_world_context_includes_location_occupants_and_guidance():
     world = _build_world()
     world.world_effects = {
+        "location_shutdowns": [
+            {
+                "location_id": "cafe",
+                "start_tick": 0,
+                "end_tick": 3,
+                "message": "Cafe temporarily closed",
+            }
+        ],
         "power_outages": [
             {
                 "location_id": "cafe",
@@ -103,9 +111,10 @@ def test_build_agent_world_context_includes_location_occupants_and_guidance():
     assert context["subject_alert_score"] == 0.25
     assert "truman_suspicion_score" not in context
     assert context["workplace_location_id"] == "cafe"
-    assert context["active_world_effects"] == ["power_outage"]
+    assert context["active_world_effects"] == ["location_shutdown", "power_outage"]
     assert context["current_location_power_status"] == "off"
     assert context["current_location_effects"][0]["effect_type"] == "power_outage"
+    assert context["current_location_effects"][1]["effect_type"] == "location_shutdown"
 
 
 def test_build_agent_world_context_includes_minimal_world_rules_summary():
@@ -156,6 +165,92 @@ def test_build_agent_world_context_includes_minimal_world_rules_summary():
     assert context["world_rules_summary"]["current_risks"] == []
     assert context["world_rules_summary"]["recent_rule_feedback"] == [
         "location_closed",
+    ]
+
+
+def test_build_agent_world_context_includes_available_actions_for_stable_context():
+    world = _build_world()
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="talk",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        workplace_location_id="cafe",
+        recent_events=[],
+    )
+
+    assert context["world_rules_summary"]["available_actions"] == [
+        "move",
+        "talk",
+        "rest",
+        "work",
+    ]
+
+
+def test_build_agent_world_context_removes_work_from_available_actions_during_power_outage():
+    world = _build_world()
+    world.world_effects = {
+        "power_outages": [
+            {
+                "location_id": "cafe",
+                "start_tick": 0,
+                "end_tick": 3,
+                "message": "Cafe blackout",
+            }
+        ]
+    }
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="work",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        workplace_location_id="cafe",
+        recent_events=[],
+    )
+
+    assert context["world_rules_summary"]["available_actions"] == [
+        "move",
+        "talk",
+        "rest",
+    ]
+
+
+def test_build_agent_world_context_removes_talk_and_work_from_available_actions_during_shutdown():
+    world = _build_world()
+    world.world_effects = {
+        "location_shutdowns": [
+            {
+                "location_id": "cafe",
+                "start_tick": 0,
+                "end_tick": 3,
+                "message": "Cafe temporarily closed",
+            }
+        ]
+    }
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="talk",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        workplace_location_id="cafe",
+        recent_events=[],
+    )
+
+    assert context["world_rules_summary"]["available_actions"] == [
+        "move",
+        "rest",
     ]
 
 
@@ -219,6 +314,70 @@ def test_build_agent_world_context_derives_current_risks_from_governance_attenti
     assert context["world_rules_summary"]["current_risks"] == [
         "你最近更容易受到注意，异常行为风险正在升高"
     ]
+
+
+def test_build_agent_world_context_includes_shutdown_notice_in_world_rules_summary():
+    world = _build_world()
+    world.current_tick = 2
+    world.world_effects = {
+        "location_shutdowns": [
+            {
+                "location_id": "cafe",
+                "start_tick": 1,
+                "end_tick": 5,
+                "message": "Cafe temporarily closed",
+            }
+        ]
+    }
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="rest",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        recent_events=[],
+    )
+
+    assert context["world_rules_summary"]["policy_notices"] == ["Cafe temporarily closed"]
+    assert context["world_rules_summary"]["blocked_constraints"] == []
+    assert context["world_rules_summary"]["recent_rule_feedback"] == []
+
+
+def test_build_agent_world_context_ignores_expired_shutdown_notice():
+    world = _build_world()
+    world.current_tick = 6
+    world.world_effects = {
+        "location_shutdowns": [
+            {
+                "location_id": "cafe",
+                "start_tick": 1,
+                "end_tick": 5,
+                "message": "Cafe temporarily closed",
+            }
+        ]
+    }
+
+    context = build_agent_world_context(
+        agent_id="alice",
+        world=world,
+        current_goal="rest",
+        current_location_id="cafe",
+        home_location_id="home",
+        nearby_agent_id="bob",
+        current_status={"energy": 0.8},
+        recent_events=[],
+    )
+
+    assert context["world_rules_summary"]["available_actions"] == [
+        "move",
+        "talk",
+        "rest",
+        "work",
+    ]
+    assert context["world_rules_summary"]["policy_notices"] == []
 
 
 def test_build_agent_world_context_omits_subject_alert_score_when_disabled():

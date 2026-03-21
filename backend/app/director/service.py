@@ -93,9 +93,10 @@ class DirectorEventService:
             location_hint=plan.location_hint,
         )
 
-        if event_type == "power_outage":
-            await self._persist_power_outage_effect(
+        if event_type in {"power_outage", "shutdown"}:
+            await self._persist_world_effect(
                 run=run,
+                effect_type=event_type,
                 location_id=location_id,
                 payload=payload,
             )
@@ -113,10 +114,11 @@ class DirectorEventService:
         event.visibility = "public" if event_type == "power_outage" else "system"
         await self.event_repo.create(event)
 
-    async def _persist_power_outage_effect(
+    async def _persist_world_effect(
         self,
         *,
         run,
+        effect_type: str,
         location_id: str | None,
         payload: dict,
     ) -> None:
@@ -125,7 +127,8 @@ class DirectorEventService:
 
         metadata = dict(run.metadata_json or {})
         world_effects = dict(metadata.get("world_effects") or {})
-        power_outages = list(world_effects.get("power_outages") or [])
+        effect_key = _resolve_world_effect_key(effect_type)
+        effects = list(world_effects.get(effect_key) or [])
         duration_ticks = payload.get("duration_ticks", 3)
         try:
             duration_ticks = int(duration_ticks)
@@ -133,7 +136,7 @@ class DirectorEventService:
             duration_ticks = 3
         duration_ticks = max(1, duration_ticks)
 
-        power_outages.append(
+        effects.append(
             {
                 "location_id": location_id,
                 "start_tick": run.current_tick,
@@ -141,8 +144,17 @@ class DirectorEventService:
                 "message": payload.get("message", ""),
             }
         )
-        world_effects["power_outages"] = power_outages
+        world_effects[effect_key] = effects
         metadata["world_effects"] = world_effects
         run.metadata_json = metadata
         await self.run_repo.session.commit()
         await self.run_repo.session.refresh(run)
+
+
+def _resolve_world_effect_key(event_type: str) -> str:
+    if event_type == "power_outage":
+        return "power_outages"
+    if event_type == "shutdown":
+        return "location_shutdowns"
+    msg = f"Unsupported world effect type: {event_type}"
+    raise ValueError(msg)
