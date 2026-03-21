@@ -199,6 +199,46 @@ def test_narrative_world_scenario_defaults_subject_alert_tracking_enabled():
 async def test_bundle_world_scenario_assembles_modules_from_manifest(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
+    class CustomDirectorPolicy:
+        def __init__(self, session, *, scenario_id: str) -> None:
+            self.session = session
+            self.scenario_id = scenario_id
+            self.coordinator = object()
+
+        async def observe_run(self, run_id: str, event_limit: int = 20):
+            return None
+
+        def assess(self, *, run_id: str, current_tick: int, agents: list, events: list):
+            return None
+
+        async def build_director_plan(self, run_id: str, agents: list):
+            return None
+
+        async def persist_director_plan(self, run_id: str, plan) -> None:
+            return None
+
+    class CustomAgentContextPolicy:
+        def __init__(self, *, scenario_id: str, semantics) -> None:
+            self.scenario_id = scenario_id
+            self.semantics = semantics
+
+        def configure_agent_context(self, context_builder) -> None:
+            return None
+
+    class CustomAllowedActionsPolicy:
+        def __init__(self) -> None:
+            self.actions = ["observe", "signal"]
+
+        def configure_runtime(self, agent_runtime) -> None:
+            agent_runtime.configure_allowed_actions(self.allowed_actions())
+
+        def allowed_actions(self) -> list[str]:
+            return list(self.actions)
+
+    class CustomProfileMergePolicy:
+        def merge_agent_profile(self, agent, plan):
+            return {"profile_source": "custom"}
+
     class CustomFallbackPolicy:
         def __init__(self, *, scenario_id: str, semantics) -> None:
             self.scenario_id = scenario_id
@@ -229,6 +269,18 @@ async def test_bundle_world_scenario_assembles_modules_from_manifest(
     bundle_module_registry.get_bundle_world_module_registry().register_fallback_policy(
         "custom_fallback", CustomFallbackPolicy
     )
+    bundle_module_registry.get_bundle_world_module_registry().register_director_policy(
+        "custom_director", CustomDirectorPolicy
+    )
+    bundle_module_registry.get_bundle_world_module_registry().register_agent_context_policy(
+        "custom_context", CustomAgentContextPolicy
+    )
+    bundle_module_registry.get_bundle_world_module_registry().register_allowed_actions_policy(
+        "custom_actions", CustomAllowedActionsPolicy
+    )
+    bundle_module_registry.get_bundle_world_module_registry().register_profile_merge_policy(
+        "custom_profile_merge", CustomProfileMergePolicy
+    )
     bundle_module_registry.get_bundle_world_module_registry().register_seed_policy(
         "custom_seed", CustomSeedPolicy
     )
@@ -246,6 +298,10 @@ async def test_bundle_world_scenario_assembles_modules_from_manifest(
                 "version: 1",
                 "adapter: bundle_world",
                 "modules:",
+                "  director_policy: custom_director",
+                "  agent_context_policy: custom_context",
+                "  allowed_actions_policy: custom_actions",
+                "  profile_merge_policy: custom_profile_merge",
                 "  fallback_policy: custom_fallback",
                 "  seed_policy: custom_seed",
                 "  state_update_policy: custom_state",
@@ -260,11 +316,20 @@ async def test_bundle_world_scenario_assembles_modules_from_manifest(
     scenario = BundleWorldScenario(db_session, scenario_id="hero_world")
 
     assert scenario.module_ids["fallback_policy"] == "custom_fallback"
+    assert scenario.module_ids["director_policy"] == "custom_director"
+    assert scenario.module_ids["agent_context_policy"] == "custom_context"
+    assert scenario.module_ids["allowed_actions_policy"] == "custom_actions"
+    assert scenario.module_ids["profile_merge_policy"] == "custom_profile_merge"
     assert scenario.module_ids["seed_policy"] == "custom_seed"
     assert scenario.module_ids["state_update_policy"] == "custom_state"
+    assert isinstance(scenario.director_policy, CustomDirectorPolicy)
+    assert isinstance(scenario.agent_context_policy, CustomAgentContextPolicy)
+    assert isinstance(scenario.allowed_actions_policy, CustomAllowedActionsPolicy)
+    assert isinstance(scenario.profile_merge_policy, CustomProfileMergePolicy)
     assert isinstance(scenario.fallback_policy, CustomFallbackPolicy)
     assert isinstance(scenario.seed_builder, CustomSeedPolicy)
     assert isinstance(scenario.state_updater, CustomStateUpdatePolicy)
+    assert scenario.allowed_actions() == ["observe", "signal"]
 
 
 @pytest.mark.asyncio

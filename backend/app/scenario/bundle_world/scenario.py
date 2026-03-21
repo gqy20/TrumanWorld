@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING
 
-from app.agent.context_builder import ScenarioContextHooks
 from app.scenario.base import Scenario
 from app.scenario.bundle_registry import get_scenario_bundle
-from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
 from app.scenario.bundle_world.module_registry import get_bundle_world_module_registry
-from app.scenario.bundle_world.rules import (
-    build_role_context,
-    build_scene_guidance,
-    build_world_common_knowledge,
-    filter_world_for_role,
-)
 from app.scenario.bundle_world.state import build_alert_state_semantics
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import AgentProfile, ScenarioGuidance
@@ -42,6 +33,16 @@ class BundleWorldScenario(Scenario):
             "fallback_policy": modules.fallback_policy if modules is not None else None,
             "seed_policy": modules.seed_policy if modules is not None else None,
             "state_update_policy": modules.state_update_policy if modules is not None else None,
+            "director_policy": modules.director_policy if modules is not None else None,
+            "agent_context_policy": (
+                modules.agent_context_policy if modules is not None else None
+            ),
+            "allowed_actions_policy": (
+                modules.allowed_actions_policy if modules is not None else None
+            ),
+            "profile_merge_policy": (
+                modules.profile_merge_policy if modules is not None else None
+            ),
         }
         self.subject_alert_tracking_enabled = (
             capabilities.subject_alert_tracking
@@ -49,11 +50,27 @@ class BundleWorldScenario(Scenario):
             else True
         )
         module_registry = get_bundle_world_module_registry()
-        self.coordinator = BundleWorldCoordinator(session, scenario_id=scenario_id)
+        self.director_policy = module_registry.build_director_policy(
+            self.module_ids["director_policy"] or "standard_director",
+            session,
+            scenario_id=scenario_id,
+        )
+        self.coordinator = getattr(self.director_policy, "coordinator", None)
         self.fallback_policy = module_registry.build_fallback_policy(
             self.module_ids["fallback_policy"] or "social_default",
             scenario_id=scenario_id,
             semantics=self.runtime_config,
+        )
+        self.agent_context_policy = module_registry.build_agent_context_policy(
+            self.module_ids["agent_context_policy"] or "standard_context",
+            scenario_id=scenario_id,
+            semantics=self.runtime_config,
+        )
+        self.allowed_actions_policy = module_registry.build_allowed_actions_policy(
+            self.module_ids["allowed_actions_policy"] or "standard_actions",
+        )
+        self.profile_merge_policy = module_registry.build_profile_merge_policy(
+            self.module_ids["profile_merge_policy"] or "director_guidance_merge",
         )
         self.state_updater = (
             module_registry.build_state_update_policy(
@@ -78,22 +95,15 @@ class BundleWorldScenario(Scenario):
         return BundleWorldScenario(session, scenario_id=self.scenario_id)
 
     def configure_runtime(self, agent_runtime: AgentRuntime) -> None:
-        agent_runtime.configure_allowed_actions(self.allowed_actions())
+        self.allowed_actions_policy.configure_runtime(agent_runtime)
         self.fallback_policy.configure_runtime(agent_runtime)
         self.configure_agent_context(agent_runtime.context_builder)
 
     def configure_agent_context(self, context_builder) -> None:
-        context_builder.configure_policy(
-            ScenarioContextHooks(
-                world_filter_hook=partial(filter_world_for_role, semantics=self.runtime_config),
-                role_context_hook=partial(build_role_context, semantics=self.runtime_config),
-                scene_guidance_hook=partial(build_scene_guidance, semantics=self.runtime_config),
-                world_knowledge_hook=partial(build_world_common_knowledge, self.scenario_id),
-            )
-        )
+        self.agent_context_policy.configure_agent_context(context_builder)
 
     async def observe_run(self, run_id: str, event_limit: int = 20):
-        return await self.coordinator.observe_run(run_id, event_limit=event_limit)
+        return await self.director_policy.observe_run(run_id, event_limit=event_limit)
 
     def assess(
         self,
@@ -103,7 +113,7 @@ class BundleWorldScenario(Scenario):
         agents: list[Agent],
         events: list[Event],
     ):
-        return self.coordinator.assess(
+        return self.director_policy.assess(
             run_id=run_id,
             current_tick=current_tick,
             agents=agents,
@@ -111,16 +121,16 @@ class BundleWorldScenario(Scenario):
         )
 
     async def build_director_plan(self, run_id: str, agents: list[Agent]):
-        return await self.coordinator.build_director_plan(run_id, agents)
+        return await self.director_policy.build_director_plan(run_id, agents)
 
     async def persist_director_plan(self, run_id: str, plan) -> None:
-        await self.coordinator.persist_director_plan(run_id, plan)
+        await self.director_policy.persist_director_plan(run_id, plan)
 
     def merge_agent_profile(self, agent: Agent, plan) -> AgentProfile:
-        return self.coordinator.merge_agent_profile(agent, plan)
+        return self.profile_merge_policy.merge_agent_profile(agent, plan)
 
     def allowed_actions(self) -> list[str]:
-        return ["move", "talk", "work", "rest"]
+        return self.allowed_actions_policy.allowed_actions()
 
     def fallback_intent(
         self,

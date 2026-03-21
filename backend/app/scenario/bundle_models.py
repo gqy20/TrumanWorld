@@ -62,6 +62,10 @@ class ScenarioModules(BaseModel):
     fallback_policy: str | None = None
     seed_policy: str | None = None
     state_update_policy: str | None = None
+    director_policy: str | None = None
+    agent_context_policy: str | None = None
+    allowed_actions_policy: str | None = None
+    profile_merge_policy: str | None = None
 
 
 class ScenarioBundle(BaseModel):
