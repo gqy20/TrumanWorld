@@ -25,6 +25,7 @@ jest.mock("@/lib/simulation-protocol", () => ({
 
 const mockGetEventMeta = eventUtils.getEventMeta as jest.MockedFunction<typeof eventUtils.getEventMeta>;
 const mockDescribeWorldEvent = eventUtils.describeWorldEvent as jest.MockedFunction<typeof eventUtils.describeWorldEvent>;
+const mockGetEventExplanations = eventUtils.getEventExplanations as jest.MockedFunction<typeof eventUtils.getEventExplanations>;
 
 describe("EventCard", () => {
   const mockEvent: WorldEvent = {
@@ -49,6 +50,7 @@ describe("EventCard", () => {
       color: "#10b981",
     });
     mockDescribeWorldEvent.mockReturnValue("Alice 移动到了 咖啡店");
+    mockGetEventExplanations.mockReturnValue([]);
   });
 
   it("renders event description", () => {
@@ -210,5 +212,29 @@ describe("EventCard", () => {
     );
 
     expect(screen.queryByText(/⭐/)).not.toBeInTheDocument();
+  });
+
+  it("renders explanation badges when event has explanation metadata", () => {
+    mockGetEventExplanations.mockReturnValue([
+      {
+        kind: "relationship",
+        text: "High-risk social contact reduced trust and affinity gains.",
+        tone: "rose",
+      },
+    ]);
+
+    render(
+      <EventCard
+        event={mockEvent}
+        index={0}
+        isLatest={false}
+        agentNameMap={agentNameMap}
+        locationNameMap={locationNameMap}
+      />
+    );
+
+    expect(
+      screen.getByText("High-risk social contact reduced trust and affinity gains."),
+    ).toBeInTheDocument();
   });
 });

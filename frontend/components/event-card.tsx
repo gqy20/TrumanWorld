@@ -8,7 +8,7 @@ import {
   EVENT_TALK,
 } from "@/lib/simulation-protocol";
 import type { WorldEvent } from "@/lib/types";
-import { describeWorldEvent, getEventMeta } from "@/lib/event-utils";
+import { describeWorldEvent, getEventExplanations, getEventMeta } from "@/lib/event-utils";
 
 interface EventCardProps {
   event: WorldEvent;
@@ -33,6 +33,7 @@ export function EventCard({
     event.event_type === EVENT_CONVERSATION_JOINED;
 
   const description = describeWorldEvent(event, agentNameMap, locationNameMap);
+  const explanations = getEventExplanations(event);
   const messageText = event.payload.message;
   const hasMessage = typeof messageText === "string" && messageText.length > 0;
   const showTalkHint =
@@ -92,6 +93,13 @@ export function EventCard({
                 <p className="mt-0.5 text-xs text-gray-400">
                   💭 正在交谈中...
                 </p>
+              )}
+              {explanations.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {explanations.map((item, idx) => (
+                    <ExplanationBadge key={`${item.kind}-${idx}`} item={item} />
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -153,6 +161,24 @@ function EventTag({ label, type }: { label: string; type: "actor" | "target" | "
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] ${colors[type]}`}>
       {label}
+    </span>
+  );
+}
+
+function ExplanationBadge({
+  item,
+}: {
+  item: { kind: "relationship" | "risk"; text: string; tone: "rose" | "amber" | "sky" };
+}) {
+  const toneClasses = {
+    rose: "bg-rose-50 text-rose-700 border border-rose-100",
+    amber: "bg-amber-50 text-amber-700 border border-amber-100",
+    sky: "bg-sky-50 text-sky-700 border border-sky-100",
+  };
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] ${toneClasses[item.tone]}`}>
+      {item.text}
     </span>
   );
 }

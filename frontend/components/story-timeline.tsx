@@ -252,6 +252,24 @@ function CompactEventItem({ event }: CompactEventItemProps) {
       <span className="text-sm">{event.icon}</span>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-slate-700 leading-tight">{event.description}</p>
+        {event.explanations && event.explanations.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {event.explanations.map((explanation, index) => (
+              <span
+                key={`${event.id}-explanation-${index}`}
+                className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                  explanation.tone === "amber"
+                    ? "bg-amber-100 text-amber-700"
+                    : explanation.tone === "rose"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-sky-100 text-sky-700"
+                }`}
+              >
+                {explanation.text}
+              </span>
+            ))}
+          </div>
+        )}
         {event.locationName && (
           <p className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">
             <span className="inline-block h-1 w-1 rounded-full bg-slate-300" />

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/modal";
 import { getApiBaseUrl } from "@/lib/api";
 import type { AgentSummary, TimelineEvent, TimelineResponse } from "@/lib/types";
-import { describeTimelineEvent, getEventMeta } from "@/lib/event-utils";
+import { describeTimelineEvent, getEventExplanations, getEventMeta } from "@/lib/event-utils";
 import { simDayLabelFromIso, tickToSimDayTime } from "@/lib/world-utils";
 
 const EVENT_TYPE_OPTIONS = [
@@ -543,6 +543,7 @@ interface EventCardProps {
 function EventCard({ event }: EventCardProps) {
   const meta = getEventMeta(event.event_type);
   const description = describeTimelineEvent(event);
+  const explanations = getEventExplanations(event);
   const actorName = event.payload.actor_name;
   // 移动事件显示目的地，其他事件显示当前所在位置
   const locationName =
@@ -590,6 +591,24 @@ function EventCard({ event }: EventCardProps) {
           重要度 {event.importance ?? 0}
         </span>
       </div>
+      {explanations.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {explanations.map((item, idx) => (
+            <span
+              key={`${item.kind}-${idx}`}
+              className={`rounded-full px-2 py-0.5 text-[10px] ${
+                item.tone === "rose"
+                  ? "border border-rose-100 bg-rose-50 text-rose-700"
+                  : item.tone === "amber"
+                    ? "border border-amber-100 bg-amber-50 text-amber-700"
+                    : "border border-sky-100 bg-sky-50 text-sky-700"
+              }`}
+            >
+              {item.text}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -116,7 +116,7 @@ export function RunList({ runs }: RunListProps) {
             />
 
             <div className="p-5 pl-6">
-              {/* 头部：名称 + 删除按钮 */}
+              {/* 头部：名称 + 操作按钮组 */}
               <div className="flex items-start justify-between gap-2">
                 <button
                   type="button"
@@ -131,28 +131,38 @@ export function RunList({ runs }: RunListProps) {
                     <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700">
                       {scenarioName}
                     </span>
-                    {run.scenario_type && (
-                      <span className="font-mono text-[10px] text-slate-400">{run.scenario_type}</span>
-                    )}
                   </div>
                 </button>
-                {canWrite ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* 进入世界图标按钮 */}
                   <button
                     type="button"
-                    onClick={() => handleDelete(run.id)}
-                    disabled={isPending && deletingId === run.id}
-                    className="shrink-0 rounded-lg p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400 disabled:opacity-50"
-                    title="删除"
+                    onClick={() => handleWorldClick(run)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-moss/10 hover:text-moss"
+                    title="进入世界"
                   >
-                    {deletingId === run.id ? (
-                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-red-400" />
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                      </svg>
-                    )}
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="9" /><path d="M12 3a15 15 0 0 1 0 18M3 12h18" />
+                    </svg>
                   </button>
-                ) : null}
+                  {canWrite ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(run.id)}
+                      disabled={isPending && deletingId === run.id}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-red-50 hover:text-red-400 disabled:opacity-50"
+                      title="删除"
+                    >
+                      {deletingId === run.id ? (
+                        <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-red-400" />
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        </svg>
+                      )}
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               {/* Tick 号 - 大字体突出显示 */}
@@ -231,17 +241,6 @@ export function RunList({ runs }: RunListProps) {
                 </div>
               )}
 
-              {/* 进入世界按钮 */}
-              <button
-                type="button"
-                onClick={() => handleWorldClick(run)}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-moss px-4 py-2.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-moss/90 hover:shadow-md active:scale-[0.98]"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="9" /><path d="M12 3a15 15 0 0 1 0 18M3 12h18" />
-                </svg>
-                进入世界
-              </button>
             </div>
             </div>
           );

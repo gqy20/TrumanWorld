@@ -26,6 +26,12 @@ type EventMeta = {
   color: string;
 };
 
+export type EventExplanation = {
+  kind: "relationship" | "risk";
+  text: string;
+  tone: "rose" | "amber" | "sky";
+};
+
 function looksLikeOpaqueAgentId(value: string): boolean {
   return /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value);
 }
@@ -295,4 +301,73 @@ export function describeAgentEvent(event: AgentDetails["recent_events"][number])
   }
 
   return event.event_type;
+}
+
+function resolveRuleReasonLabel(reason: string): string {
+  const labels: Record<string, string> = {
+    late_night_talk_risk: "深夜社交风险",
+    subject_proximity_risk: "主体附近异常互动",
+    sensitive_location_social_risk: "敏感地点社交风险",
+    location_closed: "地点已关闭",
+    location_full: "地点已满员",
+  };
+  return labels[reason] ?? reason;
+}
+
+function readRelationshipImpactSummary(payload: Record<string, unknown>): string | null {
+  const relationshipImpact = payload.relationship_impact;
+  if (!relationshipImpact || typeof relationshipImpact !== "object") {
+    return null;
+  }
+  const summary = (relationshipImpact as Record<string, unknown>).summary;
+  return typeof summary === "string" && summary.trim().length > 0 ? summary : null;
+}
+
+function readRuleReason(payload: Record<string, unknown>): string | null {
+  const ruleEvaluation = payload.rule_evaluation;
+  if (!ruleEvaluation || typeof ruleEvaluation !== "object") {
+    return null;
+  }
+  const reason = (ruleEvaluation as Record<string, unknown>).reason;
+  return typeof reason === "string" && reason.trim().length > 0 ? reason : null;
+}
+
+function readRuleDecision(payload: Record<string, unknown>): string | null {
+  const ruleEvaluation = payload.rule_evaluation;
+  if (!ruleEvaluation || typeof ruleEvaluation !== "object") {
+    return null;
+  }
+  const decision = (ruleEvaluation as Record<string, unknown>).decision;
+  return typeof decision === "string" && decision.trim().length > 0 ? decision : null;
+}
+
+export function getEventExplanations(
+  event: Pick<WorldEvent | TimelineEvent, "payload">,
+): EventExplanation[] {
+  const payload = event.payload as Record<string, unknown>;
+  const explanations: EventExplanation[] = [];
+
+  const relationshipSummary = readRelationshipImpactSummary(payload);
+  if (relationshipSummary) {
+    explanations.push({
+      kind: "relationship",
+      text: relationshipSummary,
+      tone: "rose",
+    });
+  }
+
+  const ruleReason = readRuleReason(payload);
+  const ruleDecision = readRuleDecision(payload);
+  if (ruleReason) {
+    explanations.push({
+      kind: "risk",
+      text:
+        ruleDecision === "soft_risk"
+          ? `${resolveRuleReasonLabel(ruleReason)}`
+          : `规则：${resolveRuleReasonLabel(ruleReason)}`,
+      tone: ruleDecision === "soft_risk" ? "amber" : "sky",
+    });
+  }
+
+  return explanations;
 }

@@ -210,6 +210,24 @@ function TimelineEventItem({ event }: { event: StoryEvent }) {
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm text-ink">{event.description}</p>
+        {event.explanations && event.explanations.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {event.explanations.map((explanation, index) => (
+              <span
+                key={`${event.id}-explanation-${index}`}
+                className={`rounded-full px-2 py-0.5 text-[11px] ${
+                  explanation.tone === "amber"
+                    ? "bg-amber-100 text-amber-700"
+                    : explanation.tone === "rose"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-sky-100 text-sky-700"
+                }`}
+              >
+                {explanation.text}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
           {event.locationName && <span>📍 {event.locationName}</span>}
           <span>· T{event.tickNo}</span>

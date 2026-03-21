@@ -107,7 +107,7 @@ export function CreateRunForm() {
         });
       }}
     >
-      {/* 名称输入行 */}
+      {/* 第一行：名称输入 + 创建按钮（主操作） */}
       <div className="flex items-center gap-2">
         <input
           value={name}
@@ -115,44 +115,6 @@ export function CreateRunForm() {
           className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base text-ink placeholder:text-slate-400 outline-hidden transition focus:border-moss focus:ring-2 focus:ring-moss/20"
           placeholder="输入模拟运行名称"
         />
-        {/* 场景选择器 */}
-        <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
-          {scenarios.length > 0 ? (
-            scenarios.map((scenario) => (
-              <button
-                key={scenario.id}
-                type="button"
-                onClick={() => setScenarioType(scenario.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
-                  scenarioType === scenario.id
-                    ? "bg-moss text-white shadow-xs"
-                    : "text-slate-500 hover:bg-white hover:text-slate-700"
-                }`}
-              >
-                {scenario.name}
-              </button>
-            ))
-          ) : (
-            <span className="px-3 py-1.5 text-sm text-slate-400">暂无可用场景</span>
-          )}
-        </div>
-        {/* 时间速度选择器 */}
-        <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
-          {([5, 15, 30, 60] as const).map((min) => (
-            <button
-              key={min}
-              type="button"
-              onClick={() => setTickMinutes(min)}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition whitespace-nowrap ${
-                tickMinutes === min
-                  ? "bg-white text-slate-700 shadow-xs"
-                  : "text-slate-400 hover:bg-white/60 hover:text-slate-600"
-              }`}
-            >
-              {min}m
-            </button>
-          ))}
-        </div>
         <button
           type="submit"
           disabled={isPending || !scenarioType}
@@ -174,19 +136,74 @@ export function CreateRunForm() {
         </button>
       </div>
 
-      {/* 推荐命名 */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-slate-400">推荐：</span>
-        {suggestions.map((suggestion) => (
-          <button
-            key={suggestion}
-            type="button"
-            onClick={() => setName(suggestion)}
-            className="rounded-full border border-slate-200 bg-transparent px-2.5 py-0.5 text-xs text-slate-500 transition hover:border-moss hover:text-moss"
-          >
-            {suggestion}
-          </button>
-        ))}
+      {/* 第二行：场景 + 时间速度 + 推荐命名（次级配置） */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* 场景选择器 */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-medium text-slate-400">场景</span>
+          <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {scenarios.length > 0 ? (
+              scenarios.map((scenario) => (
+                <button
+                  key={scenario.id}
+                  type="button"
+                  onClick={() => setScenarioType(scenario.id)}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition whitespace-nowrap ${
+                    scenarioType === scenario.id
+                      ? "bg-moss text-white shadow-xs"
+                      : "text-slate-500 hover:bg-white hover:text-slate-700"
+                  }`}
+                >
+                  {scenario.name}
+                </button>
+              ))
+            ) : (
+              <span className="px-3 py-1 text-xs text-slate-400">暂无可用场景</span>
+            )}
+          </div>
+        </div>
+
+        {/* 分隔线 */}
+        <div className="h-4 w-px bg-slate-200" />
+
+        {/* 时间速度选择器 */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-medium text-slate-400">步长</span>
+          <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {([5, 15, 30, 60] as const).map((min) => (
+              <button
+                key={min}
+                type="button"
+                onClick={() => setTickMinutes(min)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition whitespace-nowrap ${
+                  tickMinutes === min
+                    ? "bg-white text-slate-700 shadow-xs"
+                    : "text-slate-400 hover:bg-white/60 hover:text-slate-600"
+                }`}
+              >
+                {min}m
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 分隔线 */}
+        <div className="h-4 w-px bg-slate-200" />
+
+        {/* 推荐命名 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-slate-400">推荐</span>
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => setName(suggestion)}
+              className="rounded-full border border-slate-200 bg-transparent px-2.5 py-0.5 text-xs text-slate-500 transition hover:border-moss hover:text-moss"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
       </div>
 
       {message && (

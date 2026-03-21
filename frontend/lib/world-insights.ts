@@ -9,6 +9,7 @@ import {
   EVENT_WORK,
   EVENT_REST,
 } from "@/lib/simulation-protocol";
+import { getEventExplanations, type EventExplanation } from "@/lib/event-utils";
 import { isAgentSociallyEngaged } from "@/lib/world-utils";
 
 // ============================================================================
@@ -57,6 +58,7 @@ export interface StoryEvent {
   locationName?: string;
   description: string;
   icon: string;
+  explanations?: EventExplanation[];
 }
 
 export interface StoryChapter {
@@ -413,6 +415,7 @@ function convertToStoryEvent(
   let type: StoryEvent["type"] = "other";
   let description = "";
   let icon = "";
+  const explanations = getEventExplanations(event);
 
   switch (event.event_type) {
     case EVENT_SPEECH:
@@ -487,6 +490,7 @@ function convertToStoryEvent(
     locationName,
     description,
     icon,
+    explanations: explanations.length > 0 ? explanations : undefined,
   };
 }
 
@@ -521,11 +525,21 @@ function extractHighlights(
   const talkCount = events.filter((e) => e.type === "social").length;
   const rejectionCount = events.filter((e) => e.type === "rejection").length;
   const moveCount = events.filter((e) => e.type === "move").length;
+  const riskInteractionCount = events.filter((event) =>
+    event.explanations?.some((explanation) => explanation.kind === "risk" && explanation.tone === "amber"),
+  ).length;
 
   if (rejectionCount > 0) {
     highlights.push({
       type: "warning",
       description: `${rejectionCount} 个异常`,
+    });
+  }
+
+  if (riskInteractionCount > 0) {
+    highlights.push({
+      type: "warning",
+      description: `${riskInteractionCount} 次风险社交`,
     });
   }
 
