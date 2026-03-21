@@ -8,10 +8,12 @@ from app.api.schemas.simulation import (
     COMMON_RESPONSES,
     AgentDetailResponse,
     AgentEventResponse,
+    AgentGovernanceRecordsResponse,
     AgentMemoryResponse,
     AgentRelationshipResponse,
     AgentsListResponse,
     AgentSummaryResponse,
+    GovernanceRecordResponse,
     WorldRulesSummaryResponse,
 )
 from app.infra.db import get_db_session
@@ -20,6 +22,7 @@ from app.scenario.types import get_agent_config_id
 from app.sim.context import ContextBuilder as SimulationContextBuilder
 from app.store.repositories import (
     AgentRepository,
+    GovernanceRecordRepository,
     LocationRepository,
     RunRepository,
 )
@@ -232,6 +235,81 @@ async def get_agent(
     logger.debug(
         f"Agent details retrieved: run_id={run_id}, agent_id={agent_id}, "
         f"memories={len(memories)}, events={len(recent_events)}, relationships={len(relationships)}"
+    )
+
+
+@router.get(
+    "/{agent_id}/governance-records",
+    response_model=AgentGovernanceRecordsResponse,
+    summary="获取 Agent 治理记录",
+    description="查询指定 agent 最近收到的治理/执法 ledger 记录。",
+    responses={
+        **COMMON_RESPONSES,
+        200: {
+            "description": "Agent 治理记录",
+            "model": AgentGovernanceRecordsResponse,
+        },
+    },
+)
+async def get_agent_governance_records(
+    run_id: UUID,
+    agent_id: str,
+    limit: int = Query(20, ge=1, le=100, description="返回记录条数上限"),
+    session: AsyncSession = Depends(get_db_session),
+) -> AgentGovernanceRecordsResponse:
+    logger.debug(f"Getting agent governance records: run_id={run_id}, agent_id={agent_id}")
+    run_repo = RunRepository(session)
+    run = await run_repo.get(str(run_id))
+    if run is None:
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+            code="RUN_NOT_FOUND",
+            context={"run_id": str(run_id)},
+        )
+
+    agent_repo = AgentRepository(session)
+    agent = await agent_repo.get(agent_id)
+    if agent is None or agent.run_id != str(run_id):
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found",
+            code="AGENT_NOT_FOUND",
+            context={"run_id": str(run_id), "agent_id": agent_id},
+        )
+
+    location_repo = LocationRepository(session)
+    all_locations = await location_repo.list_names_for_run(str(run_id))
+    location_name_map = {loc.id: loc.name for loc in all_locations}
+
+    governance_repo = GovernanceRecordRepository(session)
+    records = await governance_repo.list_for_agent(str(run_id), agent_id, limit=limit)
+
+    return AgentGovernanceRecordsResponse(
+        run_id=str(run_id),
+        agent_id=agent_id,
+        records=[
+            GovernanceRecordResponse(
+                id=record.id,
+                tick_no=record.tick_no,
+                source_event_id=record.source_event_id,
+                location_id=record.location_id,
+                location_name=(
+                    location_name_map.get(record.location_id, record.location_id)
+                    if record.location_id
+                    else None
+                ),
+                action_type=record.action_type,
+                decision=record.decision,
+                reason=record.reason,
+                observed=record.observed,
+                observation_score=record.observation_score,
+                intervention_score=record.intervention_score,
+                metadata=record.metadata_json or {},
+            )
+            for record in records
+        ],
+        total=len(records),
     )
 
 

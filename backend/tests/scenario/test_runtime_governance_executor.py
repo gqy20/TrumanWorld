@@ -189,6 +189,49 @@ def test_governance_executor_allows_unobserved_low_inspection_violation():
     assert result.intervention_score < 0.75
 
 
+def test_governance_executor_escalates_observation_for_repeat_recorded_agent():
+    world = _build_world()
+    world.agents["alice"].status = {"observation_count": 3}
+
+    result = execute_governance(
+        world=world,
+        intent=ActionIntent(agent_id="alice", action_type="move", target_location_id="park"),
+        rule_evaluation=RuleEvaluationResult(decision="violates_rule", reason="location_closed"),
+        package=_build_package_with_values(
+            {
+                "inspection_level": "low",
+                "high_attention_locations": [],
+                "repeat_observation_bonus_per_record": 0.1,
+            }
+        ),
+    )
+
+    assert result.decision == "warn"
+    assert result.observed is True
+    assert result.observation_score >= 0.5
+
+
+def test_governance_executor_escalates_warn_to_block_for_repeat_warned_agent():
+    world = _build_world()
+    world.agents["alice"].status = {"warning_count": 2}
+
+    result = execute_governance(
+        world=world,
+        intent=ActionIntent(agent_id="alice", action_type="move", target_location_id="cafe"),
+        rule_evaluation=RuleEvaluationResult(decision="violates_rule", reason="location_closed"),
+        package=_build_package_with_values(
+            {
+                "inspection_level": "low",
+                "repeat_warning_intervention_bonus_per_warning": 0.12,
+            }
+        ),
+    )
+
+    assert result.decision == "block"
+    assert result.observed is True
+    assert result.intervention_score >= 0.85
+
+
 def test_governance_executor_blocks_subject_violation_even_when_inspection_low():
     result = execute_governance(
         world=_build_world(),

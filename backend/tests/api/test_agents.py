@@ -2,7 +2,7 @@ import pytest
 
 from app.sim.action_resolver import ActionIntent
 from app.sim.service import SimulationService
-from app.store.models import Agent, Event, Location, Memory, Relationship, SimulationRun
+from app.store.models import Agent, Event, GovernanceRecord, Location, Memory, Relationship, SimulationRun
 
 
 @pytest.mark.asyncio
@@ -506,3 +506,104 @@ async def test_get_agent_filters_by_limits_and_memory_type(client, db_session):
     body = response.json()
     assert [event["id"] for event in body["recent_events"]] == ["event-limit-new"]
     assert [memory["id"] for memory in body["memories"]] == ["memory-limit-reflection"]
+
+
+@pytest.mark.asyncio
+async def test_get_agent_governance_records_returns_ledger_entries(client, db_session):
+    run_id = "00000000-0000-0000-0000-000000000111"
+    run = SimulationRun(id=run_id, name="demo", status="running")
+    cafe = Location(id="loc-cafe-ledger", run_id=run_id, name="Cafe", location_type="cafe", capacity=4)
+    agent = Agent(
+        id="alice-ledger",
+        run_id=run_id,
+        name="Alice",
+        occupation="resident",
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    event = Event(
+        id="event-ledger-1",
+        run_id=run_id,
+        tick_no=5,
+        event_type="talk",
+        actor_agent_id="alice-ledger",
+        location_id="loc-cafe-ledger",
+        payload={"message": "forbidden topic"},
+    )
+    record_newer = GovernanceRecord(
+        id="gov-ledger-2",
+        run_id=run_id,
+        agent_id="alice-ledger",
+        tick_no=6,
+        source_event_id="event-ledger-1",
+        location_id="loc-cafe-ledger",
+        action_type="talk",
+        decision="warn",
+        reason="Escalated after repeated surveillance hits",
+        observed=True,
+        observation_score=0.72,
+        intervention_score=0.81,
+        metadata_json={"rule_id": "policy.repeat-surveillance", "warning_count": 2},
+    )
+    record_older = GovernanceRecord(
+        id="gov-ledger-1",
+        run_id=run_id,
+        agent_id="alice-ledger",
+        tick_no=4,
+        source_event_id="event-ledger-1",
+        location_id="loc-cafe-ledger",
+        action_type="talk",
+        decision="record_only",
+        reason="Low-confidence observation only",
+        observed=True,
+        observation_score=0.41,
+        intervention_score=0.22,
+        metadata_json={"rule_id": "policy.surveillance", "observation_count": 1},
+    )
+
+    db_session.add_all([run, cafe, agent, event, record_newer, record_older])
+    await db_session.commit()
+
+    response = await client.get(
+        f"/api/runs/{run_id}/agents/alice-ledger/governance-records",
+        params={"limit": "1"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["run_id"] == run_id
+    assert body["agent_id"] == "alice-ledger"
+    assert body["total"] == 1
+    assert [record["id"] for record in body["records"]] == ["gov-ledger-2"]
+    assert body["records"][0] == {
+        "id": "gov-ledger-2",
+        "tick_no": 6,
+        "source_event_id": "event-ledger-1",
+        "location_id": "loc-cafe-ledger",
+        "location_name": "Cafe",
+        "action_type": "talk",
+        "decision": "warn",
+        "reason": "Escalated after repeated surveillance hits",
+        "observed": True,
+        "observation_score": 0.72,
+        "intervention_score": 0.81,
+        "metadata": {"rule_id": "policy.repeat-surveillance", "warning_count": 2},
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_agent_governance_records_returns_404_when_agent_missing(client, db_session):
+    run_id = "00000000-0000-0000-0000-000000000112"
+    db_session.add(SimulationRun(id=run_id, name="demo", status="running"))
+    await db_session.commit()
+
+    response = await client.get(f"/api/runs/{run_id}/agents/missing/governance-records")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Agent not found",
+        "code": "AGENT_NOT_FOUND",
+        "context": {"run_id": run_id, "agent_id": "missing"},
+    }

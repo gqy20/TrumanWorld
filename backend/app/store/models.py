@@ -115,6 +115,30 @@ class Relationship(Base):
     )
 
 
+class GovernanceRecord(Base):
+    __tablename__ = "governance_records"
+    __table_args__ = (
+        Index("ix_governance_records_run_id_tick_no", "run_id", "tick_no"),
+        Index("ix_governance_records_run_id_agent_id", "run_id", "agent_id"),
+        Index("ix_governance_records_source_event_id", "source_event_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("simulation_runs.id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    tick_no: Mapped[int] = mapped_column(Integer, default=0)
+    source_event_id: Mapped[str | None] = mapped_column(ForeignKey("events.id"))
+    location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"))
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    decision: Mapped[str] = mapped_column(String(30), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(255))
+    observed: Mapped[bool] = mapped_column(default=False)
+    observation_score: Mapped[float] = mapped_column(Float, default=0.0)
+    intervention_score: Mapped[float] = mapped_column(Float, default=0.0)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Memory(Base):
     __tablename__ = "memories"
     __table_args__ = (

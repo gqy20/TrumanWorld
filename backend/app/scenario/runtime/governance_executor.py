@@ -65,12 +65,18 @@ def execute_governance(
         signals.append("sensitive_location")
 
     actor_attention_score = 0.0
+    warning_count = 0
+    observation_count = 0
     if agent is not None and isinstance(agent.status, dict):
         actor_attention_score = float(agent.status.get("governance_attention_score", 0.0) or 0.0)
+        warning_count = int(agent.status.get("warning_count", 0) or 0)
+        observation_count = int(agent.status.get("observation_count", 0) or 0)
     observation_score = _compute_observation_score(
         inspection_level=inspection_level,
         signals=signals,
         actor_attention_score=actor_attention_score,
+        warning_count=warning_count,
+        observation_count=observation_count,
         rule_evaluation=rule_evaluation,
         policy_values=policy_values,
     )
@@ -78,6 +84,8 @@ def execute_governance(
         observation_score=observation_score,
         inspection_level=inspection_level,
         signals=signals,
+        warning_count=warning_count,
+        observation_count=observation_count,
         rule_evaluation=rule_evaluation,
         policy_values=policy_values,
     )
@@ -174,6 +182,8 @@ def _compute_observation_score(
     inspection_level: str,
     signals: list[str],
     actor_attention_score: float,
+    warning_count: int,
+    observation_count: int,
     rule_evaluation: RuleEvaluationResult,
     policy_values: dict[str, object],
 ) -> float:
@@ -214,6 +224,13 @@ def _compute_observation_score(
     elif rule_evaluation.risk_level == "high":
         score += _get_float(policy_values, "high_risk_observation_bonus", 0.1)
 
+    score += max(0, observation_count) * _get_float(
+        policy_values, "repeat_observation_bonus_per_record", 0.0
+    )
+    score += max(0, warning_count) * _get_float(
+        policy_values, "repeat_observation_bonus_per_warning", 0.0
+    )
+
     return round(min(1.0, score), 6)
 
 
@@ -222,6 +239,8 @@ def _compute_intervention_score(
     observation_score: float,
     inspection_level: str,
     signals: list[str],
+    warning_count: int,
+    observation_count: int,
     rule_evaluation: RuleEvaluationResult,
     policy_values: dict[str, object],
 ) -> float:
@@ -247,6 +266,13 @@ def _compute_intervention_score(
 
     if inspection_level == "high":
         score += _get_float(policy_values, "high_inspection_intervention_bonus", 0.05)
+
+    score += max(0, observation_count) * _get_float(
+        policy_values, "repeat_observation_intervention_bonus_per_record", 0.0
+    )
+    score += max(0, warning_count) * _get_float(
+        policy_values, "repeat_warning_intervention_bonus_per_warning", 0.0
+    )
 
     return round(min(1.0, score), 6)
 

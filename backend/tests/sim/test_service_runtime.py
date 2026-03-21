@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 import app.director.service as director_service_module
@@ -9,7 +10,7 @@ from app.scenario.runtime_config import RuntimeRoleSemantics
 from app.sim.action_resolver import ActionIntent
 from app.sim.persistence import PersistenceManager
 from app.sim.service import SimulationService
-from app.store.models import Agent, Event, Location, SimulationRun
+from app.store.models import Agent, Event, GovernanceRecord, Location, SimulationRun
 from app.store.repositories import AgentRepository, DirectorMemoryRepository, EventRepository
 
 from .test_service import (
@@ -1091,6 +1092,80 @@ async def test_persist_tick_memories_adds_governance_warning_memory(db_session):
     memories = await AgentRepository(db_session).list_recent_memories(alice.id, limit=10)
     summaries = [memory.summary for memory in memories]
     assert "Governance warning: high_attention_warning" in summaries
+
+
+@pytest.mark.asyncio
+async def test_persist_tick_results_creates_governance_record_ledger_entries(db_session):
+    run = SimulationRun(
+        id="run-governance-ledger",
+        name="governance-ledger",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    plaza = Location(
+        id="loc-governance-ledger",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-governance-ledger",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice])
+    await db_session.commit()
+
+    event = Event(
+        id="event-governance-ledger",
+        run_id=run.id,
+        tick_no=1,
+        event_type="talk",
+        actor_agent_id=alice.id,
+        location_id=plaza.id,
+        importance=0.6,
+        payload={
+            "agent_id": alice.id,
+            "governance_execution": {
+                "decision": "record_only",
+                "reason": "late_night_talk_risk",
+                "enforcement_action": "record",
+                "observed": True,
+                "observation_score": 0.61,
+                "intervention_score": 0.62,
+                "matched_signals": ["social"],
+            },
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_governance_records(run.id, [event])
+
+    records = (
+        (
+            await db_session.execute(
+                select(GovernanceRecord).where(GovernanceRecord.run_id == run.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(records) == 1
+    assert records[0].agent_id == alice.id
+    assert records[0].decision == "record_only"
+    assert records[0].reason == "late_night_talk_risk"
+    assert records[0].observed is True
+    assert records[0].observation_score == 0.61
+    assert records[0].intervention_score == 0.62
+    assert records[0].source_event_id == event.id
 
 
 @pytest.mark.asyncio

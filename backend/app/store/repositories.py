@@ -13,6 +13,7 @@ from app.store.models import (
     Agent,
     DirectorMemory,
     Event,
+    GovernanceRecord,
     LlmCall,
     Location,
     Memory,
@@ -122,6 +123,7 @@ class RunRepository:
     async def delete_with_related(self, run: SimulationRun) -> None:
         run_id = run.id
         await self.session.execute(delete(Relationship).where(Relationship.run_id == run_id))
+        await self.session.execute(delete(GovernanceRecord).where(GovernanceRecord.run_id == run_id))
         await self.session.execute(delete(Memory).where(Memory.run_id == run_id))
         await self.session.execute(delete(DirectorMemory).where(DirectorMemory.run_id == run_id))
         await self.session.execute(delete(Event).where(Event.run_id == run_id))
@@ -307,6 +309,7 @@ class EventRepository:
         result = await self.session.execute(stmt)
         return self._to_event_api_rows(result.all())
 
+
     async def list_timeline_events(
         self,
         run_id: str,
@@ -476,6 +479,35 @@ class EventRepository:
         for event in events:
             await self.session.refresh(event)
         return events
+
+
+class GovernanceRecordRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create_many(self, records: Sequence[GovernanceRecord]) -> Sequence[GovernanceRecord]:
+        if not records:
+            return []
+        self.session.add_all(list(records))
+        await self.session.commit()
+        for record in records:
+            await self.session.refresh(record)
+        return records
+
+    async def list_for_agent(
+        self, run_id: str, agent_id: str, limit: int = 20
+    ) -> Sequence[GovernanceRecord]:
+        stmt: Select[tuple[GovernanceRecord]] = (
+            select(GovernanceRecord)
+            .where(
+                GovernanceRecord.run_id == run_id,
+                GovernanceRecord.agent_id == agent_id,
+            )
+            .order_by(GovernanceRecord.tick_no.desc(), GovernanceRecord.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
 
 
 class AgentRepository:

@@ -344,6 +344,28 @@ class WorldRulesSummaryResponse(BaseModel):
     recent_rule_feedback: list[str] = Field(default_factory=list, description="最近制度反馈")
 
 
+class GovernanceRecordResponse(BaseModel):
+    id: str = Field(..., description="治理记录 ID")
+    tick_no: int = Field(..., description="触发 tick")
+    source_event_id: str | None = Field(None, description="来源事件 ID")
+    location_id: str | None = Field(None, description="地点 ID")
+    location_name: str | None = Field(None, description="地点名称")
+    action_type: str = Field(..., description="被治理动作类型")
+    decision: str = Field(..., description="治理决策")
+    reason: str | None = Field(None, description="治理原因")
+    observed: bool = Field(..., description="是否被观察到")
+    observation_score: float = Field(..., description="观察分", ge=0, le=1)
+    intervention_score: float = Field(..., description="干预分", ge=0, le=1)
+    metadata: dict = Field(default_factory=dict, description="附加治理元数据")
+
+
+class AgentGovernanceRecordsResponse(BaseModel):
+    run_id: str = Field(..., description="运行 ID")
+    agent_id: str = Field(..., description="Agent ID")
+    records: list[GovernanceRecordResponse] = Field(default_factory=list, description="治理记录")
+    total: int = Field(0, description="返回记录数", ge=0)
+
+
 class AgentDetailResponse(BaseModel):
     run_id: str = Field(..., description="运行 ID")
     agent_id: str = Field(..., description="Agent ID")

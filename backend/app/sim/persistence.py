@@ -20,10 +20,11 @@ from app.sim.relationship_policy import compute_relationship_delta
 from app.sim.memory_constants import calculate_memory_importance, determine_memory_category
 from app.sim.runner import TickResult
 from app.sim.world import WorldState
-from app.store.models import Event, Memory, Relationship, SimulationRun
+from app.store.models import Event, GovernanceRecord, Memory, Relationship, SimulationRun
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
+    GovernanceRecordRepository,
     LocationRepository,
     MemoryRepository,
     RelationshipRepository,
@@ -54,6 +55,7 @@ class PersistenceManager:
         self.agent_repo = AgentRepository(session)
         self.location_repo = LocationRepository(session)
         self.event_repo = EventRepository(session)
+        self.governance_record_repo = GovernanceRecordRepository(session)
         self.memory_repo = MemoryRepository(session)
         self.relationship_repo = RelationshipRepository(session)
 
@@ -95,10 +97,62 @@ class PersistenceManager:
         events = self._build_tick_events(run_id, result)
         if events:
             persisted = await self.event_repo.create_many(events)
+            await self.persist_tick_governance_records(run_id, persisted)
             await self.persist_tick_memories(run_id, persisted)
             await self.persist_tick_relationships(run_id, persisted)
             return persisted
         return []
+
+    async def persist_tick_governance_records(self, run_id: str, events: list[Event]) -> None:
+        records: list[GovernanceRecord] = []
+        for event in events:
+            payload = event.payload or {}
+            governance_execution = payload.get("governance_execution")
+            if not isinstance(governance_execution, dict):
+                continue
+            decision = governance_execution.get("decision")
+            if decision not in {"record_only", "warn", "block"}:
+                continue
+
+            agent_id = payload.get("agent_id") or event.actor_agent_id
+            if not isinstance(agent_id, str) or not agent_id:
+                continue
+
+            reason = governance_execution.get("reason")
+            observation_score = governance_execution.get("observation_score")
+            intervention_score = governance_execution.get("intervention_score")
+            observed = governance_execution.get("observed")
+            matched_signals = governance_execution.get("matched_signals")
+
+            records.append(
+                GovernanceRecord(
+                    id=str(uuid4()),
+                    run_id=run_id,
+                    agent_id=agent_id,
+                    tick_no=event.tick_no,
+                    source_event_id=event.id,
+                    location_id=event.location_id,
+                    action_type=event.event_type,
+                    decision=decision,
+                    reason=reason if isinstance(reason, str) else None,
+                    observed=bool(observed),
+                    observation_score=(
+                        float(observation_score) if isinstance(observation_score, (int, float)) else 0.0
+                    ),
+                    intervention_score=(
+                        float(intervention_score)
+                        if isinstance(intervention_score, (int, float))
+                        else 0.0
+                    ),
+                    metadata_json={
+                        "enforcement_action": governance_execution.get("enforcement_action"),
+                        "matched_signals": matched_signals if isinstance(matched_signals, list) else [],
+                    },
+                )
+            )
+
+        if records:
+            await self.governance_record_repo.create_many(records)
 
     def _build_tick_events(self, run_id: str, result: TickResult) -> list[Event]:
         """Build event objects from tick results."""
