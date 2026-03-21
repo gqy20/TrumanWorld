@@ -399,3 +399,4 @@ API 主要落点：
 - `daily_work_income` - 正常工作收入
 - `governance_work_loss` - work_ban 导致无法工作
 - `food_insecurity_decay` - 无收入导致的食物安全下降
+- `food_security_recovery` - 持续有收入时食物安全缓慢恢复

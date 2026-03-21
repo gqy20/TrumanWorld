@@ -14,7 +14,9 @@ if TYPE_CHECKING:
 # Default values
 DEFAULT_WORK_INCOME = 10.0  # Cash per work tick
 DEFAULT_FOOD_DECAY_RATE = 0.05  # Food security decay per tick without income
+DEFAULT_FOOD_RECOVERY_RATE = 0.02  # Food security recovery per tick with regular income
 DEFAULT_NO_INCOME_THRESHOLD = 3  # Ticks without income before food starts decaying
+DEFAULT_FOOD_RECOVERY_THRESHOLD = 2  # Ticks with income before recovery starts
 
 
 class EconomicStateService:
@@ -117,11 +119,11 @@ class EconomicStateService:
                     case_id=case_id,
                 )
 
-        # Check if agent should get food decay (no income for N ticks)
+        # Check food security changes (decay or recovery)
         if state.last_income_tick is not None:
             ticks_since_income = tick_no - state.last_income_tick
             if ticks_since_income >= DEFAULT_NO_INCOME_THRESHOLD:
-                # Apply food decay
+                # Apply food decay when no income for too long
                 decay = DEFAULT_FOOD_DECAY_RATE * (ticks_since_income - DEFAULT_NO_INCOME_THRESHOLD + 1)
                 state = await self.econ_repo.update_food_security(
                     run_id, agent_id, -decay
@@ -137,6 +139,24 @@ class EconomicStateService:
                         food_security_delta=state.food_security - food_before,
                         reason=f"no income for {ticks_since_income} ticks",
                     )
+            elif ticks_since_income <= DEFAULT_FOOD_RECOVERY_THRESHOLD:
+                # Recover food security when agent is earning regular income
+                # Only recover if food_security is below maximum
+                if state.food_security < 1.0:
+                    state = await self.econ_repo.update_food_security(
+                        run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE
+                    ) or state
+                    # Log food recovery effect (only if actually increased)
+                    if state.food_security > food_before:
+                        await self.effect_log_repo.create(
+                            run_id=run_id,
+                            agent_id=agent_id,
+                            tick_no=tick_no,
+                            effect_type="food_security_recovery",
+                            cash_delta=0.0,
+                            food_security_delta=state.food_security - food_before,
+                            reason=f"regular income, food security recovering",
+                        )
 
         return state
 
