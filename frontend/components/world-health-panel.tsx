@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import useSWR from "swr";
 
@@ -54,6 +54,15 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
       revalidateOnFocus: false,
       revalidateIfStale: isSystemExpanded || systemRefreshInterval > 0,
     }
+  );
+  const agentNameMap = useMemo(
+    () =>
+      world
+        ? Object.fromEntries(
+            world.locations.flatMap((loc) => loc.occupants).map((agent) => [agent.id, agent.name])
+          )
+        : {},
+    [world]
   );
 
   const getAgentsByActivity = (
@@ -190,15 +199,7 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
               location_type: location.location_type,
             })) ?? []
           }
-          agentNameMap={
-            world
-              ? Object.fromEntries(
-                  world.locations
-                    .flatMap((loc) => loc.occupants)
-                    .map((agent) => [agent.id, agent.name])
-                )
-              : {}
-          }
+          agentNameMap={agentNameMap}
         />
       </div>
 

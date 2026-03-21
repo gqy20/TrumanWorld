@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type WheelEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { EVENT_MOVE } from "@/lib/simulation-protocol";
 import type { AgentSummary, WorldSnapshot } from "@/lib/types";
@@ -140,7 +140,7 @@ function MiniMap({ nodes, links, viewBox, isDark, onNavigate }: MiniMapProps) {
   const borderColor = isDark ? "rgba(100,116,139,0.5)" : "rgba(148,163,184,0.4)";
   const linkColor = isDark ? "rgba(100,116,139,0.3)" : "rgba(148,163,184,0.4)";
 
-  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handleClick = (e: MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const mmX = ((e.clientX - rect.left) / rect.width) * MM_W;
     const mmY = ((e.clientY - rect.top) / rect.height) * MM_H;
@@ -149,12 +149,12 @@ function MiniMap({ nodes, links, viewBox, isDark, onNavigate }: MiniMapProps) {
   };
 
   // 拖拽视口框
-  const handleFramePointerDown = (e: React.PointerEvent<SVGRectElement>) => {
+  const handleFramePointerDown = (e: PointerEvent<SVGRectElement>) => {
     e.stopPropagation();
     mmDragRef.current = { startX: e.clientX, startY: e.clientY, startVbX: viewBox.x, startVbY: viewBox.y };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
-  const handleFramePointerMove = (e: React.PointerEvent<SVGRectElement>) => {
+  const handleFramePointerMove = (e: PointerEvent<SVGRectElement>) => {
     if (!mmDragRef.current) return;
     e.stopPropagation();
     const rect = (e.currentTarget.closest("svg") as SVGSVGElement)?.getBoundingClientRect();
@@ -165,7 +165,7 @@ function MiniMap({ nodes, links, viewBox, isDark, onNavigate }: MiniMapProps) {
     const dySvg = (dyPx / rect.height) * MM_H * (SVG_H / (MM_H - MM_PAD * 2));
     onNavigate(mmDragRef.current.startVbX + dxSvg + viewBox.width / 2, mmDragRef.current.startVbY + dySvg + viewBox.height / 2);
   };
-  const handleFramePointerUp = (e: React.PointerEvent<SVGRectElement>) => {
+  const handleFramePointerUp = (e: PointerEvent<SVGRectElement>) => {
     mmDragRef.current = null;
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
@@ -432,6 +432,7 @@ export function TownMap({
             delete updated[agentId];
             return updated;
           });
+          delete bubbleTimersRef.current[agentId];
         }, 6000);
       }
       // 超过数量上限时，移除 key 最小（最旧）的气泡
@@ -450,6 +451,15 @@ export function TownMap({
       return next;
     });
   }, [world.recent_events]);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of Object.values(bubbleTimersRef.current)) {
+        clearTimeout(timer);
+      }
+      bubbleTimersRef.current = {};
+    };
+  }, []);
 
   const { nodes, links, movePaths, mainRoadPath, coastPath, heatConfig } = useMemo(() => buildMapData(world), [world]);
 

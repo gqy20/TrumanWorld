@@ -5,6 +5,7 @@ import { useState, useTransition, useRef, useCallback } from "react";
 import { useDemoAccess } from "@/components/demo-access-provider";
 import { deleteRunResult } from "@/lib/api";
 import { useRuns } from "@/components/runs-provider";
+import { formatRelativeTime } from "@/lib/time";
 import { WorldOpeningAnimation } from "@/components/world-opening-animation";
 
 type Run = {
@@ -150,7 +151,7 @@ export function RunList({ runs }: RunListProps) {
               </div>
               {run.created_at && (
                 <p className="mt-1 text-[11px] text-slate-400">
-                  创建于 {formatRunRelativeTime(run.created_at)}
+                  创建于 {formatRelativeTime(run.created_at, { maxUnit: "month" })}
                 </p>
               )}
 
@@ -235,18 +236,4 @@ export function RunList({ runs }: RunListProps) {
       </div>
     </>
   );
-}
-
-function formatRunRelativeTime(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "刚刚";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} 分钟前`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} 天前`;
-  const months = Math.floor(days / 30);
-  return `${months} 个月前`;
 }
