@@ -9,8 +9,8 @@ from app.scenario.adapter_registry import (
 )
 from app.scenario.factory import create_scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.narrative_world.coordinator import BundleWorldCoordinator
-from app.scenario.narrative_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
+from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.scenario.narrative_world.scenario import NarrativeWorldScenario
 
 

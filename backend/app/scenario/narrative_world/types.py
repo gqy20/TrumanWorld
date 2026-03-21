@@ -1,53 +1,29 @@
-"""Narrative-world specific types.
+"""Compatibility wrappers for the legacy narrative-world types module."""
 
-Generic types (AgentProfile, ScenarioGuidance, get_world_role, get_agent_config_id,
-build_agent_profile, merge_agent_profile) now live in app.scenario.types.
-"""
-
-from __future__ import annotations
-
-from collections.abc import Mapping
-from typing import Any, TypeAlias
-
-from app.scenario.types import (
-    AgentProfile,
-    ScenarioGuidance,
+from app.scenario.bundle_world.types import (
+    BundleWorldGuidance,
+    DirectorGuidance,
     build_agent_profile,
-    build_scenario_guidance,
+    build_bundle_world_guidance,
+    build_director_guidance,
     get_agent_config_id,
-    get_scenario_guidance,
+    get_bundle_world_guidance,
+    get_director_guidance,
     get_world_role,
+    merge_bundle_world_agent_profile,
+    merge_scenario_agent_profile,
 )
 
 __all__ = [
+    "BundleWorldGuidance",
     "DirectorGuidance",
     "build_agent_profile",
+    "build_bundle_world_guidance",
     "build_director_guidance",
     "get_agent_config_id",
+    "get_bundle_world_guidance",
     "get_director_guidance",
     "get_world_role",
+    "merge_bundle_world_agent_profile",
     "merge_scenario_agent_profile",
 ]
-
-
-# ---------------------------------------------------------------------------
-# Narrative-world private: Director guidance
-# ---------------------------------------------------------------------------
-
-
-DirectorGuidance: TypeAlias = ScenarioGuidance
-build_director_guidance = build_scenario_guidance
-get_director_guidance = get_scenario_guidance
-
-
-def merge_scenario_agent_profile(
-    profile: Mapping[str, Any] | None,
-    guidance: DirectorGuidance | None = None,
-) -> AgentProfile:
-    """Merge a profile dict with optional narrative-world DirectorGuidance."""
-    from typing import cast as _cast
-
-    base = _cast("AgentProfile", dict(profile or {}))
-    if guidance:
-        base.update(guidance)
-    return base

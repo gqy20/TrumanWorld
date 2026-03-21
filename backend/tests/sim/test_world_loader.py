@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.narrative_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.sim.world_loader import load_tick_data
 from app.store.models import Agent, Event, Location, SimulationRun
 

@@ -17,8 +17,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.scenario.narrative_world.coordinator import BundleWorldCoordinator
-from app.scenario.narrative_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
+from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.director.service import DirectorEventService
 from app.infra.settings import get_settings
 from app.sim.world_loader import load_tick_data

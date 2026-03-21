@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.scenario.base import Scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.narrative_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.scenario import BundleWorldScenario
 
 ScenarioBuilder = Callable[[str, AsyncSession | None], Scenario]
 

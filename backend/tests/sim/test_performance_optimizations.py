@@ -243,7 +243,7 @@ class TestDirectorPlanNoDuplicateEventQuery:
     @pytest.mark.asyncio
     async def test_events_queried_only_once_in_auto_plan(self, db_session):
         """_build_auto_plan 中事件只应被查询一次。"""
-        from app.scenario.narrative_world.coordinator import BundleWorldCoordinator
+        from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
         from app.store.repositories import EventRepository
 
         run_id = "perf-director-events"
@@ -639,7 +639,7 @@ class TestObserveRunParallelQueries:
     @pytest.mark.asyncio
     async def test_observe_run_queries_parallel(self, db_session):
         """observe_run 的 agents 和 events 查询应并行，不串行。"""
-        from app.scenario.narrative_world.coordinator import BundleWorldCoordinator
+        from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
         from app.store.repositories import AgentRepository, EventRepository
 
         call_log: list[tuple[str, float]] = []

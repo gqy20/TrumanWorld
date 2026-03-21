@@ -16,7 +16,7 @@ from app.agent.system_prompt import build_system_prompt
 import app.cognition.claude.decision_provider as provider_module
 from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
 from app.infra.settings import get_settings
-from app.scenario.narrative_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.scenario import BundleWorldScenario
 
 
 @pytest.fixture

@@ -8,8 +8,8 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.scenario.factory import create_scenario
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.narrative_world.scenario import BundleWorldScenario
-from app.scenario.narrative_world.seed import BundleWorldSeedBuilder
+from app.scenario.bundle_world.scenario import BundleWorldScenario
+from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
 from app.store.models import Event, SimulationRun
 from app.store.repositories import AgentRepository
 
