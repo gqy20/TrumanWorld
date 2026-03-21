@@ -17,7 +17,7 @@
 - 已完成阶段 4 的最小可用版本
 - 已完成治理后果层的最小可用版本
 - 已补上解释链的最小暴露路径：timeline `rule_evaluation / governance_execution`、agent context `world_rules_summary`
-- 阶段 5 关系后果层仍停留在设计阶段
+- 阶段 5 关系后果层已进入最小实现阶段
 
 ## 2. 推荐阶段
 
@@ -134,18 +134,19 @@
 - 已有 `governance_consequences.py`
 - 当前会把 `warn / block` 写回 actor 自身的运行时 `status`
 - 当前已落地的状态字段包括 `warning_count` 与 `governance_attention_score`
-- `warn` 与 `block` 会以不同强度提升 `governance_attention_score`
+- `warn` 与 `block` 会通过 policy 参数以不同强度提升 `governance_attention_score`
+- `governance_attention_score` 已支持按天衰减
 - `governance_attention_score` 已开始驱动 agent context 中的 `current_risks`
 
 当前明确未实现：
 
 - 持久化层面的独立违规记录模型
-- attention / warning 的时间衰减
 - 治理后果对 relationship / reputation / economy 的外溢
+- 更复杂的恢复机制与多因子衰减
 
 ### 阶段 5：关系后果层
 
-状态：`未开始`
+状态：`已完成（最小版）`
 
 目标：
 
@@ -155,6 +156,20 @@
 - 在 perception / prompt / API 中暴露派生后的 `relationship_level`
 
 这一阶段重点不是做复杂社交图，而是让“关系为什么变化”可解释、可调参、可与场景一致。
+
+当前已落地：
+
+- relationship delta 已会读取 `rule_evaluation`
+- relationship delta 已会读取 `governance_execution`
+- relationship delta 已开始读取 actor / target 的 `governance_attention_score`
+- `relationship_impact` payload 已可附带 `governance_decision / governance_reason`
+- 高 attention 状态已经会进一步削弱 trust / affinity 增长
+
+当前明确未实现：
+
+- relationship 增量参数的 policy 化
+- relationship 对 reputation / memory / director 的联动
+- 更复杂的双边非对称后果模型
 
 ## 3. 当前仓库的建议切入点
 
@@ -208,8 +223,8 @@
 
 按当前代码状态，下一步应优先做：
 
-1. `policy` 到执行层和后果层的映射继续细化，而不只是 inspection-level 与固定 attention delta
-2. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
-3. relationship 后果层与规则裁决、治理处置结果打通
-4. attention / warning 的衰减与恢复机制
-5. 动态 policy overlay 与运行时调参
+1. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
+2. `policy` 到 relationship 后果层的映射继续细化，扩展到更多风险标签与地点语义
+3. 更复杂的恢复机制与多因子衰减
+4. 动态 policy overlay 与运行时调参
+5. reputation / director / relationship 三者的联动

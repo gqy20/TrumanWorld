@@ -26,13 +26,14 @@
 - sim 已在动作执行前做规则评估与最小治理执行
 - timeline / event payload 已暴露 `rule_evaluation / governance_execution`
 - 最小治理后果已可写入 agent 运行时状态
+- relationship 后果已开始读取治理执行与治理状态
 - agent context 已注入轻量 `world_rules_summary`
 
 尚未落地的部分：
 
 - 更完整的选择性执法与运行时动态治理
 - 动态 policy overlay
-- relationship / reputation / economy 的完整后果层
+- reputation / economy 等更完整后果层
 
 因此本文仍然是总纲文档，不应被理解为“全部能力都已实现”。
 

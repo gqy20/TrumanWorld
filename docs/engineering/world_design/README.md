@@ -7,7 +7,7 @@
 当前状态：
 
 - 已落地最小闭环：runtime package、facts namespace、最小 rule evaluator、最小 governance executor、最小 governance consequences、sim 接入、timeline 解释链、agent 侧轻量制度摘要
-- 尚未落地：动态 policy overlay、完整 relationship/economy/world evolution 扩展
+- 尚未落地：动态 policy overlay、完整 reputation/economy/world evolution 扩展
 
 建议阅读顺序：
 
