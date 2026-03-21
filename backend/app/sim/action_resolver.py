@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.scenario.runtime.rule_evaluator import evaluate_rules
+from app.scenario.runtime.world_design_models import (
+    RuleEvaluationResult,
+    WorldDesignRuntimePackage,
+)
 from app.sim.world import WorldState
 
 
@@ -32,6 +37,7 @@ class ActionResult:
     action_type: str
     reason: str
     event_payload: dict[str, Any] = field(default_factory=dict)
+    rule_evaluation: RuleEvaluationResult | None = None
 
 
 class ActionResolver:
@@ -45,7 +51,7 @@ class ActionResolver:
 
     SUPPORTED_ACTIONS = {"move", "rest", "work", "talk"}
 
-    def __init__(self) -> None:
+    def __init__(self, world_design_package: WorldDesignRuntimePackage | None = None) -> None:
         # Agents that have completed (accepted) a talk this tick — blocks further talk.
         self._talked_agents: set[str] = set()
         # Agents pre-registered as talk targets this tick — blocks non-talk actions.
@@ -54,6 +60,7 @@ class ActionResolver:
         self._conversation_roles: dict[str, str] = {}
         self._conversation_ids: dict[str, str] = {}
         self._conversation_participants: dict[str, list[str]] = {}
+        self._world_design_package = world_design_package
 
     def reset_tick(self) -> None:
         """Clear per-tick state at the start of each tick."""
@@ -91,21 +98,23 @@ class ActionResolver:
         self._prefilled_targets.update(listener_agent_ids)
 
     def resolve(self, world: WorldState, intent: ActionIntent) -> ActionResult:
+        rule_evaluation = self._evaluate_rules(world, intent)
         agent = world.get_agent(intent.agent_id)
         if agent is None:
-            return ActionResult(
-                False,
-                intent.action_type,
-                "agent_not_found",
+            return self._build_result(
+                accepted=False,
+                action_type=intent.action_type,
+                reason="agent_not_found",
                 event_payload={
                     "agent_id": intent.agent_id,
                     "location_id": None,
                     **intent.payload,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         if intent.action_type not in self.SUPPORTED_ACTIONS:
-            return ActionResult(
+            return self._build_result(
                 False,
                 intent.action_type,
                 "unsupported_action",
@@ -114,7 +123,11 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     **intent.payload,
                 },
+                rule_evaluation=rule_evaluation,
             )
+
+        if rule_evaluation is not None and rule_evaluation.decision in {"impossible", "violates_rule"}:
+            return self._build_rule_rejection(agent.location_id, intent, rule_evaluation)
 
         if self._conversation_roles.get(intent.agent_id) == "listener":
             if intent.action_type == "talk":
@@ -124,11 +137,12 @@ class ActionResolver:
                     "target_agent_id": intent.target_agent_id,
                 }
                 self._append_conversation_metadata(intent.agent_id, event_payload)
-                return ActionResult(
+                return self._build_result(
                     False,
                     intent.action_type,
                     "conversation_turn_taken",
                     event_payload=event_payload,
+                    rule_evaluation=rule_evaluation,
                 )
 
         # If this agent is pre-registered as a talk target this tick,
@@ -140,22 +154,23 @@ class ActionResolver:
                 "location_id": agent.location_id,
             }
             self._append_conversation_metadata(intent.agent_id, event_payload)
-            return ActionResult(
+            return self._build_result(
                 False,
                 intent.action_type,
                 "agent_in_conversation",
                 event_payload=event_payload,
+                rule_evaluation=rule_evaluation,
             )
 
         if intent.action_type == "move":
-            return self._resolve_move(world, intent)
+            return self._resolve_move(world, intent, rule_evaluation=rule_evaluation)
         if intent.action_type == "talk":
-            return self._resolve_talk(world, intent)
+            return self._resolve_talk(world, intent, rule_evaluation=rule_evaluation)
         if intent.action_type == "work":
-            return self._resolve_work(world, intent)
+            return self._resolve_work(world, intent, rule_evaluation=rule_evaluation)
 
         # rest and other actions
-        return ActionResult(
+        return self._build_result(
             accepted=True,
             action_type=intent.action_type,
             reason="accepted",
@@ -164,12 +179,19 @@ class ActionResolver:
                 "location_id": agent.location_id if agent else None,
                 **intent.payload,
             },
+            rule_evaluation=rule_evaluation,
         )
 
-    def _resolve_move(self, world: WorldState, intent: ActionIntent) -> ActionResult:
+    def _resolve_move(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+    ) -> ActionResult:
         agent = world.get_agent(intent.agent_id)
         if agent is None:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "move",
                 "agent_not_found",
@@ -177,10 +199,11 @@ class ActionResolver:
                     "agent_id": intent.agent_id,
                     "location_id": None,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         if intent.target_location_id is None:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "move",
                 "missing_target_location",
@@ -188,11 +211,12 @@ class ActionResolver:
                     "agent_id": intent.agent_id,
                     "location_id": agent.location_id,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         destination = world.get_location(intent.target_location_id)
         if destination is None:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "move",
                 "location_not_found",
@@ -201,10 +225,11 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     "to_location_id": intent.target_location_id,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         if agent.location_id == intent.target_location_id:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "move",
                 "already_at_location",
@@ -213,10 +238,11 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     "to_location_id": intent.target_location_id,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         if len(destination.occupants) >= destination.capacity:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "move",
                 "location_full",
@@ -225,11 +251,12 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     "to_location_id": intent.target_location_id,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         origin_id = agent.location_id
         world.move_agent(intent.agent_id, intent.target_location_id)
-        return ActionResult(
+        return self._build_result(
             accepted=True,
             action_type="move",
             reason="accepted",
@@ -238,14 +265,21 @@ class ActionResolver:
                 "from_location_id": origin_id,
                 "to_location_id": intent.target_location_id,
             },
+            rule_evaluation=rule_evaluation,
         )
 
-    def _resolve_talk(self, world: WorldState, intent: ActionIntent) -> ActionResult:
+    def _resolve_talk(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+    ) -> ActionResult:
         agent = world.get_agent(intent.agent_id)
         target = self._resolve_target_agent(world, intent.target_agent_id)
         requested_target_agent_id = intent.target_agent_id
         if agent is None:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "talk",
                 "agent_not_found",
@@ -253,9 +287,10 @@ class ActionResolver:
                     "agent_id": intent.agent_id,
                     "location_id": None,
                 },
+                rule_evaluation=rule_evaluation,
             )
         if target is None:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "talk",
                 "target_not_found",
@@ -265,6 +300,7 @@ class ActionResolver:
                     "target_agent_id": None,
                     "requested_target_agent_id": requested_target_agent_id,
                 },
+                rule_evaluation=rule_evaluation,
             )
         if agent.location_id != target.location_id:
             event_payload = {
@@ -274,18 +310,19 @@ class ActionResolver:
             }
             if requested_target_agent_id and requested_target_agent_id != target.id:
                 event_payload["requested_target_agent_id"] = requested_target_agent_id
-            return ActionResult(
+            return self._build_result(
                 False,
                 "talk",
                 "target_not_nearby",
                 event_payload=event_payload,
+                rule_evaluation=rule_evaluation,
             )
 
         # Enforce turn-based conversation: if either participant has already
         # spoken this tick, reject this intent so the other side receives the
         # message in next-tick recent_events and can reply coherently.
         if intent.agent_id in self._talked_agents or target.id in self._talked_agents:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "talk",
                 "conversation_turn_taken",
@@ -294,6 +331,7 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     "target_agent_id": target.id,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         self._talked_agents.add(intent.agent_id)
@@ -310,11 +348,12 @@ class ActionResolver:
         }
         self._append_conversation_metadata(intent.agent_id, event_payload)
 
-        return ActionResult(
+        return self._build_result(
             accepted=True,
             action_type="talk",
             reason="accepted",
             event_payload=event_payload,
+            rule_evaluation=rule_evaluation,
         )
 
     def _resolve_target_agent(
@@ -355,10 +394,16 @@ class ActionResolver:
             return matched[0]
         return None
 
-    def _resolve_work(self, world: WorldState, intent: ActionIntent) -> ActionResult:
+    def _resolve_work(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+    ) -> ActionResult:
         agent = world.get_agent(intent.agent_id)
         if agent is None:
-            return ActionResult(
+            return self._build_result(
                 False,
                 "work",
                 "agent_not_found",
@@ -366,6 +411,7 @@ class ActionResolver:
                     "agent_id": intent.agent_id,
                     "location_id": None,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
         location = world.get_location(agent.location_id)
@@ -376,7 +422,7 @@ class ActionResolver:
         # Soft guard: if an agent is at home or otherwise lacks a credible work
         # context, convert the action into rest instead of persisting work@home.
         if not is_at_workplace and not work_friendly_location:
-            return ActionResult(
+            return self._build_result(
                 accepted=True,
                 action_type="rest",
                 reason="downgraded_invalid_work_context",
@@ -385,9 +431,10 @@ class ActionResolver:
                     "location_id": agent.location_id,
                     **intent.payload,
                 },
+                rule_evaluation=rule_evaluation,
             )
 
-        return ActionResult(
+        return self._build_result(
             accepted=True,
             action_type="work",
             reason="accepted",
@@ -396,6 +443,59 @@ class ActionResolver:
                 "location_id": agent.location_id,
                 **intent.payload,
             },
+            rule_evaluation=rule_evaluation,
+        )
+
+    def _evaluate_rules(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+    ) -> RuleEvaluationResult | None:
+        if self._world_design_package is None:
+            return None
+        return evaluate_rules(world=world, intent=intent, package=self._world_design_package)
+
+    def _build_rule_rejection(
+        self,
+        current_location_id: str | None,
+        intent: ActionIntent,
+        rule_evaluation: RuleEvaluationResult,
+    ) -> ActionResult:
+        event_payload = {
+            "agent_id": intent.agent_id,
+            "location_id": current_location_id,
+            **intent.payload,
+        }
+        if intent.target_location_id is not None:
+            event_payload["to_location_id"] = intent.target_location_id
+        if intent.target_agent_id is not None:
+            event_payload["target_agent_id"] = intent.target_agent_id
+        return self._build_result(
+            accepted=False,
+            action_type=intent.action_type,
+            reason=rule_evaluation.reason or rule_evaluation.decision,
+            event_payload=event_payload,
+            rule_evaluation=rule_evaluation,
+        )
+
+    def _build_result(
+        self,
+        accepted: bool,
+        action_type: str,
+        reason: str,
+        event_payload: dict[str, Any],
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+    ) -> ActionResult:
+        payload = dict(event_payload)
+        if rule_evaluation is not None:
+            payload["rule_evaluation"] = rule_evaluation.model_dump()
+        return ActionResult(
+            accepted=accepted,
+            action_type=action_type,
+            reason=reason,
+            event_payload=payload,
+            rule_evaluation=rule_evaluation,
         )
 
     def _append_conversation_metadata(

@@ -1,5 +1,14 @@
 from datetime import datetime
 
+from app.scenario.runtime.world_design_models import (
+    PolicyConfig,
+    RuleConditionConfig,
+    RuleConfigItem,
+    RuleOutcomeConfig,
+    RuleTriggerConfig,
+    RulesConfig,
+    WorldDesignRuntimePackage,
+)
 from app.sim.action_resolver import ActionIntent, ActionResolver
 from app.sim.conversation_scheduler import ConversationScheduler
 from app.sim.runner import SimulationRunner
@@ -132,6 +141,87 @@ def test_action_resolver_allows_work_at_known_workplace():
     assert result.action_type == "work"
     assert result.reason == "accepted"
     assert result.event_payload["location_id"] == "cafe"
+
+
+def test_action_resolver_attaches_rule_evaluation_to_accepted_action():
+    world = build_world()
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="rest_is_safe",
+                    name="Rest Is Safe",
+                    trigger=RuleTriggerConfig(action_types=["rest"]),
+                    conditions=[],
+                    outcome=RuleOutcomeConfig(decision="allowed", reason="rest_allowed"),
+                    priority=10,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(version=1, policy_id="default", values={}),
+        constitution_text="",
+    )
+    resolver = ActionResolver(world_design_package=package)
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="rest"),
+    )
+
+    assert result.accepted is True
+    assert result.event_payload["rule_evaluation"]["decision"] == "allowed"
+    assert result.event_payload["rule_evaluation"]["primary_rule_id"] == "rest_is_safe"
+
+
+def test_action_resolver_rejects_action_when_rule_evaluator_returns_violation():
+    world = build_world()
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="closed_location",
+                    name="Closed Location",
+                    trigger=RuleTriggerConfig(action_types=["move"]),
+                    conditions=[
+                        RuleConditionConfig(
+                            fact="target_location.id",
+                            op="in",
+                            value_from="policy.closed_locations",
+                        )
+                    ],
+                    outcome=RuleOutcomeConfig(
+                        decision="violates_rule",
+                        reason="location_closed",
+                    ),
+                    priority=100,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(
+            version=1,
+            policy_id="default",
+            values={"closed_locations": ["park"]},
+        ),
+        constitution_text="",
+    )
+    resolver = ActionResolver(world_design_package=package)
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="move", target_location_id="park"),
+    )
+
+    assert result.accepted is False
+    assert result.reason == "location_closed"
+    assert result.event_payload["to_location_id"] == "park"
+    assert result.event_payload["rule_evaluation"]["decision"] == "violates_rule"
+    assert result.event_payload["rule_evaluation"]["primary_rule_id"] == "closed_location"
 
 
 def test_simulation_runner_advances_tick_and_collects_results():

@@ -63,3 +63,10 @@ class WorldDesignRuntimePackage(BaseModel):
     facts_schema_version: int = 1
     rule_schema_version: int = 1
     policy_schema_version: int = 1
+
+
+class RuleEvaluationResult(BaseModel):
+    decision: RuleDecision = "allowed"
+    primary_rule_id: str | None = None
+    reason: str | None = None
+    matched_rule_ids: list[str] = Field(default_factory=list)

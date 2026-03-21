@@ -10,9 +10,10 @@ from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
 from app.scenario.bundle_registry import resolve_default_scenario_id
+from app.scenario.runtime.world_design import load_world_design_runtime_package
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_agent_config_id, get_scenario_guidance, get_world_role
-from app.sim.action_resolver import ActionIntent
+from app.sim.action_resolver import ActionIntent, ActionResolver
 from app.sim.agent_snapshot_builder import build_agent_recent_events
 from app.sim.llm_call_collector import LlmCallCollector
 from app.sim.runner import SimulationRunner, TickResult
@@ -375,7 +376,13 @@ class TickOrchestrator:
         intents: list[ActionIntent],
     ) -> TickResult:
         started_at = perf_counter()
-        runner = SimulationRunner(world)
+        scenario_id = getattr(self.scenario, "scenario_id", None) or resolve_default_scenario_id()
+        runner = SimulationRunner(
+            world,
+            resolver=ActionResolver(
+                world_design_package=load_world_design_runtime_package(scenario_id)
+            ),
+        )
         runner.tick_no = current_tick
         result = runner.tick(intents)
         logger.debug(
