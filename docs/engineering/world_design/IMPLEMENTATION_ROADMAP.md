@@ -11,9 +11,18 @@
 
 先做制度资产层，再做最小规则裁决层，最后补治理执行层和解释链。
 
+当前实现状态：
+
+- 已完成阶段 1、阶段 2、阶段 3 的最小可用版本
+- 已补上解释链的最小暴露路径：timeline `rule_evaluation`、agent context `world_rules_summary`
+- 阶段 4 治理执行层尚未开始
+- 阶段 5 关系后果层仍停留在设计阶段
+
 ## 2. 推荐阶段
 
 ### 阶段 1：资产层落位
+
+状态：`已完成（最小版）`
 
 目标：
 
@@ -24,7 +33,17 @@
 
 这个阶段重点不是 evaluator，而是 schema 与边界。
 
+当前已落地：
+
+- `bundle_registry.py` 已支持读取 `rules.yml`、`policies/default.yml`、`constitution.md`
+- `backend/app/scenario/runtime/world_design.py` 已装配统一 `WorldDesignRuntimePackage`
+- `rules.yml` 缺失时回退为空规则集
+- `policies/default.yml` 缺失时回退到平台默认 policy 值
+- `constitution.md` 缺失时回退为空文本
+
 ### 阶段 2：统一 facts
+
+状态：`已完成（最小版）`
 
 目标：
 
@@ -40,7 +59,16 @@
 - `world.*`
 - `policy.*`
 
+当前已落地：
+
+- 已有 `fact_resolver.py`
+- 规则评估不再直接耦合零散 Python 字段名
+- 当前 facts 主要覆盖 actor / target_agent / target_location / world / policy 几个基础域
+- 仍未形成独立文档化 schema 校验器，属于运行时约定
+
 ### 阶段 3：最小规则裁决层
+
+状态：`已完成（最小版）`
 
 目标：
 
@@ -50,7 +78,18 @@
 
 第一版只需要支持少量规则模板和条件操作符。
 
+当前已落地：
+
+- 已有 `rule_evaluator.py`
+- 当前支持按 `action_types` 触发、按事实条件匹配、按 `priority + decision` 排序裁决
+- 当前决策类型为 `allowed / soft_risk / violates_rule / impossible`
+- `soft_risk` 允许动作继续执行，但会附带解释结果
+- `violates_rule` 与 `impossible` 当前都直接走拒绝路径
+- 这是最小实现，不代表最终治理语义
+
 ### 阶段 4：治理执行层
+
+状态：`未开始`
 
 目标：
 
@@ -60,7 +99,17 @@
 
 第一阶段不必实现完整政府组织模拟。
 
+当前明确未实现：
+
+- 选择性执法
+- 观测概率 / 巡查概率
+- 警告、记录、处罚等分层处置
+- 政府或治理 agent
+- policy 对执行力度的真正控制
+
 ### 阶段 5：关系后果层
+
+状态：`未开始`
 
 目标：
 
@@ -95,6 +144,12 @@
 - 在 event payload 中增加规则解释信息
 - 后续统一暴露到 timeline / agent detail
 
+当前已落地：
+
+- rejected / accepted event payload 已可附带 `rule_evaluation`
+- timeline schema 已暴露 `rule_evaluation`
+- context event formatting 已补 `rule_feedback_reason`
+
 ### 3.5 Relationship 侧
 
 - 定义 relationship update policy 的最小接口
@@ -111,3 +166,13 @@
 - 让 agent 直接读完整规则文件
 
 先把 world 设计的基础资产层和解释链打稳。
+
+## 5. 下一步的具体实施建议
+
+按当前代码状态，下一步应优先做：
+
+1. 治理执行层最小接口，把 `violates_rule` 从“直接拒绝”演进为“先裁决、再执行决定”
+2. `policy` 到执行层的真实映射，而不只是 facts 输入
+3. `world_rules_summary` 扩展到 `blocked_constraints / current_risks`
+4. 规则反馈写入长期记忆或更稳定的 agent 学习闭环
+5. relationship 后果层与规则裁决结果打通

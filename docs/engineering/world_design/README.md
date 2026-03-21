@@ -4,6 +4,11 @@
 
 这个目录专门沉淀 world 相关的设计细节，不与通用工程文档混写。
 
+当前状态：
+
+- 已落地最小闭环：runtime package、facts namespace、最小 rule evaluator、sim 接入、timeline 解释链、agent 侧轻量制度摘要
+- 尚未落地：治理执行层、动态 policy overlay、完整 relationship/economy/world evolution 扩展
+
 建议阅读顺序：
 
 1. [../WORLD_RULE_SYSTEM.md](../WORLD_RULE_SYSTEM.md) - 平台级总纲

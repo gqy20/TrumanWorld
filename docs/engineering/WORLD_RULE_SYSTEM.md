@@ -16,6 +16,26 @@
 - agent 可以在规则和反馈中逐步形成策略、关系与发展路径
 - 前端、日志、回放系统可以解释某个行为为什么被允许、阻止或带来后果
 
+## 1.1 当前实现范围
+
+截至当前代码状态，已经落地的是一个最小闭环：
+
+- scenario bundle 已支持 `rules.yml`、`policies/default.yml`、`constitution.md`
+- runtime 已有统一 `WorldDesignRuntimePackage`
+- rule engine 已支持基于 facts 的最小规则裁决
+- sim 已在动作执行前做规则评估
+- timeline / event payload 已暴露 `rule_evaluation`
+- agent context 已注入轻量 `world_rules_summary`
+
+尚未落地的部分：
+
+- 真正的治理执行层
+- `violates_rule` 的选择性执法与后续处置
+- 动态 policy overlay
+- relationship / reputation / economy 的完整后果层
+
+因此本文仍然是总纲文档，不应被理解为“全部能力都已实现”。
+
 ## 2. 背景问题
 
 当前系统已经具备：

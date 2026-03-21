@@ -15,6 +15,13 @@ agent 不应直接读取完整 `rules.yml` 或 `policies/*.yml`。
 
 **agent 读取制度摘要，不直接读取法条原文。**
 
+当前实现状态：
+
+- 已实现一个轻量版 `world_rules_summary`
+- 当前只注入 `policy_notices` 与 `recent_rule_feedback`
+- 尚未实现 `available_actions / blocked_constraints / current_risks`
+- 当前摘要主要来自世界效果和最近事件中的 `rule_evaluation`
+
 ## 2. 为什么要有这一层
 
 如果直接把完整规则暴露给 agent，会带来几个问题：
@@ -50,6 +57,14 @@ world_rules_summary:
   available_actions: []
   blocked_constraints: []
   current_risks: []
+  policy_notices: []
+  recent_rule_feedback: []
+```
+
+当前实际落地的最小结构：
+
+```yaml
+world_rules_summary:
   policy_notices: []
   recent_rule_feedback: []
 ```
@@ -114,6 +129,7 @@ world_rules_summary:
 说明：
 
 - 这层最适合承载世界变化通知
+- 当前已经实现基础版，主要覆盖当前地点相关的 world effect 通知
 
 ### 5.5 `recent_rule_feedback`
 
@@ -129,6 +145,7 @@ world_rules_summary:
 
 - 这是 agent 学习闭环的关键
 - 应尽量和最近事件、记忆形成一致
+- 当前已经实现基础版，来源主要是 recent events 中的 `rule_evaluation.reason`
 
 ## 6. 按角色暴露
 
@@ -163,6 +180,8 @@ world_rules_summary:
 
 这样 agent 才能形成真正的长期策略，而不是只依赖单次上下文窗口。
 
+当前尚未把规则反馈写入长期记忆，只停留在运行时上下文摘要层。
+
 ## 9. Narrative World 的建议摘要
 
 对 `narrative_world`，第一版建议重点暴露：
@@ -187,6 +206,8 @@ world_rules_summary:
 - 可按角色差异化暴露
 - 近期显著反馈应与记忆系统衔接
 
+当前代码状态下，应把这段理解为目标结构，而不是完整已实现结构。
+
 ## 11. 后续待展开问题
 
 后续可继续细化：
@@ -194,3 +215,5 @@ world_rules_summary:
 - 摘要是纯文本还是结构化对象
 - 如何控制摘要长度
 - 哪些治理事件应写入长期记忆
+- 如何从 `rule_evaluation` 稳定派生 `current_risks`
+- 如何从拒绝结果稳定派生 `blocked_constraints`
