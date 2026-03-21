@@ -353,6 +353,10 @@ def test_simulation_runner_applies_governance_warning_consequences():
                 "inspection_level": "low",
                 "high_attention_locations": [],
                 "sensitive_locations": [],
+                "warn_attention_delta": 0.07,
+                "block_attention_delta": 0.15,
+                "attention_score_cap": 1.0,
+                "attention_decay_per_day": 0.05,
             },
         ),
         constitution_text="",
@@ -365,7 +369,7 @@ def test_simulation_runner_applies_governance_warning_consequences():
 
     assert len(result.accepted) == 1
     assert world.agents["alice"].status["warning_count"] == 1
-    assert world.agents["alice"].status["governance_attention_score"] == 0.05
+    assert world.agents["alice"].status["governance_attention_score"] == 0.07
 
 
 def test_simulation_runner_applies_governance_block_consequences():
@@ -403,6 +407,10 @@ def test_simulation_runner_applies_governance_block_consequences():
                 "inspection_level": "medium",
                 "high_attention_locations": [],
                 "sensitive_locations": [],
+                "warn_attention_delta": 0.05,
+                "block_attention_delta": 0.2,
+                "attention_score_cap": 1.0,
+                "attention_decay_per_day": 0.05,
             },
         ),
         constitution_text="",
@@ -415,7 +423,21 @@ def test_simulation_runner_applies_governance_block_consequences():
 
     assert len(result.rejected) == 1
     assert world.agents["alice"].status["warning_count"] == 1
-    assert world.agents["alice"].status["governance_attention_score"] == 0.15
+    assert world.agents["alice"].status["governance_attention_score"] == 0.2
+
+
+def test_simulation_runner_applies_attention_decay_when_day_changes():
+    world = build_world()
+    world.current_time = datetime(2026, 3, 7, 22, 55, 0)
+    world.sleep_start_hour = 23
+    world.sleep_end_hour = 6
+    world.agents["alice"].status = {"governance_attention_score": 0.6}
+    runner = SimulationRunner(world, resolver=ActionResolver())
+
+    result = runner.tick([ActionIntent(agent_id="alice", action_type="rest")])
+
+    assert result.tick_delta > 1
+    assert world.agents["alice"].status["governance_attention_score"] == 0.55
 
 
 def test_simulation_runner_advances_tick_and_collects_results():

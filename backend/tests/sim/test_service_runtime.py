@@ -725,6 +725,318 @@ async def test_persistence_relationships_soft_risk_reduces_social_gain(
 
 
 @pytest.mark.asyncio
+async def test_persistence_relationships_governance_warn_further_reduces_social_gain(
+    db_session, monkeypatch: pytest.MonkeyPatch
+):
+    run = SimulationRun(
+        id="run-service-relationship-governance-warn",
+        name="relationship-governance-warn",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+        scenario_type="narrative_world",
+    )
+    plaza = Location(
+        id="loc-plaza-governance-warn",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-governance-warn",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-governance-warn",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice, bob])
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        "app.sim.persistence.load_world_design_runtime_package",
+        lambda _scenario_id: type("Package", (), {"policy_config": type("Policy", (), {"values": {}})()})(),
+    )
+
+    event = Event(
+        id="event-governance-warn-speech",
+        run_id=run.id,
+        tick_no=1,
+        event_type="speech",
+        actor_agent_id=alice.id,
+        target_agent_id=bob.id,
+        location_id=plaza.id,
+        world_time=None,
+        payload={
+            "governance_execution": {
+                "decision": "warn",
+                "reason": "high_attention_warning",
+                "enforcement_action": "warning",
+                "matched_signals": ["high_attention_location"],
+            }
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
+
+    alice_relationships = await AgentRepository(db_session).list_relationships(run.id, alice.id)
+    assert alice_relationships[0].familiarity == pytest.approx(0.1)
+    assert alice_relationships[0].trust == pytest.approx(0.04)
+    assert alice_relationships[0].affinity == pytest.approx(0.04)
+    assert event.payload["relationship_impact"]["governance_decision"] == "warn"
+    assert event.payload["relationship_impact"]["governance_reason"] == "high_attention_warning"
+    assert "governance_warn" in event.payload["relationship_impact"]["modifiers"]
+
+
+@pytest.mark.asyncio
+async def test_persistence_relationships_governance_block_turns_social_result_negative(
+    db_session, monkeypatch: pytest.MonkeyPatch
+):
+    run = SimulationRun(
+        id="run-service-relationship-governance-block",
+        name="relationship-governance-block",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+        scenario_type="narrative_world",
+    )
+    plaza = Location(
+        id="loc-plaza-governance-block",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-governance-block",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-governance-block",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice, bob])
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        "app.sim.persistence.load_world_design_runtime_package",
+        lambda _scenario_id: type("Package", (), {"policy_config": type("Policy", (), {"values": {}})()})(),
+    )
+
+    event = Event(
+        id="event-governance-block-speech",
+        run_id=run.id,
+        tick_no=1,
+        event_type="speech",
+        actor_agent_id=alice.id,
+        target_agent_id=bob.id,
+        location_id=plaza.id,
+        world_time=None,
+        payload={
+            "governance_execution": {
+                "decision": "block",
+                "reason": "location_closed",
+                "enforcement_action": "intercept",
+                "matched_signals": ["policy_block"],
+            }
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
+
+    alice_relationships = await AgentRepository(db_session).list_relationships(run.id, alice.id)
+    assert alice_relationships[0].familiarity == pytest.approx(0.1)
+    assert alice_relationships[0].trust == pytest.approx(0.0)
+    assert alice_relationships[0].affinity == pytest.approx(0.0)
+    assert event.payload["relationship_impact"]["governance_decision"] == "block"
+    assert event.payload["relationship_impact"]["governance_reason"] == "location_closed"
+    assert "governance_block" in event.payload["relationship_impact"]["modifiers"]
+
+
+@pytest.mark.asyncio
+async def test_persistence_relationships_actor_attention_reduces_social_gain(
+    db_session, monkeypatch: pytest.MonkeyPatch
+):
+    run = SimulationRun(
+        id="run-service-relationship-actor-attention",
+        name="relationship-actor-attention",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+        scenario_type="narrative_world",
+    )
+    plaza = Location(
+        id="loc-plaza-actor-attention",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-actor-attention",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={"governance_attention_score": 0.6},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-actor-attention",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice, bob])
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        "app.sim.persistence.load_world_design_runtime_package",
+        lambda _scenario_id: type("Package", (), {"policy_config": type("Policy", (), {"values": {}})()})(),
+    )
+
+    event = Event(
+        id="event-actor-attention-speech",
+        run_id=run.id,
+        tick_no=1,
+        event_type="speech",
+        actor_agent_id=alice.id,
+        target_agent_id=bob.id,
+        location_id=plaza.id,
+        world_time=None,
+        payload={},
+    )
+
+    await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
+
+    alice_relationships = await AgentRepository(db_session).list_relationships(run.id, alice.id)
+    assert alice_relationships[0].trust == pytest.approx(0.04)
+    assert alice_relationships[0].affinity == pytest.approx(0.04)
+    assert "attention_elevated" in event.payload["relationship_impact"]["modifiers"]
+    assert (
+        event.payload["relationship_impact"]["summary"]
+        == "制度关注使这次互动的关系增益有所减弱。"
+    )
+
+
+@pytest.mark.asyncio
+async def test_persistence_relationships_target_high_attention_further_reduces_social_gain(
+    db_session, monkeypatch: pytest.MonkeyPatch
+):
+    run = SimulationRun(
+        id="run-service-relationship-target-attention",
+        name="relationship-target-attention",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+        scenario_type="narrative_world",
+    )
+    plaza = Location(
+        id="loc-plaza-target-attention",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-target-attention",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-target-attention",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={"governance_attention_score": 0.85},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice, bob])
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        "app.sim.persistence.load_world_design_runtime_package",
+        lambda _scenario_id: type("Package", (), {"policy_config": type("Policy", (), {"values": {}})()})(),
+    )
+
+    event = Event(
+        id="event-target-attention-speech",
+        run_id=run.id,
+        tick_no=1,
+        event_type="speech",
+        actor_agent_id=alice.id,
+        target_agent_id=bob.id,
+        location_id=plaza.id,
+        world_time=None,
+        payload={},
+    )
+
+    await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
+
+    alice_relationships = await AgentRepository(db_session).list_relationships(run.id, alice.id)
+    assert alice_relationships[0].trust == pytest.approx(0.03)
+    assert alice_relationships[0].affinity == pytest.approx(0.03)
+    assert "attention_high" in event.payload["relationship_impact"]["modifiers"]
+    assert (
+        event.payload["relationship_impact"]["summary"]
+        == "高关注状态削弱了这次互动带来的关系增益。"
+    )
+
+
+@pytest.mark.asyncio
 async def test_simulation_service_persists_rejected_talk_with_requested_target_only(db_session):
     run = SimulationRun(
         id="run-invalid-target",

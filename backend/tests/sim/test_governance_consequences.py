@@ -2,7 +2,10 @@ from datetime import datetime
 
 from app.scenario.runtime.world_design_models import GovernanceExecutionResult
 from app.sim.action_resolver import ActionResult
-from app.sim.governance_consequences import apply_governance_consequences
+from app.sim.governance_consequences import (
+    apply_governance_attention_decay,
+    apply_governance_consequences,
+)
 from app.sim.world import AgentState, WorldState
 
 
@@ -35,10 +38,14 @@ def test_apply_governance_consequences_warn_updates_status():
         ),
     )
 
-    apply_governance_consequences(world, result)
+    apply_governance_consequences(
+        world,
+        result,
+        policy_values={"warn_attention_delta": 0.08, "attention_score_cap": 1.0},
+    )
 
     assert world.agents["alice"].status["warning_count"] == 1
-    assert world.agents["alice"].status["governance_attention_score"] == 0.05
+    assert world.agents["alice"].status["governance_attention_score"] == 0.08
 
 
 def test_apply_governance_consequences_block_adds_stronger_attention():
@@ -56,10 +63,14 @@ def test_apply_governance_consequences_block_adds_stronger_attention():
         ),
     )
 
-    apply_governance_consequences(world, result)
+    apply_governance_consequences(
+        world,
+        result,
+        policy_values={"block_attention_delta": 0.25, "attention_score_cap": 1.0},
+    )
 
     assert world.agents["alice"].status["warning_count"] == 2
-    assert world.agents["alice"].status["governance_attention_score"] == 0.35
+    assert world.agents["alice"].status["governance_attention_score"] == 0.45
 
 
 def test_apply_governance_consequences_caps_attention_score():
@@ -77,10 +88,14 @@ def test_apply_governance_consequences_caps_attention_score():
         ),
     )
 
-    apply_governance_consequences(world, result)
+    apply_governance_consequences(
+        world,
+        result,
+        policy_values={"block_attention_delta": 0.15, "attention_score_cap": 0.97},
+    )
 
     assert world.agents["alice"].status["warning_count"] == 4
-    assert world.agents["alice"].status["governance_attention_score"] == 1.0
+    assert world.agents["alice"].status["governance_attention_score"] == 0.97
 
 
 def test_apply_governance_consequences_ignores_allow():
@@ -100,3 +115,30 @@ def test_apply_governance_consequences_ignores_allow():
     apply_governance_consequences(world, result)
 
     assert world.agents["alice"].status == {}
+
+
+def test_apply_governance_attention_decay_reduces_attention_by_day():
+    world = _build_world()
+    world.agents["alice"].status = {"warning_count": 2, "governance_attention_score": 0.6}
+
+    apply_governance_attention_decay(
+        world,
+        days_elapsed=2,
+        policy_values={"attention_decay_per_day": 0.1},
+    )
+
+    assert world.agents["alice"].status["warning_count"] == 2
+    assert world.agents["alice"].status["governance_attention_score"] == 0.4
+
+
+def test_apply_governance_attention_decay_never_drops_below_zero():
+    world = _build_world()
+    world.agents["alice"].status = {"governance_attention_score": 0.04}
+
+    apply_governance_attention_decay(
+        world,
+        days_elapsed=1,
+        policy_values={"attention_decay_per_day": 0.1},
+    )
+
+    assert world.agents["alice"].status["governance_attention_score"] == 0.0

@@ -34,6 +34,10 @@ _DEFAULT_POLICY_VALUES: dict[str, Any] = {
     "night_restriction_start_hour": 23,
     "night_restriction_end_hour": 6,
     "social_boost_locations": {},
+    "warn_attention_delta": 0.05,
+    "block_attention_delta": 0.15,
+    "attention_score_cap": 1.0,
+    "attention_decay_per_day": 0.05,
 }
 
 

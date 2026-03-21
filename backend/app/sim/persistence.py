@@ -355,23 +355,26 @@ class PersistenceManager:
         run_id: str,
         *,
         session: AsyncSession | None = None,
-    ) -> tuple[SimulationRun | None, dict[str, str]]:
+    ) -> tuple[SimulationRun | None, dict[str, str], dict[str, dict]]:
         active_session = session or self.session
         run_repo = self.run_repo if session is None else RunRepository(active_session)
         location_repo = self.location_repo if session is None else LocationRepository(active_session)
-        run, locations = await asyncio.gather(
+        agent_repo = self.agent_repo if session is None else AgentRepository(active_session)
+        run, locations, agents = await asyncio.gather(
             run_repo.get(run_id),
             location_repo.list_for_run(run_id),
+            agent_repo.list_for_run(run_id),
         )
         location_type_map = {location.id: location.location_type for location in locations}
-        return run, location_type_map
+        agent_status_map = {agent.id: dict(agent.status or {}) for agent in agents}
+        return run, location_type_map, agent_status_map
 
     @staticmethod
     def _compute_relationship_delta(
         event: Event,
-        run_context: tuple[SimulationRun | None, dict[str, str]],
+        run_context: tuple[SimulationRun | None, dict[str, str], dict[str, dict]],
     ):
-        run, location_type_map = run_context
+        run, location_type_map, agent_status_map = run_context
         location_id = event.location_id
         location_type = location_type_map.get(location_id) if location_id else None
         policy_values: dict[str, object] | None = None
@@ -380,9 +383,14 @@ class PersistenceManager:
             policy_values = package.policy_config.values
         payload = event.payload or {}
         rule_evaluation = payload.get("rule_evaluation")
+        governance_execution = payload.get("governance_execution")
         rule_decision = None
         rule_reason = None
         risk_level = None
+        governance_decision = None
+        governance_reason = None
+        actor_attention_score = 0.0
+        target_attention_score = 0.0
         if isinstance(rule_evaluation, dict):
             decision_value = rule_evaluation.get("decision")
             reason_value = rule_evaluation.get("reason")
@@ -393,6 +401,33 @@ class PersistenceManager:
                 rule_reason = reason_value
             if isinstance(risk_level_value, str):
                 risk_level = risk_level_value
+        if isinstance(governance_execution, dict):
+            governance_decision_value = governance_execution.get("decision")
+            governance_reason_value = governance_execution.get("reason")
+            if isinstance(governance_decision_value, str):
+                governance_decision = governance_decision_value
+            if isinstance(governance_reason_value, str):
+                governance_reason = governance_reason_value
+        if event.actor_agent_id:
+            actor_attention_score = float(
+                (
+                    agent_status_map.get(event.actor_agent_id, {}).get(
+                        "governance_attention_score",
+                        0.0,
+                    )
+                    or 0.0
+                )
+            )
+        if event.target_agent_id:
+            target_attention_score = float(
+                (
+                    agent_status_map.get(event.target_agent_id, {}).get(
+                        "governance_attention_score",
+                        0.0,
+                    )
+                    or 0.0
+                )
+            )
         return compute_relationship_delta(
             event_type=event.event_type,
             world_time=event.world_time,
@@ -401,6 +436,10 @@ class PersistenceManager:
             rule_decision=rule_decision,
             rule_reason=rule_reason,
             risk_level=risk_level,
+            governance_decision=governance_decision,
+            governance_reason=governance_reason,
+            actor_attention_score=actor_attention_score,
+            target_attention_score=target_attention_score,
             policy_values=policy_values,
         )
 
@@ -435,6 +474,7 @@ class PersistenceManager:
     def _annotate_relationship_impact(event: Event, delta) -> None:
         payload = dict(event.payload or {})
         rule_evaluation = payload.get("rule_evaluation")
+        governance_execution = payload.get("governance_execution")
         relationship_impact = {
             "applied": True,
             "familiarity_delta": delta.familiarity_delta,
@@ -447,6 +487,9 @@ class PersistenceManager:
             relationship_impact["rule_decision"] = rule_evaluation.get("decision")
             relationship_impact["rule_reason"] = rule_evaluation.get("reason")
             relationship_impact["risk_level"] = rule_evaluation.get("risk_level")
+        if isinstance(governance_execution, dict):
+            relationship_impact["governance_decision"] = governance_execution.get("decision")
+            relationship_impact["governance_reason"] = governance_execution.get("reason")
         payload["relationship_impact"] = relationship_impact
         event.payload = payload
 
@@ -455,6 +498,14 @@ class PersistenceManager:
         modifiers = set(delta.modifiers)
         if "soft_risk" in modifiers:
             return "高风险社交接触降低了信任和亲近感的增长。"
+        if "attention_high" in modifiers:
+            return "高关注状态削弱了这次互动带来的关系增益。"
+        if "attention_elevated" in modifiers:
+            return "制度关注使这次互动的关系增益有所减弱。"
+        if "governance_block" in modifiers:
+            return "治理拦截使这次互动没有形成正向关系增益。"
+        if "governance_warn" in modifiers:
+            return "治理警告削弱了这次互动带来的关系增益。"
         if any(modifier.startswith("social_boost:") for modifier in modifiers):
             return "社交场景提升了亲近感的增长。"
         if "sensitive_location" in modifiers:

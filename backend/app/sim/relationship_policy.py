@@ -53,6 +53,10 @@ def compute_relationship_delta(
     rule_decision: str | None = None,
     rule_reason: str | None = None,
     risk_level: str | None = None,
+    governance_decision: str | None = None,
+    governance_reason: str | None = None,
+    actor_attention_score: float = 0.0,
+    target_attention_score: float = 0.0,
     policy_values: dict[str, Any] | None = None,
 ) -> RelationshipDelta | None:
     if event_type not in SOCIAL_RELATION_EVENT_TYPES:
@@ -103,9 +107,32 @@ def compute_relationship_delta(
             affinity_delta -= 0.01
             modifiers.append(f"risk_reason:{rule_reason}")
 
+    if governance_decision == "warn":
+        trust_delta -= 0.01
+        affinity_delta -= 0.01
+        modifiers.append("governance_warn")
+        if governance_reason:
+            modifiers.append(f"governance_reason:{governance_reason}")
+    elif governance_decision == "block":
+        trust_delta -= 0.05
+        affinity_delta -= 0.05
+        modifiers.append("governance_block")
+        if governance_reason:
+            modifiers.append(f"governance_reason:{governance_reason}")
+
+    max_attention_score = max(max(0.0, actor_attention_score), max(0.0, target_attention_score))
+    if max_attention_score >= 0.8:
+        trust_delta -= 0.02
+        affinity_delta -= 0.02
+        modifiers.append("attention_high")
+    elif max_attention_score >= 0.5:
+        trust_delta -= 0.01
+        affinity_delta -= 0.01
+        modifiers.append("attention_elevated")
+
     return RelationshipDelta(
         familiarity_delta=familiarity_delta,
-        trust_delta=trust_delta,
-        affinity_delta=affinity_delta,
+        trust_delta=max(0.0, trust_delta),
+        affinity_delta=max(0.0, affinity_delta),
         modifiers=tuple(modifiers),
     )

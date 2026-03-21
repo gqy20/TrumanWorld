@@ -9,7 +9,10 @@ from app.sim.conversation_scheduler import (
     ConversationScheduler,
     ConversationSession,
 )
-from app.sim.governance_consequences import apply_governance_consequences
+from app.sim.governance_consequences import (
+    apply_governance_attention_decay,
+    apply_governance_consequences,
+)
 from app.sim.world import WorldState
 
 
@@ -34,6 +37,8 @@ class SimulationRunner:
     def tick(self, intents: Iterable[ActionIntent]) -> TickResult:
         accepted: list[ActionResult] = []
         rejected: list[ActionResult] = []
+        previous_day_index = self.world.current_time.toordinal()
+        policy_values = self._policy_values()
 
         intent_list = list(intents)
         self.resolver.reset_tick()
@@ -57,7 +62,7 @@ class SimulationRunner:
             if self._should_skip_intent(intent, assignments):
                 continue
             result = self.resolver.resolve(self.world, intent)
-            apply_governance_consequences(self.world, result)
+            apply_governance_consequences(self.world, result, policy_values=policy_values)
             if result.accepted:
                 accepted.append(result)
             else:
@@ -65,6 +70,12 @@ class SimulationRunner:
         accepted.extend(self._build_listen_results(sessions, assignments))
 
         advanced = self.world.advance_tick()
+        days_elapsed = advanced.current_time.toordinal() - previous_day_index
+        apply_governance_attention_decay(
+            self.world,
+            days_elapsed=days_elapsed,
+            policy_values=policy_values,
+        )
         world_time = advanced.current_time.isoformat()
         self.tick_no += advanced.tick_delta
         return TickResult(
@@ -74,6 +85,12 @@ class SimulationRunner:
             accepted=accepted,
             rejected=rejected,
         )
+
+    def _policy_values(self) -> dict[str, object]:
+        package = getattr(self.resolver, "_world_design_package", None)
+        if package is None:
+            return {}
+        return dict((package.policy_config.values or {}))
 
     @staticmethod
     def _should_skip_intent(
