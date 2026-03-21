@@ -545,6 +545,15 @@ class PersistenceManager:
                 return "unknown"
             return _locations.get(loc_id, loc_id)
 
+        governance_records = self._build_governance_memory_records(
+            event,
+            agent_name=agent_name,
+            location_name=location_name,
+        )
+
+        if event.event_type.endswith("_rejected"):
+            return governance_records
+
         if event.event_type == "move":
             destination = location_name(str(payload.get("to_location_id", "")) or None)
             origin = location_name(str(payload.get("from_location_id", "")) or None)
@@ -555,7 +564,7 @@ class PersistenceManager:
                     f"Moved to {destination}",
                     None,
                 )
-            ]
+            ] + governance_records
 
         if event.event_type in {"conversation_started", "conversation_joined"}:
             return []
@@ -610,7 +619,7 @@ class PersistenceManager:
             return [
                 (event.actor_agent_id, actor_content, actor_summary, event.target_agent_id),
                 *listener_records,
-            ]
+            ] + governance_records
 
         if event.event_type == "listen":
             speaker_id = str(payload.get("target_agent_id") or event.target_agent_id or "")
@@ -624,13 +633,19 @@ class PersistenceManager:
                     f"Listened to {speaker}",
                     event.target_agent_id,
                 )
-            ]
+            ] + governance_records
 
         if event.event_type == "work":
-            return [(event.actor_agent_id, "Worked during this tick.", "Worked", None)]
+            return [
+                (event.actor_agent_id, "Worked during this tick.", "Worked", None),
+                *governance_records,
+            ]
 
         if event.event_type == "rest":
-            return [(event.actor_agent_id, "Rested during this tick.", "Rested", None)]
+            return [
+                (event.actor_agent_id, "Rested during this tick.", "Rested", None),
+                *governance_records,
+            ]
 
         return [
             (
@@ -638,6 +653,49 @@ class PersistenceManager:
                 f"Experienced event {event.event_type}.",
                 f"Event: {event.event_type}",
                 event.target_agent_id,
+            )
+        ] + governance_records
+
+    @staticmethod
+    def _build_governance_memory_records(
+        event: Event,
+        *,
+        agent_name,
+        location_name,
+    ) -> list[tuple[str, str, str, str | None]]:
+        actor_agent_id = event.actor_agent_id
+        if actor_agent_id is None:
+            return []
+
+        payload = event.payload or {}
+        governance_execution = payload.get("governance_execution")
+        if not isinstance(governance_execution, dict):
+            return []
+
+        decision = governance_execution.get("decision")
+        reason = governance_execution.get("reason")
+        if decision not in {"warn", "block"} or not isinstance(reason, str) or not reason:
+            return []
+
+        loc_id = str(payload.get("location_id") or event.location_id or "")
+        loc = location_name(loc_id)
+        actor = agent_name(actor_agent_id)
+        if decision == "warn":
+            return [
+                (
+                    actor_agent_id,
+                    f"{actor} received a governance warning at {loc}: {reason}.",
+                    f"Governance warning: {reason}",
+                    None,
+                )
+            ]
+
+        return [
+            (
+                actor_agent_id,
+                f"{actor} was blocked by governance at {loc}: {reason}.",
+                f"Governance block: {reason}",
+                None,
             )
         ]
 
@@ -663,7 +721,7 @@ class PersistenceManager:
 
         prepared: list[tuple[Event, list[tuple[str, str, str, str | None]]]] = []
         for event in events:
-            if event.event_type.endswith("_rejected") or event.actor_agent_id is None:
+            if event.actor_agent_id is None:
                 continue
             if event.event_type == "listen":
                 payload = event.payload or {}

@@ -119,6 +119,7 @@ world_rules_summary:
 
 - 重点是让 agent 理解“风险上升”，而不是直接禁止
 - 当前已经实现基础版，主要由 `governance_attention_score` 派生三档风险提示
+- 当前风险提示已经会随 attention 的跨日衰减而回落
 
 ### 5.4 `policy_notices`
 
@@ -150,6 +151,7 @@ world_rules_summary:
 - 这是 agent 学习闭环的关键
 - 应尽量和最近事件、记忆形成一致
 - 当前已经实现基础版，优先读取最近 `governance_execution.decision == warn` 的原因，再补 `rule_evaluation.reason`
+- 显著的 `warn / block` 当前也已经开始写入 agent 可检索记忆
 
 ## 6. 按角色暴露
 
@@ -184,7 +186,7 @@ world_rules_summary:
 
 这样 agent 才能形成真正的长期策略，而不是只依赖单次上下文窗口。
 
-当前尚未把规则反馈写入长期记忆，只停留在运行时上下文摘要层。
+当前已经把显著的治理警告与拦截结果接入长期记忆，但摘要层和记忆层还没有完全统一编排。
 
 ## 9. Narrative World 的建议摘要
 
@@ -218,6 +220,6 @@ world_rules_summary:
 
 - 摘要是纯文本还是结构化对象
 - 如何控制摘要长度
-- 哪些治理事件应写入长期记忆
+- 哪些治理事件应进入摘要、哪些应只进入长期记忆
 - 如何让 `current_risks` 同时吸收 policy、地点、关系与治理状态
 - 如何把 `blocked_constraints` 和长期治理后果衔接

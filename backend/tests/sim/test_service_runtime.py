@@ -1037,6 +1037,120 @@ async def test_persistence_relationships_target_high_attention_further_reduces_s
 
 
 @pytest.mark.asyncio
+async def test_persist_tick_memories_adds_governance_warning_memory(db_session):
+    run = SimulationRun(
+        id="run-governance-warning-memory",
+        name="governance-warning-memory",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    plaza = Location(
+        id="loc-governance-warning-memory",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-governance-warning-memory",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice])
+    await db_session.commit()
+
+    event = Event(
+        id="event-governance-warning-memory",
+        run_id=run.id,
+        tick_no=1,
+        event_type="move",
+        actor_agent_id=alice.id,
+        location_id=plaza.id,
+        importance=0.8,
+        payload={
+            "to_location_id": plaza.id,
+            "governance_execution": {
+                "decision": "warn",
+                "reason": "high_attention_warning",
+                "enforcement_action": "warning",
+                "matched_signals": ["high_attention_location"],
+            },
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_memories(run.id, [event])
+
+    memories = await AgentRepository(db_session).list_recent_memories(alice.id, limit=10)
+    summaries = [memory.summary for memory in memories]
+    assert "Governance warning: high_attention_warning" in summaries
+
+
+@pytest.mark.asyncio
+async def test_persist_tick_memories_includes_governance_block_for_rejected_event(db_session):
+    run = SimulationRun(
+        id="run-governance-block-memory",
+        name="governance-block-memory",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    plaza = Location(
+        id="loc-governance-block-memory",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-governance-block-memory",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice])
+    await db_session.commit()
+
+    event = Event(
+        id="event-governance-block-memory",
+        run_id=run.id,
+        tick_no=1,
+        event_type="move_rejected",
+        actor_agent_id=alice.id,
+        location_id=plaza.id,
+        importance=0.9,
+        payload={
+            "reason": "location_closed",
+            "governance_execution": {
+                "decision": "block",
+                "reason": "location_closed",
+                "enforcement_action": "intercept",
+                "matched_signals": ["policy_block"],
+            },
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_memories(run.id, [event])
+
+    memories = await AgentRepository(db_session).list_recent_memories(alice.id, limit=10)
+    summaries = [memory.summary for memory in memories]
+    assert "Governance block: location_closed" in summaries
+
+
+@pytest.mark.asyncio
 async def test_simulation_service_persists_rejected_talk_with_requested_target_only(db_session):
     run = SimulationRun(
         id="run-invalid-target",
