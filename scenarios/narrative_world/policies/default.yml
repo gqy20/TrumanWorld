@@ -1,0 +1,27 @@
+version: 1
+
+policy_id: default
+name: Narrative World Default Policy
+description: Default governance and relationship modulation for Narrative World.
+
+values:
+  closed_locations: []
+  restricted_locations: []
+  power_outage_locations: []
+  sensitive_locations:
+    - hospital
+  high_attention_locations:
+    - plaza
+    - cafe
+  inspection_level: medium
+  subject_protection_bias: high
+  continuity_protection_level: high
+  talk_risk_after_hour: 23
+  night_restriction_start_hour: 23
+  night_restriction_end_hour: 6
+  social_boost_locations:
+    plaza: 0.2
+    cafe: 0.3
+  relationship_decay_per_day:
+    affinity: 0.02
+    trust: 0.0

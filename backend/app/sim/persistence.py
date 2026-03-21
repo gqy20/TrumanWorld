@@ -290,6 +290,7 @@ class PersistenceManager:
             delta = self._compute_relationship_delta(event, run_context)
             if delta is None:
                 continue
+            self._annotate_relationship_impact(event, delta)
             for actor_agent_id, other_agent_id in self._iter_relationship_pairs(event):
                 await self.relationship_repo.upsert_interaction(
                     run_id=run_id,
@@ -326,6 +327,7 @@ class PersistenceManager:
             delta = self._compute_relationship_delta(event, run_context)
             if delta is None:
                 continue
+            self._annotate_relationship_impact(event, delta)
             for actor_agent_id, other_agent_id in self._iter_relationship_pairs(event):
                 await rel_repo.upsert_interaction(
                     run_id=run_id,
@@ -376,11 +378,29 @@ class PersistenceManager:
         if run is not None:
             package = load_world_design_runtime_package(run.scenario_type)
             policy_values = package.policy_config.values
+        payload = event.payload or {}
+        rule_evaluation = payload.get("rule_evaluation")
+        rule_decision = None
+        rule_reason = None
+        risk_level = None
+        if isinstance(rule_evaluation, dict):
+            decision_value = rule_evaluation.get("decision")
+            reason_value = rule_evaluation.get("reason")
+            risk_level_value = rule_evaluation.get("risk_level")
+            if isinstance(decision_value, str):
+                rule_decision = decision_value
+            if isinstance(reason_value, str):
+                rule_reason = reason_value
+            if isinstance(risk_level_value, str):
+                risk_level = risk_level_value
         return compute_relationship_delta(
             event_type=event.event_type,
             world_time=event.world_time,
             location_id=location_id,
             location_type=location_type,
+            rule_decision=rule_decision,
+            rule_reason=rule_reason,
+            risk_level=risk_level,
             policy_values=policy_values,
         )
 
@@ -410,6 +430,36 @@ class PersistenceManager:
             for participant_id in participants
             if participant_id != event.actor_agent_id
         ]
+
+    @staticmethod
+    def _annotate_relationship_impact(event: Event, delta) -> None:
+        payload = dict(event.payload or {})
+        rule_evaluation = payload.get("rule_evaluation")
+        relationship_impact = {
+            "applied": True,
+            "familiarity_delta": delta.familiarity_delta,
+            "trust_delta": delta.trust_delta,
+            "affinity_delta": delta.affinity_delta,
+            "modifiers": list(delta.modifiers),
+            "summary": PersistenceManager._build_relationship_impact_summary(delta),
+        }
+        if isinstance(rule_evaluation, dict):
+            relationship_impact["rule_decision"] = rule_evaluation.get("decision")
+            relationship_impact["rule_reason"] = rule_evaluation.get("reason")
+            relationship_impact["risk_level"] = rule_evaluation.get("risk_level")
+        payload["relationship_impact"] = relationship_impact
+        event.payload = payload
+
+    @staticmethod
+    def _build_relationship_impact_summary(delta) -> str:
+        modifiers = set(delta.modifiers)
+        if "soft_risk" in modifiers:
+            return "High-risk social contact reduced trust and affinity gains."
+        if any(modifier.startswith("social_boost:") for modifier in modifiers):
+            return "Social venue increased affinity gain."
+        if "sensitive_location" in modifiers:
+            return "Sensitive location reduced social trust and affinity gains."
+        return "Social interaction increased familiarity and relationship strength."
 
     async def persist_agent_locations(self, run_id: str, world: WorldState) -> None:
         """Update agent locations after tick."""

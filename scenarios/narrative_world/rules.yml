@@ -1,0 +1,77 @@
+version: 1
+
+rules:
+  - rule_id: late_night_stranger_talk_risk
+    name: Late Night Stranger Talk Risk
+    description: Deep-night conversations with strangers or weak ties increase narrative risk.
+    trigger:
+      action_types:
+        - talk
+    conditions:
+      - fact: world.time_period
+        op: eq
+        value: night
+      - fact: target_agent.relationship_level
+        op: in
+        value:
+          - stranger
+          - acquaintance
+    outcome:
+      decision: soft_risk
+      reason: late_night_talk_risk
+      risk_level: low
+      tags:
+        - night
+        - social
+        - relationship
+    priority: 350
+
+  - rule_id: subject_stranger_talk_risk
+    name: Subject Stranger Talk Risk
+    description: Low-trust contact around the subject should be treated as a continuity risk.
+    trigger:
+      action_types:
+        - talk
+    conditions:
+      - fact: target_agent.role
+        op: eq
+        value: truman
+      - fact: target_agent.relationship_level
+        op: in
+        value:
+          - stranger
+          - acquaintance
+    outcome:
+      decision: soft_risk
+      reason: subject_proximity_risk
+      risk_level: medium
+      tags:
+        - subject
+        - social
+        - relationship
+    priority: 340
+
+  - rule_id: sensitive_location_stranger_talk_risk
+    name: Sensitive Location Stranger Talk Risk
+    description: Unfamiliar interaction in sensitive locations increases observation and suspicion.
+    trigger:
+      action_types:
+        - talk
+    conditions:
+      - fact: target_location.id
+        op: in
+        value_from: policy.sensitive_locations
+      - fact: target_agent.relationship_level
+        op: in
+        value:
+          - stranger
+          - acquaintance
+    outcome:
+      decision: soft_risk
+      reason: sensitive_location_social_risk
+      risk_level: medium
+      tags:
+        - social
+        - sensitive_location
+        - relationship
+    priority: 330

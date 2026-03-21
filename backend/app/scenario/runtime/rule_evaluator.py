@@ -49,6 +49,7 @@ def evaluate_rules(
         decision=primary_rule.outcome.decision,
         primary_rule_id=primary_rule.rule_id,
         reason=primary_rule.outcome.reason,
+        risk_level=primary_rule.outcome.risk_level,
         matched_rule_ids=[rule.rule_id for rule in matched_rules],
     )
 

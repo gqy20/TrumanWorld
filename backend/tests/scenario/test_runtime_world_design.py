@@ -270,3 +270,17 @@ def test_runtime_world_design_cache_is_isolated_by_project_root(
     assert package_a.policy_config.values["inspection_level"] == "medium"
     assert package_b.world_config["social_norms"] == ["root b"]
     assert package_b.policy_config.values["inspection_level"] == "high"
+
+
+def test_narrative_world_default_package_includes_relationship_policy_assets():
+    from app.scenario.runtime.world_design import load_world_design_runtime_package
+
+    package = load_world_design_runtime_package("narrative_world", force_reload=True)
+
+    rule_ids = {rule.rule_id for rule in package.rules_config.rules}
+
+    assert "late_night_stranger_talk_risk" in rule_ids
+    assert "subject_stranger_talk_risk" in rule_ids
+    assert package.policy_config.values["talk_risk_after_hour"] == 23
+    assert package.policy_config.values["subject_protection_bias"] == "high"
+    assert package.policy_config.values["social_boost_locations"]["cafe"] == 0.3

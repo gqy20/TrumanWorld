@@ -224,6 +224,44 @@ def test_action_resolver_rejects_action_when_rule_evaluator_returns_violation():
     assert result.event_payload["rule_evaluation"]["primary_rule_id"] == "closed_location"
 
 
+def test_action_resolver_includes_soft_risk_metadata_in_event_payload():
+    world = _build_collocated_world()
+    package = WorldDesignRuntimePackage(
+        scenario_id="narrative_world",
+        world_config={},
+        rules_config=RulesConfig(
+            version=1,
+            rules=[
+                RuleConfigItem(
+                    rule_id="late_night_talk_risk",
+                    name="Late Night Talk Risk",
+                    trigger=RuleTriggerConfig(action_types=["talk"]),
+                    conditions=[],
+                    outcome=RuleOutcomeConfig(
+                        decision="soft_risk",
+                        reason="late_night_talk_risk",
+                        risk_level="low",
+                    ),
+                    priority=100,
+                )
+            ],
+        ),
+        policy_config=PolicyConfig(version=1, policy_id="default", values={}),
+        constitution_text="",
+    )
+    resolver = ActionResolver(world_design_package=package)
+
+    result = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="talk", target_agent_id="bob"),
+    )
+
+    assert result.accepted is True
+    assert result.event_payload["rule_evaluation"]["decision"] == "soft_risk"
+    assert result.event_payload["rule_evaluation"]["reason"] == "late_night_talk_risk"
+    assert result.event_payload["rule_evaluation"]["risk_level"] == "low"
+
+
 def test_simulation_runner_advances_tick_and_collects_results():
     world = build_world()
     runner = SimulationRunner(world)

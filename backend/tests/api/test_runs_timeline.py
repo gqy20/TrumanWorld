@@ -123,6 +123,74 @@ async def test_get_timeline_resolves_agent_name_and_world_datetime_filters(clien
 
 
 @pytest.mark.asyncio
+async def test_get_timeline_preserves_relationship_impact_payload(client, db_session):
+    run_id = "00000000-0000-0000-0000-000000000204"
+    run = SimulationRun(
+        id=run_id,
+        name="timeline-relationship-impact",
+        status="running",
+        tick_minutes=5,
+        metadata_json={"world_start_time": "2026-03-02T07:00:00+00:00"},
+    )
+    alice = Agent(
+        id="agent-alice-impact",
+        run_id=run_id,
+        name="Alice",
+        occupation="resident",
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="agent-bob-impact",
+        run_id=run_id,
+        name="Bob",
+        occupation="resident",
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all(
+        [
+            run,
+            alice,
+            bob,
+            Event(
+                id="timeline-relationship-impact-event",
+                run_id=run_id,
+                tick_no=1,
+                event_type="speech",
+                actor_agent_id=alice.id,
+                target_agent_id=bob.id,
+                payload={
+                    "relationship_impact": {
+                        "applied": True,
+                        "familiarity_delta": 0.1,
+                        "trust_delta": 0.01,
+                        "affinity_delta": 0.01,
+                        "modifiers": ["soft_risk"],
+                        "summary": "High-risk social contact reduced trust and affinity gains.",
+                    }
+                },
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await client.get(f"/api/runs/{run_id}/timeline")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["events"][0]["payload"]["actor_name"] == "Alice"
+    assert body["events"][0]["payload"]["target_name"] == "Bob"
+    assert body["events"][0]["payload"]["relationship_impact"]["summary"] == (
+        "High-risk social contact reduced trust and affinity gains."
+    )
+
+
+@pytest.mark.asyncio
 async def test_get_run_events_supports_category_filters(client, db_session):
     run_id = "00000000-0000-0000-0000-000000000203"
     db_session.add_all(

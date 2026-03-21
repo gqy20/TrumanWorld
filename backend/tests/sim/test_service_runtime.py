@@ -633,6 +633,95 @@ async def test_persistence_relationships_apply_social_location_policy_boost(
 
     alice_relationships = await AgentRepository(db_session).list_relationships(run.id, alice.id)
     assert alice_relationships[0].affinity == pytest.approx(0.08)
+    assert event.payload["relationship_impact"]["affinity_delta"] == pytest.approx(0.08)
+    assert "social_boost:cafe" in event.payload["relationship_impact"]["modifiers"]
+    assert event.payload["relationship_impact"]["summary"] == "Social venue increased affinity gain."
+
+
+@pytest.mark.asyncio
+async def test_persistence_relationships_soft_risk_reduces_social_gain(
+    db_session, monkeypatch: pytest.MonkeyPatch
+):
+    run = SimulationRun(
+        id="run-service-relationship-soft-risk",
+        name="relationship-soft-risk",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+        scenario_type="narrative_world",
+    )
+    plaza = Location(
+        id="loc-plaza-soft-risk",
+        run_id=run.id,
+        name="Plaza",
+        location_type="plaza",
+        capacity=4,
+    )
+    alice = Agent(
+        id="alice-soft-risk",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    bob = Agent(
+        id="bob-soft-risk",
+        run_id=run.id,
+        name="Bob",
+        occupation="resident",
+        home_location_id=plaza.id,
+        current_location_id=plaza.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, plaza, alice, bob])
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        "app.sim.persistence.load_world_design_runtime_package",
+        lambda _scenario_id: type("Package", (), {"policy_config": type("Policy", (), {"values": {}})()})(),
+    )
+
+    event = Event(
+        id="event-soft-risk-speech",
+        run_id=run.id,
+        tick_no=1,
+        event_type="speech",
+        actor_agent_id=alice.id,
+        target_agent_id=bob.id,
+        location_id=plaza.id,
+        world_time=None,
+        payload={
+            "rule_evaluation": {
+                "decision": "soft_risk",
+                "reason": "late_night_talk_risk",
+                "risk_level": "low",
+                "matched_rule_ids": ["late_night_talk_risk"],
+            }
+        },
+    )
+
+    await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
+
+    alice_relationships = await AgentRepository(db_session).list_relationships(run.id, alice.id)
+    assert alice_relationships[0].familiarity == pytest.approx(0.1)
+    assert alice_relationships[0].trust < 0.05
+    assert alice_relationships[0].affinity < 0.05
+    assert event.payload["relationship_impact"]["rule_decision"] == "soft_risk"
+    assert event.payload["relationship_impact"]["rule_reason"] == "late_night_talk_risk"
+    assert event.payload["relationship_impact"]["risk_level"] == "low"
+    assert "soft_risk" in event.payload["relationship_impact"]["modifiers"]
+    assert (
+        event.payload["relationship_impact"]["summary"]
+        == "High-risk social contact reduced trust and affinity gains."
+    )
 
 
 @pytest.mark.asyncio

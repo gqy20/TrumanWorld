@@ -69,4 +69,5 @@ class RuleEvaluationResult(BaseModel):
     decision: RuleDecision = "allowed"
     primary_rule_id: str | None = None
     reason: str | None = None
+    risk_level: str | None = None
     matched_rule_ids: list[str] = Field(default_factory=list)

@@ -112,7 +112,7 @@ def build_world_event_response(
         actor_name=agent_name_map.get(event.actor_agent_id) if event.actor_agent_id else None,
         target_name=agent_name_map.get(event.target_agent_id) if event.target_agent_id else None,
         location_name=location_name_map.get(event.location_id) if event.location_id else None,
-        payload=event.payload or {},
+        payload=enrich_event_payload(event, agent_name_map, location_name_map),
     )
 
 
