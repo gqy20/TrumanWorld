@@ -32,6 +32,7 @@ interface DirectorInterventionModalProps {
   onInjected: () => void;
   maxMemories?: number;
   locations?: Array<{ id: string; name: string; location_type: string }>;
+  agentNameMap?: Record<string, string>;
 }
 
 type DirectorFilter = "all" | "queued" | "consumed" | "expired";
@@ -103,6 +104,7 @@ export function DirectorInterventionModal({
   onInjected,
   maxMemories,
   locations = [],
+  agentNameMap = {},
 }: DirectorInterventionModalProps) {
   const [selectedFilter, setSelectedFilter] = useState<DirectorFilter>("all");
   const [memories, setMemories] = useState<DirectorMemory[]>([]);
@@ -275,6 +277,7 @@ export function DirectorInterventionModal({
                 observation={observation}
                 isLoading={isLoadingObservation}
                 error={observationError}
+                agentNameMap={agentNameMap}
                 onRetry={() => {
                   void (async () => {
                     setIsLoadingObservation(true);
@@ -464,11 +467,13 @@ function DirectorObservationCard({
   isLoading,
   error,
   onRetry,
+  agentNameMap = {},
 }: {
   observation: DirectorObservation | null;
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  agentNameMap?: Record<string, string>;
 }) {
   if (isLoading) {
     return (
@@ -535,7 +540,7 @@ function DirectorObservationCard({
       {observation.focus_agent_ids.length > 0 ? (
         <div className="mt-3 text-sm text-slate-600">
           <span className="font-medium text-slate-700">关注对象：</span>
-          {observation.focus_agent_ids.join("、")}
+          {observation.focus_agent_ids.map((id) => agentNameMap[id] ?? id).join("、")}
         </div>
       ) : null}
 

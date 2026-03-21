@@ -190,6 +190,15 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
               location_type: location.location_type,
             })) ?? []
           }
+          agentNameMap={
+            world
+              ? Object.fromEntries(
+                  world.locations
+                    .flatMap((loc) => loc.occupants)
+                    .map((agent) => [agent.id, agent.name])
+                )
+              : {}
+          }
         />
       </div>
 

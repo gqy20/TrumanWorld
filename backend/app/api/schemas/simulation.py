@@ -139,6 +139,7 @@ class RunBaseResponse(BaseModel):
     was_running_before_restart: bool = Field(False, description="服务重启前是否在运行中")
     started_at: datetime | None = Field(None, description="最近一次启动时间（UTC ISO8601）")
     elapsed_seconds: int = Field(0, description="累计运行秒数", ge=0)
+    created_at: datetime | None = Field(None, description="运行创建时间（UTC ISO8601）")
 
 
 class RunResponse(RunBaseResponse):

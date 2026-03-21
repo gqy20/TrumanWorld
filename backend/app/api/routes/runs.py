@@ -41,6 +41,7 @@ def build_run_payload(run: SimulationRun) -> dict[str, str | int | bool | dateti
         "was_running_before_restart": run.was_running_before_restart,
         "started_at": run.started_at,
         "elapsed_seconds": run.elapsed_seconds or 0,
+        "created_at": run.created_at,
     }
 
 

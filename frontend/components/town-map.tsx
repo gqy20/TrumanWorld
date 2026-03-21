@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import React, { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { EVENT_MOVE } from "@/lib/simulation-protocol";
 import type { AgentSummary, WorldSnapshot } from "@/lib/types";
@@ -100,6 +100,147 @@ function clampViewBox(next: ViewBox): ViewBox {
   const y = clamp(next.y, -(height - SVG_H) / 2, SVG_H - height / 2);
 
   return { x, y, width, height };
+}
+
+// ─── 小地图常量 ───────────────────────────────────────────────
+const MM_W = 160;
+const MM_H = 100;
+const MM_PAD = 12;
+
+interface MiniMapProps {
+  nodes: PositionedLocationNode[];
+  links: LocationLink[];
+  viewBox: ViewBox;
+  isDark: boolean;
+  onNavigate: (svgX: number, svgY: number) => void;
+}
+
+function MiniMap({ nodes, links, viewBox, isDark, onNavigate }: MiniMapProps) {
+  const mmDragRef = useRef<{ startX: number; startY: number; startVbX: number; startVbY: number } | null>(null);
+
+  // SVG坐标 → 小地图坐标
+  const toMM = (svgX: number, svgY: number) => ({
+    x: MM_PAD + ((svgX / SVG_W) * (MM_W - MM_PAD * 2)),
+    y: MM_PAD + ((svgY / SVG_H) * (MM_H - MM_PAD * 2)),
+  });
+
+  // 小地图坐标 → SVG坐标
+  const toSVG = (mmX: number, mmY: number) => ({
+    x: ((mmX - MM_PAD) / (MM_W - MM_PAD * 2)) * SVG_W,
+    y: ((mmY - MM_PAD) / (MM_H - MM_PAD * 2)) * SVG_H,
+  });
+
+  // 视口框在小地图中的位置
+  const frameX = MM_PAD + (viewBox.x / SVG_W) * (MM_W - MM_PAD * 2);
+  const frameY = MM_PAD + (viewBox.y / SVG_H) * (MM_H - MM_PAD * 2);
+  const frameW = (viewBox.width / SVG_W) * (MM_W - MM_PAD * 2);
+  const frameH = (viewBox.height / SVG_H) * (MM_H - MM_PAD * 2);
+
+  const bgColor = isDark ? "rgba(15,23,42,0.88)" : "rgba(255,255,255,0.88)";
+  const borderColor = isDark ? "rgba(100,116,139,0.5)" : "rgba(148,163,184,0.4)";
+  const linkColor = isDark ? "rgba(100,116,139,0.3)" : "rgba(148,163,184,0.4)";
+
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mmX = ((e.clientX - rect.left) / rect.width) * MM_W;
+    const mmY = ((e.clientY - rect.top) / rect.height) * MM_H;
+    const { x, y } = toSVG(mmX, mmY);
+    onNavigate(x, y);
+  };
+
+  // 拖拽视口框
+  const handleFramePointerDown = (e: React.PointerEvent<SVGRectElement>) => {
+    e.stopPropagation();
+    mmDragRef.current = { startX: e.clientX, startY: e.clientY, startVbX: viewBox.x, startVbY: viewBox.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const handleFramePointerMove = (e: React.PointerEvent<SVGRectElement>) => {
+    if (!mmDragRef.current) return;
+    e.stopPropagation();
+    const rect = (e.currentTarget.closest("svg") as SVGSVGElement)?.getBoundingClientRect();
+    if (!rect) return;
+    const dxPx = e.clientX - mmDragRef.current.startX;
+    const dyPx = e.clientY - mmDragRef.current.startY;
+    const dxSvg = (dxPx / rect.width) * MM_W * (SVG_W / (MM_W - MM_PAD * 2));
+    const dySvg = (dyPx / rect.height) * MM_H * (SVG_H / (MM_H - MM_PAD * 2));
+    onNavigate(mmDragRef.current.startVbX + dxSvg + viewBox.width / 2, mmDragRef.current.startVbY + dySvg + viewBox.height / 2);
+  };
+  const handleFramePointerUp = (e: React.PointerEvent<SVGRectElement>) => {
+    mmDragRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  return (
+    <svg
+      width={MM_W}
+      height={MM_H}
+      viewBox={`0 0 ${MM_W} ${MM_H}`}
+      onClick={handleClick}
+      className="cursor-crosshair"
+    >
+      {/* 背景 */}
+      <rect x={0} y={0} width={MM_W} height={MM_H} fill={bgColor} stroke={borderColor} strokeWidth={1} />
+
+      {/* 连线 */}
+      {links.map((link) => {
+        const s = nodes.find((n) => n.id === link.source);
+        const t = nodes.find((n) => n.id === link.target);
+        if (!s || !t) return null;
+        const sp = toMM(s.svgX, s.svgY);
+        const tp = toMM(t.svgX, t.svgY);
+        return (
+          <line key={`mm-${link.source}-${link.target}`}
+            x1={sp.x} y1={sp.y} x2={tp.x} y2={tp.y}
+            stroke={linkColor} strokeWidth={0.8} />
+        );
+      })}
+
+      {/* 地点圆点 */}
+      {nodes.map((node) => {
+        const { x, y } = toMM(node.svgX, node.svgY);
+        const style = LOCATION_STYLES[node.type] ?? LOCATION_STYLES.default;
+        const hasOccupants = node.occupantCount > 0;
+        return (
+          <g key={`mm-node-${node.id}`}>
+            {/* 热力光晕（有人时显示） */}
+            {hasOccupants && (
+              <circle cx={x} cy={y} r={7} fill={style.color} opacity={0.15} />
+            )}
+            <circle
+              cx={x} cy={y} r={hasOccupants ? 4.5 : 3}
+              fill={hasOccupants ? style.color : (isDark ? "#475569" : "#94a3b8")}
+              stroke={isDark ? "rgba(15,23,42,0.6)" : "rgba(255,255,255,0.8)"}
+              strokeWidth={1}
+            />
+            {/* 有人数时显示小计数徽章 */}
+            {node.occupantCount > 0 && (
+              <text x={x + 5} y={y - 4}
+                fontSize={5} fontWeight="700"
+                fill={isDark ? "#94a3b8" : "#64748b"}
+                textAnchor="start">
+                {node.occupantCount}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* 视口指示框 */}
+      <rect
+        x={frameX} y={frameY} width={Math.max(frameW, 4)} height={Math.max(frameH, 4)}
+        fill="rgba(59,130,246,0.08)"
+        stroke="rgba(59,130,246,0.7)"
+        strokeWidth={1.2}
+        rx={2}
+        className="cursor-move"
+        onPointerDown={handleFramePointerDown}
+        onPointerMove={handleFramePointerMove}
+        onPointerUp={handleFramePointerUp}
+        onPointerCancel={handleFramePointerUp}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </svg>
+  );
 }
 
 function buildMapData(world: WorldSnapshot) {
@@ -220,6 +361,7 @@ export function TownMap({
 }: TownMapProps) {
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
   const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, width: SVG_W, height: SVG_H });
+  const [miniMapCollapsed, setMiniMapCollapsed] = useState(false);
   const dragStateRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -232,6 +374,11 @@ export function TownMap({
   const [showNightSkip, setShowNightSkip] = useState(false);
   const [nightSkipDay, setNightSkipDay] = useState(1);
   const prevClockRef = useRef<{ hour: number; day: number } | null>(null);
+
+  // 对话气泡：agentId -> { message, key }（key 用于触发重新动画）
+  const [speechBubbles, setSpeechBubbles] = useState<Record<string, { message: string; key: number }>>({});
+  const bubbleTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const prevEventIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const curr = world.world_clock;
@@ -246,6 +393,63 @@ export function TownMap({
     }
     prevClockRef.current = { hour: curr.hour, day: curr.day };
   }, [world.world_clock]);
+
+  // 检测新的 speech/talk 事件，更新对话气泡
+  useEffect(() => {
+    const speechEvents = world.recent_events.filter(
+      (e) => (e.event_type === "speech" || e.event_type === "talk") && e.actor_agent_id,
+    );
+
+    const newBubbles: Record<string, { message: string; key: number }> = {};
+    for (const event of speechEvents) {
+      const agentId = event.actor_agent_id!;
+      const message = typeof event.payload.message === "string" ? event.payload.message : null;
+      if (!message) continue;
+      // 只处理新出现的事件（避免世界快照刷新时重复触发）
+      if (prevEventIdsRef.current.has(event.id)) continue;
+      newBubbles[agentId] = { message, key: Date.now() };
+    }
+
+    // 更新 prevEventIds
+    prevEventIdsRef.current = new Set(world.recent_events.map((e) => e.id));
+
+    if (Object.keys(newBubbles).length === 0) return;
+
+    const MAX_BUBBLES = 4;
+
+    setSpeechBubbles((prev) => {
+      const next = { ...prev };
+      for (const [agentId, bubble] of Object.entries(newBubbles)) {
+        next[agentId] = bubble;
+        // 清除旧定时器
+        if (bubbleTimersRef.current[agentId]) {
+          clearTimeout(bubbleTimersRef.current[agentId]);
+        }
+        // 6 秒后自动消失
+        bubbleTimersRef.current[agentId] = setTimeout(() => {
+          setSpeechBubbles((cur) => {
+            const updated = { ...cur };
+            delete updated[agentId];
+            return updated;
+          });
+        }, 6000);
+      }
+      // 超过数量上限时，移除 key 最小（最旧）的气泡
+      const entries = Object.entries(next);
+      if (entries.length > MAX_BUBBLES) {
+        entries.sort((a, b) => a[1].key - b[1].key);
+        const toRemove = entries.slice(0, entries.length - MAX_BUBBLES);
+        for (const [id] of toRemove) {
+          delete next[id];
+          if (bubbleTimersRef.current[id]) {
+            clearTimeout(bubbleTimersRef.current[id]);
+            delete bubbleTimersRef.current[id];
+          }
+        }
+      }
+      return next;
+    });
+  }, [world.recent_events]);
 
   const { nodes, links, movePaths, mainRoadPath, coastPath, heatConfig } = useMemo(() => buildMapData(world), [world]);
 
@@ -290,6 +494,18 @@ export function TownMap({
 
   const resetView = () => {
     setViewBox({ x: 0, y: 0, width: SVG_W, height: SVG_H });
+  };
+
+  // 小地图点击/拖拽导航：以 SVG 坐标为中心，保持当前缩放级别
+  const focusOnSvgPoint = (svgX: number, svgY: number) => {
+    setViewBox((current) =>
+      clampViewBox({
+        x: svgX - current.width / 2,
+        y: svgY - current.height / 2,
+        width: current.width,
+        height: current.height,
+      }),
+    );
   };
 
   const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
@@ -347,18 +563,14 @@ export function TownMap({
 
   return (
     <div
-      className={`flex h-full min-h-[460px] flex-col rounded-[28px] border p-4 shadow-xs backdrop-blur-sm transition-colors duration-1000 ${
+      className={`relative flex h-full min-h-[460px] flex-col rounded-[28px] border p-4 shadow-xs backdrop-blur-sm transition-colors duration-1000 ${
         timeStyle.isDark
           ? "border-slate-700/50 bg-slate-800/80"
           : "border-white/70 bg-white/80"
       }`}
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-[0.22em] text-moss">小镇地图</span>
-          </div>
-        </div>
+        <div />
         <div className={`flex flex-col items-end gap-1.5 text-xs ${timeStyle.isDark ? "text-slate-400" : "text-slate-500"}`}>
           {/* 热力等级 + 夜晚灯光 + 控制按钮 */}
           <div className="flex items-center gap-1.5">
@@ -423,6 +635,66 @@ export function TownMap({
           </div>
         </div>
       </div>
+      {/* 小地图 - 贴着内层地图容器左上角（外层定位，不受 overflow-hidden 裁切） */}
+      <div className="absolute left-4 top-4 z-30">
+        <AnimatePresence mode="wait">
+          {miniMapCollapsed ? (
+            /* 折叠态：只显示一个贴边小图标 */
+            <motion.button
+              key="mm-collapsed"
+              type="button"
+              onClick={() => setMiniMapCollapsed(false)}
+              title="展开小地图"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className={`flex h-7 w-7 items-center justify-center rounded-br-lg border-b border-r text-[11px] shadow-sm transition-colors hover:scale-105 ${
+                timeStyle.isDark
+                  ? "border-slate-600 bg-slate-800/90 text-slate-300 hover:bg-slate-700/90"
+                  : "border-slate-200 bg-white/90 text-slate-500 hover:bg-white"
+              }`}
+            >
+              🗺
+            </motion.button>
+          ) : (
+            /* 展开态：小地图 + 右下角关闭按钮 */
+            <motion.div
+              key="mm-open"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.18 }}
+              className="relative"
+            >
+              <div className={`overflow-hidden rounded-br-[10px] shadow-lg ring-1 backdrop-blur-sm ${
+                timeStyle.isDark ? "ring-slate-600/50" : "ring-slate-200/80"
+              }`}>
+                <MiniMap
+                  nodes={nodes}
+                  links={links}
+                  viewBox={viewBox}
+                  isDark={timeStyle.isDark}
+                  onNavigate={focusOnSvgPoint}
+                />
+              </div>
+              {/* 关闭按钮：右下角角标 */}
+              <button
+                type="button"
+                onClick={() => setMiniMapCollapsed(true)}
+                title="折叠小地图"
+                className={`absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-tl-md border-l border-t text-[9px] transition-colors ${
+                  timeStyle.isDark
+                    ? "border-slate-600 bg-slate-800/90 text-slate-400 hover:text-slate-200"
+                    : "border-slate-200 bg-white/90 text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                ×
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
       <div
         className={`relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-linear-to-br ${timeStyle.bgGradient} transition-all duration-1000`}
       >
@@ -453,6 +725,7 @@ export function TownMap({
             </motion.div>
           )}
         </AnimatePresence>
+
         <svg
           viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
           className="h-full min-h-[420px] w-full touch-none"
@@ -790,6 +1063,101 @@ export function TownMap({
                           </text>
                         </>
                       )}
+                      {/* 对话气泡 */}
+                      {speechBubbles[agent.id] && (() => {
+                        const bubble = speechBubbles[agent.id];
+                        const maxChars = 28;
+                        const displayMsg = bubble.message.length > maxChars
+                          ? `${bubble.message.slice(0, maxChars)}…`
+                          : bubble.message;
+                        const bubbleW = 120;
+                        const bubbleH = 36;
+                        const TAIL_H = 8;
+                        const MARGIN = 6; // SVG 边界安全距离
+
+                        // 1. 边界夹紧：防止气泡超出 SVG 画布左右边界
+                        const rawBubbleX = agentX - bubbleW / 2;
+                        const clampedBubbleX = Math.max(MARGIN, Math.min(rawBubbleX, SVG_W - bubbleW - MARGIN));
+                        // 尖角中心始终对准 agent，但也夹紧在气泡 x 范围内
+                        const tailCX = Math.max(clampedBubbleX + 8, Math.min(agentX, clampedBubbleX + bubbleW - 8));
+
+                        // 2. 上下翻转：agent 太靠上时气泡显示在下方
+                        const spaceAbove = agentY - viewBox.y;
+                        const showBelow = spaceAbove < bubbleH + TAIL_H + 20;
+                        const bubbleY = showBelow
+                          ? agentY + 16 * NODE_SCALE + TAIL_H + 4
+                          : agentY - 16 * NODE_SCALE - bubbleH - TAIL_H - 4;
+
+                        const bgColor = timeStyle.isDark ? "rgba(30,41,59,0.96)" : "rgba(255,255,255,0.96)";
+                        const textColor = timeStyle.isDark ? "#e2e8f0" : "#1e293b";
+
+                        // 尖角三角形坐标（朝向 agent 方向）
+                        const tailPoints = showBelow
+                          ? `${tailCX - 5},${bubbleY} ${tailCX + 5},${bubbleY} ${tailCX},${bubbleY - TAIL_H}`
+                          : `${tailCX - 5},${bubbleY + bubbleH} ${tailCX + 5},${bubbleY + bubbleH} ${tailCX},${bubbleY + bubbleH + TAIL_H}`;
+
+                        return (
+                          <motion.g
+                            key={bubble.key}
+                            initial={{ opacity: 0, y: showBelow ? -4 : 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: showBelow ? -4 : 4 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            {/* 气泡背景 */}
+                            <rect
+                              x={clampedBubbleX}
+                              y={bubbleY}
+                              width={bubbleW}
+                              height={bubbleH}
+                              rx={10}
+                              fill={bgColor}
+                              stroke={fill}
+                              strokeWidth={1.5}
+                              filter="url(#softShadow)"
+                            />
+                            {/* 气泡尖角 */}
+                            <polygon
+                              points={tailPoints}
+                              fill={bgColor}
+                              stroke={fill}
+                              strokeWidth={1.5}
+                            />
+                            {/* 遮住尖角与气泡接缝 */}
+                            <rect
+                              x={tailCX - 5}
+                              y={showBelow ? bubbleY - 2 : bubbleY + bubbleH - 2}
+                              width={10}
+                              height={4}
+                              fill={bgColor}
+                            />
+                            {/* 对话文字 */}
+                            <foreignObject
+                              x={clampedBubbleX + 6}
+                              y={bubbleY + 4}
+                              width={bubbleW - 12}
+                              height={bubbleH - 8}
+                            >
+                              <div
+                                // @ts-expect-error xmlns required for SVG foreignObject
+                                xmlns="http://www.w3.org/1999/xhtml"
+                                style={{
+                                  fontSize: "9px",
+                                  lineHeight: "1.3",
+                                  color: textColor,
+                                  wordBreak: "break-all",
+                                  overflow: "hidden",
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                }}
+                              >
+                                💬 {displayMsg}
+                              </div>
+                            </foreignObject>
+                          </motion.g>
+                        );
+                      })()}
                     </g>
                   );
                 })}

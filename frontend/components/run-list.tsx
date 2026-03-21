@@ -16,6 +16,7 @@ type Run = {
   agent_count?: number;
   location_count?: number;
   event_count?: number;
+  created_at?: string | null;
 };
 
 type RunListProps = {
@@ -147,6 +148,11 @@ export function RunList({ runs }: RunListProps) {
                 </span>
                 <span className="text-xs text-slate-400">ticks</span>
               </div>
+              {run.created_at && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  创建于 {formatRunRelativeTime(run.created_at)}
+                </p>
+              )}
 
               {/* 状态标签 */}
               <div className="mt-3 flex items-center gap-2">
@@ -229,4 +235,18 @@ export function RunList({ runs }: RunListProps) {
       </div>
     </>
   );
+}
+
+function formatRunRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "刚刚";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} 天前`;
+  const months = Math.floor(days / 30);
+  return `${months} 个月前`;
 }

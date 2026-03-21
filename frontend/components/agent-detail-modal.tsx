@@ -55,6 +55,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
   const [agent, setAgent] = useState<AgentDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAllRelationships, setShowAllRelationships] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -195,7 +196,7 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                   关系网络 ({relationships.length})
                 </p>
                 <div className="mt-3 space-y-3">
-                  {relationships.slice(0, 5).map((rel: AgentRelationship, index: number) => {
+                  {(showAllRelationships ? relationships : relationships.slice(0, 5)).map((rel: AgentRelationship, index: number) => {
                     const familiarityPct = (rel.familiarity * 100).toFixed(0);
                     const barColor = relationshipTone(rel.familiarity);
                     const textColor = rel.familiarity >= 0.75
@@ -221,6 +222,15 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
                     );
                   })}
                 </div>
+                {relationships.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllRelationships((v) => !v)}
+                    className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    {showAllRelationships ? "收起" : `查看全部 ${relationships.length} 个关系`}
+                  </button>
+                )}
               </section>
             )}
           </div>
@@ -239,33 +249,52 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
               {agent.recent_events.length === 0 ? (
                 <p className="text-sm text-slate-400">暂无近期事件</p>
               ) : (
-                <div className="space-y-2">
-                  {agent.recent_events.map((event: AgentRecentEvent) => (
-                    <div
-                      key={event.id}
-                      className="rounded-xl border border-slate-100 bg-slate-50/50 p-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm text-slate-700">
-                          {describeAgentEvent(event)}
-                        </p>
-                        <span className="shrink-0 text-[10px] text-slate-400">
-                          {world &&
-                            tickToSimDayTime(
-                              event.tick_no,
-                              world.run.tick_minutes ?? 5,
-                              world.run.current_tick ?? 0,
-                              world.world_clock?.iso
-                            )}
-                        </span>
+                <div className="space-y-1">
+                  {agent.recent_events.map((event: AgentRecentEvent) => {
+                    const isLowPriority = event.event_type === "work" || event.event_type === "rest";
+                    const timeLabel = world
+                      ? tickToSimDayTime(
+                          event.tick_no,
+                          world.run.tick_minutes ?? 5,
+                          world.run.current_tick ?? 0,
+                          world.world_clock?.iso
+                        )
+                      : null;
+                    if (isLowPriority) {
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-2 rounded-r border-l-2 border-slate-200 py-1 pl-2 pr-2 text-xs text-slate-500"
+                        >
+                          <span className="flex-1 truncate">{describeAgentEvent(event)}</span>
+                          {timeLabel && <span className="shrink-0 text-slate-400">{timeLabel}</span>}
+                        </div>
+                      );
+                    }
+                    const evtStr = String(event.event_type);
+                    const borderColor =
+                      evtStr.includes("talk") || evtStr.includes("speech") || evtStr.includes("conversation")
+                        ? "border-l-blue-300 bg-blue-50/30"
+                        : evtStr.includes("rejected")
+                          ? "border-l-red-300 bg-red-50/30"
+                          : "border-l-emerald-200 bg-emerald-50/20";
+                    return (
+                      <div
+                        key={event.id}
+                        className={`flex items-start gap-2 rounded-r-lg border-l-2 py-1.5 pl-2.5 pr-2 ${borderColor}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs leading-tight text-slate-700">{describeAgentEvent(event)}</p>
+                          {event.location_name && (
+                            <p className="mt-0.5 text-[10px] text-slate-400">📍 {event.location_name}</p>
+                          )}
+                        </div>
+                        {timeLabel && (
+                          <span className="shrink-0 text-[10px] text-slate-400">{timeLabel}</span>
+                        )}
                       </div>
-                      {event.location_name && (
-                        <p className="mt-1 text-xs text-slate-400">
-                          📍 {event.location_name}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -283,36 +312,46 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
               <p className="text-sm text-slate-400">暂无记忆数据</p>
             ) : (
               <div className="space-y-2">
-                {memories.slice(0, 20).map((memory) => (
-                  <div
-                    key={memory.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50/50 p-3"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] ${memoryCategoryBadgeClass(memory.memory_category)}`}
-                      >
-                        {formatMemoryCategory(memory.memory_category)}
-                      </span>
-                      {(memory.streak_count ?? 1) > 1 && (
-                        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-slate-500">
-                          连续 {memory.streak_count} 次
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-700">{memory.content}</p>
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400">
-                      <span>重要度: {formatAgentScore(memory.importance)}</span>
-                      <span>事件显著性: {formatAgentScore(memory.event_importance)}</span>
-                      <span>主体相关性: {formatAgentScore(memory.self_relevance)}</span>
+                {memories.slice(0, 20).map((memory) => {
+                  const importanceScore = formatAgentScore(memory.importance);
+                  const isLowImportance = memory.importance != null && memory.importance < 0.3;
+                  const tooltipText = `事件显著性: ${formatAgentScore(memory.event_importance)} | 主体相关性: ${formatAgentScore(memory.self_relevance)}`;
+                  return (
+                    <div
+                      key={memory.id}
+                      className={`rounded-xl border border-slate-100 p-3 ${isLowImportance ? "bg-slate-50/30 opacity-60" : "bg-slate-50/50"}`}
+                    >
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] ${memoryCategoryBadgeClass(memory.memory_category)}`}
+                          >
+                            {formatMemoryCategory(memory.memory_category)}
+                          </span>
+                          {(memory.streak_count ?? 1) > 1 && (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-slate-500">
+                              ×{memory.streak_count}
+                            </span>
+                          )}
+                        </div>
+                        <div className="group relative flex items-center gap-1">
+                          <span className={`text-[10px] font-medium ${memory.importance != null && memory.importance >= 0.7 ? "text-amber-600" : "text-slate-400"}`}>
+                            ★ {importanceScore}
+                          </span>
+                          <div className="absolute right-0 top-5 z-10 hidden whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-white shadow-lg group-hover:block">
+                            {tooltipText}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-700">{memory.content}</p>
                       {memory.created_at && (
-                        <span>
-                          {new Date(memory.created_at).toLocaleDateString()}
-                        </span>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          {formatRelativeTime(memory.created_at)}
+                        </p>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             </div>
@@ -321,4 +360,16 @@ export function AgentDetailModal({ isOpen, onClose, runId, agentId }: AgentDetai
       </div>
     </Modal>
   );
+}
+
+function formatRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "刚刚";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  return `${days} 天前`;
 }
