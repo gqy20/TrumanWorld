@@ -31,6 +31,7 @@ class ActionIntent:
     target_agent_id: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     plan_update: PlanUpdate | None = None  # Optional plan update request
+    raw_intent: str | None = None  # Original intent description (for free actions)
 
 
 @dataclass

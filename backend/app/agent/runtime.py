@@ -243,6 +243,7 @@ class AgentRuntime:
             target_agent_id=decision.target_agent_id,
             payload=payload,
             plan_update=plan_update_obj,
+            raw_intent=decision.raw_intent,
         )
 
     async def react(
