@@ -53,7 +53,7 @@ class ActionResolver:
     their next-tick recent_events and can reply naturally.
     """
 
-    SUPPORTED_ACTIONS = {"move", "rest", "work", "talk"}
+    STANDARD_ACTIONS = {"move", "rest", "work", "talk"}
 
     def __init__(self, world_design_package: WorldDesignRuntimePackage | None = None) -> None:
         # Agents that have completed (accepted) a talk this tick — blocks further talk.
@@ -119,20 +119,6 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        if intent.action_type not in self.SUPPORTED_ACTIONS:
-            return self._build_result(
-                False,
-                intent.action_type,
-                "unsupported_action",
-                event_payload={
-                    "agent_id": intent.agent_id,
-                    "location_id": agent.location_id,
-                    **intent.payload,
-                },
-                rule_evaluation=rule_evaluation,
-                governance_execution=governance_execution,
-            )
-
         if governance_execution is not None and governance_execution.decision == "block":
             return self._build_rule_rejection(
                 agent.location_id,
@@ -141,6 +127,44 @@ class ActionResolver:
                 governance_execution,
             )
 
+        # Standard actions: use dedicated resolvers
+        if intent.action_type in self.STANDARD_ACTIONS:
+            return self._resolve_standard(
+                world,
+                intent,
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+
+        # Free actions: route to free action handler
+        return self._resolve_free_action(
+            world,
+            intent,
+            rule_evaluation=rule_evaluation,
+            governance_execution=governance_execution,
+        )
+
+        # This code should never be reached since STANDARD_ACTIONS are handled above.
+        # Redirect to standard resolver as a fallback.
+        return self._resolve_standard(
+            world,
+            intent,
+            rule_evaluation=rule_evaluation,
+            governance_execution=governance_execution,
+        )
+
+    def _resolve_standard(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+        governance_execution: GovernanceExecutionResult | None,
+    ) -> ActionResult:
+        """Route standard actions to their dedicated resolvers.
+
+        Standard actions are: move, talk, work, rest.
+        """
         # Check work_ban restriction
         if intent.action_type == "work" and world.has_restriction(
             intent.agent_id, "work_ban", scope_value="work"
@@ -151,7 +175,9 @@ class ActionResolver:
                 "work_ban",
                 event_payload={
                     "agent_id": intent.agent_id,
-                    "location_id": agent.location_id,
+                    "location_id": world.get_agent(intent.agent_id).location_id
+                    if world.get_agent(intent.agent_id)
+                    else None,
                     **intent.payload,
                 },
                 rule_evaluation=rule_evaluation,
@@ -162,7 +188,9 @@ class ActionResolver:
             if intent.action_type == "talk":
                 event_payload = {
                     "agent_id": intent.agent_id,
-                    "location_id": agent.location_id,
+                    "location_id": world.get_agent(intent.agent_id).location_id
+                    if world.get_agent(intent.agent_id)
+                    else None,
                     "target_agent_id": intent.target_agent_id,
                 }
                 self._append_conversation_metadata(intent.agent_id, event_payload)
@@ -178,10 +206,11 @@ class ActionResolver:
         # If this agent is pre-registered as a talk target this tick,
         # suppress non-talk actions so no spurious rest/work/move appears
         # alongside the talk event in the timeline.
+        agent = world.get_agent(intent.agent_id)
         if intent.agent_id in self._prefilled_targets and intent.action_type != "talk":
             event_payload = {
                 "agent_id": intent.agent_id,
-                "location_id": agent.location_id,
+                "location_id": agent.location_id if agent else None,
             }
             self._append_conversation_metadata(intent.agent_id, event_payload)
             return self._build_result(
@@ -215,7 +244,7 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        # rest and other actions
+        # rest and other standard actions
         return self._build_result(
             accepted=True,
             action_type=intent.action_type,
@@ -225,6 +254,87 @@ class ActionResolver:
                 "location_id": agent.location_id if agent else None,
                 **intent.payload,
             },
+            rule_evaluation=rule_evaluation,
+            governance_execution=governance_execution,
+        )
+
+    def _resolve_free_action(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+        governance_execution: GovernanceExecutionResult | None,
+    ) -> ActionResult:
+        """Handle free actions (trade, gift, craft, etc.).
+
+        Free actions are accepted and marked with consequence_source='pending'.
+        The actual state changes are generated later by the ConsequenceGenerator
+        during persistence.
+        """
+        agent = world.get_agent(intent.agent_id)
+        if agent is None:
+            return self._build_result(
+                False,
+                intent.action_type,
+                "agent_not_found",
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": None,
+                    **intent.payload,
+                },
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+
+        # Basic validation: if target_agent_id is provided, target must be nearby
+        if intent.target_agent_id:
+            target = world.get_agent(intent.target_agent_id)
+            if target is None:
+                return self._build_result(
+                    False,
+                    intent.action_type,
+                    "target_agent_not_found",
+                    event_payload={
+                        "agent_id": intent.agent_id,
+                        "location_id": agent.location_id,
+                        "target_agent_id": intent.target_agent_id,
+                        **intent.payload,
+                    },
+                    rule_evaluation=rule_evaluation,
+                    governance_execution=governance_execution,
+                )
+            if agent.location_id != target.location_id:
+                return self._build_result(
+                    False,
+                    intent.action_type,
+                    "target_not_nearby",
+                    event_payload={
+                        "agent_id": intent.agent_id,
+                        "location_id": agent.location_id,
+                        "target_agent_id": intent.target_agent_id,
+                        **intent.payload,
+                    },
+                    rule_evaluation=rule_evaluation,
+                    governance_execution=governance_execution,
+                )
+
+        # Build event payload with free action metadata
+        event_payload = {
+            "agent_id": intent.agent_id,
+            "location_id": agent.location_id,
+            "target_agent_id": intent.target_agent_id,
+            "raw_intent": intent.raw_intent,
+            "free_action_payload": intent.payload,
+            "consequence_source": "pending",  # Marked for ConsequenceGenerator
+            **intent.payload,
+        }
+
+        return self._build_result(
+            accepted=True,
+            action_type=intent.action_type,
+            reason="free_action_accepted",
+            event_payload=event_payload,
             rule_evaluation=rule_evaluation,
             governance_execution=governance_execution,
         )
