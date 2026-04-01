@@ -272,6 +272,14 @@ class PersistenceManager:
                     run_id=run_id,
                 )
 
+            # Process daily consumption (Phase 3: economic pressure)
+            await service.process_tick_consumption(
+                world=world,
+                agent_id=agent_id,
+                tick_no=tick_no,
+                run_id=run_id,
+            )
+
             # Process tick economic effects (food decay, employment status)
             await service.process_tick_economic_effects(
                 world=world,
