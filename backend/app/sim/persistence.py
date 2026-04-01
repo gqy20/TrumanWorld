@@ -281,6 +281,59 @@ class PersistenceManager:
                 case_id=case_id,
             )
 
+        # Process free action consequences (consequence_source == "pending")
+        # These are handled by the ConsequenceGenerator in Phase 2
+        await self._process_free_action_consequences(
+            run_id=run_id,
+            result=result,
+            tick_no=result.tick_no,
+        )
+
+    async def _process_free_action_consequences(
+        self,
+        run_id: str,
+        result: TickResult,
+        tick_no: int,
+    ) -> None:
+        """Process free action consequences marked as pending.
+
+        In Phase 1b, this is a placeholder that logs the pending actions.
+        In Phase 2, this will call the LLM ConsequenceGenerator.
+        """
+        from app.infra.logging import get_logger
+
+        logger = get_logger(__name__)
+
+        # Find all accepted free actions (not standard actions)
+        standard_actions = {"move", "rest", "work", "talk", "talk_rejected", "listen",
+                          "conversation_started", "conversation_joined"}
+        free_actions = [
+            item for item in result.accepted
+            if item.action_type not in standard_actions
+            and item.event_payload.get("consequence_source") == "pending"
+        ]
+
+        if not free_actions:
+            return
+
+        # For Phase 1b, just log that we have pending free actions
+        # The actual consequence generation will be implemented in Phase 2
+        for item in free_actions:
+            agent_id = item.event_payload.get("agent_id", "unknown")
+            action_type = item.action_type
+            raw_intent = item.event_payload.get("raw_intent", "")
+
+            logger.info(
+                "free_action_pending: agent=%s action=%s intent=%s tick=%d",
+                agent_id,
+                action_type,
+                raw_intent[:100] if raw_intent else "",
+                tick_no,
+            )
+
+            # TODO(Phase 2): Call ConsequenceGenerator to produce StateDelta
+            # TODO(Phase 2): Apply StateDelta via DeltaApplier
+
     def _build_tick_events(self, run_id: str, result: TickResult) -> list[Event]:
         """Build event objects from tick results."""
         events = [
