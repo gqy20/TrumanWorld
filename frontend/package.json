@@ -23,7 +23,7 @@
     "next": "^16.2.2",
     "phaser": "^3.90.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.5",
     "swr": "^2.4.1"
   },
   "devDependencies": {
