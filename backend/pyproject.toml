@@ -14,7 +14,7 @@ dependencies = [
     "psycopg[binary]>=3.2.0",
     "pgvector>=0.3.6",
     "psutil>=7.1.0",
-    "prometheus-client>=0.22.0",
+    "prometheus-client>=0.25.0",
     "redis>=5.2.0",
     "claude-agent-sdk>=0.1.48",
     "langgraph==1.1.3",
