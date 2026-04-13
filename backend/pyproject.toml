@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "楚门的世界 AI 版后端服务 | 你是导演，只能观察和创造条件——不能操控 AI 居民的想法"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.115.0",
+    "fastapi>=0.135.3",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
