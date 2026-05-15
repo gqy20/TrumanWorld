@@ -24,7 +24,15 @@ Python targets 3.13+, uses 4-space indentation, and is formatted by Ruff with a 
 Backend tests use `pytest` with `pytest-asyncio`; name files `test_*.py` and keep test names behavior-focused, for example `test_get_agent_returns_404_when_agent_missing`. Add tests alongside backend changes, especially for API endpoints, repositories, and simulation behavior. The frontend currently has no test suite, so at minimum run `pnpm run lint` and `pnpm run build` after UI changes.
 
 ## Commit & Pull Request Guidelines
-Recent history follows Conventional Commit prefixes such as `feat:`, `fix:`, `test:`, and `chore:`. Keep commit subjects imperative and scoped to one change. Pull requests should include a short summary, linked issue or task, commands run (`make test`, `make lint`, `pnpm run lint`), and screenshots for visible frontend changes. Note any schema, env, or migration impact explicitly.
+Use Conventional Commits for all commit messages:
+
+```text
+type(scope): concise imperative subject
+```
+
+Use common types such as `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, and `ci`. Include a short scope when it clarifies the affected area, for example `feat(api): add timeline filters`, `fix(frontend): handle empty run lists`, or `docs(repo): document commit format`. Omit the scope only when the change is truly cross-cutting, for example `chore: update dependencies`. Use `type(scope)!:` or a `BREAKING CHANGE:` footer for breaking changes. Keep each commit focused on one logical change.
+
+Pull requests should include a short summary, linked issue or task, commands run (`make test`, `make lint`, `pnpm run lint`), and screenshots for visible frontend changes. Note any schema, env, or migration impact explicitly.
 
 ## Security & Configuration Tips
 Start from `.env.example` and keep secrets in a local `.env` only. Do not commit generated files from `.venv/`, caches, or local database state. Run `make pre-commit` before opening a PR to catch formatting, YAML/TOML, and merge-conflict issues early.
