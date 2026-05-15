@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock
 
 from app.store.models import Agent, Event, LlmCall, SimulationRun
 from app.store.repositories import (
@@ -24,6 +25,20 @@ async def test_run_repository_create_and_get(db_session):
 
 
 @pytest.mark.asyncio
+async def test_run_repository_add_flushes_without_committing(db_session, monkeypatch):
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    repo = RunRepository(db_session)
+    run = SimulationRun(id="run-repo-no-commit", name="repo-run-no-commit", status="draft")
+
+    added = await repo.add(run)
+
+    assert added.id == "run-repo-no-commit"
+    commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_event_repository_orders_events_by_tick_desc(db_session):
     run = SimulationRun(id="run-repo-2", name="timeline", status="running")
     db_session.add(run)
@@ -40,6 +55,31 @@ async def test_event_repository_orders_events_by_tick_desc(db_session):
     events = await repo.list_for_run("run-repo-2")
 
     assert [event.id for event in events] == ["event-b", "event-a", "event-c"]
+
+
+@pytest.mark.asyncio
+async def test_event_repository_add_many_flushes_without_committing(db_session, monkeypatch):
+    run = SimulationRun(id="run-repo-events-no-commit", name="events-no-commit", status="running")
+    db_session.add(run)
+    await db_session.commit()
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    repo = EventRepository(db_session)
+    events = await repo.add_many(
+        [
+            Event(
+                id="event-no-commit-a",
+                run_id=run.id,
+                tick_no=1,
+                event_type="move",
+                payload={},
+            )
+        ]
+    )
+
+    assert [event.id for event in events] == ["event-no-commit-a"]
+    commit.assert_not_awaited()
 
 
 # ============================================================

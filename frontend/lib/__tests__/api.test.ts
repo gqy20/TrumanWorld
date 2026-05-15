@@ -450,6 +450,24 @@ describe('API', () => {
         status: 200,
       })
     })
+
+    it('sends delete without a JSON body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ run_id: '1', status: 'deleted' }),
+      } as unknown as Response)
+
+      await deleteRunResult('1')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/runs/1'),
+        expect.objectContaining({
+          method: 'DELETE',
+          body: undefined,
+        }),
+      )
+    })
   })
 
   describe('restoreAllRunsResult', () => {

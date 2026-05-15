@@ -57,6 +57,13 @@ type ErrorPayload = {
   code?: string;
 };
 
+type RequestOptions = {
+  method?: "GET" | "POST" | "DELETE";
+  body?: unknown;
+  timeoutMs?: number;
+  headers?: Record<string, string>;
+};
+
 declare global {
   interface Window {
     __TRUMANWORLD_CONFIG__?: {
@@ -156,18 +163,25 @@ function buildDemoAdminHeaders() {
   return headers;
 }
 
-async function fetchResultUrl<T>(url: string): Promise<ApiResult<T>> {
+async function requestResultUrl<T>(
+  url: string,
+  { method = "GET", body, timeoutMs = 5000, headers = {} }: RequestOptions = {},
+): Promise<ApiResult<T>> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     const response = await fetch(url, {
+      method,
       cache: "no-store",
       signal: controller.signal,
       headers: {
         Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
         ...buildDemoAdminHeaders(),
+        ...headers,
       },
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
 
     clearTimeout(timeoutId);
@@ -192,6 +206,10 @@ async function fetchResultUrl<T>(url: string): Promise<ApiResult<T>> {
       status: null,
     };
   }
+}
+
+async function fetchResultUrl<T>(url: string): Promise<ApiResult<T>> {
+  return requestResultUrl<T>(url);
 }
 
 async function fetchResult<T>(path: string): Promise<ApiResult<T>> {
@@ -199,43 +217,11 @@ async function fetchResult<T>(path: string): Promise<ApiResult<T>> {
 }
 
 async function postResult<T>(path: string, body: unknown): Promise<ApiResult<T>> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(buildApiUrl(path), {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...buildDemoAdminHeaders(),
-      },
-      body: JSON.stringify(body),
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return normalizeError(response, await readErrorPayload(response));
-    }
-
-    return {
-      data: (await response.json()) as T,
-      error: null,
-      errorCode: null,
-      errorDetail: null,
-      status: response.status,
-    };
-  } catch {
-    return {
-      data: null,
-      error: "network_error",
-      errorCode: null,
-      errorDetail: null,
-      status: null,
-    };
-  }
+  return requestResultUrl<T>(buildApiUrl(path), {
+    method: "POST",
+    body,
+    timeoutMs: 10000,
+  });
 }
 
 export async function getRunResult(runId: string): Promise<ApiResult<RunSummary>> {
@@ -407,41 +393,7 @@ export async function injectDirectorEventResult(
 }
 
 async function deleteResult<T>(path: string): Promise<ApiResult<T>> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(buildApiUrl(path), {
-      method: "DELETE",
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        ...buildDemoAdminHeaders(),
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return normalizeError(response, await readErrorPayload(response));
-    }
-
-    return {
-      data: (await response.json()) as T,
-      error: null,
-      errorCode: null,
-      errorDetail: null,
-      status: response.status,
-    };
-  } catch {
-    return {
-      data: null,
-      error: "network_error",
-      errorCode: null,
-      errorDetail: null,
-      status: null,
-    };
-  }
+  return requestResultUrl<T>(buildApiUrl(path), { method: "DELETE" });
 }
 
 export async function deleteRunResult(

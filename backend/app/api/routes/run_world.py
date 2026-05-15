@@ -1,21 +1,22 @@
 import asyncio
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.presenters.world import (
+    build_timeline_event_response,
+    build_world_clock,
+    build_world_event_response,
+)
 from app.api.routes.runs import build_run_payload, get_required_run
 from app.api.schemas.simulation import (
     COMMON_RESPONSES,
     AgentSummaryResponse,
-    TimelineEventResponse,
     TimelineResponse,
     TimelineRunInfo,
-    WorldClockResponse,
     WorldDailyStatsResponse,
     WorldDirectorStatsResponse,
-    WorldEventResponse,
     WorldEventsResponse,
     WorldHealthMetricsConfig,
     WorldLocationResponse,
@@ -34,7 +35,8 @@ from app.infra.logging import get_logger
 from app.scenario.bundle_registry import load_ui_config_for_scenario, load_world_config_for_scenario
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_agent_config_id
-from app.sim.context import DEFAULT_WORLD_START_TIME, get_run_world_time
+from app.sim.context import get_run_world_time
+from app.sim.world_time import resolve_tick_bound, resolve_world_start
 from app.store.repositories import (
     AgentRepository,
     DirectorMemoryRepository,
@@ -73,169 +75,6 @@ def resolve_subject_agent_id(agents, scenario_type: str | None) -> str | None:
         if (agent.profile or {}).get("world_role") == subject_role:
             return agent.id
     return None
-
-
-def enrich_event_payload(
-    event, agent_name_map: dict[str, str], location_name_map: dict[str, str]
-) -> dict:
-    """Ensure all name fields are present in event payload.
-
-    This is the single authoritative layer that guarantees readable names in
-    every event payload sent to the frontend.  action_resolver may optionally
-    inline names at write-time (faster), but this function always fills any
-    gaps so historical data and all event types are handled uniformly.
-    """
-    payload = dict(event.payload or {})
-    # Actor / target names
-    if event.actor_agent_id and "actor_name" not in payload:
-        payload["actor_name"] = agent_name_map.get(event.actor_agent_id, event.actor_agent_id)
-    if event.target_agent_id and "target_name" not in payload:
-        payload["target_name"] = agent_name_map.get(event.target_agent_id, event.target_agent_id)
-    # Current/origin location name
-    if event.location_id and "location_name" not in payload:
-        payload["location_name"] = location_name_map.get(event.location_id, event.location_id)
-    # Destination location name (move events)
-    to_loc_id = payload.get("to_location_id")
-    if to_loc_id and "to_location_name" not in payload:
-        payload["to_location_name"] = location_name_map.get(str(to_loc_id), str(to_loc_id))
-    # Origin location name (move events — for "A → B" display)
-    from_loc_id = payload.get("from_location_id")
-    if from_loc_id and "from_location_name" not in payload:
-        payload["from_location_name"] = location_name_map.get(str(from_loc_id), str(from_loc_id))
-    return payload
-
-
-def build_world_event_response(
-    event, agent_name_map: dict[str, str], location_name_map: dict[str, str]
-) -> WorldEventResponse:
-    return WorldEventResponse(
-        id=event.id,
-        tick_no=event.tick_no,
-        event_type=event.event_type,
-        location_id=event.location_id,
-        actor_agent_id=event.actor_agent_id,
-        target_agent_id=event.target_agent_id,
-        actor_name=agent_name_map.get(event.actor_agent_id) if event.actor_agent_id else None,
-        target_name=agent_name_map.get(event.target_agent_id) if event.target_agent_id else None,
-        location_name=location_name_map.get(event.location_id) if event.location_id else None,
-        payload=enrich_event_payload(event, agent_name_map, location_name_map),
-    )
-
-
-def resolve_world_start(run) -> datetime:
-    metadata = run.metadata_json or {}
-    raw_start = metadata.get("world_start_time")
-    if isinstance(raw_start, str):
-        try:
-            world_start = datetime.fromisoformat(raw_start)
-        except ValueError:
-            world_start = DEFAULT_WORLD_START_TIME
-    else:
-        world_start = DEFAULT_WORLD_START_TIME
-    if world_start.tzinfo is None:
-        world_start = world_start.replace(tzinfo=UTC)
-    return world_start
-
-
-def parse_world_datetime(raw: str) -> datetime | None:
-    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S"):
-        try:
-            dt = datetime.strptime(raw.strip(), fmt)
-            return dt.replace(tzinfo=UTC)
-        except ValueError:
-            continue
-    return None
-
-
-def resolve_tick_bound(
-    world_datetime: str | None,
-    world_start: datetime,
-    tick_minutes: int,
-    current_value: int | None,
-    *,
-    prefer_min: bool,
-) -> int | None:
-    if not world_datetime:
-        return current_value
-
-    parsed = parse_world_datetime(world_datetime)
-    if parsed is None:
-        return current_value
-
-    candidate = max(0, int(((parsed - world_start).total_seconds() / 60) // tick_minutes))
-    if current_value is None:
-        return candidate
-    return min(current_value, candidate) if prefer_min else max(current_value, candidate)
-
-
-def tick_to_world_time(tick_no: int, world_start: datetime, tick_minutes: int) -> tuple[str, str]:
-    dt = world_start + timedelta(minutes=tick_no * tick_minutes)
-    return dt.strftime("%H:%M"), dt.strftime("%Y-%m-%d")
-
-
-def build_timeline_event_response(
-    event,
-    agent_name_map: dict[str, str],
-    location_name_map: dict[str, str],
-    world_start: datetime,
-    tick_minutes: int,
-) -> TimelineEventResponse:
-    world_time, world_date = tick_to_world_time(event.tick_no, world_start, tick_minutes)
-    return TimelineEventResponse(
-        id=event.id,
-        tick_no=event.tick_no,
-        event_type=event.event_type,
-        importance=event.importance,
-        payload=enrich_event_payload(event, agent_name_map, location_name_map),
-        world_time=world_time,
-        world_date=world_date,
-    )
-
-
-def build_world_clock(world_time: datetime) -> WorldClockResponse:
-    weekday = world_time.weekday()
-    weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    weekday_names_cn = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-
-    hour = world_time.hour
-    if hour < 5:
-        time_period = "night"
-        time_period_cn = "深夜"
-    elif hour < 7:
-        time_period = "dawn"
-        time_period_cn = "黎明"
-    elif hour < 12:
-        time_period = "morning"
-        time_period_cn = "上午"
-    elif hour < 14:
-        time_period = "noon"
-        time_period_cn = "中午"
-    elif hour < 18:
-        time_period = "afternoon"
-        time_period_cn = "下午"
-    elif hour < 21:
-        time_period = "evening"
-        time_period_cn = "傍晚"
-    else:
-        time_period = "night"
-        time_period_cn = "夜晚"
-
-    return WorldClockResponse(
-        iso=world_time.isoformat(),
-        date=world_time.strftime("%Y-%m-%d"),
-        time=world_time.strftime("%H:%M"),
-        year=world_time.year,
-        month=world_time.month,
-        day=world_time.day,
-        hour=hour,
-        minute=world_time.minute,
-        weekday=weekday,
-        weekday_name=weekday_names[weekday],
-        weekday_name_cn=weekday_names_cn[weekday],
-        is_weekend=weekday >= 5,
-        time_period=time_period,
-        time_period_cn=time_period_cn,
-    )
 
 
 def build_run_snapshot(run) -> WorldSnapshotRunResponse:
