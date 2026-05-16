@@ -4,61 +4,39 @@ import type { SceneWorld } from "@/lib/world-scene-adapter";
 
 jest.mock("phaser", () => ({
   Scene: class MockScene {
+    createGameObject = () => ({
+      alpha: 1,
+      clearTint: jest.fn().mockReturnThis(),
+      setAlpha: jest.fn().mockReturnThis(),
+      setColor: jest.fn().mockReturnThis(),
+      setDepth: jest.fn().mockReturnThis(),
+      setDisplaySize: jest.fn().mockReturnThis(),
+      setFillStyle: jest.fn().mockReturnThis(),
+      setInteractive: jest.fn().mockReturnThis(),
+      setLineWidth: jest.fn().mockReturnThis(),
+      setOrigin: jest.fn().mockReturnThis(),
+      setPosition: jest.fn().mockReturnThis(),
+      setRotation: jest.fn().mockReturnThis(),
+      setScale: jest.fn().mockReturnThis(),
+      setSize: jest.fn().mockReturnThis(),
+      setStrokeStyle: jest.fn().mockReturnThis(),
+      setText: jest.fn().mockReturnThis(),
+      setTexture: jest.fn().mockReturnThis(),
+      setTint: jest.fn().mockReturnThis(),
+      setTo: jest.fn().mockReturnThis(),
+      setVisible: jest.fn().mockReturnThis(),
+      on: jest.fn(),
+      destroy: jest.fn(),
+    });
     add = {
-      rectangle: jest.fn(() => ({
-        setDepth: jest.fn().mockReturnThis(),
-        setAlpha: jest.fn().mockReturnThis(),
-        setStrokeStyle: jest.fn().mockReturnThis(),
-        setInteractive: jest.fn().mockReturnThis(),
-        setPosition: jest.fn().mockReturnThis(),
-        setFillStyle: jest.fn().mockReturnThis(),
-        setScale: jest.fn().mockReturnThis(),
-        setSize: jest.fn().mockReturnThis(),
-        setVisible: jest.fn().mockReturnThis(),
-        on: jest.fn(),
-        destroy: jest.fn(),
-      })),
-      ellipse: jest.fn(() => ({
-        setDepth: jest.fn().mockReturnThis(),
-        setAlpha: jest.fn().mockReturnThis(),
-      })),
-      circle: jest.fn(() => ({
-        setDepth: jest.fn().mockReturnThis(),
-        setStrokeStyle: jest.fn().mockReturnThis(),
-        setInteractive: jest.fn().mockReturnThis(),
-        setFillStyle: jest.fn().mockReturnThis(),
-        setScale: jest.fn().mockReturnThis(),
-        setPosition: jest.fn().mockReturnThis(),
-        setVisible: jest.fn().mockReturnThis(),
-        on: jest.fn(),
-        destroy: jest.fn(),
-      })),
-      line: jest.fn(() => ({
-        setOrigin: jest.fn().mockReturnThis(),
-        setLineWidth: jest.fn().mockReturnThis(),
-        setDepth: jest.fn().mockReturnThis(),
-        setTo: jest.fn().mockReturnThis(),
-        setAlpha: jest.fn().mockReturnThis(),
-        destroy: jest.fn(),
-      })),
-      triangle: jest.fn(() => ({
-        setDepth: jest.fn().mockReturnThis(),
-        setRotation: jest.fn().mockReturnThis(),
-        setPosition: jest.fn().mockReturnThis(),
-        setAlpha: jest.fn().mockReturnThis(),
-        setScale: jest.fn().mockReturnThis(),
-        destroy: jest.fn(),
-      })),
-      text: jest.fn(() => ({
-        setOrigin: jest.fn().mockReturnThis(),
-        setDepth: jest.fn().mockReturnThis(),
-        setPosition: jest.fn().mockReturnThis(),
-        setText: jest.fn().mockReturnThis(),
-        setAlpha: jest.fn().mockReturnThis(),
-        setScale: jest.fn().mockReturnThis(),
-        setVisible: jest.fn().mockReturnThis(),
-        destroy: jest.fn(),
-      })),
+      rectangle: jest.fn(() => this.createGameObject()),
+      ellipse: jest.fn(() => this.createGameObject()),
+      circle: jest.fn(() => this.createGameObject()),
+      line: jest.fn(() => this.createGameObject()),
+      triangle: jest.fn(() => this.createGameObject()),
+      text: jest.fn(() => this.createGameObject()),
+      image: jest.fn(() => this.createGameObject()),
+      tileSprite: jest.fn(() => this.createGameObject()),
     };
     cameras = {
       main: {
@@ -69,6 +47,17 @@ jest.mock("phaser", () => ({
     };
     tweens = {
       add: jest.fn(),
+    };
+    textures = {
+      exists: jest.fn(() => true),
+    };
+    make = {
+      graphics: jest.fn(() => ({
+        fillStyle: jest.fn().mockReturnThis(),
+        fillRect: jest.fn().mockReturnThis(),
+        generateTexture: jest.fn().mockReturnThis(),
+        destroy: jest.fn(),
+      })),
     };
     events = {
       emit: jest.fn(),

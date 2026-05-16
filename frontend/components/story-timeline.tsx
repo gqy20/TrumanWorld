@@ -228,7 +228,9 @@ function CompactEventItem({ event }: CompactEventItemProps) {
   // 根据类型决定展示样式
   const isLowImportance = event.type === "work" || event.type === "rest";
   const visibleExplanations =
-    event.explanations?.filter((explanation) => explanation.kind === "risk") ?? [];
+    event.explanations?.filter((explanation) =>
+      explanation.kind === "risk" || explanation.kind === "relationship"
+    ) ?? [];
 
   const typeClasses = {
     social: "border-l-rose-300 bg-rose-50/30",

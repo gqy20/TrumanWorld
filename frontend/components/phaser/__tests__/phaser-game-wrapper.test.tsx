@@ -48,6 +48,8 @@ describe("PhaserGameWrapper", () => {
     jest.clearAllMocks();
     mockSceneGet.mockReturnValue({
       syncWorld: mockSyncWorld,
+      setHighlightedLocation: jest.fn(),
+      setHighlightedAgent: jest.fn(),
       events: mockSceneEvents,
     });
   });
