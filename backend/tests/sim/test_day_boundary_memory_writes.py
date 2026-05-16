@@ -269,6 +269,89 @@ async def test_morning_planning_persists_llm_calls():
 
 
 @pytest.mark.asyncio
+async def test_morning_planning_rolls_back_current_plan_when_plan_memory_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        poolclass=StaticPool,
+    )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        run = SimulationRun(
+            id="run-day-boundary-plan-memory-fails",
+            name="planner-memory-fails",
+            status="running",
+            current_tick=0,
+            tick_minutes=5,
+        )
+        location = Location(
+            id="loc-boundary-plan-memory-fails-home",
+            run_id=run.id,
+            name="Home",
+            location_type="home",
+            capacity=2,
+        )
+        agent = Agent(
+            id="agent-boundary-plan-memory-fails",
+            run_id=run.id,
+            name="Alice",
+            occupation="resident",
+            home_location_id=location.id,
+            current_location_id=location.id,
+            personality={},
+            profile={},
+            status={},
+            current_plan={},
+        )
+        session.add_all([run, location, agent])
+        await session.commit()
+
+    class FakeWorld:
+        def __init__(self, current_time: datetime, tick_minutes: int) -> None:
+            self.current_time = current_time
+            self.tick_minutes = tick_minutes
+
+        def _time_period(self) -> str:
+            return "morning"
+
+        def _weekday_name(self, weekday: int) -> str:
+            return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][
+                weekday
+            ]
+
+    async def fail_add_many(*_args, **_kwargs) -> None:
+        raise RuntimeError("plan memory write failed")
+
+    monkeypatch.setattr(day_boundary_module.MemoryRepository, "add_many", fail_add_many)
+
+    with pytest.raises(RuntimeError, match="plan memory write failed"):
+        await run_morning_planning(
+            run_id="run-day-boundary-plan-memory-fails",
+            tick_no=0,
+            world=FakeWorld(datetime(2026, 3, 2, 6, 0, tzinfo=UTC), 5),
+            engine=engine,
+            agent_runtime=FakeAgentRuntime(),
+        )
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        agent = await session.get(Agent, "agent-boundary-plan-memory-fails")
+        result = await session.execute(
+            select(Memory).where(Memory.run_id == "run-day-boundary-plan-memory-fails")
+        )
+        memories = result.scalars().all()
+
+    await engine.dispose()
+
+    assert agent is not None
+    assert agent.current_plan == {}
+    assert memories == []
+
+
+@pytest.mark.asyncio
 async def test_evening_reflection_persists_llm_calls():
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
