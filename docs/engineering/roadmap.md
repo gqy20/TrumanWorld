@@ -218,6 +218,7 @@ P2:
    - `world-scene-style.ts` 已抽出，承接 Phaser 场景的尺寸常量、颜色/纹理 key、glyph/marker、palette 合并与箭头角度计算。
    - `town-map-utils.ts` 已抽出，承接 SVG 地图常量、地点样式、坐标缩放、viewBox clamp、地图节点/连线/移动路径构建。
    - `town-mini-map.tsx` 已抽出，承接小地图渲染、点击导航与视口框拖拽。
+   - `use-speech-bubbles.ts` 已抽出，承接 talk/speech 事件气泡、去重、自动过期与数量上限。
 
 ### 5.2 测试体系
 

@@ -18,6 +18,7 @@ import {
   type PositionedLocationNode,
   type ViewBox,
 } from "./town-map-utils";
+import { useSpeechBubbles } from "./use-speech-bubbles";
 
 interface TownMapProps {
   world: WorldSnapshot;
@@ -50,10 +51,7 @@ export function TownMap({
   const [nightSkipDay, setNightSkipDay] = useState(1);
   const prevClockRef = useRef<{ hour: number; day: number } | null>(null);
 
-  // 对话气泡：agentId -> { message, key }（key 用于触发重新动画）
-  const [speechBubbles, setSpeechBubbles] = useState<Record<string, { message: string; key: number }>>({});
-  const bubbleTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const prevEventIdsRef = useRef<Set<string>>(new Set());
+  const speechBubbles = useSpeechBubbles(world.recent_events);
 
   useEffect(() => {
     const curr = world.world_clock;
@@ -68,73 +66,6 @@ export function TownMap({
     }
     prevClockRef.current = { hour: curr.hour, day: curr.day };
   }, [world.world_clock]);
-
-  // 检测新的 speech/talk 事件，更新对话气泡
-  useEffect(() => {
-    const speechEvents = world.recent_events.filter(
-      (e) => (e.event_type === "speech" || e.event_type === "talk") && e.actor_agent_id,
-    );
-
-    const newBubbles: Record<string, { message: string; key: number }> = {};
-    for (const event of speechEvents) {
-      const agentId = event.actor_agent_id!;
-      const message = typeof event.payload.message === "string" ? event.payload.message : null;
-      if (!message) continue;
-      // 只处理新出现的事件（避免世界快照刷新时重复触发）
-      if (prevEventIdsRef.current.has(event.id)) continue;
-      newBubbles[agentId] = { message, key: Date.now() };
-    }
-
-    // 更新 prevEventIds
-    prevEventIdsRef.current = new Set(world.recent_events.map((e) => e.id));
-
-    if (Object.keys(newBubbles).length === 0) return;
-
-    const MAX_BUBBLES = 4;
-
-    setSpeechBubbles((prev) => {
-      const next = { ...prev };
-      for (const [agentId, bubble] of Object.entries(newBubbles)) {
-        next[agentId] = bubble;
-        // 清除旧定时器
-        if (bubbleTimersRef.current[agentId]) {
-          clearTimeout(bubbleTimersRef.current[agentId]);
-        }
-        // 6 秒后自动消失
-        bubbleTimersRef.current[agentId] = setTimeout(() => {
-          setSpeechBubbles((cur) => {
-            const updated = { ...cur };
-            delete updated[agentId];
-            return updated;
-          });
-          delete bubbleTimersRef.current[agentId];
-        }, 6000);
-      }
-      // 超过数量上限时，移除 key 最小（最旧）的气泡
-      const entries = Object.entries(next);
-      if (entries.length > MAX_BUBBLES) {
-        entries.sort((a, b) => a[1].key - b[1].key);
-        const toRemove = entries.slice(0, entries.length - MAX_BUBBLES);
-        for (const [id] of toRemove) {
-          delete next[id];
-          if (bubbleTimersRef.current[id]) {
-            clearTimeout(bubbleTimersRef.current[id]);
-            delete bubbleTimersRef.current[id];
-          }
-        }
-      }
-      return next;
-    });
-  }, [world.recent_events]);
-
-  useEffect(() => {
-    return () => {
-      for (const timer of Object.values(bubbleTimersRef.current)) {
-        clearTimeout(timer);
-      }
-      bubbleTimersRef.current = {};
-    };
-  }, []);
 
   const { nodes, links, movePaths, mainRoadPath, coastPath, heatConfig } = useMemo(() => buildMapData(world), [world]);
 
