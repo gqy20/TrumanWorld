@@ -14,6 +14,8 @@
 - [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md)
 - [DEVELOPMENT.md](DEVELOPMENT.md)
 - [EVENTS_INCREMENTAL_QUERY.md](EVENTS_INCREMENTAL_QUERY.md) - 事件增量查询（✅ 已实现）
+- [PERSISTENCE_REFACTOR_PLAN.md](PERSISTENCE_REFACTOR_PLAN.md) - persistence / tick 写入事务边界重构计划
+- [roadmap.md](roadmap.md) - 近期工程重构路线图
 - [AGENT_BACKEND_ABSTRACTION.md](AGENT_BACKEND_ABSTRACTION.md) - Agent backend 解耦与 Claude/LangGraph 双选设计
 - [SCENARIO_DECOUPLING_MIGRATION.md](SCENARIO_DECOUPLING_MIGRATION.md) - 场景解耦迁移结果与当前规范字段
 - [WORLD_RULE_SYSTEM.md](WORLD_RULE_SYSTEM.md) - 平台级世界宪法 / 规则系统 / 社会演化机制设计
