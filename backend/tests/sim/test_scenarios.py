@@ -16,24 +16,17 @@ from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
 from app.store.models import Agent, Event, Location, Relationship, SimulationRun
 from app.store.repositories import AgentRepository
+from tests.factories import make_agent, make_event, make_location, make_run, write_agent_config
 
 
 def test_narrative_world_scenario_configures_runtime_context(tmp_path):
-    agent_dir = tmp_path / "truman"
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: truman",
-                "name: Truman",
-                "world_role: truman",
-                "occupation: resident",
-                "home: demo_home",
-            ]
-        ),
-        encoding="utf-8",
+    write_agent_config(
+        tmp_path,
+        "truman",
+        name="Truman",
+        home="demo_home",
+        world_role="truman",
     )
-    (agent_dir / "prompt.md").write_text("# Truman\nBase prompt", encoding="utf-8")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
     BundleWorldScenario().configure_runtime(runtime)
@@ -52,20 +45,12 @@ def test_narrative_world_scenario_configures_runtime_context(tmp_path):
 
 
 def test_narrative_world_scenario_registers_fallback_hook_on_runtime(tmp_path):
-    agent_dir = tmp_path / "demo_agent"
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: demo_agent",
-                "name: Demo Agent",
-                "occupation: resident",
-                "home: demo_home",
-            ]
-        ),
-        encoding="utf-8",
+    write_agent_config(
+        tmp_path,
+        "demo_agent",
+        name="Demo Agent",
+        home="demo_home",
     )
-    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
 
     class HookAwareBackend:
         def __init__(self) -> None:
@@ -158,7 +143,7 @@ def test_narrative_world_scenario_fallback_returns_home_when_idle_and_away():
 
 @pytest.mark.asyncio
 async def test_narrative_world_scenario_seed_and_state_update(db_session):
-    run = SimulationRun(id="run-scenario-seed", name="scenario-seed", status="running")
+    run = make_run("run-scenario-seed", name="scenario-seed")
     db_session.add(run)
     await db_session.commit()
 
@@ -177,10 +162,9 @@ async def test_narrative_world_scenario_seed_and_state_update(db_session):
 
     truman = next(agent for agent in agents if (agent.profile or {}).get("world_role") == "truman")
     starting_score = float((truman.status or {}).get("suspicion_score", 0.0))
-    event = Event(
-        id="evt-scenario",
+    event = make_event(
+        "evt-scenario",
         run_id=run.id,
-        tick_no=1,
         event_type="move_rejected",
         actor_agent_id=truman.id,
         payload={"agent_id": truman.id},
@@ -200,10 +184,9 @@ async def test_campus_world_bundle_seeds_from_repo_scenarios(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(project_root))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-campus-world",
+    run = make_run(
+        "run-campus-world",
         name="campus-world",
-        status="running",
         scenario_type="campus_world",
     )
     db_session.add(run)
@@ -427,10 +410,9 @@ async def test_narrative_world_adapter_updates_configured_subject_alert_metric(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-alt-world-alert",
+    run = make_run(
+        "run-alt-world-alert",
         name="alt-world-alert",
-        status="running",
         scenario_type="alt_world",
     )
     db_session.add(run)
@@ -444,10 +426,9 @@ async def test_narrative_world_adapter_updates_configured_subject_alert_metric(
         agent for agent in agents if (agent.profile or {}).get("world_role") == "protagonist"
     )
     starting_score = float((protagonist.status or {}).get("anomaly_score", 0.0))
-    event = Event(
-        id="evt-alt-world-alert",
+    event = make_event(
+        "evt-alt-world-alert",
         run_id=run.id,
-        tick_no=1,
         event_type="move_rejected",
         actor_agent_id=protagonist.id,
         payload={"agent_id": protagonist.id},
@@ -461,31 +442,23 @@ async def test_narrative_world_adapter_updates_configured_subject_alert_metric(
 
 @pytest.mark.asyncio
 async def test_narrative_world_update_state_reuses_external_transaction(db_session):
-    run = SimulationRun(
-        id="run-scenario-update-transaction",
+    run = make_run(
+        "run-scenario-update-transaction",
         name="original",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    home = Location(
-        id="loc-scenario-update-transaction",
+    home = make_location(
+        "loc-scenario-update-transaction",
         run_id=run.id,
         name="Home",
         location_type="home",
-        capacity=2,
     )
-    truman = Agent(
-        id="truman-scenario-update-transaction",
+    truman = make_agent(
+        "truman-scenario-update-transaction",
         run_id=run.id,
+        location_id=home.id,
         name="Truman",
-        occupation="resident",
-        home_location_id=home.id,
-        current_location_id=home.id,
-        personality={},
         profile={"world_role": "truman", "agent_config_id": "truman"},
         status={"suspicion_score": 0.1},
-        current_plan={},
     )
     db_session.add_all([run, home, truman])
     await db_session.commit()
@@ -493,10 +466,9 @@ async def test_narrative_world_update_state_reuses_external_transaction(db_sessi
     truman_id = truman.id
 
     run.name = "pending-change"
-    event = Event(
-        id="evt-scenario-update-transaction",
+    event = make_event(
+        "evt-scenario-update-transaction",
         run_id=run_id,
-        tick_no=1,
         event_type="move_rejected",
         actor_agent_id=truman_id,
         payload={"agent_id": truman_id},
@@ -577,10 +549,9 @@ async def test_narrative_world_adapter_skips_subject_alert_updates_when_tracking
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-alt-world-no-alert",
+    run = make_run(
+        "run-alt-world-no-alert",
         name="alt-world-no-alert",
-        status="running",
         scenario_type="alt_world_no_alert",
     )
     db_session.add(run)
@@ -594,10 +565,9 @@ async def test_narrative_world_adapter_skips_subject_alert_updates_when_tracking
         agent for agent in agents if (agent.profile or {}).get("world_role") == "protagonist"
     )
     starting_score = float((protagonist.status or {}).get("anomaly_score", 0.0))
-    event = Event(
-        id="evt-alt-world-no-alert",
+    event = make_event(
+        "evt-alt-world-no-alert",
         run_id=run.id,
-        tick_no=1,
         event_type="move_rejected",
         actor_agent_id=protagonist.id,
         payload={"agent_id": protagonist.id},
@@ -683,10 +653,9 @@ async def test_narrative_world_adapter_seed_supports_spawn_aliases(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-alt-world-spawn",
+    run = make_run(
+        "run-alt-world-spawn",
         name="alt-world-spawn",
-        status="running",
         scenario_type="alt_world_spawn",
     )
     db_session.add(run)
@@ -772,10 +741,9 @@ async def test_narrative_world_adapter_seed_supports_generic_alert_status_inputs
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-alt-world-alert-seed",
+    run = make_run(
+        "run-alt-world-alert-seed",
         name="alt-world-alert-seed",
-        status="running",
         scenario_type="alt_world_alert_seed",
     )
     db_session.add(run)
@@ -840,7 +808,7 @@ async def test_narrative_world_seed_builder_prefers_scenario_bundle_agents(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(id="run-scenario-bundle-seed", name="scenario-seed", status="running")
+    run = make_run("run-scenario-bundle-seed", name="scenario-seed")
     db_session.add(run)
     await db_session.commit()
 
@@ -908,10 +876,9 @@ async def test_narrative_world_adapter_seed_demo_run_uses_active_bundle_files(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-alt-world",
+    run = make_run(
+        "run-alt-world",
         name="alt-world",
-        status="running",
         scenario_type="alt_world",
     )
     db_session.add(run)
@@ -982,10 +949,9 @@ async def test_bundle_seed_rolls_back_seed_records_when_final_commit_fails(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-seed-failure-world",
+    run = make_run(
+        "run-seed-failure-world",
         name="seed-failure-world",
-        status="running",
         scenario_type="seed_failure_world",
     )
     db_session.add(run)
@@ -1078,10 +1044,9 @@ async def test_bundle_seed_uses_world_start_time_from_scenario_world_config(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-late-world",
+    run = make_run(
+        "run-late-world",
         name="late-world",
-        status="running",
         scenario_type="late_world",
     )
     db_session.add(run)
@@ -1150,10 +1115,9 @@ async def test_bundle_seed_preserves_explicit_run_world_start_time(
     monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    run = SimulationRun(
-        id="run-override-world",
+    run = make_run(
+        "run-override-world",
         name="override-world",
-        status="running",
         scenario_type="override_world",
         metadata_json={"world_start_time": "2040-12-31T23:55:00+00:00"},
     )
@@ -1168,7 +1132,7 @@ async def test_bundle_seed_preserves_explicit_run_world_start_time(
 
 @pytest.mark.asyncio
 async def test_open_world_scenario_seed_is_minimal(db_session):
-    run = SimulationRun(id="run-open-world", name="open-world", status="running")
+    run = make_run("run-open-world", name="open-world")
     db_session.add(run)
     await db_session.commit()
 
@@ -1188,7 +1152,7 @@ async def test_open_world_seed_rolls_back_seed_records_when_final_commit_fails(
     db_session,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    run = SimulationRun(id="run-open-world-seed-fails", name="open-world", status="running")
+    run = make_run("run-open-world-seed-fails", name="open-world")
     db_session.add(run)
     await db_session.commit()
     run_id = run.id

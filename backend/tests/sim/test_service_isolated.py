@@ -21,8 +21,9 @@ from app.sim.service import SimulationService
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import AgentState, LocationState, WorldState
-from app.store.models import Agent, Base, Location, SimulationRun
+from app.store.models import Base
 from app.store.repositories import EventRepository, LlmCallRepository, RunRepository
+from tests.factories import make_agent, make_location, make_run, write_agent_config
 
 from .test_service import FakeScenario, MixedOutcomeDecisionProvider
 
@@ -72,32 +73,19 @@ async def test_run_tick_isolated_with_separate_sessions(db_session):
 
     run_id = "run-isolated-1"
     async with AsyncSession(engine, expire_on_commit=False) as session:
-        run = SimulationRun(
-            id=run_id, name="isolated", status="running", current_tick=0, tick_minutes=5
-        )
-        home = Location(
-            id="loc-home-isolated", run_id=run_id, name="Home", location_type="home", capacity=2
-        )
-        alice = Agent(
-            id="alice-isolated",
+        run = make_run(run_id, name="isolated")
+        home = make_location("loc-home-isolated", run_id=run_id, name="Home", location_type="home")
+        alice = make_agent(
+            "alice-isolated",
             run_id=run_id,
+            location_id="loc-home-isolated",
             name="Alice",
-            occupation="resident",
-            home_location_id="loc-home-isolated",
-            current_location_id="loc-home-isolated",
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         )
         session.add_all([run, home, alice])
         await session.commit()
 
     tmp_path = Path(tempfile.mkdtemp())
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
-    (agent_dir / "agent.yml").write_text("id: test\nname: Test\noccupation: test\nhome: home\n")
-    (agent_dir / "prompt.md").write_text("# Test")
+    write_agent_config(tmp_path, "agent", name="Test", occupation="test")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend())
     service = SimulationService.create_for_scheduler(runtime)
@@ -130,40 +118,28 @@ async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db
 
     run_id = "run-isolated-sleep-skip"
     async with AsyncSession(engine, expire_on_commit=False) as session:
-        run = SimulationRun(
-            id=run_id,
+        run = make_run(
+            run_id,
             name="isolated-sleep-skip",
-            status="running",
             current_tick=203,
-            tick_minutes=5,
         )
-        home = Location(
-            id="loc-home-sleep-skip",
+        home = make_location(
+            "loc-home-sleep-skip",
             run_id=run_id,
             name="Home",
             location_type="home",
-            capacity=2,
         )
-        alice = Agent(
-            id="alice-sleep-skip",
+        alice = make_agent(
+            "alice-sleep-skip",
             run_id=run_id,
+            location_id="loc-home-sleep-skip",
             name="Alice",
-            occupation="resident",
-            home_location_id="loc-home-sleep-skip",
-            current_location_id="loc-home-sleep-skip",
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         )
         session.add_all([run, home, alice])
         await session.commit()
 
     tmp_path = Path(tempfile.mkdtemp())
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
-    (agent_dir / "agent.yml").write_text("id: test\nname: Test\noccupation: test\nhome: home\n")
-    (agent_dir / "prompt.md").write_text("# Test")
+    write_agent_config(tmp_path, "agent", name="Test", occupation="test")
 
     runtime = AgentRuntime(registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend())
     service = SimulationService.create_for_scheduler(runtime)
@@ -191,30 +167,17 @@ async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db
 @pytest.mark.asyncio
 async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_session):
     run_id = "run-token-track-1"
-    run = SimulationRun(
-        id=run_id, name="token-track", status="running", current_tick=3, tick_minutes=5
-    )
-    agent = Agent(
-        id="agent-tt-1",
+    run = make_run(run_id, name="token-track", current_tick=3)
+    agent = make_agent(
+        "agent-tt-1",
         run_id=run_id,
         name="Alice",
-        occupation="resident",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, agent])
     await db_session.commit()
 
     tmp_path = Path(tempfile.mkdtemp())
-    agent_dir = tmp_path / "agent-tt-1"
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        "id: agent-tt-1\nname: Alice\noccupation: resident\nhome: loc-1\n",
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+    write_agent_config(tmp_path, "agent-tt-1", name="Alice", home="loc-1")
     provider = TokenCapturingDecisionProvider(
         usage={"input_tokens": 130, "output_tokens": 250, "cache_read_input_tokens": 60},
         cost=0.025,
@@ -816,19 +779,12 @@ async def test_tick_orchestrator_uses_default_bundle_semantics_when_scenario_id_
 @pytest.mark.asyncio
 async def test_prepare_intents_from_data_respects_runtime_concurrency_limit(db_session):
     run_id = "run-concurrency-limit-1"
-    run = SimulationRun(
-        id=run_id, name="concurrency-limit", status="running", current_tick=1, tick_minutes=5
-    )
+    run = make_run(run_id, name="concurrency-limit", current_tick=1)
     agents = [
-        Agent(
-            id=f"agent-limit-{i}",
+        make_agent(
+            f"agent-limit-{i}",
             run_id=run_id,
             name=f"Agent {i}",
-            occupation="resident",
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         )
         for i in range(3)
     ]
@@ -839,13 +795,7 @@ async def test_prepare_intents_from_data_respects_runtime_concurrency_limit(db_s
     tmp_path = Path(tempfile.mkdtemp())
     try:
         for agent in agents:
-            agent_dir = tmp_path / agent.id
-            agent_dir.mkdir(parents=True)
-            (agent_dir / "agent.yml").write_text(
-                f"id: {agent.id}\nname: {agent.name}\noccupation: resident\nhome: loc-1\n",
-                encoding="utf-8",
-            )
-            (agent_dir / "prompt.md").write_text("# Prompt\nBase prompt", encoding="utf-8")
+            write_agent_config(tmp_path, agent.id, name=agent.name, home="loc-1")
 
         class SlowProvider(AgentDecisionProvider):
             def __init__(self) -> None:
@@ -909,27 +859,17 @@ async def test_prepare_intents_from_data_respects_runtime_concurrency_limit(db_s
 @pytest.mark.asyncio
 async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent(db_session):
     run_id = "run-fallback-per-agent-1"
-    run = SimulationRun(id=run_id, name="fallback-per-agent", status="running", current_tick=1)
+    run = make_run(run_id, name="fallback-per-agent", current_tick=1)
     agents = [
-        Agent(
-            id="agent-fallback-ok",
+        make_agent(
+            "agent-fallback-ok",
             run_id=run_id,
             name="Agent OK",
-            occupation="resident",
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         ),
-        Agent(
-            id="agent-fallback-bad",
+        make_agent(
+            "agent-fallback-bad",
             run_id=run_id,
             name="Agent Bad",
-            occupation="resident",
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         ),
     ]
     db_session.add(run)
@@ -939,13 +879,7 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
     tmp_path = Path(tempfile.mkdtemp())
     try:
         for agent in agents:
-            agent_dir = tmp_path / agent.id
-            agent_dir.mkdir(parents=True)
-            (agent_dir / "agent.yml").write_text(
-                f"id: {agent.id}\nname: {agent.name}\noccupation: resident\nhome: loc-1\n",
-                encoding="utf-8",
-            )
-            (agent_dir / "prompt.md").write_text("# Prompt\nBase prompt", encoding="utf-8")
+            write_agent_config(tmp_path, agent.id, name=agent.name, home="loc-1")
 
         provider = MixedOutcomeDecisionProvider(failing_agent_ids={"agent-fallback-bad"})
         runtime = AgentRuntime(
@@ -1018,33 +952,20 @@ async def test_run_tick_isolated_persists_llm_calls(db_session):
     run_id = "run-llm-persist-1"
     agent_config_id = "alice-llm"
     async with AsyncSession(engine, expire_on_commit=False) as session:
-        run = SimulationRun(
-            id=run_id, name="llm-persist", status="running", current_tick=0, tick_minutes=5
-        )
-        loc = Location(id="loc-llm-1", run_id=run_id, name="Home", location_type="home", capacity=2)
-        agent = Agent(
-            id="agent-llm-p1",
+        run = make_run(run_id, name="llm-persist")
+        loc = make_location("loc-llm-1", run_id=run_id, name="Home", location_type="home")
+        agent = make_agent(
+            "agent-llm-p1",
             run_id=run_id,
             name="Alice",
-            occupation="resident",
-            home_location_id="loc-llm-1",
-            current_location_id="loc-llm-1",
-            personality={},
             profile={"agent_config_id": agent_config_id},
-            status={},
-            current_plan={},
+            location_id="loc-llm-1",
         )
         session.add_all([run, loc, agent])
         await session.commit()
 
     tmp_path = Path(tempfile.mkdtemp())
-    agent_dir = tmp_path / agent_config_id
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        f"id: {agent_config_id}\nname: Alice\noccupation: resident\nhome: loc-llm-1\n",
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+    write_agent_config(tmp_path, agent_config_id, name="Alice", home="loc-llm-1")
 
     provider = TokenCapturingDecisionProvider(
         usage={"input_tokens": 111, "output_tokens": 222, "cache_read_input_tokens": 33},
@@ -1077,48 +998,37 @@ async def test_run_tick_isolated_advances_when_one_agent_falls_back():
 
     run_id = "run-isolated-fallback-1"
     async with AsyncSession(engine, expire_on_commit=False) as session:
-        run = SimulationRun(
-            id=run_id,
+        run = make_run(
+            run_id,
             name="isolated-fallback",
-            status="running",
-            current_tick=0,
-            tick_minutes=5,
             scenario_type="narrative_world",
         )
-        home = Location(
-            id="loc-home-fb", run_id=run_id, name="Home", location_type="home", capacity=4
-        )
-        office = Location(
-            id="loc-office-fb",
+        home = make_location("loc-home-fb", run_id=run_id, name="Home", location_type="home")
+        office = make_location(
+            "loc-office-fb",
             run_id=run_id,
             name="Office",
             location_type="office",
-            capacity=4,
         )
-        ok_agent = Agent(
-            id="agent-fallback-ok-iso",
+        ok_agent = make_agent(
+            "agent-fallback-ok-iso",
             run_id=run_id,
             name="Alice",
-            occupation="resident",
-            home_location_id=home.id,
-            current_location_id=office.id,
             personality={},
             profile={"agent_config_id": "agent-fallback-ok-iso", "world_role": "cast"},
             status={},
             current_plan={},
         )
-        bad_agent = Agent(
-            id="agent-fallback-bad-iso",
+        ok_agent.home_location_id = home.id
+        ok_agent.current_location_id = office.id
+        bad_agent = make_agent(
+            "agent-fallback-bad-iso",
             run_id=run_id,
             name="Bob",
-            occupation="resident",
-            home_location_id=home.id,
-            current_location_id=office.id,
-            personality={},
             profile={"agent_config_id": "agent-fallback-bad-iso", "world_role": "cast"},
-            status={},
-            current_plan={},
         )
+        bad_agent.home_location_id = home.id
+        bad_agent.current_location_id = office.id
         session.add_all([run, home, office, ok_agent, bad_agent])
         await session.commit()
 
@@ -1128,13 +1038,7 @@ async def test_run_tick_isolated_advances_when_one_agent_falls_back():
             ("agent-fallback-ok-iso", "Alice"),
             ("agent-fallback-bad-iso", "Bob"),
         ):
-            agent_dir = tmp_path / agent_id
-            agent_dir.mkdir(parents=True)
-            (agent_dir / "agent.yml").write_text(
-                f"id: {agent_id}\nname: {name}\noccupation: resident\nhome: loc-home-fb\n",
-                encoding="utf-8",
-            )
-            (agent_dir / "prompt.md").write_text(f"# {name}\nBase prompt", encoding="utf-8")
+            write_agent_config(tmp_path, agent_id, name=name, home="loc-home-fb")
 
         provider = MixedOutcomeDecisionProvider(
             failing_agent_ids={"agent-fallback-bad-iso"},
@@ -1175,43 +1079,27 @@ async def test_run_tick_isolated_reuses_conversation_id_across_adjacent_ticks():
 
     run_id = "run-isolated-conversation-continuity"
     async with AsyncSession(engine, expire_on_commit=False) as session:
-        run = SimulationRun(
-            id=run_id,
+        run = make_run(
+            run_id,
             name="isolated-conversation-continuity",
-            status="running",
-            current_tick=0,
-            tick_minutes=5,
         )
-        cafe = Location(
-            id="loc-cafe-iso-continuity",
+        cafe = make_location(
+            "loc-cafe-iso-continuity",
             run_id=run_id,
             name="Cafe",
             location_type="cafe",
-            capacity=4,
         )
-        alice = Agent(
-            id="alice-iso-continuity",
+        alice = make_agent(
+            "alice-iso-continuity",
             run_id=run_id,
+            location_id=cafe.id,
             name="Alice",
-            occupation="resident",
-            home_location_id=cafe.id,
-            current_location_id=cafe.id,
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         )
-        bob = Agent(
-            id="bob-iso-continuity",
+        bob = make_agent(
+            "bob-iso-continuity",
             run_id=run_id,
+            location_id=cafe.id,
             name="Bob",
-            occupation="resident",
-            home_location_id=cafe.id,
-            current_location_id=cafe.id,
-            personality={},
-            profile={},
-            status={},
-            current_plan={},
         )
         session.add_all([run, cafe, alice, bob])
         await session.commit()

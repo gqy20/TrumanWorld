@@ -139,7 +139,9 @@ cd frontend && npm run lint   # 单独执行前端 lint
 ### 测试
 
 ```bash
-make test           # 后端 pytest + 前端 Jest
+make test           # 后端 fast pytest（排除 integration）+ 前端 Jest
+make backend-test   # 后端 fast pytest（排除 integration）
+make backend-integration-test # 后端 integration tests
 cd frontend && npm run build  # 前端生产构建检查
 ```
 
@@ -392,7 +394,9 @@ make pre-commit
 
 ```bash
 cd backend
-uv run pytest                    # 运行所有测试
+uv run pytest -m "not integration" # 运行日常 fast tests
+uv run pytest -m integration     # 运行 integration tests
+uv run pytest                    # 运行所有后端测试
 uv run pytest -v                 # 详细输出
 uv run pytest -x                 # 遇到失败停止
 uv run pytest tests/test_file.py # 运行单个文件

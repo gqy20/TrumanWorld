@@ -12,7 +12,9 @@ Use the top-level `Makefile` for common workflows:
 - `make migrate`: apply Alembic migrations.
 - `make lint`: run `ruff check` on backend code.
 - `make format`: run `ruff format` on backend code.
-- `make test`: run backend `pytest`.
+- `make backend-test`: run backend `pytest` excluding `integration` tests.
+- `make backend-integration-test`: run backend tests marked `integration`.
+- `make test`: run backend fast tests and frontend Jest.
 - `make pre-commit`: run repository hooks before pushing.
 
 For frontend dependency and script workflows, use `npm` in `frontend/`. For frontend-only checks, run `cd frontend && npm run lint` or `npm run build`.

@@ -14,17 +14,16 @@ from uuid import uuid4
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.scenario.runtime.world_design import load_world_design_runtime_package
 from app.sim.event_utils import build_event
-from app.sim.relationship_policy import compute_relationship_delta
+from app.sim.governance_persistence import GovernancePersistence
+from app.sim.relationship_persistence import RelationshipPersistence
 from app.sim.memory_constants import calculate_memory_importance, determine_memory_category
 from app.sim.runner import TickResult
 from app.sim.world import WorldState
-from app.store.models import Event, GovernanceRecord, Memory, Relationship, SimulationRun
+from app.store.models import Event, Memory, Relationship
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
-    GovernanceRecordRepository,
     LocationRepository,
     MemoryRepository,
     RelationshipRepository,
@@ -55,8 +54,9 @@ class PersistenceManager:
         self.agent_repo = AgentRepository(session)
         self.location_repo = LocationRepository(session)
         self.event_repo = EventRepository(session)
-        self.governance_record_repo = GovernanceRecordRepository(session)
+        self.governance_persistence = GovernancePersistence(session)
         self.memory_repo = MemoryRepository(session)
+        self.relationship_persistence = RelationshipPersistence(session)
         self.relationship_repo = RelationshipRepository(session)
 
     async def persist_tick_results(
@@ -130,59 +130,7 @@ class PersistenceManager:
         return []
 
     async def persist_tick_governance_records(self, run_id: str, events: list[Event]) -> None:
-        records: list[GovernanceRecord] = []
-        for event in events:
-            payload = event.payload or {}
-            governance_execution = payload.get("governance_execution")
-            if not isinstance(governance_execution, dict):
-                continue
-            decision = governance_execution.get("decision")
-            if decision not in {"record_only", "warn", "block"}:
-                continue
-
-            agent_id = payload.get("agent_id") or event.actor_agent_id
-            if not isinstance(agent_id, str) or not agent_id:
-                continue
-
-            reason = governance_execution.get("reason")
-            observation_score = governance_execution.get("observation_score")
-            intervention_score = governance_execution.get("intervention_score")
-            observed = governance_execution.get("observed")
-            matched_signals = governance_execution.get("matched_signals")
-
-            records.append(
-                GovernanceRecord(
-                    id=str(uuid4()),
-                    run_id=run_id,
-                    agent_id=agent_id,
-                    tick_no=event.tick_no,
-                    source_event_id=event.id,
-                    location_id=event.location_id,
-                    action_type=event.event_type,
-                    decision=decision,
-                    reason=reason if isinstance(reason, str) else None,
-                    observed=bool(observed),
-                    observation_score=(
-                        float(observation_score)
-                        if isinstance(observation_score, (int, float))
-                        else 0.0
-                    ),
-                    intervention_score=(
-                        float(intervention_score)
-                        if isinstance(intervention_score, (int, float))
-                        else 0.0
-                    ),
-                    metadata_json={
-                        "enforcement_action": governance_execution.get("enforcement_action"),
-                        "matched_signals": matched_signals
-                        if isinstance(matched_signals, list)
-                        else [],
-                    },
-                )
-            )
-
-        if records:
-            await self.governance_record_repo.add_many(records)
+        await self.governance_persistence.persist_tick_governance_records(run_id, events)
 
     async def persist_tick_governance_cases(
         self,
@@ -190,66 +138,7 @@ class PersistenceManager:
         result: TickResult,
         world: WorldState,
     ) -> None:
-        """Persist governance cases and restrictions from tick results.
-
-        Processes warn/block decisions to create or update cases,
-        and generates restrictions when thresholds are met.
-        """
-        from app.sim.governance_case_service import GovernanceCaseService
-        from app.sim.world import RestrictionState
-
-        service = GovernanceCaseService(self.session)
-
-        # Process both accepted and rejected actions
-        all_results = list(result.accepted) + list(result.rejected)
-
-        for item in all_results:
-            governance_execution = item.governance_execution
-            if governance_execution is None:
-                continue
-
-            decision = governance_execution.decision
-            if decision not in {"warn", "block"}:
-                continue
-
-            agent_id = item.event_payload.get("agent_id")
-            if not isinstance(agent_id, str) or not agent_id:
-                continue
-
-            # Build ActionResult-like object for service
-            action_result = item
-
-            # Process governance case
-            case = await service.process_governance_record(
-                world=world,
-                result=action_result,
-                run_id=run_id,
-                agent_id=agent_id,
-                tick_no=result.tick_no,
-            )
-
-            # Maybe create restriction
-            restriction = await service.maybe_create_restriction(
-                world=world,
-                result=action_result,
-                case=case,
-                run_id=run_id,
-                agent_id=agent_id,
-                tick_no=result.tick_no,
-            )
-
-            if restriction is not None:
-                # Add restriction to world state for runtime checks
-                restriction_state = RestrictionState(
-                    id=restriction.id,
-                    restriction_type=restriction.restriction_type,
-                    scope_type=restriction.scope_type,
-                    scope_value=restriction.scope_value,
-                    start_tick=restriction.start_tick,
-                    end_tick=restriction.end_tick,
-                    reason=restriction.reason,
-                )
-                world.add_restriction(agent_id, restriction_state)
+        await self.governance_persistence.persist_tick_governance_cases(run_id, result, world)
 
     async def persist_tick_economic_state(
         self,
@@ -618,35 +507,7 @@ class PersistenceManager:
             await session.commit()
 
     async def persist_tick_relationships(self, run_id: str, events: list[Event]) -> None:
-        """Persist relationships from social speech events."""
-        run_context = await self._load_relationship_run_context(run_id)
-        updated = False
-        for event in events:
-            delta = self._compute_relationship_delta(event, run_context)
-            if delta is None:
-                continue
-            self._annotate_relationship_impact(event, delta)
-            for actor_agent_id, other_agent_id in self._iter_relationship_pairs(event):
-                await self.relationship_repo.upsert_interaction(
-                    run_id=run_id,
-                    agent_id=actor_agent_id,
-                    other_agent_id=other_agent_id,
-                    familiarity_delta=delta.familiarity_delta,
-                    trust_delta=delta.trust_delta,
-                    affinity_delta=delta.affinity_delta,
-                )
-                updated = True
-                await self.relationship_repo.upsert_interaction(
-                    run_id=run_id,
-                    agent_id=other_agent_id,
-                    other_agent_id=actor_agent_id,
-                    familiarity_delta=delta.familiarity_delta,
-                    trust_delta=delta.trust_delta,
-                    affinity_delta=delta.affinity_delta,
-                )
-                updated = True
-        if updated:
-            await self.session.flush()
+        await self.relationship_persistence.persist_tick_relationships(run_id, events)
 
     async def persist_tick_relationships_with_session(
         self,
@@ -654,196 +515,11 @@ class PersistenceManager:
         run_id: str,
         events: list[Event],
     ) -> None:
-        """Persist relationships using a provided session."""
-        rel_repo = RelationshipRepository(session)
-        run_context = await self._load_relationship_run_context(run_id, session=session)
-        updated = False
-        for event in events:
-            delta = self._compute_relationship_delta(event, run_context)
-            if delta is None:
-                continue
-            self._annotate_relationship_impact(event, delta)
-            for actor_agent_id, other_agent_id in self._iter_relationship_pairs(event):
-                await rel_repo.upsert_interaction(
-                    run_id=run_id,
-                    agent_id=actor_agent_id,
-                    other_agent_id=other_agent_id,
-                    familiarity_delta=delta.familiarity_delta,
-                    trust_delta=delta.trust_delta,
-                    affinity_delta=delta.affinity_delta,
-                )
-                updated = True
-                await rel_repo.upsert_interaction(
-                    run_id=run_id,
-                    agent_id=other_agent_id,
-                    other_agent_id=actor_agent_id,
-                    familiarity_delta=delta.familiarity_delta,
-                    trust_delta=delta.trust_delta,
-                    affinity_delta=delta.affinity_delta,
-                )
-                updated = True
-        if updated:
-            await session.commit()
-
-    async def _load_relationship_run_context(
-        self,
-        run_id: str,
-        *,
-        session: AsyncSession | None = None,
-    ) -> tuple[SimulationRun | None, dict[str, str], dict[str, dict]]:
-        active_session = session or self.session
-        run_repo = self.run_repo if session is None else RunRepository(active_session)
-        location_repo = (
-            self.location_repo if session is None else LocationRepository(active_session)
+        await self.relationship_persistence.persist_tick_relationships_with_session(
+            session,
+            run_id,
+            events,
         )
-        agent_repo = self.agent_repo if session is None else AgentRepository(active_session)
-        run, locations, agents = await asyncio.gather(
-            run_repo.get(run_id),
-            location_repo.list_for_run(run_id),
-            agent_repo.list_for_run(run_id),
-        )
-        location_type_map = {location.id: location.location_type for location in locations}
-        agent_status_map = {agent.id: dict(agent.status or {}) for agent in agents}
-        return run, location_type_map, agent_status_map
-
-    @staticmethod
-    def _compute_relationship_delta(
-        event: Event,
-        run_context: tuple[SimulationRun | None, dict[str, str], dict[str, dict]],
-    ):
-        run, location_type_map, agent_status_map = run_context
-        location_id = event.location_id
-        location_type = location_type_map.get(location_id) if location_id else None
-        policy_values: dict[str, object] | None = None
-        if run is not None:
-            package = load_world_design_runtime_package(run.scenario_type)
-            policy_values = package.policy_config.values
-        payload = event.payload or {}
-        rule_evaluation = payload.get("rule_evaluation")
-        governance_execution = payload.get("governance_execution")
-        rule_decision = None
-        rule_reason = None
-        risk_level = None
-        governance_decision = None
-        governance_reason = None
-        actor_attention_score = 0.0
-        target_attention_score = 0.0
-        if isinstance(rule_evaluation, dict):
-            decision_value = rule_evaluation.get("decision")
-            reason_value = rule_evaluation.get("reason")
-            risk_level_value = rule_evaluation.get("risk_level")
-            if isinstance(decision_value, str):
-                rule_decision = decision_value
-            if isinstance(reason_value, str):
-                rule_reason = reason_value
-            if isinstance(risk_level_value, str):
-                risk_level = risk_level_value
-        if isinstance(governance_execution, dict):
-            governance_decision_value = governance_execution.get("decision")
-            governance_reason_value = governance_execution.get("reason")
-            if isinstance(governance_decision_value, str):
-                governance_decision = governance_decision_value
-            if isinstance(governance_reason_value, str):
-                governance_reason = governance_reason_value
-        if event.actor_agent_id:
-            actor_attention_score = float(
-                agent_status_map.get(event.actor_agent_id, {}).get(
-                    "governance_attention_score",
-                    0.0,
-                )
-                or 0.0
-            )
-        if event.target_agent_id:
-            target_attention_score = float(
-                agent_status_map.get(event.target_agent_id, {}).get(
-                    "governance_attention_score",
-                    0.0,
-                )
-                or 0.0
-            )
-        return compute_relationship_delta(
-            event_type=event.event_type,
-            world_time=event.world_time,
-            location_id=location_id,
-            location_type=location_type,
-            rule_decision=rule_decision,
-            rule_reason=rule_reason,
-            risk_level=risk_level,
-            governance_decision=governance_decision,
-            governance_reason=governance_reason,
-            actor_attention_score=actor_attention_score,
-            target_attention_score=target_attention_score,
-            policy_values=policy_values,
-        )
-
-    @staticmethod
-    def _iter_relationship_pairs(event: Event) -> list[tuple[str, str]]:
-        if event.event_type not in {"talk", "speech"}:
-            return []
-        if event.actor_agent_id is None:
-            return []
-
-        payload = event.payload or {}
-        participant_ids = payload.get("participant_ids")
-        participants = (
-            [
-                participant_id
-                for participant_id in participant_ids
-                if isinstance(participant_id, str) and participant_id != event.actor_agent_id
-            ]
-            if isinstance(participant_ids, list)
-            else []
-        )
-        if event.target_agent_id and event.target_agent_id not in participants:
-            participants.append(event.target_agent_id)
-
-        return [
-            (event.actor_agent_id, participant_id)
-            for participant_id in participants
-            if participant_id != event.actor_agent_id
-        ]
-
-    @staticmethod
-    def _annotate_relationship_impact(event: Event, delta) -> None:
-        payload = dict(event.payload or {})
-        rule_evaluation = payload.get("rule_evaluation")
-        governance_execution = payload.get("governance_execution")
-        relationship_impact = {
-            "applied": True,
-            "familiarity_delta": delta.familiarity_delta,
-            "trust_delta": delta.trust_delta,
-            "affinity_delta": delta.affinity_delta,
-            "modifiers": list(delta.modifiers),
-            "summary": PersistenceManager._build_relationship_impact_summary(delta),
-        }
-        if isinstance(rule_evaluation, dict):
-            relationship_impact["rule_decision"] = rule_evaluation.get("decision")
-            relationship_impact["rule_reason"] = rule_evaluation.get("reason")
-            relationship_impact["risk_level"] = rule_evaluation.get("risk_level")
-        if isinstance(governance_execution, dict):
-            relationship_impact["governance_decision"] = governance_execution.get("decision")
-            relationship_impact["governance_reason"] = governance_execution.get("reason")
-        payload["relationship_impact"] = relationship_impact
-        event.payload = payload
-
-    @staticmethod
-    def _build_relationship_impact_summary(delta) -> str:
-        modifiers = set(delta.modifiers)
-        if "soft_risk" in modifiers:
-            return "高风险社交接触降低了信任和亲近感的增长。"
-        if "attention_high" in modifiers:
-            return "高关注状态削弱了这次互动带来的关系增益。"
-        if "attention_elevated" in modifiers:
-            return "制度关注使这次互动的关系增益有所减弱。"
-        if "governance_block" in modifiers:
-            return "治理拦截使这次互动没有形成正向关系增益。"
-        if "governance_warn" in modifiers:
-            return "治理警告削弱了这次互动带来的关系增益。"
-        if any(modifier.startswith("social_boost:") for modifier in modifiers):
-            return "社交场景提升了亲近感的增长。"
-        if "sensitive_location" in modifiers:
-            return "敏感地点削弱了信任和亲近感的增长。"
-        return "社交互动提升了熟悉度和关系强度。"
 
     async def persist_agent_locations(self, run_id: str, world: WorldState) -> None:
         """Update agent locations after tick."""

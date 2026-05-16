@@ -7,7 +7,7 @@ BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-lint backend-typecheck frontend-lint frontend-test lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-lint backend-typecheck backend-test backend-integration-test frontend-lint frontend-test lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -45,6 +45,12 @@ backend-typecheck:
 frontend-lint:
 	cd $(FRONTEND_DIR) && npm run lint
 
+backend-test:
+	cd $(BACKEND_DIR) && uv run pytest -m "not integration"
+
+backend-integration-test:
+	cd $(BACKEND_DIR) && uv run pytest -m integration
+
 frontend-test:
 	cd $(FRONTEND_DIR) && npm run test -- --runInBand --passWithNoTests
 
@@ -57,7 +63,7 @@ format:
 	cd $(BACKEND_DIR) && uv run ruff format app tests
 
 test:
-	cd $(BACKEND_DIR) && uv run pytest
+	$(MAKE) backend-test
 	$(MAKE) frontend-test
 
 benchmark-reactor-pool:

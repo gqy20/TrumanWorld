@@ -174,17 +174,70 @@
 P0:
 
 - 保持事务回归测试作为新增写入路径的准入条件。
+- 将过长核心文件纳入重构队列，优先处理 `backend/app/sim/persistence.py` 和大型 sim 测试文件。
 
 P1:
 
 - 更新 `CURRENT_ARCHITECTURE.md` 中 persistence / tick 写入边界说明。
 - 继续观察 day boundary 是否需要独立重试任务。
+- 建立测试数据 factory / builder，减少各测试文件重复手写 run、location、agent、event。
+- 默认后端测试命令已调整为排除 `integration`，真实 SDK / PostgreSQL 测试使用 `make backend-integration-test`。
 
 P2:
 
 - 将本轮重构经验沉淀到贡献指南或开发文档。
+- 前端补充关键页面级用户流测试，并增强 Phaser scene 的行为断言。
 
-## 5. Done 定义
+## 5. 维护性审计补充
+
+本轮审计关注两个问题：是否存在过长脚本或文件影响维护，以及当前测试体系是否规范、优雅并贴合项目。
+
+### 5.1 长文件与脚本
+
+结论：
+
+- Shell 脚本本身不是当前主要风险。`scripts/railway-bootstrap.sh` 约 164 行，`Makefile` 约 261 行，仍在可维护范围内。
+- 真正的风险来自过长业务文件和过长测试文件，尤其是 simulation persistence、scenario、service runtime、前端地图和 Phaser scene。
+
+重点文件：
+
+- `backend/app/sim/persistence.py`：集中处理 tick 事件、记忆、关系、治理记录、治理 case、经济状态等写入，职责过密。
+- `backend/tests/sim/test_service_runtime.py`、`backend/tests/sim/test_scenarios.py`、`backend/tests/sim/test_service_isolated.py`：测试文件过长，重复造数较多，定位失败成本偏高。
+- `frontend/components/town-map.tsx`：同时承担布局计算、小地图、缩放拖拽、节点渲染和交互。
+- `frontend/components/phaser/world-scene.ts`：同时承担 Phaser scene、纹理、节点同步、动画、tooltip 和视觉规则。
+
+建议拆分顺序：
+
+1. 先拆测试辅助，将常见 run / location / agent / event 创建逻辑沉淀为 factory。
+2. 再拆 `PersistenceManager`，让当前类只保留事务编排，具体写入逻辑下沉到 memory、relationship、governance、economic 等小模块。
+   - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
+   - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
+3. 最后拆前端地图组件，把纯计算、交互 hook、子视图组件和 Phaser 渲染辅助分离。
+
+### 5.2 测试体系
+
+结论：
+
+- 后端测试体系整体规范，覆盖面和项目适配度较高，已覆盖 api、sim、store、scenario、agent、director、integration 等边界。
+- 前端测试体系基础可用，覆盖了 lib 和部分组件，但更偏单元层，关键页面流和复杂可视化交互保护不足。
+- 当前问题不是“没有测试”，而是测试可维护性和质量门禁还需要提升。
+
+已具备的优点：
+
+- `backend/tests/conftest.py` 提供了 async DB session、ASGI client、默认 heuristic backend 和 scheduler cleanup。
+- `backend/pyproject.toml` 已声明 `integration` marker，并配置了 coverage。
+- `frontend/jest.config.ts` 使用 Next.js Jest 配置，覆盖 `__tests__` 和 `*.test.*` 文件。
+- 后端测试与业务模块基本同构，能反映项目真实边界。
+
+主要改进点：
+
+- 大型测试文件需要按行为主题拆分，减少单文件上下文负担。
+- 测试数据创建应统一封装，避免每个测试重复构造 SQLAlchemy model。
+- 避免在普通行为测试中过多调用私有方法；私有方法测试应优先转成 public behavior 测试。
+- 默认测试命令应区分 fast unit/integration/live SDK，避免日常测试受外部环境影响。
+- 前端应补充页面级用户流测试，并让 Phaser 测试验证关键对象数量、坐标同步、事件回调等行为。
+
+## 6. Done 定义
 
 本轮 persistence 重构完成的判断标准：
 

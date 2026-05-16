@@ -14,8 +14,9 @@ from app.sim.persistence import PersistenceManager
 from app.sim.runner import TickResult
 from app.sim.service import SimulationService
 from app.sim.world import WorldState
-from app.store.models import Agent, Event, GovernanceRecord, Location, SimulationRun
+from app.store.models import Event, GovernanceRecord, SimulationRun
 from app.store.repositories import AgentRepository, DirectorMemoryRepository, EventRepository
+from tests.factories import make_agent, make_event, make_location, make_run, write_agent_config
 
 from .test_service import (
     ContextCapturingDecisionProvider,
@@ -55,56 +56,40 @@ def test_simulation_service_switches_registry_root_with_scenario_bundle(
 async def test_simulation_service_uses_world_role_and_clock_in_runtime_context(
     db_session, tmp_path
 ):
-    run = SimulationRun(
-        id="run-service-role-clock",
+    run = make_run(
+        "run-service-role-clock",
         name="service",
-        status="running",
         current_tick=2,
         tick_minutes=15,
         metadata_json={"world_start_time": "2026-03-02T07:00:00+00:00"},
     )
-    home = Location(
-        id="loc-home-role-clock",
+    home = make_location(
+        "loc-home-role-clock",
         run_id="run-service-role-clock",
         name="Home",
         location_type="home",
-        capacity=2,
     )
-    park = Location(
-        id="loc-park-role-clock",
+    park = make_location(
+        "loc-park-role-clock",
         run_id="run-service-role-clock",
         name="Park",
         location_type="park",
-        capacity=2,
     )
-    agent_dir = tmp_path / "truman"
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: truman",
-                "name: Truman",
-                "world_role: truman",
-                "occupation: resident",
-                "home: loc-home-role-clock",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Truman\nBase prompt", encoding="utf-8")
-
-    truman = Agent(
-        id="run-service-role-clock-truman",
-        run_id="run-service-role-clock",
+    write_agent_config(
+        tmp_path,
+        "truman",
         name="Truman",
-        occupation="resident",
-        home_location_id="loc-home-role-clock",
-        current_location_id="loc-home-role-clock",
+        home="loc-home-role-clock",
+        world_role="truman",
+    )
+
+    truman = make_agent(
+        "run-service-role-clock-truman",
+        run_id="run-service-role-clock",
+        location_id="loc-home-role-clock",
+        name="Truman",
         current_goal="move:loc-park-role-clock",
-        personality={},
         profile={"agent_config_id": "truman", "world_role": "truman"},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, home, park, truman])
@@ -125,45 +110,31 @@ async def test_simulation_service_uses_world_role_and_clock_in_runtime_context(
 async def test_simulation_service_includes_director_system_events_for_cast_recent_events(
     db_session, tmp_path
 ):
-    run = SimulationRun(
-        id="run-service-director-events",
+    run = make_run(
+        "run-service-director-events",
         name="service",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    square = Location(
-        id="loc-square-director-events",
+    square = make_location(
+        "loc-square-director-events",
         run_id=run.id,
         name="Square",
         location_type="plaza",
-        capacity=4,
     )
-    cast = Agent(
-        id="run-service-director-events-cast",
+    cast = make_agent(
+        "run-service-director-events-cast",
         run_id=run.id,
+        location_id=square.id,
         name="Meryl",
-        occupation="resident",
-        home_location_id=square.id,
-        current_location_id=square.id,
         current_goal="rest",
-        personality={},
         profile={"agent_config_id": "spouse", "world_role": "cast"},
-        status={},
-        current_plan={},
     )
-    truman = Agent(
-        id="run-service-director-events-truman",
+    truman = make_agent(
+        "run-service-director-events-truman",
         run_id=run.id,
+        location_id=square.id,
         name="Truman",
-        occupation="resident",
-        home_location_id=square.id,
-        current_location_id=square.id,
         current_goal="rest",
-        personality={},
         profile={"agent_config_id": "truman", "world_role": "truman"},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, square, cast, truman])
@@ -176,35 +147,18 @@ async def test_simulation_service_includes_director_system_events_for_cast_recen
         importance=0.8,
     )
 
-    spouse_dir = tmp_path / "spouse"
-    spouse_dir.mkdir(parents=True)
-    (spouse_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: spouse",
-                "name: Meryl",
-                "occupation: resident",
-                "home: loc-square-director-events",
-            ]
-        ),
-        encoding="utf-8",
+    write_agent_config(
+        tmp_path,
+        "spouse",
+        name="Meryl",
+        home="loc-square-director-events",
     )
-    (spouse_dir / "prompt.md").write_text("# Meryl\nBase prompt", encoding="utf-8")
-
-    truman_dir = tmp_path / "truman"
-    truman_dir.mkdir(parents=True)
-    (truman_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: truman",
-                "name: Truman",
-                "occupation: resident",
-                "home: loc-square-director-events",
-            ]
-        ),
-        encoding="utf-8",
+    write_agent_config(
+        tmp_path,
+        "truman",
+        name="Truman",
+        home="loc-square-director-events",
     )
-    (truman_dir / "prompt.md").write_text("# Truman\nBase prompt", encoding="utf-8")
 
     capturing_provider = ContextCapturingDecisionProvider()
     runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
@@ -222,45 +176,31 @@ async def test_simulation_service_includes_director_system_events_for_cast_recen
 
 @pytest.mark.asyncio
 async def test_manual_director_intervention_is_not_consumed_in_read_phase(db_session):
-    run = SimulationRun(
-        id="run-service-manual-once",
+    run = make_run(
+        "run-service-manual-once",
         name="service",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    square = Location(
-        id="loc-square-manual-once",
+    square = make_location(
+        "loc-square-manual-once",
         run_id=run.id,
         name="Square",
         location_type="plaza",
-        capacity=4,
     )
-    cast = Agent(
-        id="run-service-manual-once-cast",
+    cast = make_agent(
+        "run-service-manual-once-cast",
         run_id=run.id,
+        location_id=square.id,
         name="Meryl",
-        occupation="resident",
-        home_location_id=square.id,
-        current_location_id=square.id,
         current_goal="rest",
-        personality={},
         profile={"agent_config_id": "spouse", "world_role": "cast"},
-        status={},
-        current_plan={},
     )
-    truman = Agent(
-        id="run-service-manual-once-truman",
+    truman = make_agent(
+        "run-service-manual-once-truman",
         run_id=run.id,
+        location_id=square.id,
         name="Truman",
-        occupation="resident",
-        home_location_id=square.id,
-        current_location_id=square.id,
         current_goal="rest",
-        personality={},
         profile={"agent_config_id": "truman", "world_role": "truman"},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, square, cast, truman])
@@ -295,46 +235,32 @@ async def test_manual_director_intervention_is_not_consumed_in_read_phase(db_ses
 async def test_director_event_service_uses_subject_role_semantics_for_manual_events(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-manual-semantics",
+    run = make_run(
+        "run-service-manual-semantics",
         name="service",
-        status="running",
         scenario_type="hero_world",
-        current_tick=0,
-        tick_minutes=5,
     )
-    square = Location(
-        id="loc-square-manual-semantics",
+    square = make_location(
+        "loc-square-manual-semantics",
         run_id=run.id,
         name="Square",
         location_type="plaza",
-        capacity=4,
     )
-    ally = Agent(
-        id="run-service-manual-semantics-ally",
+    ally = make_agent(
+        "run-service-manual-semantics-ally",
         run_id=run.id,
+        location_id=square.id,
         name="Guide",
-        occupation="resident",
-        home_location_id=square.id,
-        current_location_id=square.id,
         current_goal="rest",
-        personality={},
         profile={"agent_config_id": "guide", "world_role": "ally"},
-        status={},
-        current_plan={},
     )
-    protagonist = Agent(
-        id="run-service-manual-semantics-protagonist",
+    protagonist = make_agent(
+        "run-service-manual-semantics-protagonist",
         run_id=run.id,
+        location_id=square.id,
         name="Hero",
-        occupation="resident",
-        home_location_id=square.id,
-        current_location_id=square.id,
         current_goal="rest",
-        personality={},
         profile={"agent_config_id": "hero", "world_role": "protagonist"},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, square, ally, protagonist])
     await db_session.commit()
@@ -391,31 +317,23 @@ async def test_seed_demo_run_creates_narrative_world_agents(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_updates_subject_alert_from_rejected_events(db_session):
-    run = SimulationRun(
-        id="run-truman-suspicion",
+    run = make_run(
+        "run-truman-suspicion",
         name="suspicion",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    home = Location(
-        id="loc-home-suspicion",
+    home = make_location(
+        "loc-home-suspicion",
         run_id="run-truman-suspicion",
         name="Home",
         location_type="home",
-        capacity=2,
     )
-    truman = Agent(
-        id="truman-suspicion",
+    truman = make_agent(
+        "truman-suspicion",
         run_id="run-truman-suspicion",
+        location_id="loc-home-suspicion",
         name="Truman",
-        occupation="resident",
-        home_location_id="loc-home-suspicion",
-        current_location_id="loc-home-suspicion",
-        personality={},
         profile={"world_role": "truman", "agent_config_id": "truman"},
         status={"suspicion_score": 0.1},
-        current_plan={},
     )
 
     db_session.add_all([run, home, truman])
@@ -442,32 +360,22 @@ async def test_simulation_service_updates_subject_alert_from_rejected_events(db_
 
 @pytest.mark.asyncio
 async def test_simulation_service_accepts_injected_scenario(db_session):
-    run = SimulationRun(
-        id="run-fake-scenario",
+    run = make_run(
+        "run-fake-scenario",
         name="fake-scenario",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    home = Location(
-        id="loc-home-fake",
+    home = make_location(
+        "loc-home-fake",
         run_id="run-fake-scenario",
         name="Home",
         location_type="home",
-        capacity=2,
     )
-    agent = Agent(
-        id="agent-fake",
+    agent = make_agent(
+        "agent-fake",
         run_id="run-fake-scenario",
+        location_id="loc-home-fake",
         name="Agent",
-        occupation="resident",
-        home_location_id="loc-home-fake",
-        current_location_id="loc-home-fake",
         current_goal="rest",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, home, agent])
@@ -487,35 +395,19 @@ async def test_simulation_service_accepts_injected_scenario(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_updates_relationships_from_talk_events(db_session):
-    run = SimulationRun(
-        id="run-service-5", name="service", status="running", current_tick=0, tick_minutes=5
-    )
-    plaza = Location(
-        id="loc-plaza-5", run_id="run-service-5", name="Plaza", location_type="plaza", capacity=4
-    )
-    alice = Agent(
-        id="alice-5",
+    run = make_run("run-service-5", name="service")
+    plaza = make_location("loc-plaza-5", run_id="run-service-5", name="Plaza")
+    alice = make_agent(
+        "alice-5",
         run_id="run-service-5",
+        location_id="loc-plaza-5",
         name="Alice",
-        occupation="resident",
-        home_location_id="loc-plaza-5",
-        current_location_id="loc-plaza-5",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-5",
+    bob = make_agent(
+        "bob-5",
         run_id="run-service-5",
+        location_id="loc-plaza-5",
         name="Bob",
-        occupation="resident",
-        home_location_id="loc-plaza-5",
-        current_location_id="loc-plaza-5",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, plaza, alice, bob])
@@ -571,50 +463,34 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
 async def test_persistence_relationships_apply_social_location_policy_boost(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-relationship-policy",
+    run = make_run(
+        "run-service-relationship-policy",
         name="relationship-policy",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    cafe = Location(
-        id="loc-cafe-policy",
+    cafe = make_location(
+        "loc-cafe-policy",
         run_id=run.id,
         name="Cafe",
         location_type="cafe",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-policy",
+    alice = make_agent(
+        "alice-policy",
         run_id=run.id,
+        location_id=cafe.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=cafe.id,
-        current_location_id=cafe.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-policy",
+    bob = make_agent(
+        "bob-policy",
         run_id=run.id,
+        location_id=cafe.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=cafe.id,
-        current_location_id=cafe.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, cafe, alice, bob])
     await db_session.commit()
 
     monkeypatch.setattr(
-        "app.sim.persistence.load_world_design_runtime_package",
+        "app.sim.relationship_persistence.load_world_design_runtime_package",
         lambda _scenario_id: type(
             "Package",
             (),
@@ -626,16 +502,13 @@ async def test_persistence_relationships_apply_social_location_policy_boost(
         )(),
     )
 
-    event = Event(
-        id="event-policy-speech",
+    event = make_event(
+        "event-policy-speech",
         run_id=run.id,
-        tick_no=1,
         event_type="speech",
         actor_agent_id=alice.id,
         target_agent_id=bob.id,
         location_id=cafe.id,
-        world_time=None,
-        payload={},
     )
 
     await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
@@ -651,64 +524,46 @@ async def test_persistence_relationships_apply_social_location_policy_boost(
 async def test_persistence_relationships_soft_risk_reduces_social_gain(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-relationship-soft-risk",
+    run = make_run(
+        "run-service-relationship-soft-risk",
         name="relationship-soft-risk",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    plaza = Location(
-        id="loc-plaza-soft-risk",
+    plaza = make_location(
+        "loc-plaza-soft-risk",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-soft-risk",
+    alice = make_agent(
+        "alice-soft-risk",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-soft-risk",
+    bob = make_agent(
+        "bob-soft-risk",
         run_id=run.id,
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
 
     monkeypatch.setattr(
-        "app.sim.persistence.load_world_design_runtime_package",
+        "app.sim.relationship_persistence.load_world_design_runtime_package",
         lambda _scenario_id: type(
             "Package", (), {"policy_config": type("Policy", (), {"values": {}})()}
         )(),
     )
 
-    event = Event(
-        id="event-soft-risk-speech",
+    event = make_event(
+        "event-soft-risk-speech",
         run_id=run.id,
-        tick_no=1,
         event_type="speech",
         actor_agent_id=alice.id,
         target_agent_id=bob.id,
         location_id=plaza.id,
-        world_time=None,
         payload={
             "rule_evaluation": {
                 "decision": "soft_risk",
@@ -739,64 +594,46 @@ async def test_persistence_relationships_soft_risk_reduces_social_gain(
 async def test_persistence_relationships_governance_warn_further_reduces_social_gain(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-relationship-governance-warn",
+    run = make_run(
+        "run-service-relationship-governance-warn",
         name="relationship-governance-warn",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    plaza = Location(
-        id="loc-plaza-governance-warn",
+    plaza = make_location(
+        "loc-plaza-governance-warn",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-governance-warn",
+    alice = make_agent(
+        "alice-governance-warn",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-governance-warn",
+    bob = make_agent(
+        "bob-governance-warn",
         run_id=run.id,
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
 
     monkeypatch.setattr(
-        "app.sim.persistence.load_world_design_runtime_package",
+        "app.sim.relationship_persistence.load_world_design_runtime_package",
         lambda _scenario_id: type(
             "Package", (), {"policy_config": type("Policy", (), {"values": {}})()}
         )(),
     )
 
-    event = Event(
-        id="event-governance-warn-speech",
+    event = make_event(
+        "event-governance-warn-speech",
         run_id=run.id,
-        tick_no=1,
         event_type="speech",
         actor_agent_id=alice.id,
         target_agent_id=bob.id,
         location_id=plaza.id,
-        world_time=None,
         payload={
             "governance_execution": {
                 "decision": "warn",
@@ -822,64 +659,46 @@ async def test_persistence_relationships_governance_warn_further_reduces_social_
 async def test_persistence_relationships_governance_block_turns_social_result_negative(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-relationship-governance-block",
+    run = make_run(
+        "run-service-relationship-governance-block",
         name="relationship-governance-block",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    plaza = Location(
-        id="loc-plaza-governance-block",
+    plaza = make_location(
+        "loc-plaza-governance-block",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-governance-block",
+    alice = make_agent(
+        "alice-governance-block",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-governance-block",
+    bob = make_agent(
+        "bob-governance-block",
         run_id=run.id,
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
 
     monkeypatch.setattr(
-        "app.sim.persistence.load_world_design_runtime_package",
+        "app.sim.relationship_persistence.load_world_design_runtime_package",
         lambda _scenario_id: type(
             "Package", (), {"policy_config": type("Policy", (), {"values": {}})()}
         )(),
     )
 
-    event = Event(
-        id="event-governance-block-speech",
+    event = make_event(
+        "event-governance-block-speech",
         run_id=run.id,
-        tick_no=1,
         event_type="speech",
         actor_agent_id=alice.id,
         target_agent_id=bob.id,
         location_id=plaza.id,
-        world_time=None,
         payload={
             "governance_execution": {
                 "decision": "block",
@@ -905,65 +724,47 @@ async def test_persistence_relationships_governance_block_turns_social_result_ne
 async def test_persistence_relationships_actor_attention_reduces_social_gain(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-relationship-actor-attention",
+    run = make_run(
+        "run-service-relationship-actor-attention",
         name="relationship-actor-attention",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    plaza = Location(
-        id="loc-plaza-actor-attention",
+    plaza = make_location(
+        "loc-plaza-actor-attention",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-actor-attention",
+    alice = make_agent(
+        "alice-actor-attention",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
         status={"governance_attention_score": 0.6},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-actor-attention",
+    bob = make_agent(
+        "bob-actor-attention",
         run_id=run.id,
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
 
     monkeypatch.setattr(
-        "app.sim.persistence.load_world_design_runtime_package",
+        "app.sim.relationship_persistence.load_world_design_runtime_package",
         lambda _scenario_id: type(
             "Package", (), {"policy_config": type("Policy", (), {"values": {}})()}
         )(),
     )
 
-    event = Event(
-        id="event-actor-attention-speech",
+    event = make_event(
+        "event-actor-attention-speech",
         run_id=run.id,
-        tick_no=1,
         event_type="speech",
         actor_agent_id=alice.id,
         target_agent_id=bob.id,
         location_id=plaza.id,
-        world_time=None,
-        payload={},
     )
 
     await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
@@ -981,65 +782,47 @@ async def test_persistence_relationships_actor_attention_reduces_social_gain(
 async def test_persistence_relationships_target_high_attention_further_reduces_social_gain(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = SimulationRun(
-        id="run-service-relationship-target-attention",
+    run = make_run(
+        "run-service-relationship-target-attention",
         name="relationship-target-attention",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    plaza = Location(
-        id="loc-plaza-target-attention",
+    plaza = make_location(
+        "loc-plaza-target-attention",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-target-attention",
+    alice = make_agent(
+        "alice-target-attention",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-target-attention",
+    bob = make_agent(
+        "bob-target-attention",
         run_id=run.id,
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
         status={"governance_attention_score": 0.85},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
 
     monkeypatch.setattr(
-        "app.sim.persistence.load_world_design_runtime_package",
+        "app.sim.relationship_persistence.load_world_design_runtime_package",
         lambda _scenario_id: type(
             "Package", (), {"policy_config": type("Policy", (), {"values": {}})()}
         )(),
     )
 
-    event = Event(
-        id="event-target-attention-speech",
+    event = make_event(
+        "event-target-attention-speech",
         run_id=run.id,
-        tick_no=1,
         event_type="speech",
         actor_agent_id=alice.id,
         target_agent_id=bob.id,
         location_id=plaza.id,
-        world_time=None,
-        payload={},
     )
 
     await PersistenceManager(db_session).persist_tick_relationships(run.id, [event])
@@ -1056,39 +839,28 @@ async def test_persistence_relationships_target_high_attention_further_reduces_s
 
 @pytest.mark.asyncio
 async def test_persist_tick_memories_adds_governance_warning_memory(db_session):
-    run = SimulationRun(
-        id="run-governance-warning-memory",
+    run = make_run(
+        "run-governance-warning-memory",
         name="governance-warning-memory",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-governance-warning-memory",
+    plaza = make_location(
+        "loc-governance-warning-memory",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-governance-warning-memory",
+    alice = make_agent(
+        "alice-governance-warning-memory",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice])
     await db_session.commit()
 
-    event = Event(
-        id="event-governance-warning-memory",
+    event = make_event(
+        "event-governance-warning-memory",
         run_id=run.id,
-        tick_no=1,
         event_type="move",
         actor_agent_id=alice.id,
         location_id=plaza.id,
@@ -1113,39 +885,28 @@ async def test_persist_tick_memories_adds_governance_warning_memory(db_session):
 
 @pytest.mark.asyncio
 async def test_persist_tick_results_creates_governance_record_ledger_entries(db_session):
-    run = SimulationRun(
-        id="run-governance-ledger",
+    run = make_run(
+        "run-governance-ledger",
         name="governance-ledger",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-governance-ledger",
+    plaza = make_location(
+        "loc-governance-ledger",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-governance-ledger",
+    alice = make_agent(
+        "alice-governance-ledger",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice])
     await db_session.commit()
 
-    event = Event(
-        id="event-governance-ledger",
+    event = make_event(
+        "event-governance-ledger",
         run_id=run.id,
-        tick_no=1,
         event_type="talk",
         actor_agent_id=alice.id,
         location_id=plaza.id,
@@ -1187,31 +948,21 @@ async def test_persist_tick_results_creates_governance_record_ledger_entries(db_
 
 @pytest.mark.asyncio
 async def test_persist_tick_results_rolls_back_events_when_followup_persistence_fails(db_session):
-    run = SimulationRun(
-        id="run-persist-atomic",
+    run = make_run(
+        "run-persist-atomic",
         name="persist-atomic",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    home = Location(
-        id="loc-persist-atomic",
+    home = make_location(
+        "loc-persist-atomic",
         run_id=run.id,
         name="Home",
         location_type="home",
-        capacity=2,
     )
-    alice = Agent(
-        id="alice-persist-atomic",
+    alice = make_agent(
+        "alice-persist-atomic",
         run_id=run.id,
+        location_id=home.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=home.id,
-        current_location_id=home.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, home, alice])
     await db_session.commit()
@@ -1262,39 +1013,28 @@ async def test_persist_tick_results_rolls_back_events_when_followup_persistence_
 
 @pytest.mark.asyncio
 async def test_persist_tick_memories_includes_governance_block_for_rejected_event(db_session):
-    run = SimulationRun(
-        id="run-governance-block-memory",
+    run = make_run(
+        "run-governance-block-memory",
         name="governance-block-memory",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-governance-block-memory",
+    plaza = make_location(
+        "loc-governance-block-memory",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-governance-block-memory",
+    alice = make_agent(
+        "alice-governance-block-memory",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice])
     await db_session.commit()
 
-    event = Event(
-        id="event-governance-block-memory",
+    event = make_event(
+        "event-governance-block-memory",
         run_id=run.id,
-        tick_no=1,
         event_type="move_rejected",
         actor_agent_id=alice.id,
         location_id=plaza.id,
@@ -1319,39 +1059,28 @@ async def test_persist_tick_memories_includes_governance_block_for_rejected_even
 
 @pytest.mark.asyncio
 async def test_persist_tick_memories_adds_governance_record_memory(db_session):
-    run = SimulationRun(
-        id="run-governance-record-memory",
+    run = make_run(
+        "run-governance-record-memory",
         name="governance-record-memory",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-governance-record-memory",
+    plaza = make_location(
+        "loc-governance-record-memory",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-governance-record-memory",
+    alice = make_agent(
+        "alice-governance-record-memory",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice])
     await db_session.commit()
 
-    event = Event(
-        id="event-governance-record-memory",
+    event = make_event(
+        "event-governance-record-memory",
         run_id=run.id,
-        tick_no=1,
         event_type="talk",
         actor_agent_id=alice.id,
         location_id=plaza.id,
@@ -1375,39 +1104,28 @@ async def test_persist_tick_memories_adds_governance_record_memory(db_session):
 
 @pytest.mark.asyncio
 async def test_persist_tick_memories_includes_soft_risk_rule_feedback_memory(db_session):
-    run = SimulationRun(
-        id="run-rule-feedback-memory",
+    run = make_run(
+        "run-rule-feedback-memory",
         name="rule-feedback-memory",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-rule-feedback-memory",
+    plaza = make_location(
+        "loc-rule-feedback-memory",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-rule-feedback-memory",
+    alice = make_agent(
+        "alice-rule-feedback-memory",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, plaza, alice])
     await db_session.commit()
 
-    event = Event(
-        id="event-rule-feedback-memory",
+    event = make_event(
+        "event-rule-feedback-memory",
         run_id=run.id,
-        tick_no=1,
         event_type="talk",
         actor_agent_id=alice.id,
         location_id=plaza.id,
@@ -1431,39 +1149,28 @@ async def test_persist_tick_memories_includes_soft_risk_rule_feedback_memory(db_
 
 @pytest.mark.asyncio
 async def test_persist_tick_memories_includes_rule_block_feedback_without_governance(db_session):
-    run = SimulationRun(
-        id="run-rule-block-memory",
+    run = make_run(
+        "run-rule-block-memory",
         name="rule-block-memory",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    cafe = Location(
-        id="loc-rule-block-memory",
+    cafe = make_location(
+        "loc-rule-block-memory",
         run_id=run.id,
         name="Cafe",
         location_type="cafe",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-rule-block-memory",
+    alice = make_agent(
+        "alice-rule-block-memory",
         run_id=run.id,
+        location_id=cafe.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=cafe.id,
-        current_location_id=cafe.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
     db_session.add_all([run, cafe, alice])
     await db_session.commit()
 
-    event = Event(
-        id="event-rule-block-memory",
+    event = make_event(
+        "event-rule-block-memory",
         run_id=run.id,
-        tick_no=1,
         event_type="move_rejected",
         actor_agent_id=alice.id,
         location_id=cafe.id,
@@ -1487,43 +1194,27 @@ async def test_persist_tick_memories_includes_rule_block_feedback_without_govern
 
 @pytest.mark.asyncio
 async def test_simulation_service_persists_rejected_talk_with_requested_target_only(db_session):
-    run = SimulationRun(
-        id="run-invalid-target",
+    run = make_run(
+        "run-invalid-target",
         name="invalid-target",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-plaza-invalid-target",
+    plaza = make_location(
+        "loc-plaza-invalid-target",
         run_id=run.id,
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-invalid-target",
+    alice = make_agent(
+        "alice-invalid-target",
         run_id=run.id,
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-invalid-target",
+    bob = make_agent(
+        "bob-invalid-target",
         run_id=run.id,
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, plaza, alice, bob])
@@ -1552,45 +1243,29 @@ async def test_simulation_service_persists_rejected_talk_with_requested_target_o
 
 @pytest.mark.asyncio
 async def test_talk_memories_use_subjective_importance_per_agent(db_session):
-    run = SimulationRun(
-        id="run-memory-subjective",
+    run = make_run(
+        "run-memory-subjective",
         name="subjective",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
     )
-    plaza = Location(
-        id="loc-plaza-subjective",
+    plaza = make_location(
+        "loc-plaza-subjective",
         run_id="run-memory-subjective",
         name="Plaza",
         location_type="plaza",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-subjective",
+    alice = make_agent(
+        "alice-subjective",
         run_id="run-memory-subjective",
+        location_id=plaza.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
         current_goal="talk",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-subjective",
+    bob = make_agent(
+        "bob-subjective",
         run_id="run-memory-subjective",
+        location_id=plaza.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=plaza.id,
-        current_location_id=plaza.id,
         current_goal="rest",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, plaza, alice, bob])
@@ -1623,46 +1298,30 @@ async def test_talk_memories_use_subjective_importance_per_agent(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_reuses_conversation_id_across_ticks(db_session):
-    run = SimulationRun(
-        id="run-service-conversation-continuity",
+    run = make_run(
+        "run-service-conversation-continuity",
         name="conversation-continuity",
-        status="running",
-        current_tick=0,
-        tick_minutes=5,
         scenario_type="narrative_world",
     )
-    cafe = Location(
-        id="loc-cafe-conversation-continuity",
+    cafe = make_location(
+        "loc-cafe-conversation-continuity",
         run_id=run.id,
         name="Cafe",
         location_type="cafe",
-        capacity=4,
     )
-    alice = Agent(
-        id="alice-continuity",
+    alice = make_agent(
+        "alice-continuity",
         run_id=run.id,
+        location_id=cafe.id,
         name="Alice",
-        occupation="resident",
-        home_location_id=cafe.id,
-        current_location_id=cafe.id,
         current_goal="talk",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
-    bob = Agent(
-        id="bob-continuity",
+    bob = make_agent(
+        "bob-continuity",
         run_id=run.id,
+        location_id=cafe.id,
         name="Bob",
-        occupation="resident",
-        home_location_id=cafe.id,
-        current_location_id=cafe.id,
         current_goal="talk",
-        personality={},
-        profile={},
-        status={},
-        current_plan={},
     )
 
     db_session.add_all([run, cafe, alice, bob])
