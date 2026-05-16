@@ -213,6 +213,7 @@ P2:
    - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
    - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
    - `memory_persistence.py` 已抽出，承接 memory record 构建、routine memory 合并与 relationship strength 预加载。
+   - `economic_persistence.py` 已抽出，承接 tick economic state、free action consequence 与 state delta 应用。
 3. 最后拆前端地图组件，把纯计算、交互 hook、子视图组件和 Phaser 渲染辅助分离。
 
 ### 5.2 测试体系
