@@ -76,7 +76,7 @@
 
 ### Phase 3: Day boundary 写入语义
 
-状态：待分析。
+状态：进行中。
 
 目标：
 
@@ -92,9 +92,14 @@
 
 建议先做：
 
-- 列出 day boundary 写入清单。
-- 补失败测试，锁定当前期望。
+- 列出 day boundary 写入清单。（进行中）
+- 补失败测试，锁定当前期望。（进行中）
 - 再决定事务边界。
+
+已完成事项：
+
+- evening reflection 的 daily reflection memory 写入与 memory promotion 合并到同一事务。
+- 补充 promotion 失败回滚测试，确保 promotion 失败时 reflection memory 不会半写入。
 
 ### Phase 4: Scenario updater 事务规范
 

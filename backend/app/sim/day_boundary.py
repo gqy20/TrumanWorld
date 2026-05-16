@@ -392,7 +392,7 @@ async def run_morning_planning(
             logger.info(f"[day_boundary] Plan for {agent_name}: {new_plan} | {intention}")
 
         if memories_to_create:
-            await memory_repo.create_many(memories_to_create)
+            await memory_repo.add_many(memories_to_create)
         await write_session.commit()
 
     await llm_call_writer.persist(
@@ -541,7 +541,7 @@ async def run_evening_reflection(
             )
 
         if memories_to_create:
-            await memory_repo.create_many(memories_to_create)
+            await memory_repo.add_many(memories_to_create)
         await _promote_memories_after_reflection(
             write_session,
             run_id=run_id,

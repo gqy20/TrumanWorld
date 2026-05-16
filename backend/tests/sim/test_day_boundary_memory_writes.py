@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.agent.runtime import RuntimeContext
+from app.sim import day_boundary as day_boundary_module
 from app.sim.day_boundary import (
     _load_yesterday_plan_execution,
     run_evening_reflection,
@@ -455,6 +456,90 @@ async def test_evening_reflection_promotes_eligible_memories():
     assert memories["mem-short-routine"].memory_category == "medium_term"
     assert memories["mem-medium"].memory_category == "long_term"
     assert memories["mem-medium"].consolidated_at is not None
+
+
+@pytest.mark.asyncio
+async def test_evening_reflection_rolls_back_reflection_memory_when_promotion_fails(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        poolclass=StaticPool,
+    )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        run = SimulationRun(
+            id="run-day-boundary-promotion-fails",
+            name="boundary",
+            status="running",
+            current_tick=0,
+            tick_minutes=5,
+        )
+        location = Location(
+            id="loc-boundary-promotion-fails-home",
+            run_id=run.id,
+            name="Home",
+            location_type="home",
+            capacity=2,
+        )
+        agent = Agent(
+            id="agent-promotion-fails",
+            run_id=run.id,
+            name="Alice",
+            occupation="resident",
+            home_location_id=location.id,
+            current_location_id=location.id,
+            personality={},
+            profile={},
+            status={},
+            current_plan={},
+        )
+        session.add_all([run, location, agent])
+        await session.commit()
+
+    class FakeWorld:
+        def __init__(self, current_time: datetime, tick_minutes: int) -> None:
+            self.current_time = current_time
+            self.tick_minutes = tick_minutes
+
+        def _time_period(self) -> str:
+            return "night"
+
+        def _weekday_name(self, weekday: int) -> str:
+            return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][
+                weekday
+            ]
+
+    async def fail_promotion(*_args, **_kwargs) -> None:
+        raise RuntimeError("promotion failed")
+
+    monkeypatch.setattr(
+        day_boundary_module,
+        "_promote_memories_after_reflection",
+        fail_promotion,
+    )
+
+    with pytest.raises(RuntimeError, match="promotion failed"):
+        await run_evening_reflection(
+            run_id="run-day-boundary-promotion-fails",
+            tick_no=20,
+            world=FakeWorld(datetime(2026, 3, 2, 21, 55, tzinfo=UTC), 5),
+            engine=engine,
+            agent_runtime=FakeAgentRuntime(),
+        )
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        result = await session.execute(
+            select(Memory).where(Memory.run_id == "run-day-boundary-promotion-fails")
+        )
+        memories = result.scalars().all()
+
+    await engine.dispose()
+
+    assert memories == []
 
 
 @pytest.mark.asyncio
