@@ -52,15 +52,15 @@ cd frontend && npm run build
 - **Database**: PostgreSQL (pgvector 预留)
 - **Cache**: Redis (预留)
 
-### Backend Modules (7 modules)
+### Backend Modules
 
 ```
 backend/app/
 ├── api/           # HTTP routes, run control, queries
-├── sim/           # Simulation loop, world state, action resolver
+├── sim/           # Tick orchestration, world state, persistence coordinators
 ├── agent/         # Claude SDK, registry, planner/reactor/reflector
-├── store/         # SQLAlchemy models, persistence, memory retrieval
-├── scenario/      # World abstraction layer (truman_world, open_world)
+├── store/         # SQLAlchemy models, repositories, persistence facades
+├── scenario/      # Bundle-driven scenario layer (bundle_world / open_world)
 ├── director/      # Director planning and observation
 ├── infra/        # Settings, logging, database
 └── protocol/     # Protocol definitions
@@ -121,17 +121,34 @@ reactor.py          → 遇到社交/异常事件时反应
 reflector.py        → 晚上做每日反思
 ```
 
-### Tick Flow (每个 tick 执行)
+### Tick Flow and Persistence Boundary
 
-1. 推进世界时间
-2. 选择一个 agent
-3. 判断是否需要 Claude cognition
-4. 生成动作意图 (planner/reactor)
-5. 校验动作 (action_resolver)
-6. 应用动作
-7. 写 event
-8. 更新 relationship
-9. 写 memory
+Current inline tick path:
+
+```text
+SimulationService.run_tick
+├── load run / world
+├── day boundary planner (before agent decisions, best-effort outer task)
+├── TickOrchestrator.execute_tick
+├── TickPersistenceCoordinator.persist
+│   ├── PersistenceManager.set_agent_locations
+│   ├── RunRepository.set_tick
+│   └── TickEventWriter.persist
+│       ├── EventRepository.add_many
+│       ├── PersistenceManager.persist_tick_memories
+│       ├── PersistenceManager.persist_tick_relationships
+│       └── Scenario.update_state_from_events
+└── day boundary reflector (after tick writes, best-effort outer task)
+```
+
+Transaction rules:
+
+- Core tick writes are coordinated by `TickPersistenceCoordinator`.
+- Event, memory, relationship, run tick, agent location, and scenario state updates commit or roll back together.
+- Repository `create*` / `update*` methods may commit for simple call sites.
+- Repository `add*` / `set*` / `*_no_commit` methods are for upper-layer transaction composition.
+- Day boundary planner / reflector are outer tasks; they do not roll back completed tick event writes.
+- LLM call telemetry is best-effort and must not roll back main simulation writes.
 
 ### Simulation Scheduler
 
@@ -140,24 +157,33 @@ reflector.py        → 晚上做每日反思
 - 可以在 run 运行时自动推进时间
 - 支持暂停/恢复调度
 
-### Data Model (7 tables)
+### Data Model
 
 - `simulation_runs` - run 生命周期, 当前 tick
 - `locations` - 地点信息, 坐标, 容量
 - `agents` - agent 状态, 目标, 地点, profile
 - `events` - 所有结构化事件 (talk, action, director injection)
 - `relationships` - familiarity, trust, affinity
-- `memories` - recent, episodic, reflection
-- `director_memos` - 导演记忆存储
+- `memories` - episodic, daily plan/reflection, promoted memories
+- `director_memories` - 导演记忆存储
+- `governance_records` / `governance_cases` / `governance_restrictions` - 治理留痕与限制
+- `agent_economic_states` / `economic_effect_logs` - agent 经济状态与影响日志
+- `llm_calls` - LLM 调用统计与成本记录
 
 ### Director Layer
 
-Only 4 capabilities in MVP:
-- `start_run` / `pause_run` / `resume_run`
-- `inspect` (查看 run/agent/timeline)
-- `inject_event` (仅限简单世界事件: 活动、关闭、广播)
+Director capabilities now include:
 
-不允许直接修改 agent 属性或 relationships。
+- run lifecycle control
+- timeline / world / agent inspection
+- manual event injection
+- automatic observation and planning
+- director memories
+- governance records, cases, restrictions
+- subject alert / continuity risk observation
+
+Director and scenario code should avoid directly mutating unrelated agent attributes or
+relationships outside an explicit persistence boundary.
 
 ### Claude SDK 调用边界
 
@@ -186,7 +212,23 @@ Key variables:
 
 - **Python**: 4-space indent, snake_case modules/functions, PascalCase classes, 100-char line limit, formatted by Ruff
 - **TypeScript**: 2-space indent, PascalCase components, Next.js App Router conventions
-- **Commits**: Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`)
+- **Commits**: Conventional Commits (`type(scope): subject`, e.g. `refactor(sim): extract tick persistence coordinator`)
+
+## Persistence Refactor Notes
+
+When changing simulation writes:
+
+- Add rollback tests before changing transaction boundaries.
+- Prefer existing repository no-commit helpers over adding commits inside lower layers.
+- Keep scenario updater methods split into no-commit apply methods and explicit persist methods.
+- Treat seed methods as independent entry points; cover failure rollback if adding a new seed policy.
+- Keep day boundary telemetry best-effort.
+
+See:
+
+- [docs/engineering/CURRENT_ARCHITECTURE.md](docs/engineering/CURRENT_ARCHITECTURE.md)
+- [docs/engineering/PERSISTENCE_REFACTOR_PLAN.md](docs/engineering/PERSISTENCE_REFACTOR_PLAN.md)
+- [docs/engineering/roadmap.md](docs/engineering/roadmap.md)
 
 ## API Endpoints
 
