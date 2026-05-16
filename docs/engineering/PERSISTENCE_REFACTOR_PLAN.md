@@ -192,6 +192,24 @@ day boundary 里仍存在直接 repository 写入和自提交行为。它和 tic
 - 是否有幂等标识
 - 失败重试是否会重复写入
 
+当前写入清单：
+
+| 阶段 | 写入内容 | 事务语义 | 当前状态 |
+|------|----------|----------|----------|
+| Morning planner | `Agent.current_plan` | 必须和 daily plan memory 同事务 | 已覆盖 |
+| Morning planner | `Memory(memory_type=daily_plan)` | 必须和 `Agent.current_plan` 同事务 | 已覆盖 |
+| Morning planner | `LlmCall` telemetry | best-effort，不回滚主写入 | 已确认 |
+| Evening reflector | `Memory(memory_type=daily_reflection)` | 必须和 memory promotion 同事务 | 已覆盖 |
+| Evening reflector | short / medium memory promotion | 必须和 daily reflection memory 同事务 | 已覆盖 |
+| Evening reflector | `LlmCall` telemetry | best-effort，不回滚主写入 | 已确认 |
+
+day boundary 当前决策：
+
+- Planner / reflector 属于 tick 外围任务，失败不回滚已经完成的 tick event 写入。
+- day boundary 自己内部的主业务写入必须保持原子性。
+- LLM call telemetry 是观测数据，不参与主业务事务；写入失败只记录 warning。
+- daily plan / daily reflection 通过 memory metadata 的 `day` 字段做当天存在性判断，短期可以继续作为幂等判断基础。
+
 ### Step 5: 清理遗留测试 warning
 
 将同步风格的 `db_session.commit()` 改为 `await db_session.commit()`，或按 fixture 约定重写 setup。

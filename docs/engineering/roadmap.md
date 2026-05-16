@@ -101,6 +101,8 @@
 - evening reflection 的 daily reflection memory 写入与 memory promotion 合并到同一事务。
 - 补充 promotion 失败回滚测试，确保 promotion 失败时 reflection memory 不会半写入。
 - 补充 morning planning 回归测试，确保 plan memory 写入失败时 `agent.current_plan` 不会半更新。
+- 在重构计划中整理 day boundary 写入清单，明确 LLM call telemetry 为 best-effort。
+- 补充 `LlmCallWriter` 测试，锁定 telemetry 持久化失败不抛出异常的契约。
 
 ### Phase 4: Scenario updater 事务规范
 
