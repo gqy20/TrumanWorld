@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { WorldSnapshot } from "@/lib/types";
 import { buildHeatGlowMotionProps, buildHeatRingMotionProps } from "@/lib/world-map-motion";
@@ -9,17 +9,15 @@ import { MiniMap } from "./town-mini-map";
 import {
   LOCATION_STYLES,
   NODE_SCALE,
-  SVG_H,
   SVG_W,
   agentColor,
   buildMapData,
-  clampViewBox,
   type LocationLink,
   type PositionedLocationNode,
-  type ViewBox,
 } from "./town-map-utils";
 import { useNightSkipBanner } from "./use-night-skip-banner";
 import { useSpeechBubbles } from "./use-speech-bubbles";
+import { useTownMapViewport } from "./use-town-map-viewport";
 
 interface TownMapProps {
   world: WorldSnapshot;
@@ -37,15 +35,17 @@ export function TownMap({
   highlightedLocationId,
 }: TownMapProps) {
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
-  const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, width: SVG_W, height: SVG_H });
   const [miniMapCollapsed, setMiniMapCollapsed] = useState(false);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    startClientX: number;
-    startClientY: number;
-    originX: number;
-    originY: number;
-  } | null>(null);
+  const {
+    viewBox,
+    zoomMap,
+    resetView,
+    focusOnSvgPoint,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerEnd,
+    handleWheel,
+  } = useTownMapViewport();
 
   const { showNightSkip, nightSkipDay } = useNightSkipBanner(world.world_clock);
   const speechBubbles = useSpeechBubbles(world.recent_events);
@@ -77,87 +77,6 @@ export function TownMap({
 
   const setMapSummary = (label: string | null) => {
     setHoveredLabel(label);
-  };
-
-  const zoomMap = (factor: number, focusX = viewBox.x + viewBox.width / 2, focusY = viewBox.y + viewBox.height / 2) => {
-    setViewBox((current) => {
-      const nextWidth = current.width * factor;
-      const nextHeight = (nextWidth / SVG_W) * SVG_H;
-      const ratioX = (focusX - current.x) / current.width;
-      const ratioY = (focusY - current.y) / current.height;
-      const nextX = focusX - nextWidth * ratioX;
-      const nextY = focusY - nextHeight * ratioY;
-      return clampViewBox({ x: nextX, y: nextY, width: nextWidth, height: nextHeight });
-    });
-  };
-
-  const resetView = () => {
-    setViewBox({ x: 0, y: 0, width: SVG_W, height: SVG_H });
-  };
-
-  // 小地图点击/拖拽导航：以 SVG 坐标为中心，保持当前缩放级别
-  const focusOnSvgPoint = (svgX: number, svgY: number) => {
-    setViewBox((current) =>
-      clampViewBox({
-        x: svgX - current.width / 2,
-        y: svgY - current.height / 2,
-        width: current.width,
-        height: current.height,
-      }),
-    );
-  };
-
-  const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
-    const target = event.target as Element;
-    if (target.closest("[data-map-interactive='true']")) {
-      return;
-    }
-
-    dragStateRef.current = {
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      originX: viewBox.x,
-      originY: viewBox.y,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
-    const dragState = dragStateRef.current;
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) {
-      return;
-    }
-
-    const deltaX = ((event.clientX - dragState.startClientX) / rect.width) * viewBox.width;
-    const deltaY = ((event.clientY - dragState.startClientY) / rect.height) * viewBox.height;
-
-    setViewBox(clampViewBox({ x: dragState.originX - deltaX, y: dragState.originY - deltaY, width: viewBox.width, height: viewBox.height }));
-  };
-
-  const handlePointerEnd = (event: PointerEvent<SVGSVGElement>) => {
-    if (dragStateRef.current?.pointerId === event.pointerId) {
-      dragStateRef.current = null;
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  };
-
-  const handleWheel = (event: WheelEvent<SVGSVGElement>) => {
-    event.preventDefault();
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) {
-      return;
-    }
-
-    const pointerX = ((event.clientX - rect.left) / rect.width) * viewBox.width + viewBox.x;
-    const pointerY = ((event.clientY - rect.top) / rect.height) * viewBox.height + viewBox.y;
-    zoomMap(event.deltaY > 0 ? 1.12 : 0.88, pointerX, pointerY);
   };
 
   return (

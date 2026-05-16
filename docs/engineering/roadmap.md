@@ -220,6 +220,7 @@ P2:
    - `town-mini-map.tsx` 已抽出，承接小地图渲染、点击导航与视口框拖拽。
    - `use-speech-bubbles.ts` 已抽出，承接 talk/speech 事件气泡、去重、自动过期与数量上限。
    - `use-night-skip-banner.ts` 已抽出，承接夜晚跨天提示的检测、显示状态与自动隐藏。
+   - `use-town-map-viewport.ts` 已抽出，承接 SVG viewBox、缩放、重置、地图聚焦、拖拽平移与滚轮缩放。
 
 ### 5.2 测试体系
 
