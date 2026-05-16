@@ -1,27 +1,30 @@
 import * as Phaser from "phaser";
 
-import type { SceneAgent, SceneLocation, SceneStagePalette, SceneWorld } from "@/lib/world-scene-adapter";
+import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
 import { getHeatLevel } from "@/lib/world-utils";
-
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
-const LOCATION_WIDTH = 88;
-const LOCATION_HEIGHT = 58;
-const SCENE_PADDING_X = 120;
-const SCENE_PADDING_Y = 90;
-const PIXEL_SCALE = 3;
-const BUILDING_TEXTURE_SIZE = 24;
-const AGENT_TEXTURE_SIZE = 16;
-const GROUND_TEXTURE_SIZE = 32;
-
-type StagePalette = {
-  backgroundColor: string;
-  headerColor: number;
-  headerAlpha: number;
-  vignetteColor: number;
-  vignetteAlpha: number;
-  labelColor: string;
-};
+import {
+  AGENT_TEXTURE_SIZE,
+  BUILDING_TEXTURE_SIZE,
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  GROUND_TEXTURE_SIZE,
+  LOCATION_HEIGHT,
+  LOCATION_WIDTH,
+  PIXEL_SCALE,
+  SCENE_PADDING_X,
+  SCENE_PADDING_Y,
+  getAgentColor,
+  getAgentMarker,
+  getAgentTextureKey,
+  getArrowAngleDegrees,
+  getConfiguredAgentTextureKey,
+  getConfiguredLocationTextureKey,
+  getLocationColor,
+  getLocationGlyph,
+  getStagePalette,
+  mergeStagePalette,
+  parseRgbaColor,
+} from "./world-scene-style";
 
 type LocationNode = {
   glow: Phaser.GameObjects.Arc;
@@ -56,143 +59,6 @@ type TooltipNode = {
   box: Phaser.GameObjects.Rectangle;
   text: Phaser.GameObjects.Text;
 };
-
-function parseRgbaColor(input: string): number {
-  const match = input.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (!match) {
-    return 0xffffff;
-  }
-  const [, r, g, b] = match;
-  return (Number(r) << 16) + (Number(g) << 8) + Number(b);
-}
-
-function getLocationColor(locationType: string) {
-  switch (locationType) {
-    case "cafe":
-      return 0xf59e0b;
-    case "plaza":
-      return 0x0ea5e9;
-    case "park":
-      return 0x10b981;
-    case "office":
-      return 0x2563eb;
-    case "home":
-      return 0xec4899;
-    default:
-      return 0x64748b;
-  }
-}
-
-function getAgentColor(status: SceneAgent["status"]) {
-  switch (status) {
-    case "moving":
-      return 0x38bdf8;
-    case "talking":
-      return 0xf97316;
-    case "working":
-      return 0x22c55e;
-    case "resting":
-      return 0xa78bfa;
-    default:
-      return 0xf8fafc;
-  }
-}
-
-function getLocationGlyph(locationType: string) {
-  switch (locationType) {
-    case "cafe":
-      return "C";
-    case "plaza":
-      return "P";
-    case "park":
-      return "G";
-    case "office":
-      return "O";
-    case "home":
-      return "H";
-    default:
-      return "L";
-  }
-}
-
-function getConfiguredLocationTextureKey(visualPreset: string, locationType: string) {
-  return `pixel-building-${visualPreset}-${locationType}`;
-}
-
-function getAgentMarker(status: SceneAgent["status"]) {
-  switch (status) {
-    case "moving":
-      return ">";
-    case "talking":
-      return "~";
-    case "working":
-      return "+";
-    case "resting":
-      return "z";
-    default:
-      return ".";
-  }
-}
-
-function getAgentTextureKey(status: SceneAgent["status"]) {
-  return `pixel-agent-${status}`;
-}
-
-function getConfiguredAgentTextureKey(visualPreset: string, status: SceneAgent["status"]) {
-  return `pixel-agent-${visualPreset}-${status}`;
-}
-
-function getArrowAngleDegrees(fromX: number, fromY: number, toX: number, toY: number) {
-  return Phaser.Math.RadToDeg(Phaser.Math.Angle.Between(fromX, fromY, toX, toY)) + 90;
-}
-
-function getStagePalette(theme?: string): StagePalette {
-  switch (theme) {
-    case "campus_night":
-      return {
-        backgroundColor: "#112317",
-        headerColor: 0x1d4d2b,
-        headerAlpha: 0.34,
-        vignetteColor: 0x08140d,
-        vignetteAlpha: 0.18,
-        labelColor: "#dcfce7",
-      };
-    case "seaside_night":
-      return {
-        backgroundColor: "#0f172a",
-        headerColor: 0x172554,
-        headerAlpha: 0.42,
-        vignetteColor: 0x0f172a,
-        vignetteAlpha: 0.16,
-        labelColor: "#e2e8f0",
-      };
-    default:
-      return {
-        backgroundColor: "#101826",
-        headerColor: 0x1f2937,
-        headerAlpha: 0.38,
-        vignetteColor: 0x020617,
-        vignetteAlpha: 0.18,
-        labelColor: "#e2e8f0",
-      };
-  }
-}
-
-function mergeStagePalette(
-  fallback: StagePalette,
-  override?: SceneStagePalette,
-): StagePalette {
-  return {
-    backgroundColor: override?.backgroundColor ?? fallback.backgroundColor,
-    headerColor: override?.headerColor ? parseRgbaColor(override.headerColor) : fallback.headerColor,
-    headerAlpha: override?.headerAlpha ?? fallback.headerAlpha,
-    vignetteColor: override?.vignetteColor
-      ? parseRgbaColor(override.vignetteColor)
-      : fallback.vignetteColor,
-    vignetteAlpha: override?.vignetteAlpha ?? fallback.vignetteAlpha,
-    labelColor: override?.labelColor ?? fallback.labelColor,
-  };
-}
 
 export class WorldScene extends Phaser.Scene {
   private locationNodes = new Map<string, LocationNode>();
