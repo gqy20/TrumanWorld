@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { WorldSnapshot } from "@/lib/types";
 import { buildHeatGlowMotionProps, buildHeatRingMotionProps } from "@/lib/world-map-motion";
@@ -18,6 +18,7 @@ import {
   type PositionedLocationNode,
   type ViewBox,
 } from "./town-map-utils";
+import { useNightSkipBanner } from "./use-night-skip-banner";
 import { useSpeechBubbles } from "./use-speech-bubbles";
 
 interface TownMapProps {
@@ -46,26 +47,8 @@ export function TownMap({
     originY: number;
   } | null>(null);
 
-  // 夜晚跳过检测
-  const [showNightSkip, setShowNightSkip] = useState(false);
-  const [nightSkipDay, setNightSkipDay] = useState(1);
-  const prevClockRef = useRef<{ hour: number; day: number } | null>(null);
-
+  const { showNightSkip, nightSkipDay } = useNightSkipBanner(world.world_clock);
   const speechBubbles = useSpeechBubbles(world.recent_events);
-
-  useEffect(() => {
-    const curr = world.world_clock;
-    if (!curr) return;
-    const prev = prevClockRef.current;
-    if (prev !== null && prev.hour >= 21 && curr.hour <= 7 && curr.day > prev.day) {
-      setNightSkipDay(curr.day);
-      setShowNightSkip(true);
-      const timer = setTimeout(() => setShowNightSkip(false), 4500);
-      prevClockRef.current = { hour: curr.hour, day: curr.day };
-      return () => clearTimeout(timer);
-    }
-    prevClockRef.current = { hour: curr.hour, day: curr.day };
-  }, [world.world_clock]);
 
   const { nodes, links, movePaths, mainRoadPath, coastPath, heatConfig } = useMemo(() => buildMapData(world), [world]);
 

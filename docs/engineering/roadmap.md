@@ -219,6 +219,7 @@ P2:
    - `town-map-utils.ts` 已抽出，承接 SVG 地图常量、地点样式、坐标缩放、viewBox clamp、地图节点/连线/移动路径构建。
    - `town-mini-map.tsx` 已抽出，承接小地图渲染、点击导航与视口框拖拽。
    - `use-speech-bubbles.ts` 已抽出，承接 talk/speech 事件气泡、去重、自动过期与数量上限。
+   - `use-night-skip-banner.ts` 已抽出，承接夜晚跨天提示的检测、显示状态与自动隐藏。
 
 ### 5.2 测试体系
 
