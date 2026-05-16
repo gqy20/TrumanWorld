@@ -120,6 +120,7 @@
 - `BundleWorldStateUpdater` 已拆分 `apply_subject_alert()` no-commit 入口和 `persist_subject_alert()` 独立提交入口。
 - `BundleWorldScenario.update_state_from_events()` 已改用 no-commit 入口，避免提交外部 pending change。
 - 已补充场景更新复用外部事务的回归测试。
+- 已补充 bundle seed / open world seed 的失败回滚测试，锁定最终 commit 失败时不留下半初始化数据。
 
 待处理：
 

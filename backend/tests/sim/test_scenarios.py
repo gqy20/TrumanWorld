@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from app.infra.settings import get_settings
 from app.agent.context_builder import ContextBuilder
@@ -13,7 +14,7 @@ from app.scenario.bundle_world import module_registry as bundle_module_registry
 from app.scenario.open_world.scenario import OpenWorldScenario
 from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
-from app.store.models import Agent, Event, Location, SimulationRun
+from app.store.models import Agent, Event, Location, Relationship, SimulationRun
 from app.store.repositories import AgentRepository
 
 
@@ -929,6 +930,98 @@ async def test_narrative_world_adapter_seed_demo_run_uses_active_bundle_files(
 
 
 @pytest.mark.asyncio
+async def test_bundle_seed_rolls_back_seed_records_when_final_commit_fails(
+    db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    bundle_root = tmp_path / "scenarios" / "seed_failure_world"
+    agent_dir = bundle_root / "agents" / "hero"
+    agent_dir.mkdir(parents=True)
+    (bundle_root / "scenario.yml").write_text(
+        "\n".join(
+            [
+                "id: seed_failure_world",
+                "name: Seed Failure World",
+                "version: 1",
+                "runtime_adapter: narrative_world",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (bundle_root / "world.yml").write_text(
+        "\n".join(
+            [
+                "locations:",
+                "  - id_suffix: apartment",
+                "    name: Test Apartment",
+                "    location_type: home",
+                "    capacity: 2",
+                "    x: 1",
+                "    y: 1",
+                "    attributes:",
+                "      kind: private",
+                "location_id_map:",
+                "  apartment: apartment",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: hero",
+                "name: Hero",
+                "world_role: truman",
+                "occupation: resident",
+                "home: apartment",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
+
+    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+    run = SimulationRun(
+        id="run-seed-failure-world",
+        name="seed-failure-world",
+        status="running",
+        scenario_type="seed_failure_world",
+    )
+    db_session.add(run)
+    await db_session.commit()
+    run_id = run.id
+
+    async def fail_commit() -> None:
+        raise RuntimeError("seed commit failed")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+
+    scenario = create_scenario("seed_failure_world", db_session)
+    with pytest.raises(RuntimeError, match="seed commit failed"):
+        await scenario.seed_demo_run(run)
+
+    await db_session.rollback()
+    locations = (
+        (await db_session.execute(select(Location).where(Location.run_id == run_id)))
+        .scalars()
+        .all()
+    )
+    agents = (
+        (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
+    )
+    relationships = (
+        (await db_session.execute(select(Relationship).where(Relationship.run_id == run_id)))
+        .scalars()
+        .all()
+    )
+
+    assert locations == []
+    assert agents == []
+    assert relationships == []
+
+
+@pytest.mark.asyncio
 async def test_bundle_seed_uses_world_start_time_from_scenario_world_config(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -1088,6 +1181,39 @@ async def test_open_world_scenario_seed_is_minimal(db_session):
     assessment = scenario.assess(run_id=run.id, current_tick=0, agents=agents, events=[])
     assert assessment.continuity_risk == "stable"
     assert assessment.suspicion_level == "low"
+
+
+@pytest.mark.asyncio
+async def test_open_world_seed_rolls_back_seed_records_when_final_commit_fails(
+    db_session,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    run = SimulationRun(id="run-open-world-seed-fails", name="open-world", status="running")
+    db_session.add(run)
+    await db_session.commit()
+    run_id = run.id
+
+    async def fail_commit() -> None:
+        raise RuntimeError("open world seed commit failed")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+
+    scenario = OpenWorldScenario(db_session)
+    with pytest.raises(RuntimeError, match="open world seed commit failed"):
+        await scenario.seed_demo_run(run)
+
+    await db_session.rollback()
+    locations = (
+        (await db_session.execute(select(Location).where(Location.run_id == run_id)))
+        .scalars()
+        .all()
+    )
+    agents = (
+        (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
+    )
+
+    assert locations == []
+    assert agents == []
 
 
 @pytest.mark.asyncio
