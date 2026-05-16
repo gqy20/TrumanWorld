@@ -7,21 +7,21 @@
 Use the top-level `Makefile` for common workflows:
 
 - `make install`: install backend dependencies with `uv` and frontend dependencies with `pnpm`.
-- `make backend-dev`: run the FastAPI server with reload on `http://127.0.0.1:8000`.
-- `make frontend-dev`: start the Next.js dev server on `http://127.0.0.1:3000`.
+- `make backend-dev`: run the FastAPI server with reload on `http://127.0.0.1:18080`.
+- `make frontend-dev`: start the Next.js dev server on `http://127.0.0.1:13000`.
 - `make migrate`: apply Alembic migrations.
 - `make lint`: run `ruff check` on backend code.
 - `make format`: run `ruff format` on backend code.
 - `make test`: run backend `pytest`.
 - `make pre-commit`: run repository hooks before pushing.
 
-For frontend dependency and script workflows, use `pnpm` in `frontend/`. For frontend-only checks, run `cd frontend && pnpm run lint` or `pnpm run build`.
+For frontend dependency and script workflows, use `npm` in `frontend/`. For frontend-only checks, run `cd frontend && npm run lint` or `npm run build`.
 
 ## Coding Style & Naming Conventions
 Python targets 3.13+, uses 4-space indentation, and is formatted by Ruff with a 100-character line limit. Keep backend modules `snake_case`, classes `PascalCase`, and constants `UPPER_SNAKE_CASE`. TypeScript/React code in `frontend/` uses 2-space indentation, component names in `PascalCase`, and route files following Next.js App Router conventions such as `app/page.tsx` and `app/layout.tsx`.
 
 ## Testing Guidelines
-Backend tests use `pytest` with `pytest-asyncio`; name files `test_*.py` and keep test names behavior-focused, for example `test_get_agent_returns_404_when_agent_missing`. Add tests alongside backend changes, especially for API endpoints, repositories, and simulation behavior. The frontend currently has no test suite, so at minimum run `pnpm run lint` and `pnpm run build` after UI changes.
+Backend tests use `pytest` with `pytest-asyncio`; name files `test_*.py` and keep test names behavior-focused, for example `test_get_agent_returns_404_when_agent_missing`. Add tests alongside backend changes, especially for API endpoints, repositories, and simulation behavior. Frontend tests use Jest + @testing-library/react; test files live in `__tests__/` directories alongside source modules. Run `cd frontend && npm run test` after UI changes.
 
 ## Commit & Pull Request Guidelines
 Use Conventional Commits for all commit messages:

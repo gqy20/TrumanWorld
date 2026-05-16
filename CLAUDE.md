@@ -233,24 +233,73 @@ Key variables:
 
 ## Testing
 
-Tests are in `backend/tests/`. Key fixtures in `conftest.py`:
-- `db_session` - database session fixture
-- `client` - FastAPI test client
+### Backend (pytest)
 
-Run single test:
-```bash
-cd backend && python -m pytest tests/test_file.py::test_name -v
+Tests in `backend/tests/`, 按模块组织：
+
+```
+tests/
+├── agent/         # registry, runtime, session, connection_pool, token tracking, ...
+├── api/           # runs, agents, timeline, openapi, world presenters
+├── sim/           # core, service, scheduler, bootstrap, action resolver, clock, ...
+├── store/         # memory, repositories, economic state, governance case
+├── director/      # planner, observer, strategy engine, manual planner
+├── scenario/      # bundle/factory registry, rule evaluator, world config, governance
+├── cognition/     # langgraph backend, reactor prompt cache
+└── integration/   # postgres simulation, SDK initialize/stability
 ```
 
-Frontend has no test suite yet; run `npm run lint` and `npm run build` for verification.
+Key fixtures in `conftest.py`:
+- `db_session` — SQLite in-memory 数据库 session（异步）
+- `client` — FastAPI AsyncClient，自动注入 db_session 依赖覆盖
+- `anyio_backend` — asyncio 后端
+- `default_agent_backend` (autouse) — 自动设为 heuristic 避免真实 LLM 调用
+- `cleanup_scheduler` (autouse) — 测试后清理调度器
+
+已配置 `pytest-cov`，覆盖率报告可通过 `--cov` 参数生成。
+
+```bash
+# Run all tests
+cd backend && uv run pytest -q
+
+# Single test
+cd backend && python -m pytest tests/test_file.py::test_name -v
+
+# With coverage
+cd backend && uv run pytest --cov=app --cov-report=term-missing
+```
+
+### Frontend (Jest)
+
+使用 Jest + @testing-library/react，测试文件位于各模块的 `__tests__/` 目录：
+
+```
+frontend/
+├── components/__tests__/    # event-card, run-list, story-timeline, phaser game, ...
+├── lib/__tests__/           # event-utils, world-insights, world-map-motion, api
+```
+
+```bash
+# Run frontend tests
+cd frontend && npm run test          # 单次运行
+cd frontend && npm run test:watch     # watch 模式
+```
 
 ## Pre-commit Hooks
 
-Configured in `.pre-commit-config.yaml`:
-- Trailing whitespace, EOF fixer
-- YAML/JSON/TOML validation
-- Merge conflict detection
-- Ruff check + format
-- Actionlint for GitHub Actions
+配置在 `.pre-commit-config.yaml`，分两个阶段触发：
 
-Hooks run automatically on `git push`; can run manually with `make pre-commit`.
+**pre-commit（提交时）**：
+- Trailing whitespace / EOF fixer
+- YAML / JSON / TOML validation
+- 大文件检测、合并冲突标记检测、debug 语句检测
+- Ruff lint + format（仅 backend/）
+- Actionlint（GitHub Actions 校验）
+
+**pre-push（推送时）**：
+- `backend-mypy` — 类型检查
+- `backend-pytest` — 后端单元测试
+- `frontend-jest` — 前端 Jest 测试
+- `frontend-build` — 前端构建检查
+
+可手动运行：`make pre-commit`。
