@@ -212,6 +212,7 @@ P2:
 2. 再拆 `PersistenceManager`，让当前类只保留事务编排，具体写入逻辑下沉到 memory、relationship、governance、economic 等小模块。
    - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
    - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
+   - `memory_persistence.py` 已抽出，承接 memory record 构建、routine memory 合并与 relationship strength 预加载。
 3. 最后拆前端地图组件，把纯计算、交互 hook、子视图组件和 Phaser 渲染辅助分离。
 
 ### 5.2 测试体系
