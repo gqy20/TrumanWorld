@@ -34,6 +34,10 @@ class BundleWorldStateUpdater:
         self._semantics = semantics or AlertStateSemantics()
 
     async def persist_subject_alert(self, run_id: str, events: list[Event]) -> None:
+        await self.apply_subject_alert(run_id, events)
+        await self.session.commit()
+
+    async def apply_subject_alert(self, run_id: str, events: list[Event]) -> None:
         agents = await self.agent_repo.list_for_run(run_id)
         changed = False
         for agent in agents:
@@ -48,10 +52,7 @@ class BundleWorldStateUpdater:
             agent.status = status
             changed = True
         if changed:
-            if self.session.info.get("tick_event_writer_transaction_depth"):
-                await self.session.flush()
-            else:
-                await self.session.commit()
+            await self.session.flush()
 
     @staticmethod
     def calculate_suspicion_delta(agent_id: str, events: list[Event]) -> float:

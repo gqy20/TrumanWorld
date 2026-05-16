@@ -13,7 +13,7 @@ from app.scenario.bundle_world import module_registry as bundle_module_registry
 from app.scenario.open_world.scenario import OpenWorldScenario
 from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
-from app.store.models import Event, SimulationRun
+from app.store.models import Agent, Event, Location, SimulationRun
 from app.store.repositories import AgentRepository
 
 
@@ -456,6 +456,61 @@ async def test_narrative_world_adapter_updates_configured_subject_alert_metric(
     await db_session.refresh(protagonist)
 
     assert protagonist.status["anomaly_score"] > starting_score
+
+
+@pytest.mark.asyncio
+async def test_narrative_world_update_state_reuses_external_transaction(db_session):
+    run = SimulationRun(
+        id="run-scenario-update-transaction",
+        name="original",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    home = Location(
+        id="loc-scenario-update-transaction",
+        run_id=run.id,
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    truman = Agent(
+        id="truman-scenario-update-transaction",
+        run_id=run.id,
+        name="Truman",
+        occupation="resident",
+        home_location_id=home.id,
+        current_location_id=home.id,
+        personality={},
+        profile={"world_role": "truman", "agent_config_id": "truman"},
+        status={"suspicion_score": 0.1},
+        current_plan={},
+    )
+    db_session.add_all([run, home, truman])
+    await db_session.commit()
+    run_id = run.id
+    truman_id = truman.id
+
+    run.name = "pending-change"
+    event = Event(
+        id="evt-scenario-update-transaction",
+        run_id=run_id,
+        tick_no=1,
+        event_type="move_rejected",
+        actor_agent_id=truman_id,
+        payload={"agent_id": truman_id},
+    )
+
+    await BundleWorldScenario(db_session).update_state_from_events(run_id, [event])
+    await db_session.rollback()
+
+    refreshed_run = await db_session.get(SimulationRun, run_id)
+    refreshed_truman = await db_session.get(Agent, truman_id)
+
+    assert refreshed_run is not None
+    assert refreshed_run.name == "original"
+    assert refreshed_truman is not None
+    assert refreshed_truman.status["suspicion_score"] == 0.1
 
 
 @pytest.mark.asyncio

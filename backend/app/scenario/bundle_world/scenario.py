@@ -163,4 +163,4 @@ class BundleWorldScenario(Scenario):
         if self.state_updater is None:
             msg = "BundleWorldScenario.update_state_from_events requires a database session"
             raise RuntimeError(msg)
-        await self.state_updater.persist_subject_alert(run_id, events)
+        await self.state_updater.apply_subject_alert(run_id, events)

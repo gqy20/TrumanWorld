@@ -106,7 +106,7 @@
 
 ### Phase 4: Scenario updater 事务规范
 
-状态：部分完成。
+状态：进行中。
 
 目标：
 
@@ -117,6 +117,9 @@
 已处理：
 
 - `BundleWorldStateUpdater.persist_subject_alert` 已适配 `TickEventWriter` 受管事务。
+- `BundleWorldStateUpdater` 已拆分 `apply_subject_alert()` no-commit 入口和 `persist_subject_alert()` 独立提交入口。
+- `BundleWorldScenario.update_state_from_events()` 已改用 no-commit 入口，避免提交外部 pending change。
+- 已补充场景更新复用外部事务的回归测试。
 
 待处理：
 
