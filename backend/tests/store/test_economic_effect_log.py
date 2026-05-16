@@ -1,6 +1,7 @@
 """Tests for EconomicEffectLog model and repository."""
 
 import pytest
+import pytest_asyncio
 
 
 from app.store.models import EconomicEffectLog, SimulationRun, Agent
@@ -12,8 +13,8 @@ def effect_log_repo(db_session):
     return EconomicEffectLogRepository(db_session)
 
 
-@pytest.fixture
-def sample_run(db_session):
+@pytest_asyncio.fixture
+async def sample_run(db_session):
     run = SimulationRun(
         id="run-1",
         name="Test Run",
@@ -21,12 +22,12 @@ def sample_run(db_session):
         current_tick=0,
     )
     db_session.add(run)
-    db_session.commit()
+    await db_session.commit()
     return run
 
 
-@pytest.fixture
-def sample_agent(db_session, sample_run):
+@pytest_asyncio.fixture
+async def sample_agent(db_session, sample_run):
     agent = Agent(
         id="agent-1",
         run_id=sample_run.id,
@@ -34,14 +35,15 @@ def sample_agent(db_session, sample_run):
         occupation="barista",
     )
     db_session.add(agent)
-    db_session.commit()
+    await db_session.commit()
     return agent
 
 
 class TestEconomicEffectLogModel:
     """Test EconomicEffectLog model creation and attributes."""
 
-    def test_create_effect_log_minimal(self, db_session, sample_run, sample_agent):
+    @pytest.mark.asyncio
+    async def test_create_effect_log_minimal(self, db_session, sample_run, sample_agent):
         log = EconomicEffectLog(
             id="log-1",
             run_id=sample_run.id,
@@ -51,7 +53,7 @@ class TestEconomicEffectLogModel:
             cash_delta=10.0,
         )
         db_session.add(log)
-        db_session.commit()
+        await db_session.commit()
 
         assert log.id == "log-1"
         assert log.run_id == sample_run.id
@@ -60,7 +62,8 @@ class TestEconomicEffectLogModel:
         assert log.effect_type == "daily_work_income"
         assert log.cash_delta == 10.0
 
-    def test_create_effect_log_full_fields(self, db_session, sample_run, sample_agent):
+    @pytest.mark.asyncio
+    async def test_create_effect_log_full_fields(self, db_session, sample_run, sample_agent):
         log = EconomicEffectLog(
             id="log-2",
             run_id=sample_run.id,
@@ -76,7 +79,7 @@ class TestEconomicEffectLogModel:
             case_id="case-1",
         )
         db_session.add(log)
-        db_session.commit()
+        await db_session.commit()
 
         assert log.food_security_delta == -0.1
         assert log.housing_security_delta == 0.0

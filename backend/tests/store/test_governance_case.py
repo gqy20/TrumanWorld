@@ -1,6 +1,7 @@
 """Tests for GovernanceCase model and repository."""
 
 import pytest
+import pytest_asyncio
 
 
 from app.store.models import GovernanceCase, SimulationRun, Agent
@@ -12,8 +13,8 @@ def governance_case_repo(db_session):
     return GovernanceCaseRepository(db_session)
 
 
-@pytest.fixture
-def sample_run(db_session):
+@pytest_asyncio.fixture
+async def sample_run(db_session):
     run = SimulationRun(
         id="run-1",
         name="Test Run",
@@ -21,12 +22,12 @@ def sample_run(db_session):
         current_tick=0,
     )
     db_session.add(run)
-    db_session.commit()
+    await db_session.commit()
     return run
 
 
-@pytest.fixture
-def sample_agent(db_session, sample_run):
+@pytest_asyncio.fixture
+async def sample_agent(db_session, sample_run):
     agent = Agent(
         id="agent-1",
         run_id=sample_run.id,
@@ -34,14 +35,15 @@ def sample_agent(db_session, sample_run):
         occupation="barista",
     )
     db_session.add(agent)
-    db_session.commit()
+    await db_session.commit()
     return agent
 
 
 class TestGovernanceCaseModel:
     """Test GovernanceCase model creation and attributes."""
 
-    def test_create_governance_case_minimal(self, db_session, sample_run, sample_agent):
+    @pytest.mark.asyncio
+    async def test_create_governance_case_minimal(self, db_session, sample_run, sample_agent):
         case = GovernanceCase(
             id="case-1",
             run_id=sample_run.id,
@@ -51,7 +53,7 @@ class TestGovernanceCaseModel:
             primary_reason="late_night_activity",
         )
         db_session.add(case)
-        db_session.commit()
+        await db_session.commit()
 
         assert case.id == "case-1"
         assert case.run_id == sample_run.id
@@ -60,7 +62,8 @@ class TestGovernanceCaseModel:
         assert case.opened_tick == 0
         assert case.primary_reason == "late_night_activity"
 
-    def test_create_governance_case_full_fields(self, db_session, sample_run, sample_agent):
+    @pytest.mark.asyncio
+    async def test_create_governance_case_full_fields(self, db_session, sample_run, sample_agent):
         case = GovernanceCase(
             id="case-2",
             run_id=sample_run.id,
@@ -75,7 +78,7 @@ class TestGovernanceCaseModel:
             metadata_json={"notes": "multiple warnings issued"},
         )
         db_session.add(case)
-        db_session.commit()
+        await db_session.commit()
 
         assert case.status == "warned"
         assert case.last_updated_tick == 10

@@ -1,6 +1,7 @@
 """Tests for AgentEconomicState model and repository."""
 
 import pytest
+import pytest_asyncio
 
 
 from app.store.models import AgentEconomicState, SimulationRun, Agent
@@ -12,8 +13,8 @@ def economic_state_repo(db_session):
     return AgentEconomicStateRepository(db_session)
 
 
-@pytest.fixture
-def sample_run(db_session):
+@pytest_asyncio.fixture
+async def sample_run(db_session):
     run = SimulationRun(
         id="run-1",
         name="Test Run",
@@ -21,12 +22,12 @@ def sample_run(db_session):
         current_tick=0,
     )
     db_session.add(run)
-    db_session.commit()
+    await db_session.commit()
     return run
 
 
-@pytest.fixture
-def sample_agent(db_session, sample_run):
+@pytest_asyncio.fixture
+async def sample_agent(db_session, sample_run):
     agent = Agent(
         id="agent-1",
         run_id=sample_run.id,
@@ -34,14 +35,15 @@ def sample_agent(db_session, sample_run):
         occupation="barista",
     )
     db_session.add(agent)
-    db_session.commit()
+    await db_session.commit()
     return agent
 
 
 class TestAgentEconomicStateModel:
     """Test AgentEconomicState model creation and attributes."""
 
-    def test_create_economic_state_minimal(self, db_session, sample_run, sample_agent):
+    @pytest.mark.asyncio
+    async def test_create_economic_state_minimal(self, db_session, sample_run, sample_agent):
         state = AgentEconomicState(
             id="econ-1",
             run_id=sample_run.id,
@@ -50,7 +52,7 @@ class TestAgentEconomicStateModel:
             employment_status="stable",
         )
         db_session.add(state)
-        db_session.commit()
+        await db_session.commit()
 
         assert state.id == "econ-1"
         assert state.run_id == sample_run.id
@@ -58,7 +60,8 @@ class TestAgentEconomicStateModel:
         assert state.cash == 100.0
         assert state.employment_status == "stable"
 
-    def test_create_economic_state_full_fields(self, db_session, sample_run, sample_agent):
+    @pytest.mark.asyncio
+    async def test_create_economic_state_full_fields(self, db_session, sample_run, sample_agent):
         state = AgentEconomicState(
             id="econ-2",
             run_id=sample_run.id,
@@ -71,7 +74,7 @@ class TestAgentEconomicStateModel:
             last_income_tick=5,
         )
         db_session.add(state)
-        db_session.commit()
+        await db_session.commit()
 
         assert state.food_security == 0.8
         assert state.housing_security == 1.0

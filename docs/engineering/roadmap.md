@@ -126,7 +126,7 @@
 
 ### Phase 5: 测试质量清理
 
-状态：待处理。
+状态：进行中。
 
 目标：
 
@@ -136,9 +136,15 @@
 
 优先项：
 
-- `tests/store/test_agent_economic_state.py`
-- `tests/store/test_economic_effect_log.py`
-- `tests/store/test_governance_case.py`
+- `tests/store/test_agent_economic_state.py`（已清理）
+- `tests/store/test_economic_effect_log.py`（已清理）
+- `tests/store/test_governance_case.py`（已清理）
+
+已完成事项：
+
+- 将上述 store 测试中的 async session fixture 改为 `pytest_asyncio.fixture`。
+- 将模型创建测试改为 async 测试并 `await db_session.commit()`。
+- 后端全量测试已无 coroutine `RuntimeWarning` summary。
 
 ## 3. 执行节奏
 
