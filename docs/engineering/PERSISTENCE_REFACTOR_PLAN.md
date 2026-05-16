@@ -76,20 +76,96 @@
 关键变化：
 
 - event 写入从 `create_many()` 改为事务内 `add_many()`。
-- writer 在事务期间通过 session info 标记受管事务上下文。
-- `BundleWorldStateUpdater.persist_subject_alert` 在 writer 受管事务内使用 `flush()`，独立调用时仍保持 `commit()` 语义。
+- writer 复用当前 session 事务，无事务时创建事务。
+- `BundleWorldScenario.update_state_from_events()` 调用 no-commit 的 state updater 入口，由调用方控制 commit / rollback。
 
 验证：
 
 - 新增 `backend/tests/sim/test_tick_event_writer.py`。
 - 测试证明 memory 写入失败时不会残留 event，也不会继续调用 scenario state update。
+- 测试证明 scenario state update 失败时，event / memory / relationship 一起回滚。
 - 后端全量测试通过。
 
-## 4. 当前核心问题
+### 3.4 `SimulationService.run_tick` 写入阶段拆分
 
-### 4.1 `SimulationService.run_tick` 仍是最大协调点
+已抽出 `TickPersistenceCoordinator`，让 `SimulationService` 不再直接串联 agent location、run tick 和 event writer 的写入细节。
 
-当前 `run_tick` 仍然串联了多个阶段：
+覆盖范围：
+
+- agent location 更新
+- run tick 更新
+- tick event writer
+
+关键变化：
+
+- `PersistenceManager.set_agent_locations()` 提供 no-commit 入口。
+- `TickPersistenceCoordinator` 统一处理 tick 写入事务。
+- coordinator 复用已有事务，不会提前 commit 外部 pending change。
+
+验证：
+
+- event writer 失败时，run tick 和 agent location 一起回滚。
+- agent location 写入失败时，不调用 event writer。
+- 已有外部事务时，coordinator 不会预提交外部变更。
+
+### 3.5 Day boundary 写入语义收敛
+
+已将 day boundary 内部主业务写入调整为原子写入，并明确 telemetry 不参与主业务事务。
+
+覆盖范围：
+
+- morning planner 的 `Agent.current_plan`
+- morning planner 的 `daily_plan` memory
+- evening reflector 的 `daily_reflection` memory
+- evening reflector 的 memory promotion
+- planner / reflector 的 `LlmCall` telemetry
+
+关键变化：
+
+- daily plan / reflection memory 写入使用 `add_many()`，由 day boundary 写入阶段统一 commit。
+- reflection memory 与 memory promotion 合并到同一事务。
+- `LlmCallWriter` 明确为 best-effort：持久化失败只记录 warning，不回滚主业务写入。
+
+验证：
+
+- plan memory 写入失败时，`Agent.current_plan` 不会半更新。
+- memory promotion 失败时，daily reflection memory 不会半写入。
+- LLM telemetry 持久化失败不抛出异常。
+
+### 3.6 Scenario updater 与 seed 语义收敛
+
+已拆分 scenario updater 的 no-commit 入口和独立提交入口，并为 seed 入口补充失败回滚测试。
+
+关键变化：
+
+- `BundleWorldStateUpdater.apply_subject_alert()` 只 flush，不 commit。
+- `BundleWorldStateUpdater.persist_subject_alert()` 作为独立提交入口保留。
+- `BundleWorldScenario.update_state_from_events()` 使用 no-commit 入口。
+
+验证：
+
+- scenario state update 复用外部事务，不提交外部 pending change。
+- bundle seed / open world seed 在最终 commit 失败时不留下半初始化数据。
+
+### 3.7 测试质量清理
+
+已清理 store 层测试中未 await `db_session.commit()` 的 RuntimeWarning。
+
+覆盖文件：
+
+- `tests/store/test_agent_economic_state.py`
+- `tests/store/test_economic_effect_log.py`
+- `tests/store/test_governance_case.py`
+
+验证：
+
+- 后端全量测试已无 coroutine RuntimeWarning summary。
+
+## 4. 收口状态
+
+### 4.1 `SimulationService.run_tick` 已收敛到协调角色
+
+当前 `run_tick` 仍然负责整体 orchestration：
 
 - 获取 run
 - 配置 scenario
@@ -97,44 +173,33 @@
 - day boundary planner
 - 准备 intents
 - 执行 tick
-- 写 agent locations
-- 更新 run tick
-- 写 events / memories / relationships / scenario state
+- 调用 `TickPersistenceCoordinator` 写入 tick 结果
 - 执行 day boundary coordinator
 
-问题不在于它“长”，而在于它同时承担 orchestration 和 persistence boundary 的判断。下一步应该把 tick 写入阶段进一步抽出，让 service 更像协调器，而不是写入细节拥有者。
+tick 写入细节已经从 service 中拆出。后续如果继续拆分，应聚焦读取阶段、day boundary 调度阶段或 isolated runner 对齐，而不是再扩大本轮 persistence 重构。
 
-### 4.2 day boundary 写入边界仍需梳理
+### 4.2 day boundary 写入边界已明确
 
-day boundary 里仍存在直接 repository 写入和自提交行为。它和 tick event 写入在业务上属于同一次 tick 的后续阶段，但是否要放进同一个数据库事务，需要按失败语义拆分：
+day boundary 和 tick event 写入不强行放进同一个事务。当前决策：
 
-- 如果 day boundary 失败，是否应该回滚本 tick events？
-- 如果 tick events 成功但 day boundary 失败，是否允许稍后重试？
-- day boundary planner 和 daily memory 写入是否需要幂等键？
+- tick event 成功后，day boundary 失败不回滚 tick event。
+- day boundary 自己内部的主业务写入保持原子性。
+- telemetry 是 best-effort。
+- daily plan / reflection 使用 metadata `day` 字段做当天幂等判断。
 
-这部分不应直接强行并入同一个事务，需要先补失败语义测试。
+### 4.3 scenario updater 事务规范已落地
 
-### 4.3 scenario updater 的提交语义需要统一
+state updater 默认不拥有 commit。调用方负责事务边界；独立入口保留显式提交方法。
 
-目前 `BundleWorldStateUpdater` 已适配 writer 受管事务，但长期看更理想的形态是：
+### 4.4 测试 warning 已清理
 
-- scenario updater 只负责修改 session 中的模型。
-- 是否 commit / rollback 由调用方控制。
-- 必要时保留独立调用入口，例如 `persist_*` 包一层 transaction。
-
-这能避免未来新增 scenario updater 时重新引入内部 commit。
-
-### 4.4 遗留测试 warning 需要清理
-
-当前后端全量通过，但 store 层部分测试存在未 await 的 `db_session.commit()` warning。
-
-这不是本轮事务改动引入的问题，但会降低测试信号质量。建议在事务重构稳定后单独清理。
+后端全量测试不再输出未 await commit 的 RuntimeWarning summary。
 
 ## 5. 下一步 TDD 拆解
 
 ### Step 1: 明确 `SimulationService.run_tick` 失败语义
 
-先补测试，不急着改实现。
+状态：已完成。
 
 建议测试：
 
@@ -148,6 +213,8 @@ day boundary 里仍存在直接 repository 写入和自提交行为。它和 tic
 - 为后续抽 `TickPersistenceCoordinator` 提供边界。
 
 ### Step 2: 抽出 tick 写入协调器
+
+状态：已完成。
 
 候选名称：
 
@@ -170,6 +237,8 @@ day boundary 里仍存在直接 repository 写入和自提交行为。它和 tic
 
 ### Step 3: 清理 scenario updater 内部 commit
 
+状态：已完成。
+
 目标：
 
 - 将 updater 变成事务友好的纯写入组件。
@@ -181,6 +250,8 @@ day boundary 里仍存在直接 repository 写入和自提交行为。它和 tic
 - subject alert 更新失败时外部事务 rollback 能撤销状态变化。
 
 ### Step 4: 梳理 day boundary 写入
+
+状态：已完成。
 
 先画出写入清单，再补 TDD。
 
@@ -212,6 +283,8 @@ day boundary 当前决策：
 
 ### Step 5: 清理遗留测试 warning
 
+状态：已完成。
+
 将同步风格的 `db_session.commit()` 改为 `await db_session.commit()`，或按 fixture 约定重写 setup。
 
 目标：
@@ -237,6 +310,11 @@ uv run pytest backend/tests/sim/test_tick_event_writer.py -q
 uv run pytest backend/tests/sim/test_service_runtime.py -q
 uv run pytest
 ```
+
+当前收口基线：
+
+- 后端全量：`637 passed, 8 skipped`
+- warning summary：无 coroutine `RuntimeWarning`
 
 ## 7. 风险清单
 

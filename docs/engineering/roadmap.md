@@ -12,20 +12,24 @@
 - 为 repository 增加事务友好的 `add*` / `set*` / `*_no_commit` 方法。
 - `PersistenceManager.persist_tick_results` 事务化。
 - `TickEventWriter.persist` 事务化。
+- `TickPersistenceCoordinator` 抽出并覆盖失败回滚语义。
+- day boundary 主业务写入事务语义已明确。
+- scenario updater no-commit 入口已拆分。
+- store 测试 warning 已清理。
 - 前端测试修复，恢复 frontend suite 稳定性。
 - 提交信息规范写入 `AGENTS.md`。
 
 当前状态：
 
-- 后端全量测试通过：`627 passed, 8 skipped`。
+- 后端全量测试通过：`637 passed, 8 skipped`。
 - 前端全量测试最近通过：`19 suites / 99 tests passed`。
-- 后端仍有遗留 store 测试 warning，来自未 await 的 `db_session.commit()`。
+- 后端全量测试无 coroutine `RuntimeWarning` summary。
 
 ## 2. Roadmap
 
 ### Phase 1: Tick persistence 原子性
 
-状态：基本完成。
+状态：已完成。
 
 目标：
 
@@ -39,14 +43,11 @@
 - `TickEventWriter.persist` 原子化。
 - 相关失败回滚测试补齐。
 
-后续补强：
-
-- 增加更多 scenario state updater 的 rollback 测试。
-- 清理仍可能自提交的写入组件。
+后续补强：按新增场景持续补充对应 rollback 测试。
 
 ### Phase 2: `SimulationService.run_tick` 拆分
 
-状态：进行中。
+状态：已完成。
 
 目标：
 
@@ -76,7 +77,7 @@
 
 ### Phase 3: Day boundary 写入语义
 
-状态：进行中。
+状态：已完成。
 
 目标：
 
@@ -92,9 +93,9 @@
 
 建议先做：
 
-- 列出 day boundary 写入清单。（进行中）
-- 补失败测试，锁定当前期望。（进行中）
-- 再决定事务边界。
+- 列出 day boundary 写入清单。（已完成）
+- 补失败测试，锁定当前期望。（已完成）
+- 再决定事务边界。（已完成）
 
 已完成事项：
 
@@ -106,7 +107,7 @@
 
 ### Phase 4: Scenario updater 事务规范
 
-状态：进行中。
+状态：已完成。
 
 目标：
 
@@ -124,13 +125,12 @@
 
 待处理：
 
-- 检查所有 scenario updater / seed / state 写入路径。
-- 将隐式 commit 改为受控 commit。
-- 补 rollback 测试。
+- 新增 scenario updater 时继续遵守 no-commit / persist 独立入口拆分。
+- 新增 seed 策略时补失败回滚测试。
 
 ### Phase 5: 测试质量清理
 
-状态：进行中。
+状态：已完成。
 
 目标：
 
@@ -173,18 +173,16 @@
 
 P0:
 
-- 为 `SimulationService.run_tick` 补失败语义测试。
-- 抽出 tick persistence coordinator。
+- 保持事务回归测试作为新增写入路径的准入条件。
 
 P1:
 
-- 梳理 day boundary 写入与幂等性。
-- 清理 scenario updater 内部 commit。
+- 更新 `CURRENT_ARCHITECTURE.md` 中 persistence / tick 写入边界说明。
+- 继续观察 day boundary 是否需要独立重试任务。
 
 P2:
 
-- 清理 store 测试 warning。
-- 更新 `CURRENT_ARCHITECTURE.md` 中 persistence 相关说明。
+- 将本轮重构经验沉淀到贡献指南或开发文档。
 
 ## 5. Done 定义
 
