@@ -46,7 +46,7 @@
 
 ### Phase 2: `SimulationService.run_tick` 拆分
 
-状态：下一步优先。
+状态：进行中。
 
 目标：
 
@@ -56,14 +56,20 @@
 
 建议 TDD 起点：
 
-- event writer 失败时，run tick 不应提前变更。
+- event writer 失败时，run tick 不应提前变更。（已覆盖）
 - agent location 写入失败时，不应写入 event。
 - scenario state update 失败时，event / memory / relationship 应一起回滚。
 
 候选产物：
 
-- `backend/app/sim/tick_persistence_coordinator.py`
+- `backend/app/sim/tick_persistence_coordinator.py`（已创建）
 - `backend/tests/sim/test_tick_persistence_coordinator.py`
+
+已完成事项：
+
+- 抽出 `TickPersistenceCoordinator` 承接 tick 写入阶段。
+- 将 agent location、run tick、event writer 放进同一写入事务。
+- 保留 day boundary 作为后续独立语义分析对象，暂不强行并入 tick 写入事务。
 
 ### Phase 3: Day boundary 写入语义
 

@@ -847,12 +847,17 @@ class PersistenceManager:
 
     async def persist_agent_locations(self, run_id: str, world: WorldState) -> None:
         """Update agent locations after tick."""
+        await self.set_agent_locations(run_id, world)
+        await self.session.commit()
+
+    async def set_agent_locations(self, run_id: str, world: WorldState) -> None:
+        """Update agent locations without committing."""
         agents = await self.agent_repo.list_for_run(run_id)
         for agent in agents:
             state = world.get_agent(agent.id)
             if state is not None:
                 agent.current_location_id = state.location_id
-        await self.session.commit()
+        await self.session.flush()
 
     def _build_memory_records(
         self,

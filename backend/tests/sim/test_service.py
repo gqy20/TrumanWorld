@@ -12,7 +12,7 @@ from app.scenario.base import Scenario
 from app.scenario.types import ScenarioGuidance
 from app.sim.action_resolver import ActionIntent
 from app.sim.service import SimulationService
-from app.store.models import Agent, Location, Memory, SimulationRun
+from app.store.models import Agent, Event, Location, Memory, SimulationRun
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
@@ -178,6 +178,82 @@ async def test_simulation_service_persists_tick_and_events(db_session):
     assert len(memories) == 1
     assert memories[0].summary == "Moved to Park"
     assert memories[0].source_event_id == events[0].id
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_rolls_back_tick_writes_when_event_persistence_fails(
+    db_session,
+):
+    run = SimulationRun(
+        id="run-service-write-rollback",
+        name="service-write-rollback",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    home = Location(
+        id="loc-home-write-rollback",
+        run_id=run.id,
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    park = Location(
+        id="loc-park-write-rollback",
+        run_id=run.id,
+        name="Park",
+        location_type="park",
+        capacity=2,
+    )
+    alice = Agent(
+        id="alice-write-rollback",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=home.id,
+        current_location_id=home.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+
+    db_session.add_all([run, home, park, alice])
+    await db_session.commit()
+    run_id = run.id
+    home_id = home.id
+    park_id = park.id
+    alice_id = alice.id
+
+    service = SimulationService(db_session)
+
+    async def fail_tick_events(*_args, **_kwargs):
+        raise RuntimeError("event persistence failed")
+
+    service._persist_tick_events = fail_tick_events
+
+    with pytest.raises(RuntimeError, match="event persistence failed"):
+        await service.run_tick(
+            run_id,
+            [
+                ActionIntent(
+                    agent_id=alice_id,
+                    action_type="move",
+                    target_location_id=park_id,
+                )
+            ],
+        )
+
+    await db_session.rollback()
+    updated_run = await db_session.get(SimulationRun, run_id)
+    updated_alice = await db_session.get(Agent, alice_id)
+    events = (await db_session.execute(select(Event).where(Event.run_id == run_id))).scalars().all()
+
+    assert updated_run is not None
+    assert updated_run.current_tick == 0
+    assert updated_alice is not None
+    assert updated_alice.current_location_id == home_id
+    assert events == []
 
 
 @pytest.mark.asyncio

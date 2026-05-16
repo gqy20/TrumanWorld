@@ -24,6 +24,7 @@ from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
 from app.sim.isolated_tick_runner import IsolatedTickRunner
 from app.sim.persistence import PersistenceManager
 from app.sim.runner import TickResult
+from app.sim.tick_persistence_coordinator import TickPersistenceCoordinator
 from app.sim.tick_event_writer import TickEventWriter
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.world import WorldState
@@ -175,9 +176,12 @@ class SimulationService:
                 intents=intents,
             )
 
-            await self._require_persistence().persist_agent_locations(run_id, world)
-            await run_repo.update_tick(run, result.tick_no)
-            await self._persist_tick_events(run_id, result)
+            await self._persist_tick_writes(
+                run_id=run_id,
+                run=run,
+                result=result,
+                world=world,
+            )
             await self.day_boundary_coordinator.run(
                 run_id=run_id,
                 result=result,
@@ -197,6 +201,21 @@ class SimulationService:
         )
         observe_tick(mode="inline", status="success", duration_seconds=duration)
         return result
+
+    async def _persist_tick_writes(
+        self,
+        *,
+        run_id: str,
+        run: SimulationRun,
+        result: TickResult,
+        world: WorldState,
+    ) -> None:
+        await TickPersistenceCoordinator(
+            self._require_session_bound(),
+            persistence=self._require_persistence(),
+            run_repo=self._require_run_repo(),
+            persist_tick_events=self._persist_tick_events,
+        ).persist(run_id=run_id, run=run, result=result, world=world)
 
     async def run_tick_isolated(
         self,
