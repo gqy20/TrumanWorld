@@ -50,8 +50,14 @@ class RunRepository:
         return run
 
     async def update_tick(self, run: SimulationRun, tick_no: int) -> SimulationRun:
-        run.current_tick = tick_no
+        await self.set_tick(run, tick_no)
         await self.session.commit()
+        await self.session.refresh(run)
+        return run
+
+    async def set_tick(self, run: SimulationRun, tick_no: int) -> SimulationRun:
+        run.current_tick = tick_no
+        await self.session.flush()
         await self.session.refresh(run)
         return run
 
@@ -144,4 +150,3 @@ class RunRepository:
         await self.session.commit()
         await self.session.refresh(run)
         return run
-

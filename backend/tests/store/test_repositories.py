@@ -2,10 +2,13 @@ import pytest
 from unittest.mock import AsyncMock
 
 from app.store.models import Agent, Event, LlmCall, SimulationRun
+from app.store.models import GovernanceRecord, Memory
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
+    GovernanceRecordRepository,
     LlmCallRepository,
+    MemoryRepository,
     RelationshipRepository,
     RunRepository,
 )
@@ -79,6 +82,76 @@ async def test_event_repository_add_many_flushes_without_committing(db_session, 
     )
 
     assert [event.id for event in events] == ["event-no-commit-a"]
+    commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_run_repository_set_tick_flushes_without_committing(db_session, monkeypatch):
+    run = SimulationRun(id="run-repo-set-tick", name="set-tick", status="running")
+    db_session.add(run)
+    await db_session.commit()
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    updated = await RunRepository(db_session).set_tick(run, 3)
+
+    assert updated.current_tick == 3
+    commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_governance_record_repository_add_many_flushes_without_committing(
+    db_session, monkeypatch
+):
+    run = SimulationRun(id="run-repo-governance-no-commit", name="governance", status="running")
+    db_session.add(run)
+    await db_session.commit()
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    records = await GovernanceRecordRepository(db_session).add_many(
+        [
+            GovernanceRecord(
+                id="governance-no-commit",
+                run_id=run.id,
+                agent_id="alice",
+                tick_no=1,
+                action_type="talk",
+                decision="record_only",
+                metadata_json={},
+            )
+        ]
+    )
+
+    assert [record.id for record in records] == ["governance-no-commit"]
+    commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_memory_repository_add_many_flushes_without_committing(db_session, monkeypatch):
+    run = SimulationRun(id="run-repo-memory-no-commit", name="memory", status="running")
+    db_session.add(run)
+    await db_session.commit()
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    memories = await MemoryRepository(db_session).add_many(
+        [
+            Memory(
+                id="memory-no-commit",
+                run_id=run.id,
+                agent_id="alice",
+                tick_no=1,
+                memory_type="episodic_short",
+                memory_category="short_term",
+                content="Rested.",
+                summary="Rested",
+                metadata_json={},
+            )
+        ]
+    )
+
+    assert [memory.id for memory in memories] == ["memory-no-commit"]
     commit.assert_not_awaited()
 
 

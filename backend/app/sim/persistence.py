@@ -77,6 +77,30 @@ class PersistenceManager:
         Returns:
             List of persisted events for further processing
         """
+        if self.session.in_transaction():
+            return await self._persist_tick_results_in_transaction(
+                run_id=run_id,
+                result=result,
+                world=world,
+                new_tick=new_tick,
+            )
+
+        async with self.session.begin():
+            return await self._persist_tick_results_in_transaction(
+                run_id=run_id,
+                result=result,
+                world=world,
+                new_tick=new_tick,
+            )
+
+    async def _persist_tick_results_in_transaction(
+        self,
+        *,
+        run_id: str,
+        result: TickResult,
+        world: WorldState,
+        new_tick: int,
+    ) -> list[Event]:
         # Update agent locations and sync goal with schedule
         agents = await self.agent_repo.list_for_run(run_id)
         for agent in agents:
@@ -86,17 +110,17 @@ class PersistenceManager:
                 scheduled_goal = _compute_goal_for_schedule(world, agent)
                 if scheduled_goal is not None and agent.current_goal != scheduled_goal:
                     agent.current_goal = scheduled_goal
-        await self.session.commit()
+        await self.session.flush()
 
         # Update tick number
         run = await self.run_repo.get(run_id)
         if run:
-            await self.run_repo.update_tick(run, new_tick)
+            await self.run_repo.set_tick(run, new_tick)
 
         # Build and persist events
         events = self._build_tick_events(run_id, result)
         if events:
-            persisted = await self.event_repo.create_many(events)
+            persisted = await self.event_repo.add_many(events)
             await self.persist_tick_governance_records(run_id, persisted)
             await self.persist_tick_governance_cases(run_id, result, world)
             await self.persist_tick_economic_state(run_id, result, world)
@@ -158,7 +182,7 @@ class PersistenceManager:
             )
 
         if records:
-            await self.governance_record_repo.create_many(records)
+            await self.governance_record_repo.add_many(records)
 
     async def persist_tick_governance_cases(
         self,
@@ -507,9 +531,9 @@ class PersistenceManager:
                 )
 
         if memories:
-            await self.memory_repo.create_many(memories)
+            await self.memory_repo.add_many(memories)
         elif updated_routine_memory:
-            await self.session.commit()
+            await self.session.flush()
 
     async def persist_tick_memories_with_session(
         self,
@@ -622,7 +646,7 @@ class PersistenceManager:
                 )
                 updated = True
         if updated:
-            await self.session.commit()
+            await self.session.flush()
 
     async def persist_tick_relationships_with_session(
         self,

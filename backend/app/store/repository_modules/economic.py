@@ -19,6 +19,32 @@ class AgentEconomicStateRepository:
         last_income_tick: int | None = None,
     ) -> AgentEconomicState:
         """Create or update economic state for an agent."""
+        state = await self.put(
+            run_id=run_id,
+            agent_id=agent_id,
+            cash=cash,
+            employment_status=employment_status,
+            food_security=food_security,
+            housing_security=housing_security,
+            work_restriction_until_tick=work_restriction_until_tick,
+            last_income_tick=last_income_tick,
+        )
+        await self.session.commit()
+        await self.session.refresh(state)
+        return state
+
+    async def put(
+        self,
+        run_id: str,
+        agent_id: str,
+        cash: float | None = None,
+        employment_status: str | None = None,
+        food_security: float | None = None,
+        housing_security: float | None = None,
+        work_restriction_until_tick: int | None = None,
+        last_income_tick: int | None = None,
+    ) -> AgentEconomicState:
+        """Create or update economic state without committing."""
         stmt = select(AgentEconomicState).where(
             AgentEconomicState.run_id == run_id,
             AgentEconomicState.agent_id == agent_id,
@@ -51,7 +77,7 @@ class AgentEconomicStateRepository:
             if last_income_tick is not None:
                 state.last_income_tick = last_income_tick
 
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(state)
         return state
 
@@ -73,11 +99,24 @@ class AgentEconomicStateRepository:
         agent_id: str,
         amount: float,
     ) -> AgentEconomicState | None:
+        state = await self.add_cash_no_commit(run_id, agent_id, amount)
+        if state is None:
+            return None
+        await self.session.commit()
+        await self.session.refresh(state)
+        return state
+
+    async def add_cash_no_commit(
+        self,
+        run_id: str,
+        agent_id: str,
+        amount: float,
+    ) -> AgentEconomicState | None:
         state = await self.get_for_agent(run_id, agent_id)
         if state is None:
             return None
         state.cash = max(0.0, state.cash + amount)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(state)
         return state
 
@@ -87,11 +126,24 @@ class AgentEconomicStateRepository:
         agent_id: str,
         amount: float,
     ) -> AgentEconomicState | None:
+        state = await self.deduct_cash_no_commit(run_id, agent_id, amount)
+        if state is None:
+            return None
+        await self.session.commit()
+        await self.session.refresh(state)
+        return state
+
+    async def deduct_cash_no_commit(
+        self,
+        run_id: str,
+        agent_id: str,
+        amount: float,
+    ) -> AgentEconomicState | None:
         state = await self.get_for_agent(run_id, agent_id)
         if state is None:
             return None
         state.cash = max(0.0, state.cash - amount)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(state)
         return state
 
@@ -101,11 +153,24 @@ class AgentEconomicStateRepository:
         agent_id: str,
         delta: float,
     ) -> AgentEconomicState | None:
+        state = await self.update_food_security_no_commit(run_id, agent_id, delta)
+        if state is None:
+            return None
+        await self.session.commit()
+        await self.session.refresh(state)
+        return state
+
+    async def update_food_security_no_commit(
+        self,
+        run_id: str,
+        agent_id: str,
+        delta: float,
+    ) -> AgentEconomicState | None:
         state = await self.get_for_agent(run_id, agent_id)
         if state is None:
             return None
         state.food_security = max(0.0, min(1.0, state.food_security + delta))
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(state)
         return state
 
@@ -115,11 +180,24 @@ class AgentEconomicStateRepository:
         agent_id: str,
         new_status: str,
     ) -> AgentEconomicState | None:
+        state = await self.update_employment_status_no_commit(run_id, agent_id, new_status)
+        if state is None:
+            return None
+        await self.session.commit()
+        await self.session.refresh(state)
+        return state
+
+    async def update_employment_status_no_commit(
+        self,
+        run_id: str,
+        agent_id: str,
+        new_status: str,
+    ) -> AgentEconomicState | None:
         state = await self.get_for_agent(run_id, agent_id)
         if state is None:
             return None
         state.employment_status = new_status
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(state)
         return state
 
@@ -129,11 +207,24 @@ class AgentEconomicStateRepository:
         agent_id: str,
         until_tick: int,
     ) -> AgentEconomicState | None:
+        state = await self.set_work_restriction_no_commit(run_id, agent_id, until_tick)
+        if state is None:
+            return None
+        await self.session.commit()
+        await self.session.refresh(state)
+        return state
+
+    async def set_work_restriction_no_commit(
+        self,
+        run_id: str,
+        agent_id: str,
+        until_tick: int,
+    ) -> AgentEconomicState | None:
         state = await self.get_for_agent(run_id, agent_id)
         if state is None:
             return None
         state.work_restriction_until_tick = until_tick
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(state)
         return state
 
@@ -143,6 +234,37 @@ class EconomicEffectLogRepository:
         self.session = session
 
     async def create(
+        self,
+        run_id: str,
+        agent_id: str,
+        tick_no: int,
+        effect_type: str,
+        cash_delta: float = 0.0,
+        food_security_delta: float = 0.0,
+        housing_security_delta: float = 0.0,
+        employment_status_before: str | None = None,
+        employment_status_after: str | None = None,
+        reason: str | None = None,
+        case_id: str | None = None,
+    ) -> EconomicEffectLog:
+        log = await self.add(
+            run_id=run_id,
+            agent_id=agent_id,
+            tick_no=tick_no,
+            effect_type=effect_type,
+            cash_delta=cash_delta,
+            food_security_delta=food_security_delta,
+            housing_security_delta=housing_security_delta,
+            employment_status_before=employment_status_before,
+            employment_status_after=employment_status_after,
+            reason=reason,
+            case_id=case_id,
+        )
+        await self.session.commit()
+        await self.session.refresh(log)
+        return log
+
+    async def add(
         self,
         run_id: str,
         agent_id: str,
@@ -171,7 +293,7 @@ class EconomicEffectLogRepository:
             reason=reason,
         )
         self.session.add(log)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(log)
         return log
 
@@ -213,5 +335,4 @@ class EconomicEffectLogRepository:
         limit: int = 10,
     ) -> Sequence[EconomicEffectLog]:
         return await self.list_for_agent(run_id, agent_id, limit=limit)
-
 

@@ -8,8 +8,15 @@ class MemoryRepository:
         self.session = session
 
     async def create_many(self, memories: Sequence[Memory]) -> Sequence[Memory]:
-        self.session.add_all(list(memories))
+        memories = await self.add_many(memories)
         await self.session.commit()
+        for memory in memories:
+            await self.session.refresh(memory)
+        return memories
+
+    async def add_many(self, memories: Sequence[Memory]) -> Sequence[Memory]:
+        self.session.add_all(list(memories))
+        await self.session.flush()
         for memory in memories:
             await self.session.refresh(memory)
         return memories
@@ -39,5 +46,4 @@ class MemoryRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
-
 

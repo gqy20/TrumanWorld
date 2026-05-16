@@ -27,6 +27,43 @@ class EconomicStateService:
         self.econ_repo = AgentEconomicStateRepository(session)
         self.effect_log_repo = EconomicEffectLogRepository(session)
 
+    @property
+    def _use_external_transaction(self) -> bool:
+        return bool(self.session.in_transaction())
+
+    async def _upsert_state(self, **kwargs) -> AgentEconomicState:
+        if self._use_external_transaction:
+            return await self.econ_repo.put(**kwargs)
+        return await self.econ_repo.upsert(**kwargs)
+
+    async def _add_cash(
+        self, run_id: str, agent_id: str, amount: float
+    ) -> AgentEconomicState | None:
+        if self._use_external_transaction:
+            return await self.econ_repo.add_cash_no_commit(run_id, agent_id, amount)
+        return await self.econ_repo.add_cash(run_id, agent_id, amount)
+
+    async def _update_food_security(
+        self, run_id: str, agent_id: str, delta: float
+    ) -> AgentEconomicState | None:
+        if self._use_external_transaction:
+            return await self.econ_repo.update_food_security_no_commit(run_id, agent_id, delta)
+        return await self.econ_repo.update_food_security(run_id, agent_id, delta)
+
+    async def _update_employment_status(
+        self, run_id: str, agent_id: str, new_status: str
+    ) -> AgentEconomicState | None:
+        if self._use_external_transaction:
+            return await self.econ_repo.update_employment_status_no_commit(
+                run_id, agent_id, new_status
+            )
+        return await self.econ_repo.update_employment_status(run_id, agent_id, new_status)
+
+    async def _create_effect_log(self, **kwargs):
+        if self._use_external_transaction:
+            return await self.effect_log_repo.add(**kwargs)
+        return await self.effect_log_repo.create(**kwargs)
+
     async def ensure_economic_state(
         self,
         world: WorldState,
@@ -39,7 +76,7 @@ class EconomicStateService:
             run_id = self._get_run_id(world)
         state = await self.econ_repo.get_for_agent(run_id, agent_id)
         if state is None:
-            state = await self.econ_repo.upsert(
+            state = await self._upsert_state(
                 run_id=run_id,
                 agent_id=agent_id,
                 cash=100.0,
@@ -66,12 +103,12 @@ class EconomicStateService:
             return state
 
         # Add work income
-        updated = await self.econ_repo.add_cash(run_id, agent_id, DEFAULT_WORK_INCOME)
+        updated = await self._add_cash(run_id, agent_id, DEFAULT_WORK_INCOME)
         if updated:
             updated.last_income_tick = tick_no
-            await self.session.commit()
+            await self.session.flush()
             # Log work income effect
-            await self.effect_log_repo.create(
+            await self._create_effect_log(
                 run_id=run_id,
                 agent_id=agent_id,
                 tick_no=tick_no,
@@ -104,11 +141,11 @@ class EconomicStateService:
             # Employment suspended while work banned
             if state.employment_status != "suspended":
                 state = (
-                    await self.econ_repo.update_employment_status(run_id, agent_id, "suspended")
+                    await self._update_employment_status(run_id, agent_id, "suspended")
                     or state
                 )
                 # Log governance work loss
-                await self.effect_log_repo.create(
+                await self._create_effect_log(
                     run_id=run_id,
                     agent_id=agent_id,
                     tick_no=tick_no,
@@ -128,10 +165,10 @@ class EconomicStateService:
                 decay = DEFAULT_FOOD_DECAY_RATE * (
                     ticks_since_income - DEFAULT_NO_INCOME_THRESHOLD + 1
                 )
-                state = await self.econ_repo.update_food_security(run_id, agent_id, -decay) or state
+                state = await self._update_food_security(run_id, agent_id, -decay) or state
                 # Log food decay effect (only if actually decayed)
                 if state.food_security < food_before:
-                    await self.effect_log_repo.create(
+                    await self._create_effect_log(
                         run_id=run_id,
                         agent_id=agent_id,
                         tick_no=tick_no,
@@ -145,14 +182,12 @@ class EconomicStateService:
                 # Only recover if food_security is below maximum
                 if state.food_security < 1.0:
                     state = (
-                        await self.econ_repo.update_food_security(
-                            run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE
-                        )
+                        await self._update_food_security(run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE)
                         or state
                     )
                     # Log food recovery effect (only if actually increased)
                     if state.food_security > food_before:
-                        await self.effect_log_repo.create(
+                        await self._create_effect_log(
                             run_id=run_id,
                             agent_id=agent_id,
                             tick_no=tick_no,
@@ -209,10 +244,10 @@ class EconomicStateService:
 
         # Apply consumption cost
         cash_before = state.cash
-        updated = await self.econ_repo.add_cash(run_id, agent_id, -total_cost)
+        updated = await self._add_cash(run_id, agent_id, -total_cost)
 
         # Log the consumption effect
-        await self.effect_log_repo.create(
+        await self._create_effect_log(
             run_id=run_id,
             agent_id=agent_id,
             tick_no=tick_no,
@@ -224,7 +259,7 @@ class EconomicStateService:
         # If cash went negative, log food insecurity
         if updated and updated.cash < 0 and cash_before >= 0:
             # Agent just went into debt - increase food insecurity concern
-            await self.effect_log_repo.create(
+            await self._create_effect_log(
                 run_id=run_id,
                 agent_id=agent_id,
                 tick_no=tick_no,

@@ -1,5 +1,7 @@
 import pytest
 from sqlalchemy import select
+from datetime import datetime, UTC
+from unittest.mock import AsyncMock
 
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 import app.director.service as director_service_module
@@ -7,9 +9,11 @@ from app.director.service import DirectorEventService
 from app.infra.settings import get_settings
 from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
 from app.scenario.runtime_config import RuntimeRoleSemantics
-from app.sim.action_resolver import ActionIntent
+from app.sim.action_resolver import ActionIntent, ActionResult
 from app.sim.persistence import PersistenceManager
+from app.sim.runner import TickResult
 from app.sim.service import SimulationService
+from app.sim.world import WorldState
 from app.store.models import Agent, Event, GovernanceRecord, Location, SimulationRun
 from app.store.repositories import AgentRepository, DirectorMemoryRepository, EventRepository
 
@@ -1179,6 +1183,81 @@ async def test_persist_tick_results_creates_governance_record_ledger_entries(db_
     assert records[0].observation_score == 0.61
     assert records[0].intervention_score == 0.62
     assert records[0].source_event_id == event.id
+
+
+@pytest.mark.asyncio
+async def test_persist_tick_results_rolls_back_events_when_followup_persistence_fails(db_session):
+    run = SimulationRun(
+        id="run-persist-atomic",
+        name="persist-atomic",
+        status="running",
+        current_tick=0,
+        tick_minutes=5,
+    )
+    home = Location(
+        id="loc-persist-atomic",
+        run_id=run.id,
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    alice = Agent(
+        id="alice-persist-atomic",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=home.id,
+        current_location_id=home.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, home, alice])
+    await db_session.commit()
+    run_id = run.id
+
+    manager = PersistenceManager(db_session)
+
+    async def fail_memories(*_args, **_kwargs):
+        raise RuntimeError("memory write failed")
+
+    manager.persist_tick_memories = fail_memories
+    manager.persist_tick_governance_cases = AsyncMock()
+    manager.persist_tick_economic_state = AsyncMock()
+    manager.persist_tick_relationships = AsyncMock()
+    world = WorldState(current_time=datetime(2026, 3, 2, 6, 0, tzinfo=UTC), current_tick=0)
+    result = TickResult(
+        tick_no=1,
+        world_time="2026-03-02T06:05:00+00:00",
+        tick_delta=1,
+        accepted=[
+            ActionResult(
+                accepted=True,
+                action_type="rest",
+                reason="accepted",
+                event_payload={"agent_id": alice.id, "location_id": home.id},
+            )
+        ],
+        rejected=[],
+    )
+
+    with pytest.raises(RuntimeError, match="memory write failed"):
+        await manager.persist_tick_results(run_id, result, world, new_tick=1)
+
+    await db_session.rollback()
+    persisted_events = (
+        (
+            await db_session.execute(select(Event).where(Event.run_id == run_id))
+        )
+        .scalars()
+        .all()
+    )
+    refreshed_run = await db_session.get(SimulationRun, run_id)
+
+    assert persisted_events == []
+    assert refreshed_run is not None
+    assert refreshed_run.current_tick == 0
 
 
 @pytest.mark.asyncio
