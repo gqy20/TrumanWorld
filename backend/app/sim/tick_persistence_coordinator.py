@@ -42,9 +42,30 @@ class TickPersistenceCoordinator:
         world: WorldState,
     ) -> None:
         if self.session.in_transaction():
-            await self.session.commit()
+            await self._persist_in_transaction(
+                run_id=run_id,
+                run=run,
+                result=result,
+                world=world,
+            )
+            return
 
         async with self.session.begin():
-            await self.persistence.set_agent_locations(run_id, world)
-            await self.run_repo.set_tick(run, result.tick_no)
-            await self.persist_tick_events(run_id, result)
+            await self._persist_in_transaction(
+                run_id=run_id,
+                run=run,
+                result=result,
+                world=world,
+            )
+
+    async def _persist_in_transaction(
+        self,
+        *,
+        run_id: str,
+        run: SimulationRun,
+        result: TickResult,
+        world: WorldState,
+    ) -> None:
+        await self.persistence.set_agent_locations(run_id, world)
+        await self.run_repo.set_tick(run, result.tick_no)
+        await self.persist_tick_events(run_id, result)
