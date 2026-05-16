@@ -48,7 +48,10 @@ class BundleWorldStateUpdater:
             agent.status = status
             changed = True
         if changed:
-            await self.session.commit()
+            if self.session.info.get("tick_event_writer_transaction_depth"):
+                await self.session.flush()
+            else:
+                await self.session.commit()
 
     @staticmethod
     def calculate_suspicion_delta(agent_id: str, events: list[Event]) -> float:

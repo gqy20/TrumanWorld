@@ -53,8 +53,43 @@ class TickEventWriter:
         if not events:
             return []
 
-        persisted = await self.persistence.event_repo.create_many(events)
-        await self.persistence.persist_tick_memories(run_id, persisted)
-        await self.persistence.persist_tick_relationships(run_id, persisted)
-        await scenario.update_state_from_events(run_id, persisted)
-        return persisted
+        if self.persistence.session.in_transaction():
+            return await self._persist_events_in_transaction(
+                run_id=run_id,
+                events=events,
+                scenario=scenario,
+            )
+
+        async with self.persistence.session.begin():
+            return await self._persist_events_in_transaction(
+                run_id=run_id,
+                events=events,
+                scenario=scenario,
+            )
+
+    async def _persist_events_in_transaction(
+        self,
+        *,
+        run_id: str,
+        events: list[Event],
+        scenario: Scenario,
+    ) -> list[Event]:
+        if self.persistence is None:
+            msg = "TickEventWriter.persist requires a bound session"
+            raise RuntimeError(msg)
+
+        transaction_depth_key = "tick_event_writer_transaction_depth"
+        session_info = self.persistence.session.info
+        previous_depth = int(session_info.get(transaction_depth_key, 0))
+        session_info[transaction_depth_key] = previous_depth + 1
+        try:
+            persisted = list(await self.persistence.event_repo.add_many(events))
+            await self.persistence.persist_tick_memories(run_id, persisted)
+            await self.persistence.persist_tick_relationships(run_id, persisted)
+            await scenario.update_state_from_events(run_id, persisted)
+            return persisted
+        finally:
+            if previous_depth:
+                session_info[transaction_depth_key] = previous_depth
+            else:
+                session_info.pop(transaction_depth_key, None)
