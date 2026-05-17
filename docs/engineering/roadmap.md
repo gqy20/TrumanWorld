@@ -224,6 +224,7 @@ P2:
    - `town-location-node.tsx` 已抽出，承接地点节点、热力层、居民头像与对话气泡渲染。
    - `world-scene-geometry.ts` 已抽出，承接 Phaser 场景的世界坐标映射与 agent slot 坐标计算。
    - `world-scene-textures.ts` 已抽出，承接 Phaser ground、building、agent pixel texture 的生成与 ensure 逻辑。
+   - `world-scene-sync.ts` 已抽出，承接 Phaser location、agent、move trail、speech bubble 节点同步与 stale node 清理。
 
 ### 5.2 测试体系
 

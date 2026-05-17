@@ -4,30 +4,52 @@ import type { SceneWorld } from "@/lib/world-scene-adapter";
 
 jest.mock("phaser", () => ({
   Scene: class MockScene {
-    createGameObject = () => ({
-      alpha: 1,
-      clearTint: jest.fn().mockReturnThis(),
-      setAlpha: jest.fn().mockReturnThis(),
-      setColor: jest.fn().mockReturnThis(),
-      setDepth: jest.fn().mockReturnThis(),
-      setDisplaySize: jest.fn().mockReturnThis(),
-      setFillStyle: jest.fn().mockReturnThis(),
-      setInteractive: jest.fn().mockReturnThis(),
-      setLineWidth: jest.fn().mockReturnThis(),
-      setOrigin: jest.fn().mockReturnThis(),
-      setPosition: jest.fn().mockReturnThis(),
-      setRotation: jest.fn().mockReturnThis(),
-      setScale: jest.fn().mockReturnThis(),
-      setSize: jest.fn().mockReturnThis(),
-      setStrokeStyle: jest.fn().mockReturnThis(),
-      setText: jest.fn().mockReturnThis(),
-      setTexture: jest.fn().mockReturnThis(),
-      setTint: jest.fn().mockReturnThis(),
-      setTo: jest.fn().mockReturnThis(),
-      setVisible: jest.fn().mockReturnThis(),
-      on: jest.fn(),
-      destroy: jest.fn(),
-    });
+    createGameObject = () => {
+      const handlers: Record<string, () => void> = {};
+      const object: Record<string, unknown> & {
+        __handlers: Record<string, () => void>;
+        alpha: number;
+        x: number;
+        y: number;
+      } = {
+        __handlers: handlers,
+        alpha: 1,
+        x: 0,
+        y: 0,
+        clearTint: jest.fn().mockReturnThis(),
+        setAlpha: jest.fn().mockImplementation(function (this: typeof object, alpha: number) {
+          this.alpha = alpha;
+          return this;
+        }),
+        setColor: jest.fn().mockReturnThis(),
+        setDepth: jest.fn().mockReturnThis(),
+        setDisplaySize: jest.fn().mockReturnThis(),
+        setFillStyle: jest.fn().mockReturnThis(),
+        setInteractive: jest.fn().mockReturnThis(),
+        setLineWidth: jest.fn().mockReturnThis(),
+        setOrigin: jest.fn().mockReturnThis(),
+        setPosition: jest.fn().mockImplementation(function (this: typeof object, x: number, y: number) {
+          this.x = x;
+          this.y = y;
+          return this;
+        }),
+        setRotation: jest.fn().mockReturnThis(),
+        setScale: jest.fn().mockReturnThis(),
+        setSize: jest.fn().mockReturnThis(),
+        setStrokeStyle: jest.fn().mockReturnThis(),
+        setText: jest.fn().mockReturnThis(),
+        setTexture: jest.fn().mockReturnThis(),
+        setTint: jest.fn().mockReturnThis(),
+        setTo: jest.fn().mockReturnThis(),
+        setVisible: jest.fn().mockReturnThis(),
+        on: jest.fn((eventName: string, handler: () => void) => {
+          handlers[eventName] = handler;
+          return object;
+        }),
+        destroy: jest.fn(),
+      };
+      return object;
+    };
     add = {
       rectangle: jest.fn(() => this.createGameObject()),
       ellipse: jest.fn(() => this.createGameObject()),
@@ -145,5 +167,48 @@ describe("WorldScene", () => {
     scene.create();
     scene.syncWorld(sceneWorld);
     expect(scene).toBeDefined();
+  });
+
+  it("creates scene nodes and emits click events from bound handlers", () => {
+    const scene = new WorldScene();
+    scene.create();
+    scene.syncWorld(sceneWorld);
+
+    expect(scene.add.image).toHaveBeenCalledTimes(2);
+    expect(scene.add.line).toHaveBeenCalledTimes(1);
+    expect(scene.add.triangle).toHaveBeenCalledTimes(1);
+
+    const locationBody = (scene.add.image as jest.Mock).mock.results[0].value;
+    const agentBody = (scene.add.image as jest.Mock).mock.results[1].value;
+    locationBody.__handlers.pointerdown();
+    agentBody.__handlers.pointerdown();
+
+    expect(scene.events.emit).toHaveBeenCalledWith("location:click", "loc-1");
+    expect(scene.events.emit).toHaveBeenCalledWith("agent:click", "agent-1");
+    expect(scene.tweens.add).toHaveBeenCalled();
+  });
+
+  it("destroys stale scene nodes when world data removes them", () => {
+    const scene = new WorldScene();
+    scene.create();
+    scene.syncWorld(sceneWorld);
+
+    const locationBody = (scene.add.image as jest.Mock).mock.results[0].value;
+    const agentBody = (scene.add.image as jest.Mock).mock.results[1].value;
+    const trailLine = (scene.add.line as jest.Mock).mock.results[0].value;
+    const bubbleBox = (scene.add.rectangle as jest.Mock).mock.results.at(-1)?.value;
+
+    scene.syncWorld({
+      ...sceneWorld,
+      locations: [],
+      agents: [],
+      moveTrails: [],
+      bubbles: [],
+    });
+
+    expect(locationBody.destroy).toHaveBeenCalled();
+    expect(agentBody.destroy).toHaveBeenCalled();
+    expect(trailLine.destroy).toHaveBeenCalled();
+    expect(bubbleBox.destroy).toHaveBeenCalled();
   });
 });
