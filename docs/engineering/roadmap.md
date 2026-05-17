@@ -197,14 +197,21 @@ P2:
 结论：
 
 - Shell 脚本本身不是当前主要风险。`scripts/railway-bootstrap.sh` 约 164 行，`Makefile` 约 261 行，仍在可维护范围内。
-- 真正的风险来自过长业务文件和过长测试文件，尤其是 simulation persistence、scenario、service runtime、前端地图和 Phaser scene。
+- 第一轮治理已完成：simulation persistence、前端地图、Phaser scene 与后端长测试文件都已完成主要职责拆分。
+- 剩余风险从“单文件过长”转为“后续新增功能是否继续沿用 helper / 主题文件边界”。
 
-重点文件：
+治理前重点文件：
 
 - `backend/app/sim/persistence.py`：集中处理 tick 事件、记忆、关系、治理记录、治理 case、经济状态等写入，职责过密。
 - `backend/tests/sim/test_service_runtime.py`、`backend/tests/sim/test_scenarios.py`、`backend/tests/sim/test_service_isolated.py`：测试文件过长，重复造数较多，定位失败成本偏高。
 - `frontend/components/town-map.tsx`：同时承担布局计算、小地图、缩放拖拽、节点渲染和交互。
 - `frontend/components/phaser/world-scene.ts`：同时承担 Phaser scene、纹理、节点同步、动画、tooltip 和视觉规则。
+
+当前状态：
+
+- `backend/tests/sim/test_scenarios.py`、`backend/tests/sim/test_service_runtime.py`、`backend/tests/sim/test_service_isolated.py` 已完成第一轮主题拆分，当前均低于 1000 行。
+- `backend/app/sim/persistence.py` 已将 governance、relationship、memory、economic 写入逻辑下沉到专门模块。
+- `frontend/components/town-map.tsx` 与 `frontend/components/phaser/world-scene.ts` 已拆出 hooks、子组件和 Phaser helper 模块。
 
 建议拆分顺序：
 
