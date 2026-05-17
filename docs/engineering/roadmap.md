@@ -214,6 +214,8 @@ P2:
    - `build_orchestrator` 已加入 `backend/tests/sim/helpers.py`，用于收敛 isolated service 测试里的 runtime/orchestrator 构造。
    - bundle fixture 写入辅助已下沉到 `backend/tests/sim/helpers.py`，用于复用 scenario/world/agent YAML 测试数据。
    - `test_scenarios_open_world.py` 已拆出，承接 open world、scenario factory 与 runtime allowed actions 相关测试；`test_scenarios.py` 已降到 1000 行以内。
+   - `test_service_runtime_relationships.py` 与 `test_service_runtime_conversations.py` 已拆出，承接 relationship/conversation 相关 service runtime 测试。
+   - `test_service_isolated_prepare_intents.py` 已拆出，承接 prepare_intents_from_data 相关 isolated service 测试；`test_service_isolated.py` 已降到 400 行以内。
 2. 再拆 `PersistenceManager`，让当前类只保留事务编排，具体写入逻辑下沉到 memory、relationship、governance、economic 等小模块。
    - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
    - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
@@ -259,9 +261,9 @@ P2:
 本轮执行结果：
 
 - `test_scenarios.py` 已从约 1285 行降到 950 行，并拆出 `test_scenarios_open_world.py`。
-- `test_service_runtime.py` 已继续收敛 relationship/conversation 类重复造数。
-- `test_service_isolated.py` 已继续收敛 runtime/orchestrator 构造。
-- 三个长测试文件仍可继续按 behavior 主题拆分，但当前已先完成可复用 helper、一次文件拆分和全量测试验证。
+- `test_service_runtime.py` 已从约 1368 行降到 756 行，并拆出 relationship/conversation 主题文件。
+- `test_service_isolated.py` 已从约 1155 行降到 322 行，并拆出 prepare_intents 主题文件。
+- 三个长测试文件已完成第一轮按 behavior 主题拆分；后续可以继续细分 governance/memory 主题，但当前最长单文件已低于 1000 行。
 
 ## 6. Done 定义
 
