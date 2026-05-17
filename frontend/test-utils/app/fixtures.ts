@@ -1,4 +1,10 @@
-import type { RunSummary, ScenarioSummary, WorldSnapshot } from "@/lib/types";
+import type {
+  RunSummary,
+  ScenarioSummary,
+  TimelineEvent,
+  TimelineResponse,
+  WorldSnapshot,
+} from "@/lib/types";
 
 export function makeScenarioSummary(overrides: Partial<ScenarioSummary> = {}): ScenarioSummary {
   return {
@@ -112,6 +118,59 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
       total_reasoning_tokens: 0,
       total_cache_read_tokens: 0,
       total_cache_creation_tokens: 0,
+    },
+    ...overrides,
+  };
+}
+
+export function makeTimelineEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
+  return {
+    id: "timeline-event-1",
+    tick_no: 24,
+    event_type: "talk",
+    importance: 8,
+    world_time: "08:00",
+    world_date: "2026-03-02",
+    payload: {
+      actor_name: "Mei Lin",
+      target_name: "Jon Park",
+      location_name: "Cafe",
+      message: "Good morning",
+    },
+    ...overrides,
+  };
+}
+
+export function makeTimelineResponse(
+  overrides: Partial<TimelineResponse> = {},
+): TimelineResponse {
+  const events = overrides.events ?? [
+    makeTimelineEvent(),
+    makeTimelineEvent({
+      id: "timeline-event-2",
+      tick_no: 23,
+      event_type: "move",
+      importance: 4,
+      world_time: "07:55",
+      payload: {
+        actor_name: "Mei Lin",
+        location_name: "Library",
+        from_location_name: "Library",
+        to_location_name: "Cafe",
+      },
+    }),
+  ];
+
+  return {
+    run_id: "run-1",
+    events,
+    total: events.length,
+    filtered: events.length,
+    run_info: {
+      current_tick: 24,
+      tick_minutes: 5,
+      world_start_iso: "2026-03-02T06:00:00Z",
+      current_world_time_iso: "2026-03-02T08:00:00Z",
     },
     ...overrides,
   };

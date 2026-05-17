@@ -233,7 +233,9 @@ export default function TimelinePage() {
 
                 {/* 世界日期时间范围 */}
                 <div>
-                  <label className={labelCls}>世界时间范围</label>
+                  <label className={labelCls} htmlFor="timeline-world-datetime-from">
+                    世界时间范围
+                  </label>
                   {timeline?.run_info && (
                     <p className="mt-0.5 text-[10px] text-slate-400">
                       世界起始 {isoToDatetimeLocal(timeline.run_info.world_start_iso).replace("T", " ")}
@@ -243,6 +245,7 @@ export default function TimelinePage() {
                   )}
                   <div className="mt-1 space-y-1.5">
                     <input
+                      id="timeline-world-datetime-from"
                       type="datetime-local"
                       value={pendingFilters.worldDatetimeFrom}
                       min={timeline?.run_info ? isoToDatetimeLocal(timeline.run_info.world_start_iso) : undefined}
@@ -256,6 +259,7 @@ export default function TimelinePage() {
                       <span className="h-px flex-1 bg-slate-200" />
                     </div>
                     <input
+                      aria-label="世界时间结束"
                       type="datetime-local"
                       value={pendingFilters.worldDatetimeTo}
                       min={timeline?.run_info ? isoToDatetimeLocal(timeline.run_info.world_start_iso) : undefined}
@@ -268,9 +272,12 @@ export default function TimelinePage() {
 
                 {/* 时间步范围 */}
                 <div>
-                  <label className={labelCls}>时间步范围</label>
+                  <label className={labelCls} htmlFor="timeline-tick-from">
+                    时间步范围
+                  </label>
                   <div className="mt-1 flex items-center gap-2">
                     <input
+                      id="timeline-tick-from"
                       type="number"
                       min={0}
                       placeholder="起始"
@@ -280,6 +287,7 @@ export default function TimelinePage() {
                     />
                     <span className="text-xs text-slate-400">—</span>
                     <input
+                      aria-label="结束时间步"
                       type="number"
                       min={0}
                       placeholder="结束"
@@ -292,8 +300,11 @@ export default function TimelinePage() {
 
                 {/* 事件类型 */}
                 <div>
-                  <label className={labelCls}>事件类型</label>
+                  <label className={labelCls} htmlFor="timeline-event-type">
+                    事件类型
+                  </label>
                   <select
+                    id="timeline-event-type"
                     value={pendingFilters.eventType}
                     onChange={(e) => updatePending("eventType", e.target.value)}
                     className={`mt-1 ${inputCls}`}
@@ -308,8 +319,11 @@ export default function TimelinePage() {
 
                 {/* 角色下拉 */}
                 <div>
-                  <label className={labelCls}>角色</label>
+                  <label className={labelCls} htmlFor="timeline-agent">
+                    角色
+                  </label>
                   <select
+                    id="timeline-agent"
                     value={pendingFilters.agentId}
                     onChange={(e) => updatePending("agentId", e.target.value)}
                     className={`mt-1 ${inputCls}`}
