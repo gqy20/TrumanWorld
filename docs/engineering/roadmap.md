@@ -279,7 +279,7 @@ P2:
 - `test_service_isolated.py` 已从约 1155 行降到 322 行，并拆出 prepare_intents 主题文件。
 - 三个长测试文件已完成第一轮按 behavior 主题拆分；后续可以继续细分 governance/memory 主题，但当前最长单文件已低于 1000 行。
 - 前端页面级测试已开始补充首页用户流，覆盖初始运行列表、运行状态展示、场景名称展示、进入世界导航，以及后端不可达时的错误提示和空状态。
-- Phaser scene sync 行为断言已补充，覆盖 location / agent 节点创建、坐标更新、点击事件、无效 location 跳过和 stale 节点清理。
+- Phaser scene sync 行为断言已补充，覆盖 location / agent / move trail / bubble 节点创建、坐标更新、点击事件、无效引用跳过和 stale 节点清理。
 - 世界页页面级测试已补充，覆盖 world snapshot 渲染、Phaser / SVG 视图切换、location / agent 选择流和后端不可达错误态。
 
 ## 6. Done 定义

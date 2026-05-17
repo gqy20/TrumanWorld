@@ -1,6 +1,15 @@
-import type { SceneAgent, SceneLocation } from "@/lib/world-scene-adapter";
+import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
 
-import { syncAgents, syncLocations, type AgentNode, type LocationNode } from "../world-scene-sync";
+import {
+  syncAgents,
+  syncBubbles,
+  syncLocations,
+  syncMoveTrails,
+  type AgentNode,
+  type BubbleNode,
+  type LocationNode,
+  type TrailNode,
+} from "../world-scene-sync";
 
 jest.mock("phaser", () => ({
   Math: {
@@ -21,11 +30,16 @@ type MockGameObject = {
   setDisplaySize: jest.Mock;
   setFillStyle: jest.Mock;
   setInteractive: jest.Mock;
+  setLineWidth: jest.Mock;
   setOrigin: jest.Mock;
   setPosition: jest.Mock;
+  setRotation: jest.Mock;
   setScale: jest.Mock;
+  setSize: jest.Mock;
+  setStrokeStyle: jest.Mock;
   setText: jest.Mock;
   setTexture: jest.Mock;
+  setTo: jest.Mock;
   on: jest.Mock;
 };
 
@@ -47,13 +61,17 @@ function mockGameObject(x = 0, y = 0, text = "", texture = ""): MockGameObject {
     setDisplaySize: jest.fn().mockReturnThis(),
     setFillStyle: jest.fn().mockReturnThis(),
     setInteractive: jest.fn().mockReturnThis(),
+    setLineWidth: jest.fn().mockReturnThis(),
     setOrigin: jest.fn().mockReturnThis(),
     setPosition: jest.fn().mockImplementation((nextX: number, nextY: number) => {
       object.x = nextX;
       object.y = nextY;
       return object;
     }),
+    setRotation: jest.fn().mockReturnThis(),
     setScale: jest.fn().mockReturnThis(),
+    setSize: jest.fn().mockReturnThis(),
+    setStrokeStyle: jest.fn().mockReturnThis(),
     setText: jest.fn().mockImplementation((nextText: string) => {
       object.text = nextText;
       return object;
@@ -62,6 +80,7 @@ function mockGameObject(x = 0, y = 0, text = "", texture = ""): MockGameObject {
       object.texture = nextTexture;
       return object;
     }),
+    setTo: jest.fn().mockReturnThis(),
     on: jest.fn().mockImplementation((eventName: string, handler: () => void) => {
       handlers[eventName] = handler;
       return object;
@@ -75,7 +94,10 @@ function mockScene() {
     add: {
       circle: jest.fn((x: number, y: number) => mockGameObject(x, y)),
       image: jest.fn((x: number, y: number, texture: string) => mockGameObject(x, y, "", texture)),
+      line: jest.fn(() => mockGameObject()),
+      rectangle: jest.fn((x: number, y: number) => mockGameObject(x, y)),
       text: jest.fn((x: number, y: number, text: string) => mockGameObject(x, y, text)),
+      triangle: jest.fn((x: number, y: number) => mockGameObject(x, y)),
     },
     events: {
       emit: jest.fn(),
@@ -125,6 +147,28 @@ function syncContext(scene: ReturnType<typeof mockScene>) {
     playTapFeedback: jest.fn(),
     showTooltip: jest.fn(),
     hideTooltip: jest.fn(),
+  };
+}
+
+function world(overrides: Partial<SceneWorld> = {}): SceneWorld {
+  return {
+    runId: "run-1",
+    locations: [
+      location(),
+      location({ id: "loc-2", name: "Library", locationType: "library", x: 30, y: 40 }),
+    ],
+    agents: [
+      agent({ visual: { visualPreset: "student", marker: "M" } }),
+    ],
+    moveTrails: [],
+    bubbles: [],
+    ambience: {
+      label: "上午",
+      overlayColor: "rgba(255,255,255,0)",
+      isDark: false,
+    },
+    stage: {},
+    ...overrides,
   };
 }
 
@@ -247,5 +291,163 @@ describe("world scene sync helpers", () => {
     expect(mei?.body.destroy).toHaveBeenCalled();
     expect(mei?.marker.destroy).toHaveBeenCalled();
     expect(mei?.label.destroy).toHaveBeenCalled();
+  });
+
+  it("creates, updates, skips invalid, and removes move trail nodes", () => {
+    const scene = mockScene();
+    const context = syncContext(scene);
+    const nodes = new Map<string, TrailNode>();
+    const sceneWorld = world({
+      moveTrails: [
+        {
+          id: "trail-1",
+          actorId: "agent-1",
+          actorName: "Mei",
+          fromLocationId: "loc-1",
+          toLocationId: "loc-2",
+          recencyIndex: 0,
+        },
+        {
+          id: "invalid-trail",
+          actorName: "Nobody",
+          fromLocationId: "unknown",
+          toLocationId: "loc-2",
+          recencyIndex: 1,
+        },
+      ],
+    });
+
+    syncMoveTrails(context, nodes, sceneWorld);
+
+    expect(nodes.size).toBe(1);
+    expect(scene.add.line).toHaveBeenCalledTimes(1);
+    expect(scene.add.triangle).toHaveBeenCalledTimes(1);
+    expect(scene.add.text).toHaveBeenCalledWith(
+      200,
+      282,
+      "Mei →",
+      expect.objectContaining({ color: "#7dd3fc" }),
+    );
+
+    const trail = nodes.get("trail-1");
+    expect(trail?.line.setAlpha).toHaveBeenCalledWith(0.68);
+    expect(trail?.arrow.setRotation).toHaveBeenCalledWith(expect.any(Number));
+    expect(scene.tweens.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targets: [trail?.line, trail?.arrow, trail?.label],
+        repeat: -1,
+      }),
+    );
+
+    syncMoveTrails(context, nodes, world({
+      moveTrails: [
+        {
+          id: "trail-1",
+          actorId: "agent-1",
+          actorName: "Mei Lin",
+          fromLocationId: "loc-2",
+          toLocationId: "loc-1",
+          recencyIndex: 2,
+        },
+      ],
+    }));
+
+    expect(scene.add.line).toHaveBeenCalledTimes(1);
+    expect(trail?.line.setTo).toHaveBeenCalledWith(300, 400, 100, 200);
+    expect(trail?.label.setText).toHaveBeenCalledWith("Mei Lin →");
+    expect(trail?.label.setAlpha).toHaveBeenCalledWith(0.4);
+
+    syncMoveTrails(context, nodes, world({ moveTrails: [] }));
+
+    expect(nodes.size).toBe(0);
+    expect(trail?.line.destroy).toHaveBeenCalled();
+    expect(trail?.arrow.destroy).toHaveBeenCalled();
+    expect(trail?.label.destroy).toHaveBeenCalled();
+  });
+
+  it("anchors bubbles to speaking agents, falls back to locations, and removes stale bubbles", () => {
+    const scene = mockScene();
+    const context = syncContext(scene);
+    const nodes = new Map<string, BubbleNode>();
+    const sceneWorld = world({
+      bubbles: [
+        {
+          id: "bubble-agent",
+          text: "hello",
+          speakerAgentId: "agent-1",
+          speakerName: "Mei",
+          locationId: "loc-1",
+          recencyIndex: 0,
+        },
+        {
+          id: "bubble-location",
+          text: "announcement",
+          speakerName: "Narrator",
+          locationId: "loc-2",
+          recencyIndex: 1,
+        },
+        {
+          id: "bubble-invalid",
+          text: "lost",
+          speakerName: "Nobody",
+          locationId: "unknown",
+          recencyIndex: 0,
+        },
+      ],
+    });
+
+    syncBubbles(context, nodes, sceneWorld);
+
+    expect(nodes.size).toBe(2);
+    expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
+    expect(scene.add.text).toHaveBeenCalledWith(
+      100,
+      200,
+      "Mei: hello",
+      expect.objectContaining({ color: "#0f172a" }),
+    );
+    expect(scene.add.text).toHaveBeenCalledWith(
+      300,
+      354,
+      "Narrator: announcement",
+      expect.objectContaining({ color: "#0f172a" }),
+    );
+
+    const agentBubble = nodes.get("bubble-agent");
+    const locationBubble = nodes.get("bubble-location");
+    expect(agentBubble?.box.setStrokeStyle).toHaveBeenCalledWith(1, 0xcbd5e1, 0.9);
+    expect(scene.tweens.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targets: [agentBubble?.box, agentBubble?.text],
+        repeat: -1,
+      }),
+    );
+
+    syncBubbles(context, nodes, world({
+      bubbles: [
+        {
+          id: "bubble-agent",
+          text: "updated text",
+          speakerAgentId: "agent-1",
+          speakerName: "Mei",
+          locationId: "loc-1",
+          recencyIndex: 2,
+        },
+      ],
+    }));
+
+    expect(nodes.size).toBe(1);
+    expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
+    expect(agentBubble?.box.setPosition).toHaveBeenCalledWith(100, 168);
+    expect(agentBubble?.box.setSize).toHaveBeenCalledWith(120, 28);
+    expect(agentBubble?.text.setText).toHaveBeenCalledWith("Mei: updated text");
+    expect(locationBubble?.box.destroy).toHaveBeenCalled();
+    expect(locationBubble?.text.destroy).toHaveBeenCalled();
+
+    syncBubbles(context, nodes, world({ bubbles: [] }));
+
+    expect(nodes.size).toBe(0);
+    expect(agentBubble?.box.destroy).toHaveBeenCalled();
+    expect(agentBubble?.text.destroy).toHaveBeenCalled();
   });
 });
