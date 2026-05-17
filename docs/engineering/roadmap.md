@@ -222,6 +222,7 @@ P2:
    - `use-night-skip-banner.ts` 已抽出，承接夜晚跨天提示的检测、显示状态与自动隐藏。
    - `use-town-map-viewport.ts` 已抽出，承接 SVG viewBox、缩放、重置、地图聚焦、拖拽平移与滚轮缩放。
    - `town-location-node.tsx` 已抽出，承接地点节点、热力层、居民头像与对话气泡渲染。
+   - `world-scene-geometry.ts` 已抽出，承接 Phaser 场景的世界坐标映射与 agent slot 坐标计算。
 
 ### 5.2 测试体系
 

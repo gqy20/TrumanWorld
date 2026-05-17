@@ -3,6 +3,10 @@ import * as Phaser from "phaser";
 import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
 import { getHeatLevel } from "@/lib/world-utils";
 import {
+  getAgentPosition as getAgentPositionPoint,
+  mapWorldToCanvas as mapWorldToCanvasPoint,
+} from "./world-scene-geometry";
+import {
   AGENT_TEXTURE_SIZE,
   BUILDING_TEXTURE_SIZE,
   CANVAS_HEIGHT,
@@ -11,8 +15,6 @@ import {
   LOCATION_HEIGHT,
   LOCATION_WIDTH,
   PIXEL_SCALE,
-  SCENE_PADDING_X,
-  SCENE_PADDING_Y,
   getAgentColor,
   getAgentMarker,
   getAgentTextureKey,
@@ -562,20 +564,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private getAgentPosition(location: SceneLocation, slotIndex: number) {
-    const center = this.mapWorldToCanvas(
-      location.x,
-      location.y,
-      this.currentWorld?.locations ?? [location],
-    );
-    const columns = 3;
-    const col = slotIndex % columns;
-    const row = Math.floor(slotIndex / columns);
-    const offsetX = (col - 1) * 18;
-    const offsetY = 34 + row * 18;
-    return {
-      x: center.x + offsetX,
-      y: center.y + offsetY,
-    };
+    return getAgentPositionPoint(location, slotIndex, this.currentWorld?.locations ?? [location]);
   }
 
   private refreshLocationHighlights(): void {
@@ -684,32 +673,7 @@ export class WorldScene extends Phaser.Scene {
     y: number,
     locations: SceneLocation[],
   ): { x: number; y: number } {
-    if (locations.length === 0) {
-      return { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
-    }
-
-    const xs = locations.map((location) => location.x);
-    const ys = locations.map((location) => location.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-    const width = maxX - minX;
-    const height = maxY - minY;
-
-    const normalizedX =
-      width === 0
-        ? 0.5
-        : (x - minX) / width;
-    const normalizedY =
-      height === 0
-        ? 0.5
-        : (y - minY) / height;
-
-    return {
-      x: SCENE_PADDING_X + normalizedX * (CANVAS_WIDTH - SCENE_PADDING_X * 2),
-      y: SCENE_PADDING_Y + normalizedY * (CANVAS_HEIGHT - SCENE_PADDING_Y * 2),
-    };
+    return mapWorldToCanvasPoint(x, y, locations);
   }
 
   private createPixelTextures(): void {
