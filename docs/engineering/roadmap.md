@@ -223,6 +223,7 @@ P2:
    - `use-town-map-viewport.ts` 已抽出，承接 SVG viewBox、缩放、重置、地图聚焦、拖拽平移与滚轮缩放。
    - `town-location-node.tsx` 已抽出，承接地点节点、热力层、居民头像与对话气泡渲染。
    - `world-scene-geometry.ts` 已抽出，承接 Phaser 场景的世界坐标映射与 agent slot 坐标计算。
+   - `world-scene-textures.ts` 已抽出，承接 Phaser ground、building、agent pixel texture 的生成与 ensure 逻辑。
 
 ### 5.2 测试体系
 
