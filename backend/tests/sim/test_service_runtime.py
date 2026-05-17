@@ -16,7 +16,14 @@ from app.sim.service import SimulationService
 from app.sim.world import WorldState
 from app.store.models import Event, GovernanceRecord, SimulationRun
 from app.store.repositories import AgentRepository, DirectorMemoryRepository, EventRepository
-from tests.factories import make_agent, make_event, make_location, make_run, write_agent_config
+from tests.factories import (
+    make_agent,
+    make_event,
+    make_location,
+    make_run,
+    make_run_with_location_agents,
+    write_agent_config,
+)
 
 from .test_service import (
     ContextCapturingDecisionProvider,
@@ -395,19 +402,15 @@ async def test_simulation_service_accepts_injected_scenario(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_updates_relationships_from_talk_events(db_session):
-    run = make_run("run-service-5", name="service")
-    plaza = make_location("loc-plaza-5", run_id="run-service-5", name="Plaza")
-    alice = make_agent(
-        "alice-5",
-        run_id="run-service-5",
+    run, plaza, (alice, bob) = make_run_with_location_agents(
+        "run-service-5",
+        run_kwargs={"name": "service"},
         location_id="loc-plaza-5",
-        name="Alice",
-    )
-    bob = make_agent(
-        "bob-5",
-        run_id="run-service-5",
-        location_id="loc-plaza-5",
-        name="Bob",
+        location_kwargs={"name": "Plaza"},
+        agents=[
+            {"agent_id": "alice-5", "name": "Alice"},
+            {"agent_id": "bob-5", "name": "Bob"},
+        ],
     )
 
     db_session.add_all([run, plaza, alice, bob])
@@ -1194,27 +1197,15 @@ async def test_persist_tick_memories_includes_rule_block_feedback_without_govern
 
 @pytest.mark.asyncio
 async def test_simulation_service_persists_rejected_talk_with_requested_target_only(db_session):
-    run = make_run(
+    run, plaza, (alice, bob) = make_run_with_location_agents(
         "run-invalid-target",
-        name="invalid-target",
-    )
-    plaza = make_location(
-        "loc-plaza-invalid-target",
-        run_id=run.id,
-        name="Plaza",
-        location_type="plaza",
-    )
-    alice = make_agent(
-        "alice-invalid-target",
-        run_id=run.id,
-        location_id=plaza.id,
-        name="Alice",
-    )
-    bob = make_agent(
-        "bob-invalid-target",
-        run_id=run.id,
-        location_id=plaza.id,
-        name="Bob",
+        run_kwargs={"name": "invalid-target"},
+        location_id="loc-plaza-invalid-target",
+        location_kwargs={"name": "Plaza", "location_type": "plaza"},
+        agents=[
+            {"agent_id": "alice-invalid-target", "name": "Alice"},
+            {"agent_id": "bob-invalid-target", "name": "Bob"},
+        ],
     )
 
     db_session.add_all([run, plaza, alice, bob])
@@ -1243,29 +1234,15 @@ async def test_simulation_service_persists_rejected_talk_with_requested_target_o
 
 @pytest.mark.asyncio
 async def test_talk_memories_use_subjective_importance_per_agent(db_session):
-    run = make_run(
+    run, plaza, (alice, bob) = make_run_with_location_agents(
         "run-memory-subjective",
-        name="subjective",
-    )
-    plaza = make_location(
-        "loc-plaza-subjective",
-        run_id="run-memory-subjective",
-        name="Plaza",
-        location_type="plaza",
-    )
-    alice = make_agent(
-        "alice-subjective",
-        run_id="run-memory-subjective",
-        location_id=plaza.id,
-        name="Alice",
-        current_goal="talk",
-    )
-    bob = make_agent(
-        "bob-subjective",
-        run_id="run-memory-subjective",
-        location_id=plaza.id,
-        name="Bob",
-        current_goal="rest",
+        run_kwargs={"name": "subjective"},
+        location_id="loc-plaza-subjective",
+        location_kwargs={"name": "Plaza", "location_type": "plaza"},
+        agents=[
+            {"agent_id": "alice-subjective", "name": "Alice", "current_goal": "talk"},
+            {"agent_id": "bob-subjective", "name": "Bob", "current_goal": "rest"},
+        ],
     )
 
     db_session.add_all([run, plaza, alice, bob])

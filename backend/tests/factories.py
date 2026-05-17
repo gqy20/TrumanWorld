@@ -81,6 +81,36 @@ def make_agent(
     )
 
 
+def make_run_with_location_agents(
+    run_id: str,
+    *,
+    run_kwargs: dict[str, Any] | None = None,
+    location_id: str | None = None,
+    location_kwargs: dict[str, Any] | None = None,
+    agents: list[dict[str, Any]] | None = None,
+) -> tuple[SimulationRun, Location, list[Agent]]:
+    run = make_run(run_id, **(run_kwargs or {}))
+    location = make_location(
+        location_id or f"{run_id}-location",
+        run_id=run.id,
+        **(location_kwargs or {}),
+    )
+    created_agents = []
+    for item in agents or []:
+        agent_kwargs = dict(item)
+        agent_id = agent_kwargs.pop("agent_id")
+        agent_location_id = agent_kwargs.pop("location_id", location.id)
+        created_agents.append(
+            make_agent(
+                agent_id,
+                run_id=run.id,
+                location_id=agent_location_id,
+                **agent_kwargs,
+            )
+        )
+    return run, location, created_agents
+
+
 def make_event(
     event_id: str,
     *,
