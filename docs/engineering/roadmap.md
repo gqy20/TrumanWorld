@@ -281,6 +281,7 @@ P2:
 - 前端页面级测试已开始补充首页用户流，覆盖初始运行列表、运行状态展示、场景名称展示、进入世界导航，以及后端不可达时的错误提示和空状态。
 - Phaser scene sync 行为断言已补充，覆盖 location / agent / move trail / bubble 节点创建、坐标更新、点击事件、无效引用跳过和 stale 节点清理。
 - 世界页页面级测试已补充，覆盖 world snapshot 渲染、Phaser / SVG 视图切换、location / agent 选择流和后端不可达错误态。
+- 前端 Next.js production build 已通过；本地 shell 若使用 Node 24 会出现 pnpm engine warning，项目标准版本以仓库根目录 `.nvmrc` 的 Node 20.19.0 为准。
 
 ## 6. Done 定义
 

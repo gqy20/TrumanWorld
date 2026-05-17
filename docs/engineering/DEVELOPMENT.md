@@ -21,6 +21,14 @@
 | Redis | 7+ | 缓存层 |
 | uv | 0.9.18 | Python 包管理 |
 
+仓库根目录提供 `.nvmrc`，当前为 `20.19.0`。进入仓库后建议先执行：
+
+```bash
+nvm use
+```
+
+如果使用 Node 21+ 或 24+ 执行前端命令，`pnpm` 会提示 unsupported engine；这表示当前 shell 没有使用项目声明的 Node 20 运行时。请切回 `.nvmrc` 指定版本后再跑 `pnpm install`、`pnpm test` 或 `pnpm build`。
+
 ### 可选
 
 | 工具 | 说明 |
