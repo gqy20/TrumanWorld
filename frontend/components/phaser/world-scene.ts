@@ -6,21 +6,19 @@ import {
   mapWorldToCanvas as mapWorldToCanvasPoint,
 } from "./world-scene-geometry";
 import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH,
-  getStagePalette,
-  mergeStagePalette,
-  parseRgbaColor,
-} from "./world-scene-style";
-import {
   focusCameraOnSelection as focusSceneCameraOnSelection,
   hideTooltip as hideSceneTooltip,
   playTapFeedback as playSceneTapFeedback,
   refreshAgentHighlights as refreshSceneAgentHighlights,
   refreshLocationHighlights as refreshSceneLocationHighlights,
   showTooltip as showSceneTooltip,
-  type TooltipNode,
 } from "./world-scene-interactions";
+import {
+  createStageShell as createSceneStageShell,
+  syncAmbience as syncSceneAmbience,
+  syncStageTheme as syncSceneStageTheme,
+  type StageNodes,
+} from "./world-scene-stage";
 import {
   syncAgents as syncSceneAgents,
   syncBubbles as syncSceneBubbles,
@@ -43,12 +41,7 @@ export class WorldScene extends Phaser.Scene {
   private agentNodes = new Map<string, AgentNode>();
   private trailNodes = new Map<string, TrailNode>();
   private bubbleNodes = new Map<string, BubbleNode>();
-  private stageGround: Phaser.GameObjects.TileSprite | null = null;
-  private stageHeader: Phaser.GameObjects.Rectangle | null = null;
-  private stageVignette: Phaser.GameObjects.Ellipse | null = null;
-  private ambienceOverlay: Phaser.GameObjects.Rectangle | null = null;
-  private ambienceLabel: Phaser.GameObjects.Text | null = null;
-  private tooltip: TooltipNode | null = null;
+  private stageNodes: StageNodes | null = null;
   private currentWorld: SceneWorld | null = null;
   private highlightedLocationId: string | null = null;
   private highlightedAgentId: string | null = null;
@@ -60,55 +53,8 @@ export class WorldScene extends Phaser.Scene {
   preload(): void {}
 
   create(_initialWorld?: SceneWorld): void {
-    const palette = getStagePalette();
-    this.cameras.main.setBackgroundColor(palette.backgroundColor);
-    this.cameras.main.setZoom(1);
     this.createPixelTextures();
-
-    this.stageGround = this.add
-      .tileSprite(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH, CANVAS_HEIGHT, "pixel-ground")
-      .setDepth(-20)
-      .setAlpha(0.98);
-
-    this.stageHeader = this.add
-      .rectangle(CANVAS_WIDTH / 2, 86, CANVAS_WIDTH, 132, 0x172554)
-      .setDepth(-19)
-      .setAlpha(0.42);
-
-    this.stageVignette = this.add
-      .ellipse(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 18, 700, 470, 0x0f172a)
-      .setDepth(-18)
-      .setAlpha(0.16);
-
-    this.ambienceOverlay = this.add
-      .rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH, CANVAS_HEIGHT, 0xffffff)
-      .setDepth(-18)
-      .setAlpha(0);
-
-    this.ambienceLabel = this.add
-      .text(20, 20, "World Stage", {
-        color: palette.labelColor,
-        fontFamily: "ui-monospace, SFMono-Regular, monospace",
-        fontSize: "12px",
-        fontStyle: "600",
-      })
-      .setDepth(60);
-
-    const tooltipBox = this.add
-      .rectangle(0, 0, 160, 32, 0x020617, 0.92)
-      .setStrokeStyle(1, 0x334155, 0.9)
-      .setDepth(90)
-      .setVisible(false);
-    const tooltipText = this.add
-      .text(0, 0, "", {
-        color: "#e2e8f0",
-        fontFamily: "ui-monospace, SFMono-Regular, monospace",
-        fontSize: "11px",
-      })
-      .setOrigin(0.5)
-      .setDepth(91)
-      .setVisible(false);
-    this.tooltip = { box: tooltipBox, text: tooltipText };
+    this.stageNodes = createSceneStageShell(this);
 
     this.events.emit("scene:ready");
     if (this.currentWorld) {
@@ -118,11 +64,13 @@ export class WorldScene extends Phaser.Scene {
 
   syncWorld(world: SceneWorld): void {
     this.currentWorld = world;
-    if (!this.ambienceOverlay) {
+    if (!this.stageNodes) {
       return;
     }
-    this.syncStageTheme(world);
-    this.syncAmbience(world);
+    syncSceneStageTheme(this, this.stageNodes, world, (groundPreset) =>
+      this.ensureGroundTexture(groundPreset)
+    );
+    syncSceneAmbience(this.stageNodes, world);
     this.syncLocations(world.locations);
     this.syncAgents(world.agents, world.locations);
     this.syncMoveTrails(world);
@@ -179,29 +127,6 @@ export class WorldScene extends Phaser.Scene {
     syncSceneBubbles(this.syncContext(), this.bubbleNodes, world);
   }
 
-  private syncAmbience(world: SceneWorld): void {
-    if (!this.ambienceOverlay) {
-      return;
-    }
-
-    this.ambienceOverlay.setFillStyle(
-      parseRgbaColor(world.ambience.overlayColor),
-      world.ambience.isDark ? 0.24 : 0.1
-    );
-    this.ambienceLabel?.setText(`Stage / ${world.ambience.label}`);
-  }
-
-  private syncStageTheme(world: SceneWorld): void {
-    const palette = mergeStagePalette(getStagePalette(world.stage.theme), world.stage.palette);
-    const groundPreset = world.stage.groundPreset ?? "default";
-    const textureKey = this.ensureGroundTexture(groundPreset);
-    this.cameras.main.setBackgroundColor(palette.backgroundColor);
-    this.stageGround?.setTexture(textureKey);
-    this.stageHeader?.setFillStyle(palette.headerColor, palette.headerAlpha);
-    this.stageVignette?.setFillStyle(palette.vignetteColor, palette.vignetteAlpha);
-    this.ambienceLabel?.setColor(palette.labelColor);
-  }
-
   private getAgentPosition(location: SceneLocation, slotIndex: number) {
     return getAgentPositionPoint(location, slotIndex, this.currentWorld?.locations ?? [location]);
   }
@@ -225,11 +150,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private showTooltip(x: number, y: number, text: string): void {
-    showSceneTooltip(this.tooltip, x, y, text);
+    showSceneTooltip(this.stageNodes?.tooltip ?? null, x, y, text);
   }
 
   private hideTooltip(): void {
-    hideSceneTooltip(this.tooltip);
+    hideSceneTooltip(this.stageNodes?.tooltip ?? null);
   }
 
   private playTapFeedback(...targets: Phaser.GameObjects.GameObject[]): void {
