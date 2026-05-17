@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class RelationshipRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -55,5 +56,3 @@ class RelationshipRepository:
 
         await self.session.flush()
         return relation
-
-

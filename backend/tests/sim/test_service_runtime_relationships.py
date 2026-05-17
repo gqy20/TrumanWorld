@@ -417,5 +417,3 @@ async def test_persistence_relationships_target_high_attention_further_reduces_s
         event.payload["relationship_impact"]["summary"]
         == "高关注状态削弱了这次互动带来的关系增益。"
     )
-
-

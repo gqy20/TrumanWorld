@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class EventRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -289,4 +290,3 @@ class EventRepository:
         for event in events:
             await self.session.refresh(event)
         return events
-

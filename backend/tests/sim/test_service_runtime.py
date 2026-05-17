@@ -560,11 +560,7 @@ async def test_persist_tick_results_rolls_back_events_when_followup_persistence_
 
     await db_session.rollback()
     persisted_events = (
-        (
-            await db_session.execute(select(Event).where(Event.run_id == run_id))
-        )
-        .scalars()
-        .all()
+        (await db_session.execute(select(Event).where(Event.run_id == run_id))).scalars().all()
     )
     refreshed_run = await db_session.get(SimulationRun, run_id)
 
@@ -752,5 +748,3 @@ async def test_persist_tick_memories_includes_rule_block_feedback_without_govern
     memories = await AgentRepository(db_session).list_recent_memories(alice.id, limit=10)
     summaries = [memory.summary for memory in memories]
     assert "Rule block: location_closed" in summaries
-
-

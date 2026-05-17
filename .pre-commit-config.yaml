@@ -30,27 +30,51 @@ repos:
 
   - repo: local
     hooks:
+      - id: backend-ruff-check
+        name: backend-ruff-check
+        entry: make backend-lint
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: backend-ruff-format-check
+        name: backend-ruff-format-check
+        entry: make backend-format-check
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
       - id: backend-mypy
         name: backend-mypy
-        entry: bash -lc 'cd backend && uv run mypy app/api/errors.py app/api/auth.py app/infra/settings.py'
+        entry: make backend-typecheck
         language: system
         pass_filenames: false
         stages: [pre-push]
       - id: backend-pytest
         name: backend-pytest
-        entry: bash -lc 'cd backend && uv run pytest -q'
+        entry: make backend-test-ci
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: frontend-eslint
+        name: frontend-eslint
+        entry: make frontend-eslint
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: frontend-types
+        name: frontend-types
+        entry: make frontend-typecheck
         language: system
         pass_filenames: false
         stages: [pre-push]
       - id: frontend-jest
         name: frontend-jest
-        entry: bash -lc 'cd frontend && npm run test -- --runInBand --passWithNoTests'
+        entry: make frontend-test
         language: system
         pass_filenames: false
         stages: [pre-push]
       - id: frontend-build
         name: frontend-build
-        entry: bash -lc 'cd frontend && npm run build'
+        entry: make frontend-build
         language: system
         pass_filenames: false
         stages: [pre-push]

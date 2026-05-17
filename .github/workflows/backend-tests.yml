@@ -41,10 +41,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Run tests
-        working-directory: ./backend
-        env:
-          TRUMANWORLD_ANTHROPIC_API_KEY: test-key
-        run: uv run pytest -v --cov=app --cov-report=xml
+        run: make backend-test-ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
@@ -90,7 +87,6 @@ jobs:
         run: uv sync --group dev
 
       - name: Run database migrations
-        working-directory: ./backend
         env:
           TRUMANWORLD_DATABASE_URL: postgresql+psycopg://truman:truman123@localhost:5432/trumanworld_test
-        run: uv run alembic upgrade head
+        run: make backend-migration-check

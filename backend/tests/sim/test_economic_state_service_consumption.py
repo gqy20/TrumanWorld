@@ -111,9 +111,16 @@ class TestProcessTickConsumption:
         state.scalars().first().employment_status = "suspended"
         await db_session.commit()
 
-        initial_cash = (await db_session.execute(
-            select(AgentEconomicState).where(AgentEconomicState.agent_id == agent_id)
-        )).scalars().first().cash
+        initial_cash = (
+            (
+                await db_session.execute(
+                    select(AgentEconomicState).where(AgentEconomicState.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
+            .cash
+        )
 
         result = await service.process_tick_consumption(
             world=world,
@@ -134,9 +141,16 @@ class TestProcessTickConsumption:
 
         await service.ensure_economic_state(world, agent_id, tick_no=0, run_id="run-1")
 
-        initial_cash = (await db_session.execute(
-            select(AgentEconomicState).where(AgentEconomicState.agent_id == agent_id)
-        )).scalars().first().cash
+        initial_cash = (
+            (
+                await db_session.execute(
+                    select(AgentEconomicState).where(AgentEconomicState.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
+            .cash
+        )
 
         custom_living = 5.0
         custom_housing = 2.0

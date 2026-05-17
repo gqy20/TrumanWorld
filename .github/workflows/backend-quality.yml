@@ -41,8 +41,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Run ruff check
-        working-directory: ./backend
-        run: uv run ruff check app tests
+        run: make backend-lint
 
   backend-ruff-format:
     name: Backend Ruff Format
@@ -65,8 +64,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Run ruff format
-        working-directory: ./backend
-        run: uv run ruff format --check app tests
+        run: make backend-format-check
 
   backend-mypy:
     name: Backend Mypy Incremental
@@ -89,5 +87,4 @@ jobs:
         run: uv sync --group dev
 
       - name: Run mypy
-        working-directory: ./backend
-        run: uv run mypy app/api/errors.py app/api/auth.py app/infra/settings.py
+        run: make backend-typecheck

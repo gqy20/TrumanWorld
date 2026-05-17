@@ -58,9 +58,7 @@ async def test_open_world_seed_rolls_back_seed_records_when_final_commit_fails(
         .scalars()
         .all()
     )
-    agents = (
-        (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
-    )
+    agents = (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
 
     assert locations == []
     assert agents == []

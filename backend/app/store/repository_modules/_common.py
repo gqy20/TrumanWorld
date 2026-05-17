@@ -73,4 +73,3 @@ class EventApiRow:
     visibility: str
     payload: dict
     created_at: datetime
-

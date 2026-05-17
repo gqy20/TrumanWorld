@@ -1,6 +1,5 @@
 """Tests for state_delta_models."""
 
-
 from app.sim.state_delta_models import (
     AgentDelta,
     MemoryFragment,
@@ -54,9 +53,7 @@ class TestWorldDelta:
 
     def test_with_effects(self):
         """Test with location effects."""
-        delta = WorldDelta(
-            location_effects={"cafe": {"crowd_level": "high"}}
-        )
+        delta = WorldDelta(location_effects={"cafe": {"crowd_level": "high"}})
 
         assert delta.location_effects == {"cafe": {"crowd_level": "high"}}
 

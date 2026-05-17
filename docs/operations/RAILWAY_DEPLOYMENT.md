@@ -14,7 +14,7 @@
 当前代码里虽然有 `docker-compose.yml` 和前后端 `Dockerfile`，但它们是本地开发用途，不建议直接拿去做 Railway 生产部署：
 
 - 后端 Dockerfile 会启动 `uvicorn --reload`
-- 前端 Dockerfile 会启动 `npm run dev`
+- 前端 Dockerfile 会启动 `pnpm dev`
 - `docker-compose.yml` 里的 `db` 主机名只适用于 Compose 网络，不适用于 Railway
 
 另外，仓库里已经补了 Railway config-as-code 文件：
@@ -78,7 +78,7 @@ TRUMANWORLD_DIRECTOR_BACKEND=heuristic
 ### 2. Frontend
 
 - Root Directory: `/frontend`
-- Build Command: `npm ci && npm run build`
+- Build Command: `pnpm install --frozen-lockfile && pnpm build`
 - Start Command: `sh scripts/start-railway.sh`
 
 变量：
@@ -240,7 +240,7 @@ CLI 目前不适合稳定管理这些构建设置，建议直接在 Railway 控�
 
 `frontend`
 
-- Build Command: `npm ci && npm run build`
+- Build Command: `pnpm install --frozen-lockfile && pnpm build`
 - Start Command: `sh scripts/start-railway.sh`
 
 ### 7. 触发部署
@@ -342,7 +342,7 @@ bash scripts/railway-bootstrap.sh
 - [backend/Dockerfile](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/backend/Dockerfile)
 - [frontend/Dockerfile](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/frontend/Dockerfile)
 
-它们目前分别用了 `--reload` 和 `npm run dev`。
+它们目前分别用了 `--reload` 和 `pnpm dev`。
 
 ### 2. 后端 CORS 必须带上前端域名
 

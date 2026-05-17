@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class LlmCallRepository:
     """LLM 调用记录的持久化操作。"""
 

@@ -602,7 +602,9 @@ class WorldStageUiResponse(BaseModel):
 
 
 class WorldUiConfigResponse(BaseModel):
-    stage: WorldStageUiResponse = Field(default_factory=WorldStageUiResponse, description="舞台 UI 配置")
+    stage: WorldStageUiResponse = Field(
+        default_factory=WorldStageUiResponse, description="舞台 UI 配置"
+    )
 
 
 class WorldDirectorStatsResponse(BaseModel):

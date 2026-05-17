@@ -140,10 +140,7 @@ class EconomicStateService:
         if world.has_restriction(agent_id, "work_ban", scope_value="work"):
             # Employment suspended while work banned
             if state.employment_status != "suspended":
-                state = (
-                    await self._update_employment_status(run_id, agent_id, "suspended")
-                    or state
-                )
+                state = await self._update_employment_status(run_id, agent_id, "suspended") or state
                 # Log governance work loss
                 await self._create_effect_log(
                     run_id=run_id,
@@ -182,7 +179,9 @@ class EconomicStateService:
                 # Only recover if food_security is below maximum
                 if state.food_security < 1.0:
                     state = (
-                        await self._update_food_security(run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE)
+                        await self._update_food_security(
+                            run_id, agent_id, DEFAULT_FOOD_RECOVERY_RATE
+                        )
                         or state
                     )
                     # Log food recovery effect (only if actually increased)

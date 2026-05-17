@@ -205,6 +205,7 @@ class PersistenceManager:
                 agent.current_location_id = state.location_id
         await self.session.flush()
 
+
 # ─── Schedule-based goal helpers ─────────────────────────────────────────────
 
 # Maps time-period values from WorldState._time_period() to current_plan keys

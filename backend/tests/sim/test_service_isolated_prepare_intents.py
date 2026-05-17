@@ -713,6 +713,7 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
             write_agent_config(tmp_path, agent.id, name=agent.name, home="loc-1")
 
         provider = MixedOutcomeDecisionProvider(failing_agent_ids={"agent-fallback-bad"})
+
         class FallbackScenario(FakeScenario):
             def fallback_intent(
                 self,
@@ -732,9 +733,7 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
                     target_location_id=home_location_id or current_location_id,
                 )
 
-        orchestrator = build_orchestrator(
-            tmp_path, provider=provider, scenario=FallbackScenario()
-        )
+        orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FallbackScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         snapshots: list[AgentDecisionSnapshot] = []
@@ -769,5 +768,3 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
         assert intents_by_agent["agent-fallback-bad"].target_location_id == "loc-home"
     finally:
         shutil.rmtree(tmp_path)
-
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class AgentRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -184,5 +185,3 @@ class AgentRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
-
-

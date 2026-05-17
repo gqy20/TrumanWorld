@@ -3,11 +3,12 @@ BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 LOGS_DIR := logs
 BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py
+BACKEND_TEST_ENV := TRUMANWORLD_ANTHROPIC_API_KEY=test-key
 
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-lint backend-typecheck backend-test backend-integration-test frontend-lint frontend-test lint format test migrate pre-commit dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -28,36 +29,61 @@ backend-install:
 	cd $(BACKEND_DIR) && uv sync --group dev
 
 frontend-install:
-	cd $(FRONTEND_DIR) && npm install
+	cd $(FRONTEND_DIR) && pnpm install --frozen-lockfile
 
 backend-dev:
 	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --reload --host 127.0.0.1 --port $(BACKEND_PORT)
 
 frontend-dev: sync-agent-logos
-	cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api npm run dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0
+	cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0
 
 backend-lint:
 	cd $(BACKEND_DIR) && uv run ruff check app tests
+
+backend-format-check:
+	cd $(BACKEND_DIR) && uv run ruff format --check app tests
 
 backend-typecheck:
 	cd $(BACKEND_DIR) && uv run mypy $(BACKEND_MYPY_TARGETS)
 
 frontend-lint:
-	cd $(FRONTEND_DIR) && npm run lint
+	cd $(FRONTEND_DIR) && pnpm lint
+
+frontend-eslint:
+	cd $(FRONTEND_DIR) && pnpm lint:eslint
+
+frontend-typecheck:
+	cd $(FRONTEND_DIR) && pnpm lint:types
+
+frontend-build:
+	cd $(FRONTEND_DIR) && pnpm build
 
 backend-test:
-	cd $(BACKEND_DIR) && uv run pytest -m "not integration"
+	cd $(BACKEND_DIR) && $(BACKEND_TEST_ENV) uv run pytest -m "not integration"
+
+backend-test-ci:
+	cd $(BACKEND_DIR) && $(BACKEND_TEST_ENV) uv run pytest -m "not integration" -v --cov=app --cov-report=xml
 
 backend-integration-test:
 	cd $(BACKEND_DIR) && uv run pytest -m integration
 
+backend-migration-check:
+	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL="$${TRUMANWORLD_DATABASE_URL:-$(DATABASE_URL)}" uv run alembic upgrade head
+
 frontend-test:
-	cd $(FRONTEND_DIR) && npm run test -- --runInBand --passWithNoTests
+	cd $(FRONTEND_DIR) && pnpm test --runInBand --passWithNoTests
 
 lint:
 	$(MAKE) backend-lint
 	$(MAKE) backend-typecheck
 	$(MAKE) frontend-lint
+
+quality:
+	$(MAKE) backend-lint
+	$(MAKE) backend-format-check
+	$(MAKE) backend-typecheck
+	$(MAKE) frontend-eslint
+	$(MAKE) frontend-typecheck
 
 format:
 	cd $(BACKEND_DIR) && uv run ruff format app tests
@@ -65,6 +91,8 @@ format:
 test:
 	$(MAKE) backend-test
 	$(MAKE) frontend-test
+
+ci: quality backend-test-ci frontend-test frontend-build
 
 benchmark-reactor-pool:
 	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo
@@ -74,6 +102,9 @@ migrate:
 
 pre-commit:
 	$(PYTHON) -m pre_commit run --all-files
+
+pre-push:
+	$(PYTHON) -m pre_commit run --hook-stage pre-push --all-files
 
 # 数据库配置（本地开发环境，从环境变量或使用默认值）
 # 生产环境请务必设置环境变量 TRUMANWORLD_DB_PASSWORD
@@ -221,7 +252,7 @@ dev: check-ports db-start db-migrate sync-agent-logos
 	echo ""; \
 	(cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
 	BACKEND_PID=$$!; \
-	(cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api npm run dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
+	(cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
 	FRONTEND_PID=$$!; \
 	trap 'echo ""; echo "🛑 停止服务..."; kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; wait $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; echo "✅ 已停止"' INT TERM; \
 	wait $$BACKEND_PID $$FRONTEND_PID

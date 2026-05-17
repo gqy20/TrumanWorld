@@ -840,9 +840,7 @@ async def test_bundle_seed_rolls_back_seed_records_when_final_commit_fails(
         .scalars()
         .all()
     )
-    agents = (
-        (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
-    )
+    agents = (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
     relationships = (
         (await db_session.execute(select(Relationship).where(Relationship.run_id == run_id)))
         .scalars()
@@ -947,4 +945,3 @@ async def test_bundle_seed_preserves_explicit_run_world_start_time(
     await scenario.seed_demo_run(run)
 
     assert run.metadata_json["world_start_time"] == "2040-12-31T23:55:00+00:00"
-

@@ -109,7 +109,7 @@ make frontend-dev  # http://127.0.0.1:13000
 make test                    # 后端 fast tests + 前端 Jest
 make backend-integration-test # 后端 integration tests
 make lint
-cd frontend && npm run build
+cd frontend && pnpm build
 ```
 
 ---

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class LocationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -48,5 +49,3 @@ class LocationRepository:
             )
             for row in result.all()
         ]
-
-

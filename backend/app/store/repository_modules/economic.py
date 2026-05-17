@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class AgentEconomicStateRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -335,4 +336,3 @@ class EconomicEffectLogRepository:
         limit: int = 10,
     ) -> Sequence[EconomicEffectLog]:
         return await self.list_for_agent(run_id, agent_id, limit=limit)
-

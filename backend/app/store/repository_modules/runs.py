@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class RunRepository:
     """Persistence facade for simulation runs."""
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class DirectorMemoryRepository:
     """导演干预记忆持久化"""
 
@@ -202,5 +203,3 @@ class DirectorMemoryRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
-
-

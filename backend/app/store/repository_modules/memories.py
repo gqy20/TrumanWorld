@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.store.repository_modules._common import *
 
+
 class MemoryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -46,4 +47,3 @@ class MemoryRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
-

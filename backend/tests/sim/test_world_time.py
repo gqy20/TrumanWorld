@@ -25,9 +25,7 @@ def test_resolve_world_start_falls_back_for_invalid_metadata():
 def test_parse_world_datetime_accepts_supported_formats():
     assert parse_world_datetime("2026-03-02T07:05") == datetime(2026, 3, 2, 7, 5, tzinfo=UTC)
     assert parse_world_datetime("2026-03-02 07:05") == datetime(2026, 3, 2, 7, 5, tzinfo=UTC)
-    assert parse_world_datetime("2026-03-02T07:05:30") == datetime(
-        2026, 3, 2, 7, 5, 30, tzinfo=UTC
-    )
+    assert parse_world_datetime("2026-03-02T07:05:30") == datetime(2026, 3, 2, 7, 5, 30, tzinfo=UTC)
 
 
 def test_resolve_tick_bound_combines_datetime_with_existing_bounds():

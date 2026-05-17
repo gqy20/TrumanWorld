@@ -2,7 +2,10 @@
 
 from app.store.repository_modules.agents import AgentRepository
 from app.store.repository_modules.director_memories import DirectorMemoryRepository
-from app.store.repository_modules.economic import AgentEconomicStateRepository, EconomicEffectLogRepository
+from app.store.repository_modules.economic import (
+    AgentEconomicStateRepository,
+    EconomicEffectLogRepository,
+)
 from app.store.repository_modules.events import EventRepository
 from app.store.repository_modules.governance import (
     GovernanceCaseRepository,

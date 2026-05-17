@@ -133,7 +133,7 @@ make db-status      # 查看容器状态
 make lint           # 后端 Ruff + mypy，前端 ESLint + TypeScript
 make format         # Ruff 格式化
 make pre-commit     # 运行 pre-commit hooks
-cd frontend && npm run lint   # 单独执行前端 lint
+cd frontend && pnpm lint      # 单独执行前端 lint
 ```
 
 ### 测试
@@ -142,7 +142,7 @@ cd frontend && npm run lint   # 单独执行前端 lint
 make test           # 后端 fast pytest（排除 integration）+ 前端 Jest
 make backend-test   # 后端 fast pytest（排除 integration）
 make backend-integration-test # 后端 integration tests
-cd frontend && npm run build  # 前端生产构建检查
+cd frontend && pnpm build     # 前端生产构建检查
 ```
 
 ### 端口管理

@@ -2,6 +2,7 @@
   "name": "trumanworld-frontend",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.33.2",
   "engines": {
     "node": ">=20.9 <21"
   },
@@ -9,7 +10,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "npm run lint:eslint && npm run lint:types",
+    "lint": "pnpm lint:eslint && pnpm lint:types",
     "lint:eslint": "eslint .",
     "lint:types": "tsc --noEmit",
     "test": "jest",
@@ -43,6 +44,7 @@
     "jest-environment-jsdom": "^30.3.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.2.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }
 }

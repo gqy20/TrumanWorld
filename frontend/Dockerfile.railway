@@ -8,14 +8,14 @@ ARG NEXT_PUBLIC_API_BASE_URL=/api
 ENV INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL} \
     NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 
-COPY frontend/package.json frontend/package-lock.json /app/frontend/
+COPY frontend/package.json frontend/pnpm-lock.yaml /app/frontend/
 WORKDIR /app/frontend
-RUN npm ci
+RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY frontend /app/frontend
 
-RUN npm run build
+RUN pnpm build
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npm run start -- --hostname 0.0.0.0 --port ${PORT:-3000}"]
+CMD ["sh", "-c", "pnpm start -- --hostname 0.0.0.0 --port ${PORT:-3000}"]

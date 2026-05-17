@@ -71,7 +71,9 @@ class DeltaApplier:
             if agent_delta.food_security_delta != 0:
                 current_state = await self.econ_repo.get_for_agent(run_id, agent_id)
                 if current_state is not None:
-                    new_food = max(0.0, min(1.0, current_state.food_security + agent_delta.food_security_delta))
+                    new_food = max(
+                        0.0, min(1.0, current_state.food_security + agent_delta.food_security_delta)
+                    )
                     if new_food != current_state.food_security:
                         await self.econ_repo.update_food_security(
                             run_id, agent_id, agent_delta.food_security_delta
@@ -133,18 +135,18 @@ class DeltaApplier:
             for target_id, delta_value in [(agent1_id, rel_delta), (agent2_id, rel_delta)]:
                 if delta_value.familiarity_delta != 0:
                     await rel_repo.adjust_familiarity(
-                        run_id, target_id, agent_pair.replace(":", "_"),
-                        delta_value.familiarity_delta
+                        run_id,
+                        target_id,
+                        agent_pair.replace(":", "_"),
+                        delta_value.familiarity_delta,
                     )
                 if delta_value.trust_delta != 0:
                     await rel_repo.adjust_trust(
-                        run_id, target_id, agent_pair.replace(":", "_"),
-                        delta_value.trust_delta
+                        run_id, target_id, agent_pair.replace(":", "_"), delta_value.trust_delta
                     )
                 if delta_value.affinity_delta != 0:
                     await rel_repo.adjust_affinity(
-                        run_id, target_id, agent_pair.replace(":", "_"),
-                        delta_value.affinity_delta
+                        run_id, target_id, agent_pair.replace(":", "_"), delta_value.affinity_delta
                     )
 
         await self.session.commit()
