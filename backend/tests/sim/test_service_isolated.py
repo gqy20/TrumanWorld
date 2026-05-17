@@ -5,7 +5,7 @@ import shutil
 import tempfile
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime, RuntimeInvocation
@@ -17,14 +17,13 @@ from app.infra.settings import get_settings
 from app.scenario.types import ScenarioGuidance
 from app.sim.action_resolver import ActionIntent
 from app.sim.context import get_run_world_time
-from app.sim.service import SimulationService
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import AgentState, LocationState, WorldState
-from app.store.models import Base
 from app.store.repositories import EventRepository, LlmCallRepository, RunRepository
 from tests.factories import make_agent, make_location, make_run, write_agent_config
 
+from .helpers import build_scheduler_service, create_isolated_sqlite_engine
 from .test_service import FakeScenario, MixedOutcomeDecisionProvider
 
 
@@ -65,12 +64,8 @@ class FixedTalkDecisionProvider(TokenCapturingDecisionProvider):
 
 
 @pytest.mark.asyncio
-async def test_run_tick_isolated_with_separate_sessions(db_session):
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+async def test_run_tick_isolated_with_separate_sessions(db_session, tmp_path):
+    engine = await create_isolated_sqlite_engine()
     run_id = "run-isolated-1"
     async with AsyncSession(engine, expire_on_commit=False) as session:
         run = make_run(run_id, name="isolated")
@@ -84,11 +79,8 @@ async def test_run_tick_isolated_with_separate_sessions(db_session):
         session.add_all([run, home, alice])
         await session.commit()
 
-    tmp_path = Path(tempfile.mkdtemp())
     write_agent_config(tmp_path, "agent", name="Test", occupation="test")
-
-    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend())
-    service = SimulationService.create_for_scheduler(runtime)
+    service = build_scheduler_service(tmp_path)
 
     result = await service.run_tick_isolated(
         run_id,
@@ -106,16 +98,11 @@ async def test_run_tick_isolated_with_separate_sessions(db_session):
         assert updated_run.current_tick == 1
 
     await engine.dispose()
-    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db_session):
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db_session, tmp_path):
+    engine = await create_isolated_sqlite_engine()
     run_id = "run-isolated-sleep-skip"
     async with AsyncSession(engine, expire_on_commit=False) as session:
         run = make_run(
@@ -138,11 +125,8 @@ async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db
         session.add_all([run, home, alice])
         await session.commit()
 
-    tmp_path = Path(tempfile.mkdtemp())
     write_agent_config(tmp_path, "agent", name="Test", occupation="test")
-
-    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend())
-    service = SimulationService.create_for_scheduler(runtime)
+    service = build_scheduler_service(tmp_path)
 
     result = await service.run_tick_isolated(
         run_id,
@@ -161,7 +145,6 @@ async def test_run_tick_isolated_skips_sleep_hours_and_persists_advanced_tick(db
         assert get_run_world_time(updated_run).isoformat() == "2026-03-03T06:00:00+00:00"
 
     await engine.dispose()
-    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.asyncio
@@ -944,11 +927,8 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
 
 
 @pytest.mark.asyncio
-async def test_run_tick_isolated_persists_llm_calls(db_session):
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+async def test_run_tick_isolated_persists_llm_calls(db_session, tmp_path):
+    engine = await create_isolated_sqlite_engine()
     run_id = "run-llm-persist-1"
     agent_config_id = "alice-llm"
     async with AsyncSession(engine, expire_on_commit=False) as session:
@@ -964,17 +944,13 @@ async def test_run_tick_isolated_persists_llm_calls(db_session):
         session.add_all([run, loc, agent])
         await session.commit()
 
-    tmp_path = Path(tempfile.mkdtemp())
     write_agent_config(tmp_path, agent_config_id, name="Alice", home="loc-llm-1")
 
     provider = TokenCapturingDecisionProvider(
         usage={"input_tokens": 111, "output_tokens": 222, "cache_read_input_tokens": 33},
         cost=0.015,
     )
-    runtime = AgentRuntime(
-        registry=AgentRegistry(tmp_path), backend=HeuristicAgentBackend(provider)
-    )
-    service = SimulationService.create_for_scheduler(runtime)
+    service = build_scheduler_service(tmp_path, HeuristicAgentBackend(provider))
 
     result = await service.run_tick_isolated(run_id, engine)
 
@@ -987,15 +963,11 @@ async def test_run_tick_isolated_persists_llm_calls(db_session):
         assert totals["cache_read_tokens"] == 33
 
     await engine.dispose()
-    shutil.rmtree(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_run_tick_isolated_advances_when_one_agent_falls_back():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+async def test_run_tick_isolated_advances_when_one_agent_falls_back(tmp_path):
+    engine = await create_isolated_sqlite_engine()
     run_id = "run-isolated-fallback-1"
     async with AsyncSession(engine, expire_on_commit=False) as session:
         run = make_run(
@@ -1032,7 +1004,6 @@ async def test_run_tick_isolated_advances_when_one_agent_falls_back():
         session.add_all([run, home, office, ok_agent, bad_agent])
         await session.commit()
 
-    tmp_path = Path(tempfile.mkdtemp())
     try:
         for agent_id, name in (
             ("agent-fallback-ok-iso", "Alice"),
@@ -1044,11 +1015,7 @@ async def test_run_tick_isolated_advances_when_one_agent_falls_back():
             failing_agent_ids={"agent-fallback-bad-iso"},
             success_action="work",
         )
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-        service = SimulationService.create_for_scheduler(runtime)
+        service = build_scheduler_service(tmp_path, HeuristicAgentBackend(provider))
 
         result = await service.run_tick_isolated(run_id, engine)
 
@@ -1067,16 +1034,11 @@ async def test_run_tick_isolated_advances_when_one_agent_falls_back():
             assert any(event.event_type.endswith("_rejected") for event in events)
     finally:
         await engine.dispose()
-        shutil.rmtree(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_run_tick_isolated_reuses_conversation_id_across_adjacent_ticks():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+async def test_run_tick_isolated_reuses_conversation_id_across_adjacent_ticks(tmp_path):
+    engine = await create_isolated_sqlite_engine()
     run_id = "run-isolated-conversation-continuity"
     async with AsyncSession(engine, expire_on_commit=False) as session:
         run = make_run(
@@ -1104,11 +1066,7 @@ async def test_run_tick_isolated_reuses_conversation_id_across_adjacent_ticks():
         session.add_all([run, cafe, alice, bob])
         await session.commit()
 
-    service = SimulationService.create_for_scheduler(
-        AgentRuntime(
-            registry=AgentRegistry(Path(tempfile.mkdtemp())), backend=HeuristicAgentBackend()
-        )
-    )
+    service = build_scheduler_service(tmp_path)
 
     try:
         await service.run_tick_isolated(

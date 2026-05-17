@@ -7,7 +7,9 @@ from app.agent.runtime import AgentRuntime
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
-from app.store.models import Agent, Location, SimulationRun
+from app.sim.service import SimulationService
+from app.store.models import Agent, Base, Location, SimulationRun
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 class RestOnlyDecisionProvider(AgentDecisionProvider):
@@ -75,3 +77,18 @@ def build_rest_runtime(tmp_path: Path) -> AgentRuntime:
         registry=AgentRegistry(tmp_path),
         backend=HeuristicAgentBackend(RestOnlyDecisionProvider()),
     )
+
+
+async def create_isolated_sqlite_engine():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    return engine
+
+
+def build_scheduler_service(tmp_path: Path, backend: HeuristicAgentBackend | None = None):
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        backend=backend or HeuristicAgentBackend(),
+    )
+    return SimulationService.create_for_scheduler(runtime)

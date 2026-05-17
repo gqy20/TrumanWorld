@@ -210,6 +210,7 @@ P2:
 
 1. 先拆测试辅助，将常见 run / location / agent / event 创建逻辑沉淀为 factory。
    - `make_run_with_location_agents` 已加入 `backend/tests/factories.py`，用于收敛 service runtime 测试里重复的 run/location/agent 组合造数。
+   - `create_isolated_sqlite_engine` 与 `build_scheduler_service` 已加入 `backend/tests/sim/helpers.py`，用于收敛 isolated service 测试里的内存 DB 与 scheduler runtime 初始化。
 2. 再拆 `PersistenceManager`，让当前类只保留事务编排，具体写入逻辑下沉到 memory、relationship、governance、economic 等小模块。
    - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
    - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
