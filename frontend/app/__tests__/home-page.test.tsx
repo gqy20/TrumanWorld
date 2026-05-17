@@ -1,17 +1,15 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
-import { SWRConfig } from "swr";
 
-import HomePage from "@/app/page";
-import { DemoAccessProvider } from "@/components/demo-access-provider";
-import { RunsProvider } from "@/components/runs-provider";
 import {
   fetchApiResult,
   getDemoAccessStatusResult,
   listScenariosResult,
-  type ApiResult,
 } from "@/lib/api";
-import type { DemoAccessStatus, RunSummary, ScenarioSummary } from "@/lib/types";
+import type { DemoAccessStatus, RunSummary } from "@/lib/types";
+
+import { makeRunSummary, makeScenarioSummary } from "@/test-utils/app/fixtures";
+import { errorResult, okResult, renderHomePage } from "@/test-utils/app/render";
 
 const push = jest.fn();
 
@@ -53,44 +51,21 @@ jest.mock("@/lib/api", () => {
   };
 });
 
-function okResult<T>(data: T, status = 200): ApiResult<T> {
-  return {
-    data,
-    error: null,
-    errorCode: null,
-    errorDetail: null,
-    status,
-  };
-}
-
-function errorResult<T>(error: string, status: number | null = null): ApiResult<T> {
-  return {
-    data: null,
-    error,
-    errorCode: null,
-    errorDetail: null,
-    status,
-  };
-}
-
-const scenarios: ScenarioSummary[] = [
-  { id: "narrative_world", name: "Narrative World", version: 1 },
-  { id: "open_world", name: "Open World", version: 1 },
+const scenarios = [
+  makeScenarioSummary(),
+  makeScenarioSummary({ id: "open_world", name: "Open World" }),
 ];
 
 const runs: RunSummary[] = [
-  {
+  makeRunSummary({
     id: "run-alpha",
     name: "Campus Morning",
     status: "running",
-    scenario_type: "narrative_world",
     current_tick: 12,
     agent_count: 3,
-    location_count: 2,
     event_count: 5,
-    created_at: "2026-03-02T06:00:00Z",
-  },
-  {
+  }),
+  makeRunSummary({
     id: "run-beta",
     name: "Paused Town",
     status: "paused",
@@ -100,20 +75,8 @@ const runs: RunSummary[] = [
     location_count: 1,
     event_count: 0,
     created_at: "2026-03-02T07:00:00Z",
-  },
+  }),
 ];
-
-function renderHome(initialResult: ApiResult<RunSummary[]>) {
-  return render(
-    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
-      <DemoAccessProvider>
-        <RunsProvider initialResult={initialResult}>
-          <HomePage />
-        </RunsProvider>
-      </DemoAccessProvider>
-    </SWRConfig>,
-  );
-}
 
 describe("HomePage", () => {
   beforeEach(() => {
@@ -136,7 +99,7 @@ describe("HomePage", () => {
   });
 
   it("renders seeded runs and navigates to the selected world", async () => {
-    renderHome(okResult(runs));
+    renderHomePage(okResult(runs));
 
     expect(await screen.findByRole("heading", { name: "Truman World" })).toBeInTheDocument();
     expect(screen.getByText("1 个运行中")).toBeInTheDocument();
@@ -158,7 +121,7 @@ describe("HomePage", () => {
     (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
       .mockResolvedValue(errorResult<RunSummary[]>("network_error"));
 
-    renderHome(errorResult<RunSummary[]>("network_error"));
+    renderHomePage(errorResult<RunSummary[]>("network_error"));
 
     expect(await screen.findByText("后端当前不可达，列表展示的是空状态。"))
       .toBeInTheDocument();
