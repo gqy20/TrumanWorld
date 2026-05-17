@@ -66,6 +66,7 @@
 - **规则与治理闭环已具备最小版本**：规则评估、治理执行、治理留痕、relationship 后果、`world_rules_summary` 已落地
 - **最小经济状态已落地到后端**：已有 `cash`、`employment_status`、`food_security`、`housing_security` 与相关 API
 - **前端导演控制台已可用但仍在扩展**：世界视图、时间线、agent 详情已稳定；治理/经济运营视图仍待继续接入
+- **关键前端路径已有测试保护**：首页、世界页、时间线页面级用户流已覆盖，Phaser scene sync 已覆盖 location、agent、move trail 与 bubble 同步行为
 - **心智模型已有铺垫但未正式结构化**：当前已有 `mood`、`emotional_valence`、`governance_attention_score` 等信号，但还没有统一的 `mental_state`
 
 
@@ -76,13 +77,18 @@
 git clone https://github.com/gqy20/TrumanWorld.git
 cd TrumanWorld
 
-# 2. 配置环境
+# 2. 使用项目 Node 版本（前端使用 pnpm）
+nvm use
+
+# 3. 配置环境
 # 编辑 .env，按需填写 API Key 等配置
 cp .env.example .env
 
-# 3. 启动
+# 4. 启动
 make dev
 ```
+
+仓库根目录的 `.nvmrc` 指定 Node `20.19.0`，前端 lockfile 使用 `frontend/pnpm-lock.yaml`。请使用 `pnpm` 执行前端脚本，不要引入 `package-lock.json`。
 
 默认端口：
 
@@ -109,8 +115,14 @@ make frontend-dev  # http://127.0.0.1:13000
 make test                    # 后端 fast tests + 前端 Jest
 make backend-integration-test # 后端 integration tests
 make lint
-cd frontend && pnpm build
+make ci                      # CI 同等质量、测试和前端 build 检查
+
+cd frontend && pnpm test      # 前端 Jest
+cd frontend && pnpm lint      # 前端 ESLint + TypeScript
+cd frontend && pnpm build     # 前端生产构建检查
 ```
+
+最近一次本地验证基线：后端 fast tests `637 passed, 8 deselected`；前端 Jest `33 suites / 148 tests passed`；前端 Next.js production build 已通过。
 
 ---
 
