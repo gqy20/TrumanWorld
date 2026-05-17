@@ -83,7 +83,15 @@ export function WorldProvider({ runId, initialData, children }: Props) {
       keepPreviousData: true,
       // Use compare function to prevent re-renders when data hasn't meaningfully changed
       compare: (a, b) => {
-        if (!a?.data && !b?.data) return true;
+        if (!a?.data || !b?.data) {
+          return (
+            a?.data === b?.data &&
+            a?.error === b?.error &&
+            a?.errorCode === b?.errorCode &&
+            a?.errorDetail === b?.errorDetail &&
+            a?.status === b?.status
+          );
+        }
         return isWorldDataEqual(a?.data ?? null, b?.data ?? null);
       },
     },

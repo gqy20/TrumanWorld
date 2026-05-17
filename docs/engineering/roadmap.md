@@ -257,6 +257,13 @@ P2:
 - `frontend/jest.config.ts` 使用 Next.js Jest 配置，覆盖 `__tests__` 和 `*.test.*` 文件。
 - 后端测试与业务模块基本同构，能反映项目真实边界。
 
+前端测试边界：
+
+- 页面级用户流测试放在 `frontend/app/__tests__/`，优先覆盖 route entry、provider 数据流、URL 状态变化和用户可见结果；复杂渲染 runtime 可用轻量 mock，避免测试耦合 canvas / Phaser 生命周期。
+- 普通 React 组件测试放在就近 `frontend/components/__tests__/`，覆盖 props、可访问操作、空态、错误态和业务分支。
+- Phaser 测试按 helper 边界拆在 `frontend/components/phaser/__tests__/`：`world-scene-geometry` 覆盖坐标映射，`world-scene-sync` 覆盖节点创建/更新/清理和事件绑定，`world-scene-interactions` 覆盖高亮、tooltip、相机聚焦，`world-scene-textures` / `world-scene-stage` 覆盖纹理与舞台外壳。
+- 新增 UI 或可视化逻辑时，优先补“用户能看到或触发的结果”；只有纯计算、Phaser 节点同步、纹理生成这类不可直接经 DOM 稳定验证的逻辑，才落到 helper 单元测试。
+
 主要改进点：
 
 - 大型测试文件需要按行为主题拆分，减少单文件上下文负担。
@@ -273,6 +280,7 @@ P2:
 - 三个长测试文件已完成第一轮按 behavior 主题拆分；后续可以继续细分 governance/memory 主题，但当前最长单文件已低于 1000 行。
 - 前端页面级测试已开始补充首页用户流，覆盖初始运行列表、运行状态展示、场景名称展示、进入世界导航，以及后端不可达时的错误提示和空状态。
 - Phaser scene sync 行为断言已补充，覆盖 location / agent 节点创建、坐标更新、点击事件、无效 location 跳过和 stale 节点清理。
+- 世界页页面级测试已补充，覆盖 world snapshot 渲染、Phaser / SVG 视图切换、location / agent 选择流和后端不可达错误态。
 
 ## 6. Done 定义
 
