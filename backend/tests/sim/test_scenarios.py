@@ -5,61 +5,18 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.infra.settings import get_settings
 from app.agent.context_builder import ContextBuilder
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.scenario.factory import create_scenario
 from app.scenario.bundle_world import module_registry as bundle_module_registry
-from app.scenario.open_world.scenario import OpenWorldScenario
 from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
 from app.store.models import Agent, Event, Location, Relationship, SimulationRun
 from app.store.repositories import AgentRepository
 from tests.factories import make_agent, make_event, make_location, make_run, write_agent_config
 
-
-def write_lines(path: Path, lines: list[str]) -> None:
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def configure_project_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
-
-
-def write_hero_bundle(
-    tmp_path: Path,
-    scenario_id: str,
-    *,
-    scenario_lines: list[str],
-    world_lines: list[str],
-    agent_lines: list[str] | None = None,
-    bio: str | None = None,
-    initial_lines: list[str] | None = None,
-) -> Path:
-    bundle_root = tmp_path / "scenarios" / scenario_id
-    agent_dir = bundle_root / "agents" / "hero"
-    agent_dir.mkdir(parents=True)
-    write_lines(bundle_root / "scenario.yml", scenario_lines)
-    write_lines(bundle_root / "world.yml", world_lines)
-    write_lines(
-        agent_dir / "agent.yml",
-        agent_lines
-        or [
-            "id: hero",
-            "name: Hero",
-            "world_role: truman",
-            "occupation: resident",
-            "home: apartment",
-        ],
-    )
-    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
-    if bio is not None:
-        (agent_dir / "bio.md").write_text(bio, encoding="utf-8")
-    if initial_lines is not None:
-        write_lines(agent_dir / "initial.yml", initial_lines)
-    return bundle_root
+from .helpers import configure_project_root, write_hero_bundle, write_lines
 
 
 def test_narrative_world_scenario_configures_runtime_context(tmp_path):
@@ -224,8 +181,7 @@ async def test_campus_world_bundle_seeds_from_repo_scenarios(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
     project_root = Path(__file__).resolve().parents[3]
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(project_root))
-    get_settings.cache_clear()
+    configure_project_root(project_root, monkeypatch)
 
     run = make_run(
         "run-campus-world",
@@ -350,28 +306,25 @@ async def test_bundle_world_scenario_assembles_modules_from_manifest(
 
     bundle_root = tmp_path / "scenarios" / "hero_world"
     bundle_root.mkdir(parents=True)
-    (bundle_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: hero_world",
-                "name: Hero World",
-                "version: 1",
-                "adapter: bundle_world",
-                "modules:",
-                "  director_policy: custom_director",
-                "  agent_context_policy: custom_context",
-                "  allowed_actions_policy: custom_actions",
-                "  profile_merge_policy: custom_profile_merge",
-                "  fallback_policy: custom_fallback",
-                "  seed_policy: custom_seed",
-                "  state_update_policy: custom_state",
-            ]
-        ),
-        encoding="utf-8",
+    write_lines(
+        bundle_root / "scenario.yml",
+        [
+            "id: hero_world",
+            "name: Hero World",
+            "version: 1",
+            "adapter: bundle_world",
+            "modules:",
+            "  director_policy: custom_director",
+            "  agent_context_policy: custom_context",
+            "  allowed_actions_policy: custom_actions",
+            "  profile_merge_policy: custom_profile_merge",
+            "  fallback_policy: custom_fallback",
+            "  seed_policy: custom_seed",
+            "  state_update_policy: custom_state",
+        ],
     )
 
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
+    configure_project_root(tmp_path, monkeypatch)
 
     scenario = BundleWorldScenario(db_session, scenario_id="hero_world")
 
@@ -592,75 +545,53 @@ async def test_narrative_world_adapter_skips_subject_alert_updates_when_tracking
 async def test_narrative_world_adapter_seed_supports_spawn_aliases(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
-    bundle_root = tmp_path / "scenarios" / "alt_world_spawn"
-    agent_dir = bundle_root / "agents" / "hero"
-    agent_dir.mkdir(parents=True)
-    (bundle_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: alt_world_spawn",
-                "name: Alt World Spawn",
-                "version: 1",
-                "adapter: narrative_world",
-                "semantics:",
-                "  subject_role: protagonist",
-                "  alert_metric: anomaly_score",
-            ]
-        ),
-        encoding="utf-8",
+    write_hero_bundle(
+        tmp_path,
+        "alt_world_spawn",
+        scenario_lines=[
+            "id: alt_world_spawn",
+            "name: Alt World Spawn",
+            "version: 1",
+            "adapter: narrative_world",
+            "semantics:",
+            "  subject_role: protagonist",
+            "  alert_metric: anomaly_score",
+        ],
+        world_lines=[
+            "locations:",
+            "  - id_suffix: library",
+            "    name: 静水图书馆",
+            "    location_type: library",
+            "    capacity: 4",
+            "    x: 5",
+            "    y: 6",
+            "    attributes:",
+            "      kind: quiet",
+            "location_id_map:",
+            "  apartment: library",
+            "  workplace: library",
+            "occupation_names:",
+            "  resident: 住户",
+        ],
+        agent_lines=[
+            "id: hero",
+            "name: Hero",
+            "world_role: protagonist",
+            "occupation: resident",
+            "home: apartment",
+        ],
+        initial_lines=[
+            "status:",
+            "  energy: 0.9",
+            "  alert_score: 0.25",
+            "spawn:",
+            "  location: workplace",
+            "  goal: greet",
+            "plan:",
+            "  default: patrol",
+        ],
     )
-    (bundle_root / "world.yml").write_text(
-        "\n".join(
-            [
-                "locations:",
-                "  - id_suffix: library",
-                "    name: 静水图书馆",
-                "    location_type: library",
-                "    capacity: 4",
-                "    x: 5",
-                "    y: 6",
-                "    attributes:",
-                "      kind: quiet",
-                "location_id_map:",
-                "  apartment: library",
-                "  workplace: library",
-                "occupation_names:",
-                "  resident: 住户",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: hero",
-                "name: Hero",
-                "world_role: protagonist",
-                "occupation: resident",
-                "home: apartment",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
-    (agent_dir / "initial.yml").write_text(
-        "\n".join(
-            [
-                "status:",
-                "  energy: 0.9",
-                "  alert_score: 0.25",
-                "spawn:",
-                "  location: workplace",
-                "  goal: greet",
-                "plan:",
-                "  default: patrol",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
+    configure_project_root(tmp_path, monkeypatch)
 
     run = make_run(
         "run-alt-world-spawn",
@@ -685,70 +616,48 @@ async def test_narrative_world_adapter_seed_supports_spawn_aliases(
 async def test_narrative_world_adapter_seed_supports_generic_alert_status_inputs(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
-    bundle_root = tmp_path / "scenarios" / "alt_world_alert_seed"
-    agent_dir = bundle_root / "agents" / "hero"
-    agent_dir.mkdir(parents=True)
-    (bundle_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: alt_world_alert_seed",
-                "name: Alt World Alert Seed",
-                "version: 1",
-                "adapter: narrative_world",
-                "semantics:",
-                "  subject_role: protagonist",
-                "  alert_metric: anomaly_score",
-            ]
-        ),
-        encoding="utf-8",
+    write_hero_bundle(
+        tmp_path,
+        "alt_world_alert_seed",
+        scenario_lines=[
+            "id: alt_world_alert_seed",
+            "name: Alt World Alert Seed",
+            "version: 1",
+            "adapter: narrative_world",
+            "semantics:",
+            "  subject_role: protagonist",
+            "  alert_metric: anomaly_score",
+        ],
+        world_lines=[
+            "locations:",
+            "  - id_suffix: apartment",
+            "    name: 住处",
+            "    location_type: home",
+            "    capacity: 2",
+            "    x: 1",
+            "    y: 1",
+            "    attributes:",
+            "      mood: quiet",
+            "location_id_map:",
+            "  apartment: apartment",
+            "occupation_names:",
+            "  resident: 住户",
+        ],
+        agent_lines=[
+            "id: hero",
+            "name: Hero",
+            "world_role: protagonist",
+            "occupation: resident",
+            "home: apartment",
+        ],
+        initial_lines=[
+            "status:",
+            "  energy: 0.9",
+            "  anomaly_score: 0.4",
+            "  alert_score: 0.6",
+        ],
     )
-    (bundle_root / "world.yml").write_text(
-        "\n".join(
-            [
-                "locations:",
-                "  - id_suffix: apartment",
-                "    name: 住处",
-                "    location_type: home",
-                "    capacity: 2",
-                "    x: 1",
-                "    y: 1",
-                "    attributes:",
-                "      mood: quiet",
-                "location_id_map:",
-                "  apartment: apartment",
-                "occupation_names:",
-                "  resident: 住户",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: hero",
-                "name: Hero",
-                "world_role: protagonist",
-                "occupation: resident",
-                "home: apartment",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
-    (agent_dir / "initial.yml").write_text(
-        "\n".join(
-            [
-                "status:",
-                "  energy: 0.9",
-                "  anomaly_score: 0.4",
-                "  alert_score: 0.6",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
+    configure_project_root(tmp_path, monkeypatch)
 
     run = make_run(
         "run-alt-world-alert-seed",
@@ -773,16 +682,14 @@ async def test_narrative_world_seed_builder_prefers_scenario_bundle_agents(
 ):
     scenario_agents_root = tmp_path / "scenarios" / "narrative_world" / "agents" / "bundle_agent"
     scenario_agents_root.mkdir(parents=True)
-    (tmp_path / "scenarios" / "narrative_world" / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: narrative_world",
-                "name: Narrative World",
-                "version: 1",
-                "runtime_adapter: narrative_world",
-            ]
-        ),
-        encoding="utf-8",
+    write_lines(
+        tmp_path / "scenarios" / "narrative_world" / "scenario.yml",
+        [
+            "id: narrative_world",
+            "name: Narrative World",
+            "version: 1",
+            "runtime_adapter: narrative_world",
+        ],
     )
     (scenario_agents_root / "agent.yml").write_text(
         "\n".join(
@@ -814,8 +721,7 @@ async def test_narrative_world_seed_builder_prefers_scenario_bundle_agents(
     )
     (project_agents_root / "prompt.md").write_text("# Project Agent", encoding="utf-8")
 
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
+    configure_project_root(tmp_path, monkeypatch)
 
     run = make_run("run-scenario-bundle-seed", name="scenario-seed")
     db_session.add(run)
@@ -833,57 +739,33 @@ async def test_narrative_world_seed_builder_prefers_scenario_bundle_agents(
 async def test_narrative_world_adapter_seed_demo_run_uses_active_bundle_files(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
-    bundle_root = tmp_path / "scenarios" / "alt_world"
-    agent_dir = bundle_root / "agents" / "hero"
-    agent_dir.mkdir(parents=True)
-    (bundle_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: alt_world",
-                "name: Alt World",
-                "version: 1",
-                "runtime_adapter: narrative_world",
-            ]
-        ),
-        encoding="utf-8",
+    write_hero_bundle(
+        tmp_path,
+        "alt_world",
+        scenario_lines=[
+            "id: alt_world",
+            "name: Alt World",
+            "version: 1",
+            "runtime_adapter: narrative_world",
+        ],
+        world_lines=[
+            "locations:",
+            "  - id_suffix: library",
+            "    name: 静水图书馆",
+            "    location_type: library",
+            "    capacity: 4",
+            "    x: 5",
+            "    y: 6",
+            "    attributes:",
+            "      kind: quiet",
+            "location_id_map:",
+            "  apartment: library",
+            "occupation_names:",
+            "  resident: 住户",
+        ],
+        bio="Alt bundle hero",
     )
-    (bundle_root / "world.yml").write_text(
-        "\n".join(
-            [
-                "locations:",
-                "  - id_suffix: library",
-                "    name: 静水图书馆",
-                "    location_type: library",
-                "    capacity: 4",
-                "    x: 5",
-                "    y: 6",
-                "    attributes:",
-                "      kind: quiet",
-                "location_id_map:",
-                "  apartment: library",
-                "occupation_names:",
-                "  resident: 住户",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: hero",
-                "name: Hero",
-                "world_role: truman",
-                "occupation: resident",
-                "home: apartment",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
-    (agent_dir / "bio.md").write_text("Alt bundle hero", encoding="utf-8")
-
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
+    configure_project_root(tmp_path, monkeypatch)
 
     run = make_run(
         "run-alt-world",
@@ -1066,157 +948,3 @@ async def test_bundle_seed_preserves_explicit_run_world_start_time(
 
     assert run.metadata_json["world_start_time"] == "2040-12-31T23:55:00+00:00"
 
-
-@pytest.mark.asyncio
-async def test_open_world_scenario_seed_is_minimal(db_session):
-    run = make_run("run-open-world", name="open-world")
-    db_session.add(run)
-    await db_session.commit()
-
-    scenario = OpenWorldScenario(db_session)
-    await scenario.seed_demo_run(run)
-
-    agents = await AgentRepository(db_session).list_for_run(run.id)
-    assert [agent.name for agent in agents] == ["Rover"]
-
-    assessment = scenario.assess(run_id=run.id, current_tick=0, agents=agents, events=[])
-    assert assessment.continuity_risk == "stable"
-    assert assessment.suspicion_level == "low"
-
-
-@pytest.mark.asyncio
-async def test_open_world_seed_rolls_back_seed_records_when_final_commit_fails(
-    db_session,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    run = make_run("run-open-world-seed-fails", name="open-world")
-    db_session.add(run)
-    await db_session.commit()
-    run_id = run.id
-
-    async def fail_commit() -> None:
-        raise RuntimeError("open world seed commit failed")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    scenario = OpenWorldScenario(db_session)
-    with pytest.raises(RuntimeError, match="open world seed commit failed"):
-        await scenario.seed_demo_run(run)
-
-    await db_session.rollback()
-    locations = (
-        (await db_session.execute(select(Location).where(Location.run_id == run_id)))
-        .scalars()
-        .all()
-    )
-    agents = (
-        (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
-    )
-
-    assert locations == []
-    assert agents == []
-
-
-@pytest.mark.asyncio
-async def test_open_world_scenario_persist_director_plan_is_noop(db_session):
-    scenario = OpenWorldScenario(db_session)
-
-    await scenario.persist_director_plan("run-open-world", None)
-
-
-def test_scenario_factory_returns_expected_implementation(db_session):
-    assert isinstance(create_scenario("open_world", db_session), OpenWorldScenario)
-    assert isinstance(create_scenario("narrative_world", db_session), BundleWorldScenario)
-    assert isinstance(create_scenario(None, db_session), BundleWorldScenario)
-
-
-def test_narrative_world_adapter_uses_active_bundle_world_knowledge(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-):
-    bundle_root = tmp_path / "scenarios" / "alt_world"
-    agent_dir = bundle_root / "agents" / "hero"
-    agent_dir.mkdir(parents=True)
-    (bundle_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: alt_world",
-                "name: Alt World",
-                "version: 1",
-                "runtime_adapter: narrative_world",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (bundle_root / "world.yml").write_text(
-        "\n".join(
-            [
-                "social_norms:",
-                "  - 保持安静排队",
-                "location_purposes:",
-                "  library:",
-                "    - 阅读",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: hero",
-                "name: Hero",
-                "world_role: truman",
-                "occupation: resident",
-                "home: apartment",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
-
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
-
-    runtime = AgentRuntime(
-        registry=AgentRegistry(bundle_root / "agents"),
-        context_builder=ContextBuilder(),
-    )
-    scenario = create_scenario("alt_world")
-    scenario.configure_runtime(runtime)
-
-    invocation = runtime.prepare_reactor(
-        "hero",
-        world={
-            "current_goal": "rest",
-            "self_status": {"suspicion_score": 0.1},
-        },
-    )
-
-    assert invocation.context["world_common_knowledge"]["social_norms"] == ["保持安静排队"]
-    assert invocation.context["world_common_knowledge"]["location_purposes"] == {
-        "library": ["阅读"]
-    }
-
-
-def test_scenario_configures_runtime_allowed_actions(tmp_path):
-    agent_dir = tmp_path / "demo_agent"
-    agent_dir.mkdir(parents=True)
-    (agent_dir / "agent.yml").write_text(
-        "\n".join(
-            [
-                "id: demo_agent",
-                "name: Demo Agent",
-                "occupation: resident",
-                "home: demo_home",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (agent_dir / "prompt.md").write_text("# Demo Agent\nBase prompt", encoding="utf-8")
-
-    runtime = AgentRuntime(registry=AgentRegistry(tmp_path), context_builder=ContextBuilder())
-    scenario = create_scenario("open_world")
-    scenario.configure_runtime(runtime)
-
-    invocation = runtime.prepare_reactor("demo_agent", world={"current_goal": "rest"})
-
-    assert invocation.allowed_actions == scenario.allowed_actions()

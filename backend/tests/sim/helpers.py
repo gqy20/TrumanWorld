@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
+from app.infra.settings import get_settings
 from app.sim.service import SimulationService
+from app.sim.tick_orchestrator import TickOrchestrator
 from app.store.models import Agent, Base, Location, SimulationRun
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -92,3 +96,60 @@ def build_scheduler_service(tmp_path: Path, backend: HeuristicAgentBackend | Non
         backend=backend or HeuristicAgentBackend(),
     )
     return SimulationService.create_for_scheduler(runtime)
+
+
+def build_orchestrator(
+    tmp_path: Path,
+    *,
+    provider: AgentDecisionProvider | None = None,
+    backend: HeuristicAgentBackend | None = None,
+    scenario=None,  # noqa: ANN001
+) -> TickOrchestrator:
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        backend=backend or HeuristicAgentBackend(provider),
+    )
+    return TickOrchestrator(agent_runtime=runtime, scenario=scenario)
+
+
+def write_lines(path: Path, lines: list[str]) -> None:
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def configure_project_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+
+def write_hero_bundle(
+    tmp_path: Path,
+    scenario_id: str,
+    *,
+    scenario_lines: list[str],
+    world_lines: list[str],
+    agent_lines: list[str] | None = None,
+    bio: str | None = None,
+    initial_lines: list[str] | None = None,
+) -> Path:
+    bundle_root = tmp_path / "scenarios" / scenario_id
+    agent_dir = bundle_root / "agents" / "hero"
+    agent_dir.mkdir(parents=True)
+    write_lines(bundle_root / "scenario.yml", scenario_lines)
+    write_lines(bundle_root / "world.yml", world_lines)
+    write_lines(
+        agent_dir / "agent.yml",
+        agent_lines
+        or [
+            "id: hero",
+            "name: Hero",
+            "world_role: truman",
+            "occupation: resident",
+            "home: apartment",
+        ],
+    )
+    (agent_dir / "prompt.md").write_text("# Hero\nBase prompt", encoding="utf-8")
+    if bio is not None:
+        (agent_dir / "bio.md").write_text(bio, encoding="utf-8")
+    if initial_lines is not None:
+        write_lines(agent_dir / "initial.yml", initial_lines)
+    return bundle_root

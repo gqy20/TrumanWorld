@@ -466,28 +466,15 @@ async def test_simulation_service_updates_relationships_from_talk_events(db_sess
 async def test_persistence_relationships_apply_social_location_policy_boost(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = make_run(
+    run, cafe, (alice, bob) = make_run_with_location_agents(
         "run-service-relationship-policy",
-        name="relationship-policy",
-        scenario_type="narrative_world",
-    )
-    cafe = make_location(
-        "loc-cafe-policy",
-        run_id=run.id,
-        name="Cafe",
-        location_type="cafe",
-    )
-    alice = make_agent(
-        "alice-policy",
-        run_id=run.id,
-        location_id=cafe.id,
-        name="Alice",
-    )
-    bob = make_agent(
-        "bob-policy",
-        run_id=run.id,
-        location_id=cafe.id,
-        name="Bob",
+        run_kwargs={"name": "relationship-policy", "scenario_type": "narrative_world"},
+        location_id="loc-cafe-policy",
+        location_kwargs={"name": "Cafe", "location_type": "cafe"},
+        agents=[
+            {"agent_id": "alice-policy", "name": "Alice"},
+            {"agent_id": "bob-policy", "name": "Bob"},
+        ],
     )
     db_session.add_all([run, cafe, alice, bob])
     await db_session.commit()
@@ -597,28 +584,15 @@ async def test_persistence_relationships_soft_risk_reduces_social_gain(
 async def test_persistence_relationships_governance_warn_further_reduces_social_gain(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = make_run(
+    run, plaza, (alice, bob) = make_run_with_location_agents(
         "run-service-relationship-governance-warn",
-        name="relationship-governance-warn",
-        scenario_type="narrative_world",
-    )
-    plaza = make_location(
-        "loc-plaza-governance-warn",
-        run_id=run.id,
-        name="Plaza",
-        location_type="plaza",
-    )
-    alice = make_agent(
-        "alice-governance-warn",
-        run_id=run.id,
-        location_id=plaza.id,
-        name="Alice",
-    )
-    bob = make_agent(
-        "bob-governance-warn",
-        run_id=run.id,
-        location_id=plaza.id,
-        name="Bob",
+        run_kwargs={"name": "relationship-governance-warn", "scenario_type": "narrative_world"},
+        location_id="loc-plaza-governance-warn",
+        location_kwargs={"name": "Plaza", "location_type": "plaza"},
+        agents=[
+            {"agent_id": "alice-governance-warn", "name": "Alice"},
+            {"agent_id": "bob-governance-warn", "name": "Bob"},
+        ],
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
@@ -727,29 +701,19 @@ async def test_persistence_relationships_governance_block_turns_social_result_ne
 async def test_persistence_relationships_actor_attention_reduces_social_gain(
     db_session, monkeypatch: pytest.MonkeyPatch
 ):
-    run = make_run(
+    run, plaza, (alice, bob) = make_run_with_location_agents(
         "run-service-relationship-actor-attention",
-        name="relationship-actor-attention",
-        scenario_type="narrative_world",
-    )
-    plaza = make_location(
-        "loc-plaza-actor-attention",
-        run_id=run.id,
-        name="Plaza",
-        location_type="plaza",
-    )
-    alice = make_agent(
-        "alice-actor-attention",
-        run_id=run.id,
-        location_id=plaza.id,
-        name="Alice",
-        status={"governance_attention_score": 0.6},
-    )
-    bob = make_agent(
-        "bob-actor-attention",
-        run_id=run.id,
-        location_id=plaza.id,
-        name="Bob",
+        run_kwargs={"name": "relationship-actor-attention", "scenario_type": "narrative_world"},
+        location_id="loc-plaza-actor-attention",
+        location_kwargs={"name": "Plaza", "location_type": "plaza"},
+        agents=[
+            {
+                "agent_id": "alice-actor-attention",
+                "name": "Alice",
+                "status": {"governance_attention_score": 0.6},
+            },
+            {"agent_id": "bob-actor-attention", "name": "Bob"},
+        ],
     )
     db_session.add_all([run, plaza, alice, bob])
     await db_session.commit()
@@ -1275,30 +1239,15 @@ async def test_talk_memories_use_subjective_importance_per_agent(db_session):
 
 @pytest.mark.asyncio
 async def test_simulation_service_reuses_conversation_id_across_ticks(db_session):
-    run = make_run(
+    run, cafe, (alice, bob) = make_run_with_location_agents(
         "run-service-conversation-continuity",
-        name="conversation-continuity",
-        scenario_type="narrative_world",
-    )
-    cafe = make_location(
-        "loc-cafe-conversation-continuity",
-        run_id=run.id,
-        name="Cafe",
-        location_type="cafe",
-    )
-    alice = make_agent(
-        "alice-continuity",
-        run_id=run.id,
-        location_id=cafe.id,
-        name="Alice",
-        current_goal="talk",
-    )
-    bob = make_agent(
-        "bob-continuity",
-        run_id=run.id,
-        location_id=cafe.id,
-        name="Bob",
-        current_goal="talk",
+        run_kwargs={"name": "conversation-continuity", "scenario_type": "narrative_world"},
+        location_id="loc-cafe-conversation-continuity",
+        location_kwargs={"name": "Cafe", "location_type": "cafe"},
+        agents=[
+            {"agent_id": "alice-continuity", "name": "Alice", "current_goal": "talk"},
+            {"agent_id": "bob-continuity", "name": "Bob", "current_goal": "talk"},
+        ],
     )
 
     db_session.add_all([run, cafe, alice, bob])

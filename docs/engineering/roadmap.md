@@ -211,7 +211,9 @@ P2:
 1. 先拆测试辅助，将常见 run / location / agent / event 创建逻辑沉淀为 factory。
    - `make_run_with_location_agents` 已加入 `backend/tests/factories.py`，用于收敛 service runtime 测试里重复的 run/location/agent 组合造数。
    - `create_isolated_sqlite_engine` 与 `build_scheduler_service` 已加入 `backend/tests/sim/helpers.py`，用于收敛 isolated service 测试里的内存 DB 与 scheduler runtime 初始化。
-   - `test_scenarios.py` 已加入 bundle fixture 写入辅助，用于收敛 scenario/world/agent YAML 测试数据。
+   - `build_orchestrator` 已加入 `backend/tests/sim/helpers.py`，用于收敛 isolated service 测试里的 runtime/orchestrator 构造。
+   - bundle fixture 写入辅助已下沉到 `backend/tests/sim/helpers.py`，用于复用 scenario/world/agent YAML 测试数据。
+   - `test_scenarios_open_world.py` 已拆出，承接 open world、scenario factory 与 runtime allowed actions 相关测试；`test_scenarios.py` 已降到 1000 行以内。
 2. 再拆 `PersistenceManager`，让当前类只保留事务编排，具体写入逻辑下沉到 memory、relationship、governance、economic 等小模块。
    - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
    - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
@@ -253,6 +255,13 @@ P2:
 - 避免在普通行为测试中过多调用私有方法；私有方法测试应优先转成 public behavior 测试。
 - 默认测试命令应区分 fast unit/integration/live SDK，避免日常测试受外部环境影响。
 - 前端应补充页面级用户流测试，并让 Phaser 测试验证关键对象数量、坐标同步、事件回调等行为。
+
+本轮执行结果：
+
+- `test_scenarios.py` 已从约 1285 行降到 950 行，并拆出 `test_scenarios_open_world.py`。
+- `test_service_runtime.py` 已继续收敛 relationship/conversation 类重复造数。
+- `test_service_isolated.py` 已继续收敛 runtime/orchestrator 构造。
+- 三个长测试文件仍可继续按 behavior 主题拆分，但当前已先完成可复用 helper、一次文件拆分和全量测试验证。
 
 ## 6. Done 定义
 

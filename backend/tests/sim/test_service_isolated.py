@@ -7,8 +7,7 @@ import tempfile
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.registry import AgentRegistry
-from app.agent.runtime import AgentRuntime, RuntimeInvocation
+from app.agent.runtime import RuntimeInvocation
 from app.cognition.claude.decision_provider import AgentDecisionProvider
 from app.cognition.claude.decision_utils import RuntimeDecision
 from app.cognition.errors import UpstreamApiUnavailableError
@@ -17,13 +16,12 @@ from app.infra.settings import get_settings
 from app.scenario.types import ScenarioGuidance
 from app.sim.action_resolver import ActionIntent
 from app.sim.context import get_run_world_time
-from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import AgentState, LocationState, WorldState
 from app.store.repositories import EventRepository, LlmCallRepository, RunRepository
 from tests.factories import make_agent, make_location, make_run, write_agent_config
 
-from .helpers import build_scheduler_service, create_isolated_sqlite_engine
+from .helpers import build_orchestrator, build_scheduler_service, create_isolated_sqlite_engine
 from .test_service import FakeScenario, MixedOutcomeDecisionProvider
 
 
@@ -165,11 +163,7 @@ async def test_prepare_intents_collects_llm_records_when_on_llm_call_set(db_sess
         usage={"input_tokens": 130, "output_tokens": 250, "cache_read_input_tokens": 60},
         cost=0.025,
     )
-    runtime = AgentRuntime(
-        registry=AgentRegistry(tmp_path),
-        backend=HeuristicAgentBackend(provider),
-    )
-    orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+    orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FakeScenario())
 
     world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
     world.agents["agent-tt-1"] = type(
@@ -214,11 +208,7 @@ async def test_prepare_intents_from_data_biases_rest_to_reply_for_recent_questio
         (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
 
         provider = TokenCapturingDecisionProvider()
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+        orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.current_tick = 6
@@ -295,11 +285,7 @@ async def test_prepare_intents_from_data_keeps_rest_for_closing_message():
         (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
 
         provider = TokenCapturingDecisionProvider()
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+        orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.current_tick = 6
@@ -374,11 +360,7 @@ async def test_prepare_intents_from_data_suppresses_repeated_conversation_propos
             message="要不要一起去咖啡馆？",
             target_agent_id="bob",
         )
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+        orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.current_tick = 6
@@ -469,11 +451,7 @@ async def test_prepare_intents_from_data_suppresses_high_overlap_paraphrase_prop
             ),
             target_agent_id="bob",
         )
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+        orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.current_tick = 6
@@ -560,11 +538,7 @@ async def test_prepare_intents_from_data_prefers_recent_conversation_partner_ove
         (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
 
         provider = TokenCapturingDecisionProvider()
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
+        orchestrator = build_orchestrator(tmp_path, provider=provider, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.current_tick = 8
@@ -659,11 +633,9 @@ async def test_prepare_intents_from_data_raises_on_upstream_api_unavailable(db_s
             encoding="utf-8",
         )
         (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=UnavailableApiBackend(),
+        orchestrator = build_orchestrator(
+            tmp_path, backend=UnavailableApiBackend(), scenario=FakeScenario()
         )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.agents["agent-stop-fast"] = type(
             "S", (), {"id": "agent-stop-fast", "status": {}, "location_id": "loc-1"}
@@ -724,11 +696,9 @@ async def test_tick_orchestrator_uses_default_bundle_semantics_when_scenario_id_
         get_settings.cache_clear()
 
         provider = TokenCapturingDecisionProvider()
-        runtime = AgentRuntime(
-            registry=AgentRegistry(bundle_root / "agents"),
-            backend=HeuristicAgentBackend(provider),
+        orchestrator = build_orchestrator(
+            bundle_root / "agents", provider=provider, scenario=FakeScenario()
         )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         world.agents["hero-1"] = type(
@@ -802,11 +772,9 @@ async def test_prepare_intents_from_data_respects_runtime_concurrency_limit(db_s
                 return 1
 
         provider = SlowProvider()
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=LimitedBackend(provider),
+        orchestrator = build_orchestrator(
+            tmp_path, backend=LimitedBackend(provider), scenario=FakeScenario()
         )
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FakeScenario())
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         snapshots: list[AgentDecisionSnapshot] = []
@@ -865,11 +833,6 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
             write_agent_config(tmp_path, agent.id, name=agent.name, home="loc-1")
 
         provider = MixedOutcomeDecisionProvider(failing_agent_ids={"agent-fallback-bad"})
-        runtime = AgentRuntime(
-            registry=AgentRegistry(tmp_path),
-            backend=HeuristicAgentBackend(provider),
-        )
-
         class FallbackScenario(FakeScenario):
             def fallback_intent(
                 self,
@@ -889,7 +852,9 @@ async def test_prepare_intents_from_data_uses_scenario_fallback_for_failed_agent
                     target_location_id=home_location_id or current_location_id,
                 )
 
-        orchestrator = TickOrchestrator(agent_runtime=runtime, scenario=FallbackScenario())
+        orchestrator = build_orchestrator(
+            tmp_path, provider=provider, scenario=FallbackScenario()
+        )
 
         world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
         snapshots: list[AgentDecisionSnapshot] = []
