@@ -13,6 +13,15 @@ import {
   parseRgbaColor,
 } from "./world-scene-style";
 import {
+  focusCameraOnSelection as focusSceneCameraOnSelection,
+  hideTooltip as hideSceneTooltip,
+  playTapFeedback as playSceneTapFeedback,
+  refreshAgentHighlights as refreshSceneAgentHighlights,
+  refreshLocationHighlights as refreshSceneLocationHighlights,
+  showTooltip as showSceneTooltip,
+  type TooltipNode,
+} from "./world-scene-interactions";
+import {
   syncAgents as syncSceneAgents,
   syncBubbles as syncSceneBubbles,
   syncLocations as syncSceneLocations,
@@ -28,11 +37,6 @@ import {
   ensureGroundTexture as ensureSceneGroundTexture,
   ensureLocationTexture as ensureSceneLocationTexture,
 } from "./world-scene-textures";
-
-type TooltipNode = {
-  box: Phaser.GameObjects.Rectangle;
-  text: Phaser.GameObjects.Text;
-};
 
 export class WorldScene extends Phaser.Scene {
   private locationNodes = new Map<string, LocationNode>();
@@ -203,104 +207,33 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private refreshLocationHighlights(): void {
-    for (const [locationId, node] of this.locationNodes.entries()) {
-      const isHighlighted = this.highlightedLocationId === locationId;
-      if (isHighlighted) {
-        node.body.setTint(0xf8fafc);
-        node.body.setScale(1.06);
-      } else {
-        node.body.clearTint();
-        node.body.setScale(1);
-      }
-      node.label.setScale(isHighlighted ? 1.05 : 1);
-      node.badge.setScale(isHighlighted ? 1.05 : 1);
-      node.glow.setAlpha(isHighlighted ? 0.34 : node.glow.alpha);
-    }
+    refreshSceneLocationHighlights(this.locationNodes, this.highlightedLocationId);
   }
 
   private refreshAgentHighlights(): void {
-    for (const [agentId, node] of this.agentNodes.entries()) {
-      const isHighlighted = this.highlightedAgentId === agentId;
-      node.pulseTween?.stop();
-      if (isHighlighted) {
-        node.body.setTint(0xfef08a);
-        node.marker.setScale(1.08);
-        node.label.setScale(1.08);
-        node.pulseTween = this.tweens.add({
-          targets: [node.body, node.marker, node.label],
-          scale: { from: 1, to: 1.08 },
-          duration: 700,
-          yoyo: true,
-          repeat: -1,
-          ease: "Sine.InOut",
-        });
-      } else {
-        node.body.clearTint();
-        node.body.setScale(1);
-        node.marker.setScale(1);
-        node.label.setScale(1);
-        node.pulseTween = undefined;
-      }
-    }
+    refreshSceneAgentHighlights(this, this.agentNodes, this.highlightedAgentId);
   }
 
   private focusCameraOnSelection(): void {
-    const camera = this.cameras.main;
-    const targetAgentNode = this.highlightedAgentId
-      ? this.agentNodes.get(this.highlightedAgentId)
-      : undefined;
-    if (targetAgentNode) {
-      camera.pan(targetAgentNode.body.x, targetAgentNode.body.y, 320, "Sine.easeInOut", true);
-      return;
-    }
-
-    const targetLocationNode = this.highlightedLocationId
-      ? this.locationNodes.get(this.highlightedLocationId)
-      : undefined;
-    if (targetLocationNode) {
-      camera.pan(
-        targetLocationNode.body.x,
-        targetLocationNode.body.y,
-        320,
-        "Sine.easeInOut",
-        true
-      );
-      return;
-    }
-
-    camera.pan(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 320, "Sine.easeInOut", true);
+    focusSceneCameraOnSelection(
+      this.cameras.main,
+      this.locationNodes,
+      this.agentNodes,
+      this.highlightedLocationId,
+      this.highlightedAgentId
+    );
   }
 
   private showTooltip(x: number, y: number, text: string): void {
-    if (!this.tooltip) {
-      return;
-    }
-
-    const width = Math.min(220, Math.max(120, text.length * 7 + 18));
-    this.tooltip.box.setPosition(x, y);
-    this.tooltip.box.setSize(width, 30);
-    this.tooltip.box.setVisible(true);
-    this.tooltip.text.setPosition(x, y);
-    this.tooltip.text.setText(text);
-    this.tooltip.text.setVisible(true);
+    showSceneTooltip(this.tooltip, x, y, text);
   }
 
   private hideTooltip(): void {
-    if (!this.tooltip) {
-      return;
-    }
-    this.tooltip.box.setVisible(false);
-    this.tooltip.text.setVisible(false);
+    hideSceneTooltip(this.tooltip);
   }
 
   private playTapFeedback(...targets: Phaser.GameObjects.GameObject[]): void {
-    this.tweens.add({
-      targets,
-      scale: { from: 1, to: 1.08 },
-      duration: 110,
-      yoyo: true,
-      ease: "Quad.Out",
-    });
+    playSceneTapFeedback(this, ...targets);
   }
 
   private mapWorldToCanvas(

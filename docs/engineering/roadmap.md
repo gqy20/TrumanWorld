@@ -225,6 +225,7 @@ P2:
    - `world-scene-geometry.ts` 已抽出，承接 Phaser 场景的世界坐标映射与 agent slot 坐标计算。
    - `world-scene-textures.ts` 已抽出，承接 Phaser ground、building、agent pixel texture 的生成与 ensure 逻辑。
    - `world-scene-sync.ts` 已抽出，承接 Phaser location、agent、move trail、speech bubble 节点同步与 stale node 清理。
+   - `world-scene-interactions.ts` 已抽出，承接 Phaser 高亮刷新、相机聚焦、tooltip 与点击反馈动画。
 
 ### 5.2 测试体系
 
