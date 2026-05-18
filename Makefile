@@ -8,7 +8,7 @@ BACKEND_TEST_ENV := TRUMANWORLD_ANTHROPIC_API_KEY=test-key
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -32,10 +32,31 @@ frontend-install:
 	cd $(FRONTEND_DIR) && pnpm install --frozen-lockfile
 
 backend-dev:
-	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --reload --host 127.0.0.1 --port $(BACKEND_PORT)
+	@mkdir -p $(LOGS_DIR)
+	@LOG_TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
+	LOG_FILE_BACKEND="$(CURDIR)/$(LOGS_DIR)/dev_$${LOG_TIMESTAMP}_backend.log"; \
+	echo "📝 后端日志: $${LOG_FILE_BACKEND}"; \
+	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --reload --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}"
 
-frontend-dev: sync-agent-logos
-	cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0
+frontend-dev: frontend-clean-port sync-agent-logos
+	@mkdir -p $(LOGS_DIR)
+	@LOG_TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
+	LOG_FILE_FRONTEND="$(CURDIR)/$(LOGS_DIR)/dev_$${LOG_TIMESTAMP}_frontend.log"; \
+	echo "📝 前端日志: $${LOG_FILE_FRONTEND}"; \
+	cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}"
+
+frontend-clean-port:
+	@echo "🧹 清理前端端口和锁文件..."
+	@FRONTEND_PIDS=$$(ss -tlnp 2>/dev/null | grep -E ":$(FRONTEND_PORT)" | grep -oP 'pid=\K[0-9]+' | sort -u); \
+	if [ -n "$$FRONTEND_PIDS" ]; then \
+		for PID in $$FRONTEND_PIDS; do \
+			echo "终止前端端口占用 (PID: $$PID)"; \
+			kill -9 $$PID 2>/dev/null || true; \
+		done; \
+		sleep 1; \
+	fi
+	@rm -f $(FRONTEND_DIR)/.next/dev/lock
+	@echo "✅ 前端端口和锁文件已清理"
 
 backend-lint:
 	cd $(BACKEND_DIR) && uv run ruff check app tests
@@ -252,7 +273,7 @@ dev: check-ports db-start db-migrate sync-agent-logos
 	echo ""; \
 	(cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
 	BACKEND_PID=$$!; \
-	(cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev -- --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
+	(cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
 	FRONTEND_PID=$$!; \
 	trap 'echo ""; echo "🛑 停止服务..."; kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; wait $$BACKEND_PID $$FRONTEND_PID 2>/dev/null; echo "✅ 已停止"' INT TERM; \
 	wait $$BACKEND_PID $$FRONTEND_PID

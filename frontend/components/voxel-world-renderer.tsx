@@ -47,6 +47,7 @@ const palette = {
   grassAlt: 0x9ed682,
   road: 0xd8c18d,
   roadDark: 0xb79a67,
+  curb: 0x9f875f,
   plot: 0xcfe2b8,
   shadow: 0x6d7f62,
   wallWarm: 0xe8c58e,
@@ -57,6 +58,10 @@ const palette = {
   roofGreen: 0x4f815b,
   glass: 0x74c6d8,
   wood: 0x7d5437,
+  leaf: 0x4f9f57,
+  leafLight: 0x73bf62,
+  trunk: 0x7b5535,
+  flower: 0xf2d35b,
   agent: 0xf47f42,
   agentTalking: 0xf5a142,
   agentResting: 0x9b7fe0,
@@ -86,8 +91,8 @@ export function VoxelWorldRenderer({
     scene.background = new THREE.Color(0xeef5e8);
 
     const camera = new THREE.OrthographicCamera(-8, 8, 5.5, -5.5, 0.1, 100);
-    camera.position.set(9, 8, 9);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(8.5, 7.2, 8.5);
+    camera.lookAt(0, 0.2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -126,7 +131,7 @@ export function VoxelWorldRenderer({
       const width = container.clientWidth || 800;
       const height = container.clientHeight || 600;
       const aspect = width / Math.max(1, height);
-      const viewHeight = 11;
+      const viewHeight = 9.6;
       camera.left = (-viewHeight * aspect) / 2;
       camera.right = (viewHeight * aspect) / 2;
       camera.top = viewHeight / 2;
@@ -180,6 +185,7 @@ function buildGround(group: THREE.Group): void {
       addBox(group, x, -0.08, z, 0.96, 0.16, 0.96, (x + z) % 2 === 0 ? palette.grass : palette.grassAlt);
     }
   }
+  addBox(group, 0, -0.2, 0, 15.8, 0.24, 15.8, 0x6fa762);
 }
 
 function buildRoads(group: THREE.Group): void {
@@ -192,8 +198,10 @@ function buildRoads(group: THREE.Group): void {
     [3, -3],
   ];
   for (const [x, z] of roads) {
-    addBox(group, x, 0.02, z, 0.9, 0.08, 0.9, palette.road).receiveShadow = true;
-    addBox(group, x, 0.08, z, 0.5, 0.03, 0.5, 0xf0dfad);
+    addBox(group, x, 0.02, z, 0.96, 0.08, 0.96, palette.curb).receiveShadow = true;
+    addBox(group, x, 0.08, z, 0.82, 0.06, 0.82, palette.road).receiveShadow = true;
+    addBox(group, x - 0.18, 0.13, z + 0.12, 0.22, 0.025, 0.18, 0xf0dfad);
+    addBox(group, x + 0.22, 0.13, z - 0.16, 0.18, 0.025, 0.16, 0xc9ad78);
   }
 }
 
@@ -206,6 +214,13 @@ function buildLocations(
   locations.forEach((location, index) => {
     const slot = resolveSlot(location, locations, index);
     addBox(group, slot.x, 0.03, slot.z, 1.8, 0.08, 1.8, palette.plot);
+    if (isGreenLocation(location)) {
+      const park = buildPark(location, slot, highlightedLocationId === location.id);
+      park.userData = { kind: "location", id: location.id };
+      group.add(park);
+      clickable.push(park);
+      return;
+    }
     const building = buildBuilding(location, slot, highlightedLocationId === location.id);
     building.userData = { kind: "location", id: location.id };
     group.add(building);
@@ -221,16 +236,68 @@ function buildBuilding(location: SceneLocation, slot: VoxelSlot, highlighted: bo
   const wall = getBuildingWallColor(type);
   const roof = getBuildingRoofColor(type);
   addBox(building, 0, height / 2, 0, 1.1, height, 1.1, wall);
-  addBox(building, 0, height + 0.2, 0, 1.32, 0.34, 1.32, roof);
+  addVoxelRoof(building, height, type, roof);
   addBox(building, 0, 0.08, 0, 1.28, 0.16, 1.28, palette.shadow);
   addBox(building, -0.58, height * 0.58, 0.02, 0.05, 0.42, 0.72, 0xffffff);
   addBox(building, 0.58, height * 0.52, -0.02, 0.05, 0.4, 0.68, 0x6f8068);
   addBox(building, 0, 0.42, -0.57, 0.3, 0.52, 0.06, palette.wood);
   addWindowRow(building, height, type);
+  addBuildingDetails(building, height, type);
   if (highlighted) {
     addBox(building, 0, 0.12, 0, 1.9, 0.04, 1.9, 0xfef08a);
   }
   return building;
+}
+
+function addVoxelRoof(group: THREE.Group, height: number, type: string, color: number): void {
+  if (type.includes("office") || type.includes("tower")) {
+    addBox(group, 0, height + 0.12, 0, 1.24, 0.24, 1.24, color);
+    addBox(group, 0, height + 0.3, 0, 0.76, 0.16, 0.76, 0x31527d);
+    return;
+  }
+  addBox(group, 0, height + 0.12, 0, 1.46, 0.18, 1.32, color);
+  addBox(group, 0, height + 0.3, 0, 1.1, 0.18, 0.98, color);
+  addBox(group, 0, height + 0.45, 0, 0.66, 0.14, 0.58, color);
+  if (type.includes("cafe") || type.includes("shop")) {
+    addBox(group, 0, height + 0.02, -0.72, 1.18, 0.16, 0.08, 0xf7efd7);
+    addBox(group, -0.28, height + 0.03, -0.76, 0.18, 0.18, 0.08, palette.roofRed);
+    addBox(group, 0.18, height + 0.03, -0.76, 0.18, 0.18, 0.08, palette.roofRed);
+  }
+}
+
+function addBuildingDetails(group: THREE.Group, height: number, type: string): void {
+  addBox(group, -0.42, height * 0.34, -0.58, 0.18, 0.08, 0.04, 0xffffff);
+  addBox(group, 0.42, height * 0.34, -0.58, 0.18, 0.08, 0.04, 0xffffff);
+  if (type.includes("library") || type.includes("hall")) {
+    for (const x of [-0.42, 0, 0.42]) {
+      addBox(group, x, 0.55, -0.62, 0.1, 0.8, 0.08, 0xd8d0bb);
+    }
+    addBox(group, 0, 0.12, -0.72, 1.2, 0.1, 0.28, 0x928672);
+  }
+  if (type.includes("home") || type.includes("dorm")) {
+    addBox(group, 0.5, 0.9, 0.18, 0.12, 0.5, 0.12, 0x74503c);
+  }
+}
+
+function buildPark(location: SceneLocation, slot: VoxelSlot, highlighted: boolean): THREE.Group {
+  const park = new THREE.Group();
+  park.position.set(slot.x, 0, slot.z);
+  addBox(park, 0, 0.08, 0, 1.6, 0.12, 1.6, 0x80c76f);
+  buildTree(park, -0.42, -0.3, 0.85);
+  buildTree(park, 0.34, 0.28, 0.72);
+  addBox(park, 0.08, 0.18, -0.56, 0.7, 0.08, 0.18, palette.road);
+  addBox(park, -0.55, 0.18, 0.5, 0.16, 0.08, 0.16, palette.flower);
+  addBox(park, 0.58, 0.18, -0.2, 0.16, 0.08, 0.16, 0xe879a4);
+  if (highlighted) {
+    addBox(park, 0, 0.12, 0, 1.9, 0.04, 1.9, 0xfef08a);
+  }
+  return park;
+}
+
+function buildTree(group: THREE.Group, x: number, z: number, scale: number): void {
+  addBox(group, x, 0.35 * scale, z, 0.18 * scale, 0.7 * scale, 0.18 * scale, palette.trunk);
+  addBox(group, x, 0.92 * scale, z, 0.68 * scale, 0.5 * scale, 0.68 * scale, palette.leaf);
+  addBox(group, x - 0.12 * scale, 1.18 * scale, z - 0.08 * scale, 0.42 * scale, 0.34 * scale, 0.42 * scale, palette.leafLight);
 }
 
 function addWindowRow(group: THREE.Group, height: number, type: string): void {
@@ -260,6 +327,8 @@ function buildAgents(
     addBox(agentGroup, 0, 0.34, 0, 0.22, 0.5, 0.18, color);
     addBox(agentGroup, 0, 0.68, 0, 0.2, 0.2, 0.2, 0xffc69c);
     addBox(agentGroup, 0, 0.82, -0.01, 0.22, 0.08, 0.22, 0x2e2a31);
+    addBox(agentGroup, -0.07, 0.08, 0, 0.06, 0.16, 0.06, 0x223047);
+    addBox(agentGroup, 0.07, 0.08, 0, 0.06, 0.16, 0.06, 0x223047);
     if (highlightedAgentId === agent.id) {
       addBox(agentGroup, 0, 0.04, 0, 0.46, 0.04, 0.46, 0xfef08a);
     }
@@ -267,6 +336,11 @@ function buildAgents(
     group.add(agentGroup);
     clickable.push(agentGroup);
   }
+}
+
+function isGreenLocation(location: SceneLocation): boolean {
+  const type = location.visual.visualPreset ?? location.locationType;
+  return type.includes("park") || type.includes("grove") || type.includes("quad");
 }
 
 function addBox(
