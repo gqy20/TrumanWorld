@@ -54,3 +54,11 @@ async def test_http_exception_handler_returns_normalized_error_payload(client):
         "code": "RUN_NOT_FOUND",
         "context": {"run_id": "00000000-0000-0000-0000-000000000001"},
     }
+
+
+@pytest.mark.asyncio
+async def test_request_logging_middleware_propagates_request_id(client):
+    response = await client.get("/api/health", headers={"x-request-id": "req-test-123"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["x-request-id"] == "req-test-123"

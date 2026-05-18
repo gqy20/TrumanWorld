@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.director.observer import DirectorAssessment
-from app.infra.logging import get_logger
+from app.infra.logging import bind_log_context, get_logger, reset_log_context
 from app.infra.metrics import observe_tick
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
@@ -148,6 +148,7 @@ class SimulationService:
 
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
         started_at = perf_counter()
+        context_token = bind_log_context(run_id=run_id)
         logger.debug(f"Starting tick for run {run_id}")
         run_repo = self._require_run_repo()
         try:
@@ -155,6 +156,10 @@ class SimulationService:
             if run is None:
                 msg = f"Run not found: {run_id}"
                 raise ValueError(msg)
+            run_context_token = bind_log_context(
+                tick=run.current_tick,
+                scenario_id=run.scenario_type,
+            )
             self._configure_scenario_for_run(run)
 
             world = await self._load_world(run_id, tick_minutes=run.tick_minutes)
@@ -190,16 +195,21 @@ class SimulationService:
                 agent_runtime=self.agent_runtime,
             )
         except Exception as e:
-            logger.error(f"Tick failed for run {run_id}: {e}")
+            logger.exception(f"Tick failed for run {run_id}: {e}")
             observe_tick(
                 mode="inline", status="error", duration_seconds=perf_counter() - started_at
             )
+            if "run_context_token" in locals():
+                reset_log_context(run_context_token)
+            reset_log_context(context_token)
             raise
         duration = perf_counter() - started_at
         logger.debug(
             f"Tick completed for run {run_id}: tick_no={result.tick_no}, duration={duration:.3f}s"
         )
         observe_tick(mode="inline", status="success", duration_seconds=duration)
+        reset_log_context(run_context_token)
+        reset_log_context(context_token)
         return result
 
     async def _persist_tick_writes(

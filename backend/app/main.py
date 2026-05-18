@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+from time import perf_counter
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.exception_handlers import http_exception_handler
@@ -11,11 +13,12 @@ from app.api.router import api_router
 from app.api.errors import default_error_code
 from app.api.schemas.simulation import ErrorResponse, ValidationErrorResponse
 from app.infra.db import get_db_session_context
-from app.infra.logging import get_logger, info
+from app.infra.logging import get_logger, info, reset_request_id, set_request_id
 from app.infra.settings import get_settings
 from app.store.repositories import RunRepository
 
 logger = get_logger(__name__)
+REQUEST_ID_HEADER = "x-request-id"
 
 
 @asynccontextmanager
@@ -186,6 +189,44 @@ Prometheus 指标暴露，供监控系统抓取。
     )
     app.state.settings = settings
     app.include_router(api_router, prefix=settings.api_prefix)
+
+    @app.middleware("http")
+    async def request_logging_middleware(request, call_next):
+        request_id = request.headers.get(REQUEST_ID_HEADER) or uuid4().hex
+        token = set_request_id(request_id)
+        started_at = perf_counter()
+        status_code = 500
+
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        except Exception:
+            logger.exception(
+                "Unhandled request error",
+                extra={
+                    "event": "http_request_error",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                },
+            )
+            raise
+        finally:
+            duration_ms = round((perf_counter() - started_at) * 1000, 2)
+            logger.info(
+                "HTTP request completed",
+                extra={
+                    "event": "http_request",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "duration_ms": duration_ms,
+                },
+            )
+            if "response" in locals():
+                response.headers[REQUEST_ID_HEADER] = request_id
+            reset_request_id(token)
 
     info(f"API routes registered with prefix: {settings.api_prefix}")
     return app

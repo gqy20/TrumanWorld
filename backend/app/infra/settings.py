@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     agent_fail_fast_on_api_unavailable: bool = False
     anthropic_model: str | None = None
     log_level: str = "INFO"
+    log_format: Literal["text", "json"] = "text"
     project_root: Path = PROJECT_ROOT
     claude_sdk_isolated_home_enabled: bool = True
     claude_sdk_home_dir: Path | None = None

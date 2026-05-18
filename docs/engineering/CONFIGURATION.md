@@ -142,8 +142,14 @@ TRUMANWORLD_LLM_BASE_URL=https://api.cohere.ai/v1
 | `TRUMANWORLD_APP_ENV` | 环境：`development`、`production` |
 | `TRUMANWORLD_API_PREFIX` | API 路径前缀 |
 | `TRUMANWORLD_LOG_LEVEL` | 日志级别：`DEBUG`、`INFO`、`WARNING`、`ERROR` |
+| `TRUMANWORLD_LOG_FORMAT` | 日志格式：`text`、`json`。本地默认 `text`，生产建议 `json` |
 | `TRUMANWORLD_CORS_ALLOWED_ORIGINS` | 允许的 CORS 源列表（JSON 数组） |
 | `TRUMANWORLD_DEMO_ADMIN_PASSWORD` | 演示模式管理员密码（留空不启用） |
+
+生产环境建议使用 `TRUMANWORLD_LOG_FORMAT=json`，日志会输出单行 JSON，并自动附带
+`request_id`。HTTP 请求支持传入 `x-request-id`，响应会回传同名 header；未传入时后端会生成。
+业务日志可以通过 structured `extra` 或日志上下文附带 `run_id`、`tick`、`scenario_id`、
+`agent_id` 等字段，便于按一次 run、一次 tick 或单个 agent 排障。
 
 ---
 
@@ -200,6 +206,7 @@ TRUMANWORLD_LLM_MODEL=claude-sonnet-4-20250514
 TRUMANWORLD_LLM_API_KEY=sk-ant-xxx
 TRUMANWORLD_AGENT_BACKEND=claude_sdk
 TRUMANWORLD_LOG_LEVEL=DEBUG
+TRUMANWORLD_LOG_FORMAT=text
 TRUMANWORLD_CORS_ALLOWED_ORIGINS=["http://127.0.0.1:13000","http://localhost:13000"]
 ```
 
@@ -215,6 +222,7 @@ TRUMANWORLD_LLM_API_KEY=sk-xxx
 TRUMANWORLD_LLM_BASE_URL=https://api.openai.com/v1
 TRUMANWORLD_AGENT_BACKEND=claude_sdk
 TRUMANWORLD_LOG_LEVEL=INFO
+TRUMANWORLD_LOG_FORMAT=json
 TRUMANWORLD_CORS_ALLOWED_ORIGINS=["https://your-domain.com"]
 ```
 
