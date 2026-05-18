@@ -49,22 +49,6 @@ jest.mock("@/components/agent-avatar", () => ({
 }));
 
 jest.mock("@/components/phaser", () => ({
-  PhaserGameWrapper: ({
-    onAgentClick,
-    onLocationClick,
-  }: {
-    onAgentClick?: (agentId: string) => void;
-    onLocationClick?: (locationId: string) => void;
-  }) => (
-    <div data-testid="phaser-game-container">
-      <button type="button" onClick={() => onLocationClick?.("library")}>
-        Phaser Library
-      </button>
-      <button type="button" onClick={() => onAgentClick?.("agent-1")}>
-        Phaser Mei
-      </button>
-    </div>
-  ),
   ViewToggleButton: ({
     currentView,
     onToggle,
@@ -79,6 +63,25 @@ jest.mock("@/components/phaser", () => ({
       </button>
       <button type="button" onClick={() => onToggle("phaser")}>
         舞台视图
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/voxel-world-renderer", () => ({
+  VoxelWorldRenderer: ({
+    onAgentClick,
+    onLocationClick,
+  }: {
+    onAgentClick?: (agentId: string) => void;
+    onLocationClick?: (locationId: string) => void;
+  }) => (
+    <div data-testid="phaser-game-container">
+      <button type="button" onClick={() => onLocationClick?.("library")}>
+        Phaser Library
+      </button>
+      <button type="button" onClick={() => onAgentClick?.("agent-1")}>
+        Phaser Mei
       </button>
     </div>
   ),

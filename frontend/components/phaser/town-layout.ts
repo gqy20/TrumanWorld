@@ -16,27 +16,27 @@ export type TownLayoutSlot = {
 };
 
 const TYPE_LAYOUT: Record<string, TownLayoutSlot> = {
-  home: { tileX: 1, tileY: 4, entranceOffsetX: 0, entranceOffsetY: 32, district: "home" },
-  dorm: { tileX: 1, tileY: 5, entranceOffsetX: 0, entranceOffsetY: 32, district: "home" },
-  cafe: { tileX: 3, tileY: 5, entranceOffsetX: 0, entranceOffsetY: 32, district: "commerce" },
-  shop: { tileX: 4, tileY: 5, entranceOffsetX: 0, entranceOffsetY: 32, district: "commerce" },
-  plaza: { tileX: 3, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 22, district: "center" },
-  square: { tileX: 3, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 22, district: "center" },
-  office: { tileX: 5, tileY: 2, entranceOffsetX: 0, entranceOffsetY: 34, district: "civic" },
-  library: { tileX: 4, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 34, district: "civic" },
-  lecture_hall: { tileX: 5, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 34, district: "civic" },
-  park: { tileX: 1, tileY: 2, entranceOffsetX: 0, entranceOffsetY: 24, district: "green" },
-  grove: { tileX: 1, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 24, district: "green" },
-  quad: { tileX: 2, tileY: 2, entranceOffsetX: 0, entranceOffsetY: 24, district: "green" },
+  home: { tileX: 1, tileY: 5, entranceOffsetX: 0, entranceOffsetY: 24, district: "home" },
+  dorm: { tileX: 1, tileY: 6, entranceOffsetX: 0, entranceOffsetY: 24, district: "home" },
+  cafe: { tileX: 3, tileY: 6, entranceOffsetX: 0, entranceOffsetY: 24, district: "commerce" },
+  shop: { tileX: 5, tileY: 6, entranceOffsetX: 0, entranceOffsetY: 24, district: "commerce" },
+  plaza: { tileX: 3, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 18, district: "center" },
+  square: { tileX: 3, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 18, district: "center" },
+  office: { tileX: 6, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 26, district: "civic" },
+  library: { tileX: 5, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 26, district: "civic" },
+  lecture_hall: { tileX: 6, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 26, district: "civic" },
+  park: { tileX: 1, tileY: 2, entranceOffsetX: 0, entranceOffsetY: 20, district: "green" },
+  grove: { tileX: 1, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 20, district: "green" },
+  quad: { tileX: 2, tileY: 2, entranceOffsetX: 0, entranceOffsetY: 20, district: "green" },
 };
 
 const FALLBACK_SLOTS: TownLayoutSlot[] = [
-  { tileX: 2, tileY: 4, entranceOffsetX: 0, entranceOffsetY: 30, district: "home" },
-  { tileX: 4, tileY: 4, entranceOffsetX: 0, entranceOffsetY: 30, district: "commerce" },
-  { tileX: 2, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 30, district: "green" },
-  { tileX: 5, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 30, district: "civic" },
-  { tileX: 0, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 30, district: "home" },
-  { tileX: 6, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 30, district: "civic" },
+  { tileX: 2, tileY: 5, entranceOffsetX: 0, entranceOffsetY: 24, district: "home" },
+  { tileX: 4, tileY: 5, entranceOffsetX: 0, entranceOffsetY: 24, district: "commerce" },
+  { tileX: 2, tileY: 1, entranceOffsetX: 0, entranceOffsetY: 24, district: "green" },
+  { tileX: 6, tileY: 4, entranceOffsetX: 0, entranceOffsetY: 24, district: "civic" },
+  { tileX: 0, tileY: 4, entranceOffsetX: 0, entranceOffsetY: 24, district: "home" },
+  { tileX: 7, tileY: 3, entranceOffsetX: 0, entranceOffsetY: 24, district: "civic" },
 ];
 
 export function resolveTownLayout(location: SceneLocation, locations: SceneLocation[]): TownLayoutSlot {
@@ -99,5 +99,5 @@ function spreadDuplicateSlot(
 }
 
 function clampTile(value: number) {
-  return Math.min(6, Math.max(0, value));
+  return Math.min(7, Math.max(0, value));
 }

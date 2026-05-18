@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { AgentAvatar } from "@/components/agent-avatar";
-import { PhaserGameWrapper, ViewToggleButton } from "@/components/phaser";
+import { ViewToggleButton } from "@/components/phaser";
 import { TownMap } from "@/components/town-map";
+import { VoxelWorldRenderer } from "@/components/voxel-world-renderer";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { IntelligenceStreamModal } from "@/components/intelligence-stream-modal";
 import { LocationDetailModal } from "@/components/location-detail-modal";
@@ -127,16 +128,13 @@ export function WorldCanvas({ runId }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px_320px]">
-        <div className="h-full min-h-[460px]">
+      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(720px,1fr)_340px]">
+        <div className="h-full min-h-[620px]">
           <div className="flex h-full min-h-[460px] flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
-                  World Renderer
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  保留导演控制台结构，仅切换世界渲染层。
+                  Truman Stage
                 </p>
               </div>
               <ViewToggleButton currentView={mapView} onToggle={setMapView} />
@@ -144,7 +142,7 @@ export function WorldCanvas({ runId }: Props) {
 
             <div className="min-h-0 flex-1">
               {mapView === "phaser" && sceneWorld ? (
-                <PhaserGameWrapper
+                <VoxelWorldRenderer
                   sceneWorld={sceneWorld}
                   highlightedLocationId={highlightedLocationId}
                   highlightedAgentId={selectedAgentId}
@@ -181,7 +179,7 @@ export function WorldCanvas({ runId }: Props) {
           </div>
         </div>
 
-        {/* 中间列：世界健康度 + 地点详情 */}
+        {/* 右侧：世界状态、地点详情、故事线 */}
         <ScrollArea className="flex min-h-0 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-3 pb-6">
           {/* 世界健康度面板 */}
           {healthMetrics && <WorldHealthPanel metrics={healthMetrics} runId={runId} world={world} />}
@@ -273,6 +271,11 @@ export function WorldCanvas({ runId }: Props) {
             ) : null}
           </div>
 
+          <StoryTimeline
+            chapters={storyChapters}
+            onExpand={() => replaceSearchParams({ modal: "timeline" })}
+          />
+
           {/* 保留情报流模态框功能 */}
           {world && (
             <IntelligenceStreamModal
@@ -299,14 +302,6 @@ export function WorldCanvas({ runId }: Props) {
               runId={runId}
             />
           )}
-        </ScrollArea>
-
-        {/* 第三列：故事时间线 */}
-        <ScrollArea className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden pr-3 pb-6">
-          <StoryTimeline
-            chapters={storyChapters}
-            onExpand={() => replaceSearchParams({ modal: "timeline" })}
-          />
         </ScrollArea>
 
         {/* 事件回放弹窗 */}

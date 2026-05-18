@@ -112,7 +112,7 @@ describe("world scene stage helpers", () => {
     syncAmbience(nodes, sceneWorld());
 
     expect(nodes.ambienceOverlay.setFillStyle).toHaveBeenCalledWith(0x0f172a, 0.24);
-    expect(nodes.ambienceLabel.setText).toHaveBeenCalledWith("Stage / 夜晚");
+    expect(nodes.ambienceLabel.setText).toHaveBeenCalledWith("");
   });
 
   it("syncs stage theme, ground texture, and configured palette", () => {

@@ -25,7 +25,8 @@
     "phaser": "^3.90.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "swr": "^2.4.1"
+    "swr": "^2.4.1",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
@@ -38,6 +39,7 @@
     "@types/node": "^25.5.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.184.1",
     "eslint": "9.39.4",
     "eslint-config-next": "^16.2.6",
     "jest": "^30.3.0",

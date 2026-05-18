@@ -61,7 +61,7 @@ export function PhaserGameWrapper({
       parent: containerRef.current,
       width,
       height,
-      backgroundColor: "#0f172a",
+      backgroundColor: "#eef5e8",
       pixelArt: true,
       render: {
         pixelArt: true,
@@ -149,7 +149,7 @@ export function PhaserGameWrapper({
     <div
       ref={containerRef}
       data-testid="phaser-game-container"
-      className="relative mx-auto aspect-[4/3] h-auto max-h-full w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 shadow-xs"
+      className="relative mx-auto h-full min-h-[560px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-[#eef5e8] shadow-xs"
     />
   );
 }

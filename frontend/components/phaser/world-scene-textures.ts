@@ -85,19 +85,16 @@ export function generateGroundTexture(
       break;
     case "boardwalk":
     default:
-      graphics.fillStyle(0x16233a, 1);
+      graphics.fillStyle(0xe7f1dc, 1);
       graphics.fillRect(0, 0, GROUND_TEXTURE_SIZE, GROUND_TEXTURE_SIZE);
-      graphics.fillStyle(0x1d2f4f, 1);
-      graphics.fillRect(0, 0, GROUND_TEXTURE_SIZE, 10);
-      graphics.fillStyle(0x203456, 1);
-      graphics.fillRect(0, 10, GROUND_TEXTURE_SIZE, GROUND_TEXTURE_SIZE - 10);
-      graphics.fillStyle(0x2a4365, 1);
+      graphics.fillStyle(0xd7e8c8, 1);
+      graphics.fillRect(0, 0, GROUND_TEXTURE_SIZE, GROUND_TEXTURE_SIZE);
+      graphics.fillStyle(0xc9dfb7, 0.55);
       for (let x = 0; x < GROUND_TEXTURE_SIZE; x += 8) {
-        graphics.fillRect(x, 9, 4, 1);
-        graphics.fillRect(x + 2, 18, 2, 1);
-        graphics.fillRect(x + 1, 26, 3, 1);
+        graphics.fillRect(x, 10, 2, 2);
+        graphics.fillRect(x + 3, 22, 2, 2);
       }
-      graphics.fillStyle(0x101827, 0.8);
+      graphics.fillStyle(0xbfd8aa, 0.28);
       for (let y = 0; y < GROUND_TEXTURE_SIZE; y += 8) {
         graphics.fillRect(0, y, GROUND_TEXTURE_SIZE, 1);
       }

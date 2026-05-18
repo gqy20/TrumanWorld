@@ -2,20 +2,20 @@ import type { SceneAgent, SceneStagePalette } from "@/lib/world-scene-adapter";
 
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
-export const LOCATION_WIDTH = 92;
-export const LOCATION_HEIGHT = 112;
+export const LOCATION_WIDTH = 88;
+export const LOCATION_HEIGHT = 108;
 export const SCENE_PADDING_X = 120;
 export const SCENE_PADDING_Y = 90;
 export const PIXEL_SCALE = 1.85;
 export const BUILDING_TEXTURE_SIZE = 24;
 export const AGENT_TEXTURE_SIZE = 16;
 export const GROUND_TEXTURE_SIZE = 32;
-export const ISO_TILE_WIDTH = 92;
-export const ISO_TILE_HEIGHT = 46;
-export const ISO_GRID_COLUMNS = 7;
-export const ISO_GRID_ROWS = 7;
+export const ISO_TILE_WIDTH = 96;
+export const ISO_TILE_HEIGHT = 48;
+export const ISO_GRID_COLUMNS = 8;
+export const ISO_GRID_ROWS = 8;
 export const ISO_ORIGIN_X = CANVAS_WIDTH / 2;
-export const ISO_ORIGIN_Y = 116;
+export const ISO_ORIGIN_Y = 78;
 
 export type StagePalette = {
   backgroundColor: string;
@@ -125,29 +125,29 @@ export function getStagePalette(theme?: string): StagePalette {
   switch (theme) {
     case "campus_night":
       return {
-        backgroundColor: "#112317",
-        headerColor: 0x1d4d2b,
-        headerAlpha: 0.34,
-        vignetteColor: 0x08140d,
-        vignetteAlpha: 0.18,
+        backgroundColor: "#e8f3df",
+        headerColor: 0xd7ead0,
+        headerAlpha: 0,
+        vignetteColor: 0x3f5f3a,
+        vignetteAlpha: 0.08,
         labelColor: "#dcfce7",
       };
     case "seaside_night":
       return {
-        backgroundColor: "#0f172a",
-        headerColor: 0x172554,
-        headerAlpha: 0.42,
-        vignetteColor: 0x0f172a,
-        vignetteAlpha: 0.16,
+        backgroundColor: "#e6f1f4",
+        headerColor: 0xcde5ea,
+        headerAlpha: 0,
+        vignetteColor: 0x355866,
+        vignetteAlpha: 0.08,
         labelColor: "#e2e8f0",
       };
     default:
       return {
-        backgroundColor: "#101826",
-        headerColor: 0x1f2937,
-        headerAlpha: 0.38,
-        vignetteColor: 0x020617,
-        vignetteAlpha: 0.18,
+        backgroundColor: "#eef5e8",
+        headerColor: 0xdcebd5,
+        headerAlpha: 0,
+        vignetteColor: 0x36543a,
+        vignetteAlpha: 0.08,
         labelColor: "#e2e8f0",
       };
   }

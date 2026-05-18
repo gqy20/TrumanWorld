@@ -42,7 +42,7 @@ export function createStageShell(scene: Phaser.Scene): StageNodes {
   const stageGround = scene.add
     .tileSprite(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH, CANVAS_HEIGHT, "pixel-ground")
     .setDepth(-20)
-    .setAlpha(0.52);
+    .setAlpha(0.78);
 
   const townTiles = scene.add.graphics().setDepth(-16);
   const townRoads = scene.add.graphics().setDepth(-15);
@@ -50,12 +50,12 @@ export function createStageShell(scene: Phaser.Scene): StageNodes {
   const stageHeader = scene.add
     .rectangle(CANVAS_WIDTH / 2, 86, CANVAS_WIDTH, 132, 0x172554)
     .setDepth(-19)
-    .setAlpha(0.42);
+    .setAlpha(0);
 
   const stageVignette = scene.add
-    .ellipse(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 18, 700, 470, 0x0f172a)
+    .ellipse(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 42, 760, 520, 0x3d5a35)
     .setDepth(-18)
-    .setAlpha(0.16);
+    .setAlpha(0.08);
 
   const ambienceOverlay = scene.add
     .rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH, CANVAS_HEIGHT, 0xffffff)
@@ -63,7 +63,7 @@ export function createStageShell(scene: Phaser.Scene): StageNodes {
     .setAlpha(0);
 
   const ambienceLabel = scene.add
-    .text(20, 20, "World Stage", {
+    .text(20, 20, "", {
       color: palette.labelColor,
       fontFamily: "ui-monospace, SFMono-Regular, monospace",
       fontSize: "12px",
@@ -104,7 +104,7 @@ export function syncAmbience(nodes: StageNodes, world: SceneWorld): void {
     parseRgbaColor(world.ambience.overlayColor),
     world.ambience.isDark ? 0.24 : 0.1
   );
-  nodes.ambienceLabel.setText(`Stage / ${world.ambience.label}`);
+  nodes.ambienceLabel.setText("");
 }
 
 export function syncStageTheme(
@@ -136,8 +136,8 @@ export function syncTownGround(
   for (let row = 0; row < ISO_GRID_ROWS; row += 1) {
     for (let column = 0; column < ISO_GRID_COLUMNS; column += 1) {
       const point = isoTileToCanvas(column, row);
-      const color = (column + row) % 2 === 0 ? 0xb7d68c : 0x9cc774;
-      drawIsoDiamond(nodes.townTiles, point.x, point.y, ISO_TILE_WIDTH, ISO_TILE_HEIGHT, color, 0.74);
+      const color = (column + row) % 2 === 0 ? 0xb9d999 : 0xa8cf86;
+      drawIsoDiamond(nodes.townTiles, point.x, point.y, ISO_TILE_WIDTH, ISO_TILE_HEIGHT, color, 0.82);
     }
   }
 
@@ -148,10 +148,10 @@ export function syncTownGround(
 
 function drawTownBlocks(graphics: Phaser.GameObjects.Graphics): void {
   const blocks = [
-    { tileX: 1, tileY: 4, color: 0xb3c6d8, alpha: 0.22 },
-    { tileX: 3, tileY: 5, color: 0xf3d28f, alpha: 0.24 },
-    { tileX: 5, tileY: 2, color: 0xa8c3e8, alpha: 0.2 },
-    { tileX: 1, tileY: 2, color: 0x86c779, alpha: 0.24 },
+    { tileX: 1, tileY: 5, color: 0xc6d9b6, alpha: 0.22 },
+    { tileX: 3, tileY: 6, color: 0xe6d09a, alpha: 0.24 },
+    { tileX: 6, tileY: 2, color: 0xb9cfdf, alpha: 0.2 },
+    { tileX: 1, tileY: 2, color: 0x8fcf83, alpha: 0.24 },
   ];
 
   for (const block of blocks) {
@@ -174,11 +174,12 @@ function addRoadSprites(
   manifest?: TownAssetPackManifest | null,
 ): void {
   const roads = [
-    ...range(0, 6).map((tileX) => ({ tileX, tileY: 3 })),
-    ...range(0, 6).map((tileY) => ({ tileX: 3, tileY })),
-    ...range(1, 5).map((tileX) => ({ tileX, tileY: 5 })),
-    { tileX: 1, tileY: 4 },
-    { tileX: 5, tileY: 4 },
+    ...range(0, 7).map((tileX) => ({ tileX, tileY: 3 })),
+    ...range(1, 7).map((tileY) => ({ tileX: 3, tileY })),
+    ...range(1, 6).map((tileX) => ({ tileX, tileY: 6 })),
+    { tileX: 1, tileY: 5 },
+    { tileX: 6, tileY: 4 },
+    { tileX: 5, tileY: 2 },
   ];
   const roadTiles = new Map<string, { tileX: number; tileY: number }>();
 
@@ -246,15 +247,15 @@ function addTownProps(
   const props = [
     { key: "tree", tileX: 0.55, tileY: 1.75 },
     { key: "tree", tileX: 1.35, tileY: 0.9 },
-    { key: "tree", tileX: 0.55, tileY: 4.65 },
-    { key: "shrub", tileX: 5.95, tileY: 1.55 },
-    { key: "shrub", tileX: 1.45, tileY: 6.05 },
+    { key: "tree", tileX: 0.55, tileY: 5.65 },
+    { key: "shrub", tileX: 6.95, tileY: 1.55 },
+    { key: "shrub", tileX: 1.45, tileY: 6.95 },
     { key: "lamp", tileX: 2.12, tileY: 3.04 },
-    { key: "lamp", tileX: 4.82, tileY: 3.04 },
-    { key: "lamp", tileX: 3.08, tileY: 4.36 },
-    { key: "bench", tileX: 2.08, tileY: 5.08 },
-    { key: "bench", tileX: 4.66, tileY: 5.08 },
-    { key: "flowers", tileX: 5.64, tileY: 4.72 },
+    { key: "lamp", tileX: 5.82, tileY: 3.04 },
+    { key: "lamp", tileX: 3.08, tileY: 5.36 },
+    { key: "bench", tileX: 2.08, tileY: 6.08 },
+    { key: "bench", tileX: 5.66, tileY: 6.08 },
+    { key: "flowers", tileX: 6.64, tileY: 4.72 },
     { key: "flowers", tileX: 1.26, tileY: 2.82 },
   ];
 

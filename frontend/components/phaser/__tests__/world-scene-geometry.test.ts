@@ -40,8 +40,8 @@ describe("world scene geometry helpers", () => {
       y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 3,
     });
     expect(mapWorldToCanvas(10, 20, locations)).toEqual({
-      x: ISO_ORIGIN_X - ISO_TILE_WIDTH,
-      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 4,
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 4.5,
     });
   });
 
@@ -58,12 +58,12 @@ describe("world scene geometry helpers", () => {
     const locations = [location("home", 0, 0, "home"), location("office", 10, 10, "office")];
 
     expect(getAgentPosition(locations[0], 0, locations)).toEqual({
-      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 24,
-      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 46,
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 2 - 20,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 3 + 32,
     });
     expect(getAgentPosition(locations[0], 4, locations)).toEqual({
-      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 20,
-      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 60,
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 2 - 17,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 3 + 43,
     });
   });
 });
