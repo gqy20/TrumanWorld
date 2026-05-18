@@ -30,6 +30,7 @@ jest.mock("phaser", () => ({
           this.alpha = alpha;
           return this;
         }),
+        setAngle: jest.fn().mockReturnThis(),
         setColor: jest.fn().mockReturnThis(),
         setDepth: jest.fn().mockReturnThis(),
         setDisplaySize: jest.fn().mockReturnThis(),

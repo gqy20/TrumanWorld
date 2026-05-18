@@ -11,6 +11,7 @@ import {
 function gameObject(overrides: Record<string, unknown> = {}) {
   return {
     setAlpha: jest.fn().mockReturnThis(),
+    setAngle: jest.fn().mockReturnThis(),
     beginPath: jest.fn().mockReturnThis(),
     clear: jest.fn().mockReturnThis(),
     closePath: jest.fn().mockReturnThis(),

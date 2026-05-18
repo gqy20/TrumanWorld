@@ -112,6 +112,7 @@ export function syncLocations(
       existing.body.setDepth(baseDepth + 2);
       existing.icon.setPosition(point.x, point.y - 54);
       existing.icon.setText(location.visual.glyph ?? getLocationGlyph(location.locationType));
+      existing.icon.setAlpha(0.42);
       existing.icon.setDepth(baseDepth + 3);
       existing.label.setPosition(point.x, point.y - 10);
       existing.label.setText(location.name);
@@ -149,6 +150,7 @@ export function syncLocations(
         fontStyle: "700",
       })
       .setOrigin(0.5)
+      .setAlpha(0.42)
       .setDepth(baseDepth + 3);
     const label = context.scene.add
       .text(point.x, point.y - 10, location.name, {
@@ -177,11 +179,13 @@ export function syncLocations(
     body.on("pointerover", () => {
       label.setAlpha(1);
       badge.setAlpha(1);
+      icon.setAlpha(0.95);
       context.showTooltip(point.x, point.y - 92, `${location.name} / ${location.locationType}`);
     });
     body.on("pointerout", () => {
       label.setAlpha(0);
       badge.setAlpha(0);
+      icon.setAlpha(0.42);
       context.hideTooltip();
     });
 
@@ -261,6 +265,7 @@ export function syncAgents(
       existing.body.setDepth(agentDepth);
       existing.status = agent.status;
       existing.marker.setText(agent.visual?.marker ?? getAgentMarker(agent.status));
+      existing.marker.setAlpha(0);
       existing.marker.setDepth(agentDepth + 1);
       existing.label.setText(agent.name);
       existing.label.setAlpha(0);
@@ -282,6 +287,7 @@ export function syncAgents(
         fontStyle: "700",
       })
       .setOrigin(0.5)
+      .setAlpha(0)
       .setDepth(agentDepth + 1);
     const label = context.scene.add
       .text(point.x, point.y + 14, agent.name, {
@@ -299,10 +305,12 @@ export function syncAgents(
     });
     body.on("pointerover", () => {
       label.setAlpha(1);
+      marker.setAlpha(0.95);
       context.showTooltip(point.x, point.y - 34, `${agent.name} / ${agent.status}`);
     });
     body.on("pointerout", () => {
       label.setAlpha(0);
+      marker.setAlpha(0);
       context.hideTooltip();
     });
 
@@ -375,7 +383,7 @@ export function syncMoveTrails(
       existing.arrow.setAlpha(recencyAlpha);
       existing.label.setPosition(midX, midY);
       existing.label.setText(`${trail.actorName} →`);
-      existing.label.setAlpha(recencyAlpha);
+      existing.label.setAlpha(0);
       continue;
     }
 
@@ -397,10 +405,10 @@ export function syncMoveTrails(
       })
       .setOrigin(0.5)
       .setDepth(16)
-      .setAlpha(recencyAlpha);
+      .setAlpha(0);
 
     const fadeTween = context.scene.tweens.add({
-      targets: [line, arrow, label],
+      targets: [line, arrow],
       alpha: { from: recencyAlpha, to: Math.max(0.12, recencyAlpha - 0.18) },
       duration: 1800 + trail.recencyIndex * 300,
       yoyo: true,

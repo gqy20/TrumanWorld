@@ -25,6 +25,9 @@ const frames = {
   roadStraight: 7,
   roadCross: 8,
   roadBend: 9,
+  roadEnd: 15,
+  roadT: 21,
+  roadDot: 22,
   tree: 10,
   lamp: 11,
   bench: 12,
@@ -212,25 +215,56 @@ function drawAgent(pixels, frame, bodyColor, opts = {}) {
   if (opts.resting) rect(pixels, frame, x + 11, y + 5, 12, 5, colors.white);
 }
 
+function drawRoadBase(pixels, frame, arms) {
+  ellipse(pixels, frame, 64, 101, 36, 8, colors.shadow);
+  for (const arm of arms) {
+    const [cx, cy, width, height] = roadArmShape(arm);
+    diamond(pixels, frame, cx, cy + 3, width + 12, height + 6, colors.pathDark);
+    diamond(pixels, frame, cx, cy, width, height, colors.path);
+    diamond(pixels, frame, cx, cy - 1, width * 0.56, height * 0.56, colors.pathLight);
+  }
+  diamond(pixels, frame, 64, 75, 44, 22, colors.path);
+  diamond(pixels, frame, 64, 74, 26, 12, colors.pathLight);
+}
+
+function roadArmShape(arm) {
+  switch (arm) {
+    case "northWest":
+      return [49, 67, 42, 20];
+    case "northEast":
+      return [79, 67, 42, 20];
+    case "southEast":
+      return [79, 83, 42, 20];
+    case "southWest":
+      return [49, 83, 42, 20];
+    default:
+      return [64, 75, 42, 20];
+  }
+}
+
 function drawRoadStraight(pixels, frame) {
-  diamond(pixels, frame, 64, 78, 96, 46, colors.pathDark);
-  diamond(pixels, frame, 64, 75, 88, 38, colors.path);
-  diamond(pixels, frame, 64, 75, 62, 24, colors.pathLight);
+  drawRoadBase(pixels, frame, ["northWest", "southEast"]);
 }
 
 function drawRoadCross(pixels, frame) {
-  drawRoadStraight(pixels, frame);
-  diamond(pixels, frame, 64, 75, 40, 74, colors.path);
-  diamond(pixels, frame, 64, 75, 26, 54, colors.pathLight);
+  drawRoadBase(pixels, frame, ["northWest", "northEast", "southEast", "southWest"]);
   ellipse(pixels, frame, 64, 76, 14, 7, [255, 247, 214, 210]);
 }
 
 function drawRoadBend(pixels, frame) {
-  diamond(pixels, frame, 64, 78, 88, 40, colors.pathDark);
-  diamond(pixels, frame, 56, 76, 66, 32, colors.path);
-  diamond(pixels, frame, 75, 83, 36, 46, colors.path);
-  diamond(pixels, frame, 60, 75, 36, 16, colors.pathLight);
-  diamond(pixels, frame, 77, 83, 18, 28, colors.pathLight);
+  drawRoadBase(pixels, frame, ["northWest", "northEast"]);
+}
+
+function drawRoadEnd(pixels, frame) {
+  drawRoadBase(pixels, frame, ["northWest"]);
+}
+
+function drawRoadT(pixels, frame) {
+  drawRoadBase(pixels, frame, ["northWest", "northEast", "southEast"]);
+}
+
+function drawRoadDot(pixels, frame) {
+  drawRoadBase(pixels, frame, []);
 }
 
 function drawTree(pixels, frame) {
@@ -289,6 +323,9 @@ function drawAll(pixels) {
   drawRoadStraight(pixels, frames.roadStraight);
   drawRoadCross(pixels, frames.roadCross);
   drawRoadBend(pixels, frames.roadBend);
+  drawRoadEnd(pixels, frames.roadEnd);
+  drawRoadT(pixels, frames.roadT);
+  drawRoadDot(pixels, frames.roadDot);
   drawTree(pixels, frames.tree);
   drawLamp(pixels, frames.lamp);
   drawBench(pixels, frames.bench);
@@ -367,6 +404,9 @@ function writeManifest() {
       roadStraight: { frame: frames.roadStraight, anchor: [0.5, 0.5], display: [78, 38] },
       roadCross: { frame: frames.roadCross, anchor: [0.5, 0.5], display: [78, 38] },
       roadBend: { frame: frames.roadBend, anchor: [0.5, 0.5], display: [78, 38] },
+      roadEnd: { frame: frames.roadEnd, anchor: [0.5, 0.5], display: [78, 38] },
+      roadT: { frame: frames.roadT, anchor: [0.5, 0.5], display: [78, 38] },
+      roadDot: { frame: frames.roadDot, anchor: [0.5, 0.5], display: [78, 38] },
     },
     props: {
       tree: { frame: frames.tree, anchor: [0.5, 0.9], display: [54, 68] },

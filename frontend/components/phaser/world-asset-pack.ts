@@ -65,6 +65,9 @@ const TILE_FALLBACKS: Record<string, TownAssetFrameSpec> = {
   roadStraight: { frame: 7, anchor: [0.5, 0.5], display: [78, 38] },
   roadCross: { frame: 8, anchor: [0.5, 0.5], display: [78, 38] },
   roadBend: { frame: 9, anchor: [0.5, 0.5], display: [78, 38] },
+  roadEnd: { frame: 15, anchor: [0.5, 0.5], display: [78, 38] },
+  roadT: { frame: 21, anchor: [0.5, 0.5], display: [78, 38] },
+  roadDot: { frame: 22, anchor: [0.5, 0.5], display: [78, 38] },
 };
 
 const PROP_FALLBACKS: Record<string, TownAssetFrameSpec> = {

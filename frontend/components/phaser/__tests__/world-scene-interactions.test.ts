@@ -31,11 +31,9 @@ function locationNode(overrides: Partial<LocationNode> = {}): LocationNode {
   return {
     body: gameObject({ x: 120, y: 140 }),
     glow: gameObject({ alpha: 0.16 }),
+    icon: gameObject(),
     label: gameObject(),
     badge: gameObject(),
-    heat: gameObject(),
-    countLabel: gameObject(),
-    glyph: gameObject(),
     ...overrides,
   } as unknown as LocationNode;
 }
@@ -63,6 +61,7 @@ describe("world scene interaction helpers", () => {
 
     expect(highlighted.body.setTint).toHaveBeenCalledWith(0xf8fafc);
     expect(highlighted.body.setScale).toHaveBeenCalledWith(1.06);
+    expect(highlighted.icon.setAlpha).toHaveBeenCalledWith(0.95);
     expect(highlighted.label.setAlpha).toHaveBeenCalledWith(1);
     expect(highlighted.badge.setAlpha).toHaveBeenCalledWith(1);
     expect(highlighted.label.setScale).toHaveBeenCalledWith(1.05);
@@ -70,6 +69,7 @@ describe("world scene interaction helpers", () => {
     expect(highlighted.glow.setAlpha).toHaveBeenCalledWith(0.34);
     expect(normal.body.clearTint).toHaveBeenCalled();
     expect(normal.body.setScale).toHaveBeenCalledWith(1);
+    expect(normal.icon.setAlpha).toHaveBeenCalledWith(0.42);
     expect(normal.label.setAlpha).toHaveBeenCalledWith(0);
     expect(normal.badge.setAlpha).toHaveBeenCalledWith(0);
   });
@@ -94,6 +94,7 @@ describe("world scene interaction helpers", () => {
     );
 
     expect(highlighted.body.setTint).toHaveBeenCalledWith(0xfef08a);
+    expect(highlighted.marker.setAlpha).toHaveBeenCalledWith(0.95);
     expect(highlighted.marker.setScale).toHaveBeenCalledWith(1.08);
     expect(highlighted.label.setAlpha).toHaveBeenCalledWith(1);
     expect(scene.tweens.add).toHaveBeenCalledWith(
@@ -104,6 +105,7 @@ describe("world scene interaction helpers", () => {
     );
     expect(staleTween.stop).toHaveBeenCalled();
     expect(normal.body.clearTint).toHaveBeenCalled();
+    expect(normal.marker.setAlpha).toHaveBeenCalledWith(0);
     expect(normal.label.setAlpha).toHaveBeenCalledWith(0);
     expect(normal.pulseTween).toBeUndefined();
   });

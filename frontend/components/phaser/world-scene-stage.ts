@@ -174,32 +174,68 @@ function addRoadSprites(
   manifest?: TownAssetPackManifest | null,
 ): void {
   const roads = [
-    ...range(0, 6).map((tileX) => ({ tileX, tileY: 3, type: "roadStraight" })),
-    ...range(0, 6).map((tileY) => ({ tileX: 3, tileY, type: "roadStraight" })),
-    ...range(1, 5).map((tileX) => ({ tileX, tileY: 5, type: "roadStraight" })),
-    { tileX: 1, tileY: 4, type: "roadBend" },
-    { tileX: 5, tileY: 4, type: "roadBend" },
+    ...range(0, 6).map((tileX) => ({ tileX, tileY: 3 })),
+    ...range(0, 6).map((tileY) => ({ tileX: 3, tileY })),
+    ...range(1, 5).map((tileX) => ({ tileX, tileY: 5 })),
+    { tileX: 1, tileY: 4 },
+    { tileX: 5, tileY: 4 },
   ];
-  const seen = new Set<string>();
+  const roadTiles = new Map<string, { tileX: number; tileY: number }>();
 
   for (const road of roads) {
     const key = `${road.tileX}:${road.tileY}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const isCrossing =
-      (road.tileX === 3 && road.tileY === 3) || (road.tileX === 3 && road.tileY === 5);
+    roadTiles.set(key, road);
+  }
+
+  for (const road of roadTiles.values()) {
     const point = isoTileToCanvas(road.tileX, road.tileY);
-    const assetKey = isCrossing ? "roadCross" : road.type;
+    const roadShape = resolveRoadShape(road, roadTiles);
     addTownAsset(
       scene,
       nodes,
-      getTownTileAssetSpec(assetKey, manifest),
+      getTownTileAssetSpec(roadShape.assetKey, manifest),
       point.x,
       point.y,
       -14,
       0.96,
     );
   }
+}
+
+function resolveRoadShape(
+  road: { tileX: number; tileY: number },
+  roadTiles: Map<string, { tileX: number; tileY: number }>,
+) {
+  const directions = [
+    { key: "northWest", dx: -1, dy: 0, rotation: 0 },
+    { key: "northEast", dx: 0, dy: -1, rotation: 90 },
+    { key: "southEast", dx: 1, dy: 0, rotation: 180 },
+    { key: "southWest", dx: 0, dy: 1, rotation: 270 },
+  ];
+  const connected = directions.filter((direction) =>
+    roadTiles.has(`${road.tileX + direction.dx}:${road.tileY + direction.dy}`)
+  );
+
+  if (connected.length >= 4) {
+    return { assetKey: "roadCross" };
+  }
+  if (connected.length === 3) {
+    return { assetKey: "roadT" };
+  }
+  if (connected.length === 2) {
+    const [first, second] = connected;
+    const isStraight =
+      (first.key === "northWest" && second.key === "southEast") ||
+      (first.key === "northEast" && second.key === "southWest");
+    if (isStraight) {
+      return { assetKey: "roadStraight" };
+    }
+    return { assetKey: "roadBend" };
+  }
+  if (connected.length === 1) {
+    return { assetKey: "roadEnd" };
+  }
+  return { assetKey: "roadDot" };
 }
 
 function addTownProps(

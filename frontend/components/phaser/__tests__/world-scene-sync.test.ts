@@ -196,14 +196,17 @@ describe("world scene sync helpers", () => {
     expect(cafeBody.y).toBe(172);
     expect(cafe?.label.text).toBe("Cafe");
     expect(cafe?.badge.text).toBe("2/6");
+    expect(cafe?.icon.alpha).toBe(0.42);
     expect(cafe?.label.alpha).toBe(0);
     expect(cafe?.badge.alpha).toBe(0);
 
     cafeBody.__handlers.pointerdown();
     cafeBody.__handlers.pointerover();
+    expect(cafe?.icon.alpha).toBe(0.95);
     expect(cafe?.label.alpha).toBe(1);
     expect(cafe?.badge.alpha).toBe(1);
     cafeBody.__handlers.pointerout();
+    expect(cafe?.icon.alpha).toBe(0.42);
     expect(cafe?.label.alpha).toBe(0);
     expect(cafe?.badge.alpha).toBe(0);
 
@@ -261,11 +264,14 @@ describe("world scene sync helpers", () => {
     expect(meiBody.x).toBe(100);
     expect(meiBody.y).toBe(230);
     expect(mei?.marker.text).toBe("M");
+    expect(mei?.marker.alpha).toBe(0);
     expect(mei?.label.text).toBe("Mei");
 
     meiBody.__handlers.pointerdown();
     meiBody.__handlers.pointerover();
+    expect(mei?.marker.alpha).toBe(0.95);
     meiBody.__handlers.pointerout();
+    expect(mei?.marker.alpha).toBe(0);
 
     expect(context.playTapFeedback).toHaveBeenCalledWith(mei?.body, mei?.marker, mei?.label);
     expect(scene.events.emit).toHaveBeenCalledWith("agent:click", "agent-1");
@@ -377,7 +383,7 @@ describe("world scene sync helpers", () => {
     expect(trail?.arrow.setRotation).toHaveBeenCalledWith(expect.any(Number));
     expect(scene.tweens.add).toHaveBeenCalledWith(
       expect.objectContaining({
-        targets: [trail?.line, trail?.arrow, trail?.label],
+        targets: [trail?.line, trail?.arrow],
         repeat: -1,
       }),
     );
@@ -398,7 +404,7 @@ describe("world scene sync helpers", () => {
     expect(scene.add.line).toHaveBeenCalledTimes(1);
     expect(trail?.line.setTo).toHaveBeenCalledWith(300, 400, 100, 200);
     expect(trail?.label.setText).toHaveBeenCalledWith("Mei Lin →");
-    expect(trail?.label.setAlpha).toHaveBeenCalledWith(0.4);
+    expect(trail?.label.setAlpha).toHaveBeenCalledWith(0);
 
     syncMoveTrails(context, nodes, world({ moveTrails: [] }));
 

@@ -17,11 +17,13 @@ export function refreshLocationHighlights(
     if (isHighlighted) {
       node.body.setTint(0xf8fafc);
       node.body.setScale(1.06);
+      node.icon.setAlpha(0.95);
       node.label.setAlpha(1);
       node.badge.setAlpha(1);
     } else {
       node.body.clearTint();
       node.body.setScale(1);
+      node.icon.setAlpha(0.42);
       node.label.setAlpha(0);
       node.badge.setAlpha(0);
     }
@@ -41,6 +43,7 @@ export function refreshAgentHighlights(
     node.pulseTween?.stop();
     if (isHighlighted) {
       node.body.setTint(0xfef08a);
+      node.marker.setAlpha(0.95);
       node.marker.setScale(1.08);
       node.label.setAlpha(1);
       node.label.setScale(1.08);
@@ -55,6 +58,7 @@ export function refreshAgentHighlights(
     } else {
       node.body.clearTint();
       node.body.setScale(1);
+      node.marker.setAlpha(0);
       node.marker.setScale(1);
       node.label.setAlpha(0);
       node.label.setScale(1);
