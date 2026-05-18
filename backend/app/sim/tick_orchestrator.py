@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from app.agent.runtime import RuntimeContext
 from app.agent.working_memory import build_reactor_working_memory
 from app.cognition.errors import UpstreamApiUnavailableError
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.scenario.base import Scenario
@@ -229,6 +230,17 @@ class TickOrchestrator:
             except UpstreamApiUnavailableError:
                 raise
             except Exception as exc:
+                if not self._allows_agent_decision_fallback():
+                    logger.exception(
+                        "agent_decision_failed_without_fallback run_id=%s tick_no=%s "
+                        "agent_id=%s runtime_agent_id=%s queue_delay_ms=%s",
+                        run_id,
+                        tick_no,
+                        agent_id,
+                        runtime_agent_id,
+                        queue_delay_ms,
+                    )
+                    raise
                 logger.exception(
                     "agent_decision_failed run_id=%s tick_no=%s agent_id=%s runtime_agent_id=%s "
                     "queue_delay_ms=%s",
@@ -327,6 +339,9 @@ class TickOrchestrator:
             agent_id=agent_id,
             action_type="rest",
         )
+
+    def _allows_agent_decision_fallback(self) -> bool:
+        return isinstance(self.agent_runtime.backend, HeuristicAgentBackend)
 
     async def decide_intent_for_agent(
         self,

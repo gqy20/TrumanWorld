@@ -15,6 +15,7 @@ from app.cognition.claude.decision_utils import (
     build_decision_prompt,
     parse_runtime_decision,
 )
+from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
 from app.cognition.claude.sdk_options import build_sdk_options
 from app.infra.logging import get_logger
 from app.infra.settings import Settings
@@ -190,13 +191,13 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                 return await self._decide_with_pool_once(invocation, runtime_ctx=runtime_ctx)
             except asyncio.CancelledError:
                 logger.debug(f"Claude SDK pool decision cancelled for agent {invocation.agent_id}")
-                return RuntimeDecision(action_type="rest")
+                raise
             except RuntimeError as exc:
                 if "cancel scope" in str(exc).lower() or "different task" in str(exc).lower():
                     logger.debug(
                         f"Claude SDK pool cancel scope error for agent {invocation.agent_id}: {exc}"
                     )
-                    return RuntimeDecision(action_type="rest")
+                    raise
                 last_exc = exc
                 if attempt < max_attempts - 1:
                     logger.warning(
@@ -221,6 +222,7 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                         f"for agent {invocation.agent_id}: {exc}"
                     )
 
+        self._raise_upstream_unavailable(last_exc)
         raise last_exc  # type: ignore[misc]
 
     async def _decide_with_pool_once(
@@ -290,7 +292,9 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
         runtime_ctx: RuntimeContext | None = None,
     ) -> RuntimeDecision:
         if shutil.which("claude") is None:
-            raise RuntimeError("Claude CLI is not available in the current environment")
+            raise UpstreamApiUnavailableError(
+                "Claude CLI is not available in the current environment"
+            )
 
         options = self._build_sdk_options(invocation, runtime_ctx=runtime_ctx)
         if invocation.session_id:
@@ -307,13 +311,13 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                 return await self._query_internal(invocation, full_prompt, options, runtime_ctx)
             except asyncio.CancelledError:
                 logger.debug(f"Claude SDK decision cancelled for agent {invocation.agent_id}")
-                return RuntimeDecision(action_type="rest")
+                raise
             except RuntimeError as exc:
                 if "cancel scope" in str(exc).lower() or "different task" in str(exc).lower():
                     logger.debug(
                         f"Claude SDK cancel scope error for agent {invocation.agent_id}: {exc}"
                     )
-                    return RuntimeDecision(action_type="rest")
+                    raise
                 last_exc = exc
                 if attempt < max_attempts - 1:
                     logger.warning(
@@ -338,7 +342,15 @@ class ClaudeSDKDecisionProvider(AgentDecisionProvider):
                         f"for agent {invocation.agent_id}: {exc}"
                     )
 
+        self._raise_upstream_unavailable(last_exc)
         raise last_exc  # type: ignore[misc]
+
+    @staticmethod
+    def _raise_upstream_unavailable(exc: Exception | None) -> None:
+        if exc is None:
+            return
+        if is_upstream_api_unavailable_error(exc):
+            raise UpstreamApiUnavailableError(str(exc)) from exc
 
     async def _query_internal(
         self,

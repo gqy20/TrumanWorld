@@ -10,7 +10,6 @@ from langgraph.types import RetryPolicy
 from pydantic import BaseModel, Field
 
 from app.agent.prompt_loader import PromptLoader
-from app.cognition.claude.decision_provider import HeuristicDecisionHook
 from app.cognition.errors import (
     UpstreamApiUnavailableError,
     is_upstream_api_unavailable_error,
@@ -44,7 +43,6 @@ class _StructuredDecision(BaseModel):
 class _DecisionState(TypedDict):
     invocation: AgentActionInvocation
     result: AgentDecisionResult | None
-    use_model: bool
 
 
 class _DecisionContext(TypedDict):
@@ -78,7 +76,6 @@ class LangGraphAgentBackend:
         text_model: BaseChatModel | ChatModelProtocol | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._decision_hook: HeuristicDecisionHook | None = None
         default_model = (
             self._build_default_model() if decision_model is None and text_model is None else None
         )
@@ -94,34 +91,25 @@ class LangGraphAgentBackend:
             self._model_decide_node,
             retry_policy=self._build_model_retry_policy(),
         )
-        graph.add_node("fallback_decide", self._fallback_decide_node)
-        graph.add_conditional_edges(
-            START,
-            self._route_start,
-            {
-                "model_decide": "model_decide",
-                "fallback_decide": "fallback_decide",
-            },
-        )
+        graph.add_edge(START, "model_decide")
         graph.add_edge("model_decide", END)
-        graph.add_edge("fallback_decide", END)
         self._graph = graph.compile()
-
-    def set_decision_hook(self, decision_hook: HeuristicDecisionHook | None) -> None:
-        self._decision_hook = decision_hook
 
     async def decide_action(
         self,
         invocation: AgentActionInvocation,
         runtime_ctx: BackendExecutionContext | None = None,
     ) -> AgentDecisionResult:
+        if self._decision_model is None:
+            msg = "LangGraph reactor model is not configured or unavailable"
+            raise UpstreamApiUnavailableError(msg)
+
         started_at = perf_counter()
         try:
             state = await self._graph.ainvoke(
                 {
                     "invocation": invocation,
                     "result": None,
-                    "use_model": self._decision_model is not None,
                 },
                 context={"runtime_ctx": runtime_ctx},
             )
@@ -129,7 +117,7 @@ class LangGraphAgentBackend:
             raise
         except Exception as exc:
             logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
-            return self._fallback_decision(invocation, reason=str(exc))
+            raise
         result = state["result"] or AgentDecisionResult(action_type="rest")
         logger.debug(
             "langgraph_reactor_completed run_id=%s agent_id=%s duration_ms=%s action_type=%s "
@@ -167,9 +155,6 @@ class LangGraphAgentBackend:
             runtime_ctx=runtime_ctx,
         )
 
-    def _route_start(self, state: _DecisionState) -> str:
-        return "model_decide" if state["use_model"] else "fallback_decide"
-
     async def _model_decide_node(
         self,
         state: _DecisionState,
@@ -180,88 +165,14 @@ class LangGraphAgentBackend:
         if self._settings.langgraph_reactor_structured_enabled:
             result = await self._run_structured_reactor_decision(invocation, runtime_ctx)
             if result is not None:
-                return {"invocation": invocation, "result": result, "use_model": True}
+                return {"invocation": invocation, "result": result}
 
         result = await self._run_text_reactor_decision(invocation, runtime_ctx)
         if result is not None:
-            return {"invocation": invocation, "result": result, "use_model": True}
+            return {"invocation": invocation, "result": result}
 
-        return {
-            "invocation": invocation,
-            "result": self._fallback_decision(
-                invocation,
-                reason="langgraph_unavailable",
-            ),
-            "use_model": True,
-        }
-
-    def _fallback_decide_node(self, state: _DecisionState) -> _DecisionState:
-        invocation = state["invocation"]
-        return {
-            "invocation": invocation,
-            "result": self._fallback_decision(
-                invocation,
-                reason="model_disabled",
-            ),
-            "use_model": False,
-        }
-
-    def _heuristic_decision(self, invocation: AgentActionInvocation) -> AgentDecisionResult:
-        world = invocation.context.get("world", {})
-        goal = world.get("current_goal")
-        known_location_ids = world.get("known_location_ids")
-
-        if isinstance(goal, str) and goal.startswith("move:"):
-            target_location_id = goal.split(":", 1)[1].strip()
-            if (
-                isinstance(known_location_ids, list)
-                and target_location_id not in known_location_ids
-            ):
-                return AgentDecisionResult(action_type="rest")
-            return AgentDecisionResult(
-                action_type="move",
-                target_location_id=target_location_id,
-            )
-
-        if self._decision_hook is not None:
-            nearby_agent_id = world.get("nearby_agent_id")
-            current_location_id = world.get("current_location_id")
-            home_location_id = world.get("home_location_id")
-            hook_decision = self._decision_hook(
-                world=world,
-                nearby_agent_id=nearby_agent_id,
-                current_location_id=current_location_id,
-                home_location_id=home_location_id,
-                agent_id=invocation.agent_id,
-            )
-            if hook_decision is not None:
-                return AgentDecisionResult(
-                    action_type=hook_decision.action_type,
-                    target_location_id=hook_decision.target_location_id,
-                    target_agent_id=hook_decision.target_agent_id,
-                    message=hook_decision.message,
-                    payload=dict(hook_decision.payload),
-                )
-
-        return AgentDecisionResult(action_type="rest")
-
-    def _fallback_decision(
-        self,
-        invocation: AgentActionInvocation,
-        *,
-        reason: str,
-    ) -> AgentDecisionResult:
-        result = self._heuristic_decision(invocation)
-        logger.warning(
-            "LangGraph reactor fallback applied for %s: action=%s target_agent_id=%s "
-            "target_location_id=%s reason=%s",
-            invocation.agent_id,
-            result.action_type,
-            result.target_agent_id,
-            result.target_location_id,
-            reason,
-        )
-        return result
+        msg = f"LangGraph reactor returned no usable decision for {invocation.agent_id}"
+        raise RuntimeError(msg)
 
     def _build_default_model(self) -> BaseChatModel | None:
         return build_langgraph_chat_model(self._settings)
@@ -479,7 +390,7 @@ class LangGraphAgentBackend:
                 int((perf_counter() - started_at) * 1000),
                 type(exc).__name__,
             )
-            return None
+            raise
 
         duration_ms = int((perf_counter() - started_at) * 1000)
         self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", response, duration_ms)
@@ -605,8 +516,6 @@ class LangGraphAgentBackend:
         return ""
 
     def _raise_on_upstream_unavailable(self, exc: Exception) -> None:
-        if not self._settings.agent_fail_fast_on_api_unavailable:
-            return
         if not is_upstream_api_unavailable_error(exc):
             return
         raise UpstreamApiUnavailableError(str(exc)) from exc

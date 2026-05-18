@@ -15,6 +15,7 @@ from app.cognition.types import AgentDecisionResult
 from app.agent.system_prompt import build_system_prompt
 import app.cognition.claude.decision_provider as provider_module
 from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
+from app.cognition.errors import UpstreamApiUnavailableError
 from app.infra.settings import get_settings
 from app.scenario.bundle_world.scenario import BundleWorldScenario
 
@@ -460,12 +461,8 @@ def test_runtime_rejects_legacy_anthropic_provider_value(monkeypatch: pytest.Mon
 
 
 @pytest.mark.asyncio
-async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: pytest.MonkeyPatch):
-    """Test that CancelledError returns a fallback decision instead of raising.
-
-    This behavior allows the simulation to continue gracefully when
-    the SDK call is cancelled (e.g., scheduler shutdown).
-    """
+async def test_claude_provider_raises_on_cancelled_error(monkeypatch: pytest.MonkeyPatch):
+    """Cancelled Claude SDK decisions must not synthesize fallback actions."""
     monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "claude_sdk")
     get_settings.cache_clear()
     monkeypatch.setattr(provider_module.shutil, "which", lambda _: "/usr/bin/claude")
@@ -486,9 +483,8 @@ async def test_claude_provider_returns_fallback_on_cancelled_error(monkeypatch: 
         max_budget_usd=0.1,
     )
 
-    # CancelledError should return a fallback decision, not raise
-    result = await provider.decide(invocation)
-    assert result.action_type == "rest"
+    with pytest.raises(asyncio.CancelledError):
+        await provider.decide(invocation)
 
     get_settings.cache_clear()
 
@@ -572,7 +568,7 @@ async def test_claude_provider_fails_fast_when_cli_missing(monkeypatch: pytest.M
         max_budget_usd=0.1,
     )
 
-    with pytest.raises(RuntimeError, match="Claude CLI is not available"):
+    with pytest.raises(UpstreamApiUnavailableError, match="Claude CLI is not available"):
         await provider.decide(invocation)
 
     get_settings.cache_clear()

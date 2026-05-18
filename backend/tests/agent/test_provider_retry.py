@@ -182,7 +182,7 @@ async def test_provider_extracts_first_valid_json_when_tail_contains_braces(monk
 
 @pytest.mark.asyncio
 async def test_cancelled_error_not_retried(monkeypatch):
-    """CancelledError 属于正常取消，不应触发重试，静默返回 rest。"""
+    """CancelledError 属于正常取消，不应触发重试，也不应合成 rest。"""
     import asyncio
 
     provider = _make_provider(monkeypatch)
@@ -199,9 +199,9 @@ async def test_cancelled_error_not_retried(monkeypatch):
 
     monkeypatch.setattr(provider_module, "query", fake_query)
 
-    result = await provider.decide(invocation)
+    with pytest.raises(asyncio.CancelledError):
+        await provider.decide(invocation)
 
-    assert result.action_type == "rest"
     assert call_count == 1  # 只调用了1次，没有重试
 
 

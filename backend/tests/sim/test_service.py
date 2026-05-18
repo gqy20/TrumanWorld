@@ -571,6 +571,7 @@ async def test_simulation_service_runs_tick_with_langgraph_backend(
     monkeypatch.setenv("TRUMANWORLD_AGENT_BACKEND", "langgraph")
     monkeypatch.setenv("TRUMANWORLD_LLM_MODEL", "langgraph-smoke-model")
     monkeypatch.setenv("TRUMANWORLD_ANTHROPIC_API_KEY", "langgraph-smoke-key")
+    monkeypatch.setenv("TRUMANWORLD_LANGGRAPH_REACTOR_STRUCTURED_ENABLED", "true")
     get_settings.cache_clear()
     try:
         run = SimulationRun(

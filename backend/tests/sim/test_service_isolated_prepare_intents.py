@@ -502,6 +502,17 @@ class UnavailableApiBackend:
         return None
 
 
+class FailingLlmBackend:
+    async def decide_action(self, invocation, runtime_ctx=None):
+        raise RuntimeError("llm decision failed")
+
+    async def plan_day(self, invocation, runtime_ctx=None):
+        return None
+
+    async def reflect_day(self, invocation, runtime_ctx=None):
+        return None
+
+
 @pytest.mark.asyncio
 async def test_prepare_intents_from_data_raises_on_upstream_api_unavailable(db_session):
     tmp_path = Path(tempfile.mkdtemp())
@@ -537,6 +548,65 @@ async def test_prepare_intents_from_data_raises_on_upstream_api_unavailable(db_s
                 run_id="run-stop-fast",
                 tick_no=3,
             )
+    finally:
+        shutil.rmtree(tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_prepare_intents_from_data_does_not_fallback_for_llm_backend(db_session):
+    tmp_path = Path(tempfile.mkdtemp())
+    try:
+        agent_dir = tmp_path / "agent-no-fallback"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "agent.yml").write_text(
+            "id: agent-no-fallback\nname: Alice\noccupation: resident\nhome: loc-1\n",
+            encoding="utf-8",
+        )
+        (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+
+        class CountingFallbackScenario(FakeScenario):
+            fallback_calls = 0
+
+            def fallback_intent(
+                self,
+                *,
+                agent_id: str,
+                current_location_id: str,
+                home_location_id: str | None,
+                nearby_agent_id: str | None,
+                world_role: str | None = None,
+                current_status: dict | None = None,
+                scenario_state: dict | None = None,
+                scenario_guidance: ScenarioGuidance | None = None,
+            ):
+                self.fallback_calls += 1
+                return ActionIntent(agent_id=agent_id, action_type="rest")
+
+        scenario = CountingFallbackScenario()
+        orchestrator = build_orchestrator(tmp_path, backend=FailingLlmBackend(), scenario=scenario)
+        world = WorldState(current_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc))
+        world.agents["agent-no-fallback"] = type(
+            "S", (), {"id": "agent-no-fallback", "status": {}, "location_id": "loc-1"}
+        )()
+        snapshot = AgentDecisionSnapshot(
+            id="agent-no-fallback",
+            current_goal="rest",
+            current_location_id="loc-1",
+            home_location_id="loc-1",
+            profile={},
+            recent_events=[],
+        )
+
+        with pytest.raises(RuntimeError, match="llm decision failed"):
+            await orchestrator.prepare_intents_from_data(
+                world=world,
+                agent_data=[snapshot],
+                engine=None,
+                run_id="run-no-fallback",
+                tick_no=3,
+            )
+
+        assert scenario.fallback_calls == 0
     finally:
         shutil.rmtree(tmp_path)
 

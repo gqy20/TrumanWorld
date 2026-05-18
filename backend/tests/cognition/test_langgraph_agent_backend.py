@@ -18,31 +18,7 @@ def test_registry_builds_langgraph_agent_backend() -> None:
     assert backend.__class__.__name__ == "LangGraphAgentBackend"
 
 
-async def test_langgraph_backend_decides_move_for_direct_goal() -> None:
-    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
-
-    backend = LangGraphAgentBackend()
-    invocation = AgentActionInvocation(
-        agent_id="alice",
-        prompt="Pick the next action.",
-        context={
-            "world": {
-                "current_goal": "move:town-square",
-                "known_location_ids": ["town-square", "home"],
-            }
-        },
-        max_turns=2,
-        max_budget_usd=0.1,
-        allowed_actions=["move", "talk", "work", "rest"],
-    )
-
-    result = await backend.decide_action(invocation)
-
-    assert result.action_type == "move"
-    assert result.target_location_id == "town-square"
-
-
-async def test_langgraph_backend_falls_back_to_rest_without_directive() -> None:
+async def test_langgraph_backend_raises_when_model_is_unavailable() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
     backend = LangGraphAgentBackend(
@@ -58,15 +34,40 @@ async def test_langgraph_backend_falls_back_to_rest_without_directive() -> None:
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
+        context={
+            "world": {
+                "current_goal": "move:town-square",
+                "known_location_ids": ["town-square", "home"],
+            }
+        },
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["move", "talk", "work", "rest"],
+    )
+
+    with pytest.raises(UpstreamApiUnavailableError, match="not configured or unavailable"):
+        await backend.decide_action(invocation)
+
+
+async def test_langgraph_backend_raises_when_model_returns_no_usable_decision() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    class InvalidDecisionModel:
+        async def ainvoke(self, prompt: str):
+            return '{"action_type":"talk"}'
+
+    backend = LangGraphAgentBackend(decision_model=InvalidDecisionModel())
+    invocation = AgentActionInvocation(
+        agent_id="alice",
+        prompt="Pick the next action.",
         context={"world": {"current_goal": "talk", "known_location_ids": ["town-square"]}},
         max_turns=2,
         max_budget_usd=0.1,
         allowed_actions=["move", "talk", "work", "rest"],
     )
 
-    result = await backend.decide_action(invocation)
-
-    assert result.action_type == "rest"
+    with pytest.raises(RuntimeError, match="no usable decision"):
+        await backend.decide_action(invocation)
 
 
 async def test_langgraph_backend_prefers_text_json_by_default() -> None:
@@ -209,12 +210,12 @@ async def test_langgraph_backend_can_disable_reactor_prompt_cache() -> None:
     assert isinstance(model.prompts[0], str)
 
 
-async def test_langgraph_backend_falls_back_when_model_errors() -> None:
+async def test_langgraph_backend_raises_when_model_errors() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
     class FailingModel:
         async def ainvoke(self, prompt: str):
-            raise RuntimeError("model unavailable")
+            raise RuntimeError("model failed")
 
     backend = LangGraphAgentBackend(decision_model=FailingModel())
     invocation = AgentActionInvocation(
@@ -231,19 +232,14 @@ async def test_langgraph_backend_falls_back_when_model_errors() -> None:
         allowed_actions=["move", "talk", "work", "rest"],
     )
 
-    result = await backend.decide_action(invocation)
-
-    assert result.action_type == "move"
-    assert result.target_location_id == "town-square"
+    with pytest.raises(RuntimeError, match="model failed"):
+        await backend.decide_action(invocation)
 
 
-async def test_langgraph_backend_raises_when_fail_fast_enabled_and_api_unavailable() -> None:
+async def test_langgraph_backend_raises_when_api_unavailable() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
-    settings = Settings(
-        agent_backend="langgraph",
-        agent_fail_fast_on_api_unavailable=True,
-    )
+    settings = Settings(agent_backend="langgraph")
 
     class FailingModel:
         async def ainvoke(self, prompt: str):
@@ -265,10 +261,15 @@ async def test_langgraph_backend_raises_when_fail_fast_enabled_and_api_unavailab
         await backend.decide_action(invocation)
 
 
-async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    from app.cognition.claude.decision_utils import RuntimeDecision
+async def test_langgraph_backend_does_not_expose_decision_hook_fallback() -> None:
+    from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
+
+    backend = LangGraphAgentBackend(decision_model=object())
+
+    assert not hasattr(backend, "set_decision_hook")
+
+
+async def test_langgraph_backend_raises_upstream_when_model_connection_fails() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
     class FailingModel:
@@ -276,15 +277,6 @@ async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(
             raise RuntimeError("connection error")
 
     backend = LangGraphAgentBackend(decision_model=FailingModel())
-    backend.set_decision_hook(
-        lambda world, nearby_agent_id, current_location_id, home_location_id, agent_id: (
-            RuntimeDecision(
-                action_type="talk",
-                target_agent_id=nearby_agent_id,
-                message="Fallback says hi.",
-            )
-        )
-    )
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
@@ -301,13 +293,8 @@ async def test_langgraph_backend_applies_decision_hook_fallback_and_logs(
         allowed_actions=["move", "talk", "work", "rest"],
     )
 
-    with caplog.at_level("WARNING"):
-        result = await backend.decide_action(invocation)
-
-    assert result.action_type == "talk"
-    assert result.target_agent_id == "bob"
-    assert result.message == "Fallback says hi."
-    assert "LangGraph reactor fallback applied for alice: action=talk" in caplog.text
+    with pytest.raises(UpstreamApiUnavailableError):
+        await backend.decide_action(invocation)
 
 
 async def test_langgraph_backend_falls_back_to_text_json_when_structured_output_fails() -> None:
@@ -422,9 +409,8 @@ async def test_langgraph_backend_rejects_invalid_talk_without_message() -> None:
         allowed_actions=["move", "talk", "work", "rest"],
     )
 
-    result = await backend.decide_action(invocation)
-
-    assert result.action_type == "rest"
+    with pytest.raises(RuntimeError, match="no usable decision"):
+        await backend.decide_action(invocation)
 
 
 async def test_langgraph_backend_rejects_invalid_move_without_target() -> None:
@@ -454,10 +440,8 @@ async def test_langgraph_backend_rejects_invalid_move_without_target() -> None:
         allowed_actions=["move", "talk", "work", "rest"],
     )
 
-    result = await backend.decide_action(invocation)
-
-    assert result.action_type == "move"
-    assert result.target_location_id == "town-square"
+    with pytest.raises(RuntimeError, match="no usable decision"):
+        await backend.decide_action(invocation)
 
 
 async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
@@ -465,21 +449,15 @@ async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
 
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 
-    class FakeStructuredResponse(dict):
+    class FakeTextResponse:
         def __init__(self) -> None:
-            super().__init__(
-                action_type="rest",
-                payload={"source": "langgraph-model"},
-            )
+            self.content = '{"action_type":"rest","payload":{"source":"langgraph-model"}}'
             self.usage_metadata = {"input_tokens": 11, "output_tokens": 7}
 
-    class FakeStructuredModel:
-        def with_structured_output(self, schema):
-            return self
-
+    class FakeTextModel:
         async def ainvoke(self, prompt: str):
             await asyncio.sleep(0.01)
-            return FakeStructuredResponse()
+            return FakeTextResponse()
 
     recorded: list[dict] = []
 
@@ -494,7 +472,7 @@ async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
             }
         )
 
-    backend = LangGraphAgentBackend(decision_model=FakeStructuredModel())
+    backend = LangGraphAgentBackend(decision_model=FakeTextModel())
     invocation = AgentActionInvocation(
         agent_id="alice",
         prompt="Pick the next action.",
@@ -603,9 +581,7 @@ async def test_langgraph_backend_reflect_day_returns_parsed_json() -> None:
     assert result["key_person"] == "bob"
 
 
-async def test_langgraph_backend_logs_when_planner_falls_back(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_langgraph_backend_raises_when_planner_api_unavailable() -> None:
     from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
     from app.cognition.types import PlanningInvocation
 
@@ -615,8 +591,8 @@ async def test_langgraph_backend_logs_when_planner_falls_back(
 
     backend = LangGraphAgentBackend(text_model=FailingTextModel())
 
-    with caplog.at_level("WARNING"):
-        result = await backend.plan_day(
+    with pytest.raises(UpstreamApiUnavailableError, match="connection error"):
+        await backend.plan_day(
             PlanningInvocation(
                 agent_id="alice",
                 agent_name="Alice",
@@ -624,9 +600,6 @@ async def test_langgraph_backend_logs_when_planner_falls_back(
                 context={"world_time": "2026-03-02T06:00:00+00:00"},
             )
         )
-
-    assert result is None
-    assert "LangGraph planner fallback applied for alice: result=None" in caplog.text
 
 
 def test_langgraph_backend_builds_default_model_from_langgraph_settings() -> None:
