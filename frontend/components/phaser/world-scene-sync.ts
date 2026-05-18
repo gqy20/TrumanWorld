@@ -5,6 +5,7 @@ import { getHeatLevel } from "@/lib/world-utils";
 
 import {
   TOWN_SPRITESHEET_KEY,
+  type TownAssetPackManifest,
   getAgentAssetFrame,
   getLocationAssetFrame,
 } from "./world-asset-pack";
@@ -31,6 +32,7 @@ export type AgentNode = {
   body: Phaser.GameObjects.Image;
   marker: Phaser.GameObjects.Text;
   label: Phaser.GameObjects.Text;
+  status: SceneAgent["status"];
   pulseTween?: Phaser.Tweens.Tween;
 };
 
@@ -56,6 +58,8 @@ type SceneSyncContext = {
   scene: Phaser.Scene;
   ensureLocationTexture: (location: SceneLocation) => void;
   ensureAgentTexture: (agent: SceneAgent) => void;
+  assetPackManifest?: TownAssetPackManifest | null;
+  nowMs?: number;
   mapWorldToCanvas: (x: number, y: number, locations: SceneLocation[]) => CanvasPoint;
   getAgentPosition: (location: SceneLocation, slotIndex: number) => CanvasPoint;
   playTapFeedback: (...targets: Phaser.GameObjects.GameObject[]) => void;
@@ -91,7 +95,7 @@ export function syncLocations(
     const alpha = 0.92 + occupantRatio * 0.08;
     const heatLevel = getHeatLevel(location.heat);
     const baseDepth = Math.round(point.y);
-    const assetFrame = getLocationAssetFrame(location);
+    const assetFrame = getLocationAssetFrame(location, context.assetPackManifest);
 
     if (existing) {
       context.ensureLocationTexture(location);
@@ -227,7 +231,7 @@ export function syncAgents(
     const point = context.getAgentPosition(location, agent.slotIndex);
     const existing = agentNodes.get(agent.id);
     const agentDepth = Math.round(point.y + 24);
-    const assetFrame = getAgentAssetFrame(agent);
+    const assetFrame = getAgentAssetFrame(agent, context.assetPackManifest, context.nowMs ?? 0);
 
     if (existing) {
       context.scene.tweens.add({
@@ -255,6 +259,7 @@ export function syncAgents(
       existing.body.setTexture(TOWN_SPRITESHEET_KEY, assetFrame);
       existing.body.setAlpha(1);
       existing.body.setDepth(agentDepth);
+      existing.status = agent.status;
       existing.marker.setText(agent.visual?.marker ?? getAgentMarker(agent.status));
       existing.marker.setDepth(agentDepth + 1);
       existing.label.setText(agent.name);
@@ -301,7 +306,28 @@ export function syncAgents(
       context.hideTooltip();
     });
 
-    agentNodes.set(agent.id, { body, marker, label });
+    agentNodes.set(agent.id, { body, marker, label, status: agent.status });
+  }
+}
+
+export function refreshAgentAnimationFrames(
+  agentNodes: Map<string, AgentNode>,
+  manifest: TownAssetPackManifest | null,
+  nowMs: number,
+): void {
+  for (const node of agentNodes.values()) {
+    const frame = getAgentAssetFrame(
+      {
+        id: "",
+        name: "",
+        locationId: "",
+        status: node.status,
+        slotIndex: 0,
+      },
+      manifest,
+      nowMs,
+    );
+    node.body.setTexture(TOWN_SPRITESHEET_KEY, frame);
   }
 }
 

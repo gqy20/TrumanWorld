@@ -6,6 +6,7 @@ import {
   syncBubbles,
   syncLocations,
   syncMoveTrails,
+  refreshAgentAnimationFrames,
   type AgentNode,
   type BubbleNode,
   type LocationNode,
@@ -140,6 +141,7 @@ function syncContext(scene: ReturnType<typeof mockScene>) {
     scene: scene as never,
     ensureLocationTexture: jest.fn(),
     ensureAgentTexture: jest.fn(),
+    nowMs: 100,
     mapWorldToCanvas: jest.fn((x: number, y: number) => ({ x: x * 10, y: y * 10 })),
     getAgentPosition: jest.fn((targetLocation: SceneLocation, slotIndex: number) => ({
       x: targetLocation.x * 10 + slotIndex * 12,
@@ -301,6 +303,37 @@ describe("world scene sync helpers", () => {
     expect(mei?.body.destroy).toHaveBeenCalled();
     expect(mei?.marker.destroy).toHaveBeenCalled();
     expect(mei?.label.destroy).toHaveBeenCalled();
+  });
+
+  it("refreshes agent animation frames from the manifest timeline", () => {
+    const nodes = new Map<string, AgentNode>();
+    const body = mockGameObject();
+    nodes.set("agent-1", {
+      body: body as never,
+      marker: mockGameObject() as never,
+      label: mockGameObject() as never,
+      status: "moving",
+    });
+
+    refreshAgentAnimationFrames(nodes, {
+      schemaVersion: 2,
+      sprite: {
+        image: "spritesheet.webp",
+        frameWidth: 128,
+        frameHeight: 128,
+        columns: 8,
+        rows: 4,
+        frameCount: 32,
+      },
+      agents: {
+        moving: [
+          { sprite: 21, duration: 100 },
+          { sprite: 22, duration: 100 },
+        ],
+      },
+    }, 150);
+
+    expect(body.setTexture).toHaveBeenCalledWith(TOWN_SPRITESHEET_KEY, 22);
   });
 
   it("creates, updates, skips invalid, and removes move trail nodes", () => {

@@ -83,6 +83,18 @@ jest.mock("phaser", () => ({
     textures = {
       exists: jest.fn(() => true),
     };
+    cache = {
+      json: {
+        get: jest.fn(() => null),
+      },
+    };
+    time = {
+      now: 100,
+    };
+    load = {
+      json: jest.fn(),
+      spritesheet: jest.fn(),
+    };
     make = {
       graphics: jest.fn(() => ({
         fillStyle: jest.fn().mockReturnThis(),

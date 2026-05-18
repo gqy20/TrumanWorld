@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 
 import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
-import { preloadTownAssetPack } from "./world-asset-pack";
+import { getTownAssetPackManifest, preloadTownAssetPack } from "./world-asset-pack";
 import {
   getAgentPosition as getAgentPositionPoint,
   mapWorldToCanvas as mapWorldToCanvasPoint,
@@ -22,6 +22,7 @@ import {
   type StageNodes,
 } from "./world-scene-stage";
 import {
+  refreshAgentAnimationFrames as refreshSceneAgentAnimationFrames,
   syncAgents as syncSceneAgents,
   syncBubbles as syncSceneBubbles,
   syncLocations as syncSceneLocations,
@@ -66,6 +67,14 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  update(_time: number, _delta: number): void {
+    refreshSceneAgentAnimationFrames(
+      this.agentNodes,
+      getTownAssetPackManifest(this),
+      this.time?.now ?? Date.now(),
+    );
+  }
+
   syncWorld(world: SceneWorld): void {
     this.currentWorld = world;
     if (!this.stageNodes) {
@@ -103,6 +112,8 @@ export class WorldScene extends Phaser.Scene {
       scene: this,
       ensureLocationTexture: (location: SceneLocation) => this.ensureLocationTexture(location),
       ensureAgentTexture: (agent: SceneAgent) => this.ensureAgentTexture(agent),
+      assetPackManifest: getTownAssetPackManifest(this),
+      nowMs: this.time?.now ?? Date.now(),
       mapWorldToCanvas: (x: number, y: number, locations: SceneLocation[]) =>
         this.mapWorldToCanvas(x, y, locations),
       getAgentPosition: (location: SceneLocation, slotIndex: number) =>
