@@ -133,44 +133,126 @@ function isoBlock(pixels, frame, x, y, width, depth, height, top, left, right) {
   diamond(pixels, frame, x, y, width, depth, top);
 }
 
+function drawWindow(pixels, frame, x, y, width = 9, height = 8) {
+  rect(pixels, frame, x - 1, y - 1, width + 2, height + 2, colors.outline);
+  rect(pixels, frame, x, y, width, height, colors.glass);
+  rect(pixels, frame, x + 1, y + 1, width - 2, 2, colors.glassLight);
+  rect(pixels, frame, x + Math.floor(width / 2), y, 1, height, [70, 120, 150, 190]);
+}
+
+function drawWallTexture(pixels, frame, marks) {
+  for (const [x, y, width, color] of marks) {
+    rect(pixels, frame, x, y, width, 1, color);
+  }
+}
+
+function drawRoofTiles(pixels, frame, rows, color) {
+  for (const [cx, cy, width, height] of rows) {
+    diamond(pixels, frame, cx, cy, width, height, color);
+  }
+}
+
+function drawPixelBricks(pixels, frame, x, y, rows, color) {
+  for (let row = 0; row < rows; row += 1) {
+    const offset = row % 2 === 0 ? 0 : 4;
+    for (let col = 0; col < 4; col += 1) {
+      rect(pixels, frame, x + offset + col * 10, y + row * 5, 6, 1, color);
+    }
+  }
+}
+
 function drawHouse(pixels, frame, palette) {
   ellipse(pixels, frame, 64, 105, 42, 12, colors.shadow);
   isoBlock(pixels, frame, 64, 70, 54, 32, 30, palette.wallLight, palette.wallWarm, palette.wallWarm);
-  diamond(pixels, frame, 64, 50, 72, 34, palette.roof);
-  rect(pixels, frame, 57, 77, 12, 22, colors.door);
-  rect(pixels, frame, 37, 74, 12, 10, colors.glass);
-  rect(pixels, frame, 79, 74, 12, 10, colors.glass);
-  rect(pixels, frame, 38, 75, 10, 2, colors.glassLight);
-  rect(pixels, frame, 80, 75, 10, 2, colors.glassLight);
+  diamond(pixels, frame, 64, 52, 78, 36, colors.outline);
+  diamond(pixels, frame, 64, 49, 72, 34, palette.roof);
+  diamond(pixels, frame, 64, 44, 46, 18, [222, 116, 104, 190]);
+  drawRoofTiles(pixels, frame, [
+    [64, 51, 62, 2],
+    [64, 57, 48, 2],
+    [64, 62, 34, 2],
+  ], [122, 51, 61, 160]);
+  rect(pixels, frame, 56, 77, 14, 24, colors.outline);
+  rect(pixels, frame, 58, 79, 10, 21, colors.door);
+  rect(pixels, frame, 61, 80, 2, 14, [142, 105, 75, 220]);
+  drawWindow(pixels, frame, 36, 73, 11, 9);
+  drawWindow(pixels, frame, 80, 73, 11, 9);
+  drawWallTexture(pixels, frame, [
+    [42, 88, 10, [220, 176, 121, 180]],
+    [75, 89, 12, [220, 176, 121, 180]],
+    [49, 67, 14, [255, 235, 193, 150]],
+  ]);
+  drawPixelBricks(pixels, frame, 39, 84, 3, [205, 158, 105, 120]);
+  rect(pixels, frame, 55, 100, 18, 3, [76, 57, 50, 180]);
 }
 
 function drawCafe(pixels, frame) {
   ellipse(pixels, frame, 64, 105, 46, 12, colors.shadow);
   isoBlock(pixels, frame, 64, 70, 62, 34, 28, colors.wallLight, colors.wallWarm, colors.wallWarm);
+  diamond(pixels, frame, 64, 52, 82, 36, colors.outline);
   diamond(pixels, frame, 64, 49, 76, 34, colors.roofRed);
+  drawRoofTiles(pixels, frame, [
+    [64, 51, 66, 2],
+    [64, 57, 52, 2],
+    [64, 63, 36, 2],
+  ], [125, 44, 53, 160]);
+  rect(pixels, frame, 33, 72, 62, 11, colors.outline);
   rect(pixels, frame, 34, 73, 60, 9, [250, 245, 225, 255]);
   for (let x = 37; x <= 86; x += 12) rect(pixels, frame, x, 73, 6, 9, [226, 88, 87, 255]);
-  rect(pixels, frame, 48, 84, 12, 12, colors.glass);
-  rect(pixels, frame, 68, 83, 14, 18, colors.door);
-  rect(pixels, frame, 49, 85, 10, 2, colors.glassLight);
+  rect(pixels, frame, 53, 75, 22, 5, [255, 250, 232, 255]);
+  rect(pixels, frame, 57, 76, 14, 1, [151, 70, 58, 210]);
+  drawWindow(pixels, frame, 47, 84, 13, 12);
+  rect(pixels, frame, 67, 82, 16, 20, colors.outline);
+  rect(pixels, frame, 69, 84, 12, 18, colors.door);
+  rect(pixels, frame, 73, 84, 2, 16, [142, 105, 75, 220]);
+  rect(pixels, frame, 43, 96, 18, 3, [150, 98, 61, 210]);
+  rect(pixels, frame, 39, 99, 4, 7, colors.wood);
+  rect(pixels, frame, 60, 99, 4, 7, colors.wood);
+  rect(pixels, frame, 83, 90, 8, 2, [206, 160, 92, 180]);
+  drawPixelBricks(pixels, frame, 39, 86, 2, [204, 157, 101, 110]);
 }
 
 function drawOffice(pixels, frame) {
   ellipse(pixels, frame, 64, 106, 40, 11, colors.shadow);
   isoBlock(pixels, frame, 64, 54, 54, 30, 50, colors.wallCool, [124, 158, 190, 255], [99, 134, 169, 255]);
+  diamond(pixels, frame, 64, 37, 68, 30, colors.outline);
   diamond(pixels, frame, 64, 35, 62, 28, colors.roofBlue);
+  drawRoofTiles(pixels, frame, [
+    [64, 38, 52, 2],
+    [64, 43, 38, 2],
+  ], [45, 78, 122, 150]);
   for (let y = 55; y < 92; y += 12) {
-    for (let x = 45; x < 80; x += 14) rect(pixels, frame, x, y, 7, 6, colors.glassLight);
+    for (let x = 44; x < 82; x += 13) drawWindow(pixels, frame, x, y, 7, 6);
   }
-  rect(pixels, frame, 59, 93, 12, 14, colors.door);
+  rect(pixels, frame, 58, 92, 14, 16, colors.outline);
+  rect(pixels, frame, 60, 94, 10, 14, colors.door);
+  rect(pixels, frame, 40, 55, 2, 39, [215, 235, 244, 150]);
+  rect(pixels, frame, 87, 55, 2, 38, [70, 104, 139, 160]);
+  rect(pixels, frame, 52, 51, 24, 2, [224, 242, 248, 140]);
+  rect(pixels, frame, 45, 101, 38, 3, [63, 92, 124, 190]);
 }
 
 function drawLibrary(pixels, frame) {
   ellipse(pixels, frame, 64, 106, 46, 12, colors.shadow);
   isoBlock(pixels, frame, 64, 70, 68, 34, 30, colors.wallStone, [158, 148, 131, 255], [134, 126, 112, 255]);
+  diamond(pixels, frame, 64, 52, 84, 34, colors.outline);
   diamond(pixels, frame, 64, 50, 78, 32, colors.roofBlue);
-  for (let x = 39; x <= 82; x += 14) rect(pixels, frame, x, 75, 6, 24, colors.wallLight);
-  rect(pixels, frame, 58, 87, 14, 15, colors.door);
+  drawRoofTiles(pixels, frame, [
+    [64, 53, 68, 2],
+    [64, 59, 52, 2],
+    [64, 64, 36, 2],
+  ], [48, 76, 121, 150]);
+  rect(pixels, frame, 36, 72, 56, 5, [214, 206, 184, 255]);
+  for (let x = 39; x <= 82; x += 14) {
+    rect(pixels, frame, x - 1, 75, 8, 25, colors.outline);
+    rect(pixels, frame, x, 76, 6, 23, colors.wallLight);
+    rect(pixels, frame, x + 2, 76, 1, 22, [160, 151, 131, 180]);
+  }
+  rect(pixels, frame, 57, 86, 16, 17, colors.outline);
+  rect(pixels, frame, 59, 88, 12, 15, colors.door);
+  rect(pixels, frame, 37, 101, 54, 4, [112, 104, 92, 220]);
+  drawPixelBricks(pixels, frame, 38, 81, 3, [119, 111, 97, 120]);
+  rect(pixels, frame, 52, 68, 24, 2, [236, 229, 204, 160]);
 }
 
 function drawPlaza(pixels, frame) {
@@ -188,6 +270,7 @@ function drawPark(pixels, frame) {
     rect(pixels, frame, x - 3, y + 7, 6, 15, colors.door);
     ellipse(pixels, frame, x, y, 15, 13, colors.grassLight);
     ellipse(pixels, frame, x - 5, y + 1, 10, 9, colors.grass);
+    ellipse(pixels, frame, x + 4, y - 2, 6, 5, [181, 224, 128, 120]);
   }
   diamond(pixels, frame, 64, 95, 46, 14, colors.path);
 }
