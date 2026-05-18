@@ -5,6 +5,10 @@ import { createStageShell, syncAmbience, syncStageTheme, type StageNodes } from 
 function gameObject(overrides: Record<string, unknown> = {}) {
   return {
     setAlpha: jest.fn().mockReturnThis(),
+    beginPath: jest.fn().mockReturnThis(),
+    clear: jest.fn().mockReturnThis(),
+    closePath: jest.fn().mockReturnThis(),
+    fillPath: jest.fn().mockReturnThis(),
     setColor: jest.fn().mockReturnThis(),
     setDepth: jest.fn().mockReturnThis(),
     setFillStyle: jest.fn().mockReturnThis(),
@@ -13,6 +17,11 @@ function gameObject(overrides: Record<string, unknown> = {}) {
     setText: jest.fn().mockReturnThis(),
     setTexture: jest.fn().mockReturnThis(),
     setVisible: jest.fn().mockReturnThis(),
+    fillStyle: jest.fn().mockReturnThis(),
+    lineStyle: jest.fn().mockReturnThis(),
+    lineTo: jest.fn().mockReturnThis(),
+    moveTo: jest.fn().mockReturnThis(),
+    strokePath: jest.fn().mockReturnThis(),
     ...overrides,
   };
 }
@@ -20,6 +29,8 @@ function gameObject(overrides: Record<string, unknown> = {}) {
 function stageNodes(): StageNodes {
   return {
     stageGround: gameObject(),
+    townTiles: gameObject(),
+    townRoads: gameObject(),
     stageHeader: gameObject(),
     stageVignette: gameObject(),
     ambienceOverlay: gameObject(),
@@ -65,6 +76,7 @@ describe("world scene stage helpers", () => {
       },
       add: {
         tileSprite: jest.fn(() => gameObject()),
+        graphics: jest.fn(() => gameObject()),
         rectangle: jest.fn(() => gameObject()),
         ellipse: jest.fn(() => gameObject()),
         text: jest.fn(() => gameObject()),
@@ -76,6 +88,7 @@ describe("world scene stage helpers", () => {
     expect(scene.cameras.main.setBackgroundColor).toHaveBeenCalled();
     expect(scene.cameras.main.setZoom).toHaveBeenCalledWith(1);
     expect(scene.add.tileSprite).toHaveBeenCalledTimes(1);
+    expect(scene.add.graphics).toHaveBeenCalledTimes(2);
     expect(scene.add.rectangle).toHaveBeenCalledTimes(3);
     expect(scene.add.ellipse).toHaveBeenCalledTimes(1);
     expect(scene.add.text).toHaveBeenCalledTimes(2);

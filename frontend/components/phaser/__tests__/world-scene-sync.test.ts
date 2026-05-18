@@ -190,17 +190,23 @@ describe("world scene sync helpers", () => {
     const cafe = nodes.get("loc-1");
     const cafeBody = cafe?.body as unknown as MockGameObject;
     expect(cafeBody.x).toBe(100);
-    expect(cafeBody.y).toBe(200);
+    expect(cafeBody.y).toBe(172);
     expect(cafe?.label.text).toBe("Cafe");
     expect(cafe?.badge.text).toBe("2/6");
+    expect(cafe?.label.alpha).toBe(0);
+    expect(cafe?.badge.alpha).toBe(0);
 
     cafeBody.__handlers.pointerdown();
     cafeBody.__handlers.pointerover();
+    expect(cafe?.label.alpha).toBe(1);
+    expect(cafe?.badge.alpha).toBe(1);
     cafeBody.__handlers.pointerout();
+    expect(cafe?.label.alpha).toBe(0);
+    expect(cafe?.badge.alpha).toBe(0);
 
     expect(context.playTapFeedback).toHaveBeenCalledWith(cafe?.body, cafe?.icon, cafe?.label, cafe?.badge);
     expect(scene.events.emit).toHaveBeenCalledWith("location:click", "loc-1");
-    expect(context.showTooltip).toHaveBeenCalledWith(100, 152, "Cafe / cafe");
+    expect(context.showTooltip).toHaveBeenCalledWith(100, 108, "Cafe / cafe");
     expect(context.hideTooltip).toHaveBeenCalled();
 
     const library = nodes.get("loc-2");
@@ -219,7 +225,7 @@ describe("world scene sync helpers", () => {
     expect(nodes.size).toBe(1);
     expect(library?.body.destroy).toHaveBeenCalled();
     expect(library?.label.destroy).toHaveBeenCalled();
-    expect(cafe?.body.setPosition).toHaveBeenCalledWith(120, 220);
+    expect(cafe?.body.setPosition).toHaveBeenCalledWith(120, 192);
     expect(cafe?.label.setText).toHaveBeenCalledWith("Campus Cafe");
     expect(cafe?.badge.setText).toHaveBeenCalledWith("5/8");
   });
@@ -401,14 +407,14 @@ describe("world scene sync helpers", () => {
     expect(nodes.size).toBe(2);
     expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
     expect(scene.add.text).toHaveBeenCalledWith(
-      100,
-      200,
+      150,
+      176,
       "Mei: hello",
       expect.objectContaining({ color: "#0f172a" }),
     );
     expect(scene.add.text).toHaveBeenCalledWith(
       300,
-      354,
+      328,
       "Narrator: announcement",
       expect.objectContaining({ color: "#0f172a" }),
     );
@@ -438,8 +444,8 @@ describe("world scene sync helpers", () => {
 
     expect(nodes.size).toBe(1);
     expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
-    expect(agentBubble?.box.setPosition).toHaveBeenCalledWith(100, 168);
-    expect(agentBubble?.box.setSize).toHaveBeenCalledWith(120, 28);
+    expect(agentBubble?.box.setPosition).toHaveBeenCalledWith(150, 140);
+    expect(agentBubble?.box.setSize).toHaveBeenCalledWith(98.6, 24);
     expect(agentBubble?.text.setText).toHaveBeenCalledWith("Mei: updated text");
     expect(locationBubble?.box.destroy).toHaveBeenCalled();
     expect(locationBubble?.text.destroy).toHaveBeenCalled();

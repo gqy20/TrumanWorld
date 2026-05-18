@@ -85,8 +85,9 @@ export function syncLocations(
     const existing = locationNodes.get(location.id);
     const occupantRatio =
       location.capacity > 0 ? Math.min(location.occupantCount / location.capacity, 1) : 0;
-    const alpha = 0.42 + occupantRatio * 0.45;
+    const alpha = 0.92 + occupantRatio * 0.08;
     const heatLevel = getHeatLevel(location.heat);
+    const baseDepth = Math.round(point.y);
     const textureKey = getConfiguredLocationTextureKey(
       location.visual.visualPreset ?? location.locationType,
       location.locationType,
@@ -94,75 +95,89 @@ export function syncLocations(
 
     if (existing) {
       context.ensureLocationTexture(location);
-      existing.glow.setPosition(point.x, point.y);
+      existing.glow.setPosition(point.x, point.y + 18);
       existing.glow.setScale((38 + location.heat * 18) / 38);
       existing.glow.setFillStyle(
         Number.parseInt(heatLevel.color.replace("#", ""), 16),
         0.08 + location.heat * 0.22,
       );
-      existing.body.setPosition(point.x, point.y);
+      existing.glow.setDepth(baseDepth - 6);
+      existing.body.setPosition(point.x, point.y - 28);
       existing.body.setTexture(textureKey);
       existing.body.setAlpha(alpha);
-      existing.icon.setPosition(point.x, point.y - 18);
+      existing.body.setDepth(baseDepth + 2);
+      existing.icon.setPosition(point.x, point.y - 54);
       existing.icon.setText(location.visual.glyph ?? getLocationGlyph(location.locationType));
-      existing.label.setPosition(point.x, point.y - 6);
+      existing.icon.setDepth(baseDepth + 3);
+      existing.label.setPosition(point.x, point.y - 10);
       existing.label.setText(location.name);
-      existing.badge.setPosition(point.x, point.y + 12);
+      existing.label.setAlpha(0);
+      existing.label.setDepth(baseDepth + 3);
+      existing.badge.setPosition(point.x, point.y + 10);
       existing.badge.setText(`${location.occupantCount}/${location.capacity}`);
+      existing.badge.setAlpha(0);
+      existing.badge.setDepth(baseDepth + 3);
       continue;
     }
 
     const glow = context.scene.add
       .circle(
         point.x,
-        point.y,
+        point.y + 18,
         38 + location.heat * 18,
         Number.parseInt(heatLevel.color.replace("#", ""), 16),
         0.08 + location.heat * 0.22,
       )
-      .setDepth(8);
+      .setScale(1.4, 0.42)
+      .setDepth(baseDepth - 6);
     context.ensureLocationTexture(location);
     const body = context.scene.add
-      .image(point.x, point.y, textureKey)
+      .image(point.x, point.y - 28, textureKey)
       .setDisplaySize(LOCATION_WIDTH, LOCATION_HEIGHT)
       .setAlpha(alpha)
-      .setDepth(10)
+      .setDepth(baseDepth + 2)
       .setInteractive({ cursor: "pointer" });
     const icon = context.scene.add
-      .text(point.x, point.y - 18, location.visual.glyph ?? getLocationGlyph(location.locationType), {
+      .text(point.x, point.y - 54, location.visual.glyph ?? getLocationGlyph(location.locationType), {
         color: "#f8fafc",
         fontFamily: "ui-monospace, SFMono-Regular, monospace",
         fontSize: "14px",
         fontStyle: "700",
       })
       .setOrigin(0.5)
-      .setDepth(11);
+      .setDepth(baseDepth + 3);
     const label = context.scene.add
-      .text(point.x, point.y - 6, location.name, {
+      .text(point.x, point.y - 10, location.name, {
         color: "#e2e8f0",
         fontFamily: "ui-monospace, SFMono-Regular, monospace",
         fontSize: "12px",
         fontStyle: "600",
       })
       .setOrigin(0.5)
-      .setDepth(11);
+      .setAlpha(0)
+      .setDepth(baseDepth + 3);
     const badge = context.scene.add
-      .text(point.x, point.y + 12, `${location.occupantCount}/${location.capacity}`, {
+      .text(point.x, point.y + 10, `${location.occupantCount}/${location.capacity}`, {
         color: "#cbd5e1",
         fontFamily: "ui-monospace, SFMono-Regular, monospace",
         fontSize: "10px",
       })
       .setOrigin(0.5)
-      .setDepth(11);
+      .setAlpha(0)
+      .setDepth(baseDepth + 3);
 
     body.on("pointerdown", () => {
       context.playTapFeedback(body, icon, label, badge);
       context.scene.events.emit("location:click", location.id);
     });
     body.on("pointerover", () => {
-      context.showTooltip(point.x, point.y - 48, `${location.name} / ${location.locationType}`);
+      label.setAlpha(1);
+      badge.setAlpha(1);
+      context.showTooltip(point.x, point.y - 92, `${location.name} / ${location.locationType}`);
     });
     body.on("pointerout", () => {
+      label.setAlpha(0);
+      badge.setAlpha(0);
       context.hideTooltip();
     });
 
@@ -211,6 +226,7 @@ export function syncAgents(
 
     const point = context.getAgentPosition(location, agent.slotIndex);
     const existing = agentNodes.get(agent.id);
+    const agentDepth = Math.round(point.y + 24);
     const textureKey = getConfiguredAgentTextureKey(
       agent.visual?.visualPreset ?? "default",
       agent.status,
@@ -241,8 +257,12 @@ export function syncAgents(
       context.ensureAgentTexture(agent);
       existing.body.setTexture(textureKey);
       existing.body.setAlpha(1);
+      existing.body.setDepth(agentDepth);
       existing.marker.setText(agent.visual?.marker ?? getAgentMarker(agent.status));
+      existing.marker.setDepth(agentDepth + 1);
       existing.label.setText(agent.name);
+      existing.label.setAlpha(0);
+      existing.label.setDepth(agentDepth + 1);
       continue;
     }
 
@@ -250,7 +270,7 @@ export function syncAgents(
     const body = context.scene.add
       .image(point.x, point.y, textureKey)
       .setDisplaySize(AGENT_TEXTURE_SIZE * PIXEL_SCALE, AGENT_TEXTURE_SIZE * PIXEL_SCALE)
-      .setDepth(20)
+      .setDepth(agentDepth)
       .setInteractive({ cursor: "pointer" });
     const marker = context.scene.add
       .text(point.x, point.y - 14, agent.visual?.marker ?? getAgentMarker(agent.status), {
@@ -260,7 +280,7 @@ export function syncAgents(
         fontStyle: "700",
       })
       .setOrigin(0.5)
-      .setDepth(21);
+      .setDepth(agentDepth + 1);
     const label = context.scene.add
       .text(point.x, point.y + 14, agent.name, {
         color: "#f8fafc",
@@ -268,16 +288,19 @@ export function syncAgents(
         fontSize: "10px",
       })
       .setOrigin(0.5, 0)
-      .setDepth(21);
+      .setAlpha(0)
+      .setDepth(agentDepth + 1);
 
     body.on("pointerdown", () => {
       context.playTapFeedback(body, marker, label);
       context.scene.events.emit("agent:click", agent.id);
     });
     body.on("pointerover", () => {
+      label.setAlpha(1);
       context.showTooltip(point.x, point.y - 34, `${agent.name} / ${agent.status}`);
     });
     body.on("pointerout", () => {
+      label.setAlpha(0);
       context.hideTooltip();
     });
 
@@ -395,16 +418,16 @@ export function syncBubbles(
     const anchorPoint = speakingAgent
       ? context.getAgentPosition(location, speakingAgent.slotIndex)
       : context.mapWorldToCanvas(location.x, location.y, world.locations);
-    const bubbleX = anchorPoint.x;
-    const bubbleY = anchorPoint.y - 30 - bubble.recencyIndex * 16;
+    const bubbleX = Math.min(650, Math.max(150, anchorPoint.x));
+    const bubbleY = Math.min(430, Math.max(72, anchorPoint.y - 54 - bubble.recencyIndex * 18));
     const textValue = `${bubble.speakerName}: ${bubble.text}`;
-    const bubbleWidth = Math.min(210, Math.max(120, textValue.length * 6.5));
+    const bubbleWidth = Math.min(150, Math.max(92, textValue.length * 5.8));
     const bubbleAlpha = Math.max(0.48, 0.92 - bubble.recencyIndex * 0.16);
     const existing = bubbleNodes.get(bubble.id);
 
     if (existing) {
       existing.box.setPosition(bubbleX, bubbleY);
-      existing.box.setSize(bubbleWidth, 28);
+      existing.box.setSize(bubbleWidth, 24);
       existing.box.setAlpha(bubbleAlpha);
       existing.text.setPosition(bubbleX, bubbleY);
       existing.text.setText(textValue);
@@ -413,7 +436,7 @@ export function syncBubbles(
     }
 
     const box = context.scene.add
-      .rectangle(bubbleX, bubbleY, bubbleWidth, 28, 0xf8fafc, bubbleAlpha)
+      .rectangle(bubbleX, bubbleY, bubbleWidth, 24, 0xf8fafc, bubbleAlpha)
       .setStrokeStyle(1, 0xcbd5e1, 0.9)
       .setDepth(30);
     const text = context.scene.add

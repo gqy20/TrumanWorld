@@ -4,15 +4,17 @@ import { getAgentPosition, mapWorldToCanvas } from "../world-scene-geometry";
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  SCENE_PADDING_X,
-  SCENE_PADDING_Y,
+  ISO_ORIGIN_X,
+  ISO_ORIGIN_Y,
+  ISO_TILE_HEIGHT,
+  ISO_TILE_WIDTH,
 } from "../world-scene-style";
 
-function location(id: string, x: number, y: number): SceneLocation {
+function location(id: string, x: number, y: number, locationType = "plaza"): SceneLocation {
   return {
     id,
     name: id,
-    locationType: "plaza",
+    locationType,
     visual: {},
     x,
     y,
@@ -30,38 +32,38 @@ describe("world scene geometry helpers", () => {
     });
   });
 
-  it("maps world coordinate bounds into padded canvas coordinates", () => {
-    const locations = [location("left", 0, 0), location("right", 10, 20)];
+  it("maps location types into fixed town districts instead of raw coordinate bounds", () => {
+    const locations = [location("central", 0, 0, "plaza"), location("cafe", 10, 20, "cafe")];
 
     expect(mapWorldToCanvas(0, 0, locations)).toEqual({
-      x: SCENE_PADDING_X,
-      y: SCENE_PADDING_Y,
+      x: ISO_ORIGIN_X,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 3,
     });
     expect(mapWorldToCanvas(10, 20, locations)).toEqual({
-      x: CANVAS_WIDTH - SCENE_PADDING_X,
-      y: CANVAS_HEIGHT - SCENE_PADDING_Y,
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 4,
     });
   });
 
-  it("centers axes that have no world span", () => {
+  it("falls back to the canvas center for unknown raw coordinates", () => {
     const locations = [location("a", 5, 0), location("b", 5, 10)];
 
-    expect(mapWorldToCanvas(5, 5, locations)).toEqual({
+    expect(mapWorldToCanvas(99, 99, locations)).toEqual({
       x: CANVAS_WIDTH / 2,
       y: CANVAS_HEIGHT / 2,
     });
   });
 
-  it("places agents in three columns below their location", () => {
-    const locations = [location("home", 0, 0), location("office", 10, 10)];
+  it("places agents in four columns below their location", () => {
+    const locations = [location("home", 0, 0, "home"), location("office", 10, 10, "office")];
 
     expect(getAgentPosition(locations[0], 0, locations)).toEqual({
-      x: SCENE_PADDING_X - 18,
-      y: SCENE_PADDING_Y + 34,
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 24,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 66,
     });
-    expect(getAgentPosition(locations[0], 3, locations)).toEqual({
-      x: SCENE_PADDING_X - 18,
-      y: SCENE_PADDING_Y + 52,
+    expect(getAgentPosition(locations[0], 4, locations)).toEqual({
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 18,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 84,
     });
   });
 });

@@ -17,9 +17,13 @@ export function refreshLocationHighlights(
     if (isHighlighted) {
       node.body.setTint(0xf8fafc);
       node.body.setScale(1.06);
+      node.label.setAlpha(1);
+      node.badge.setAlpha(1);
     } else {
       node.body.clearTint();
       node.body.setScale(1);
+      node.label.setAlpha(0);
+      node.badge.setAlpha(0);
     }
     node.label.setScale(isHighlighted ? 1.05 : 1);
     node.badge.setScale(isHighlighted ? 1.05 : 1);
@@ -38,6 +42,7 @@ export function refreshAgentHighlights(
     if (isHighlighted) {
       node.body.setTint(0xfef08a);
       node.marker.setScale(1.08);
+      node.label.setAlpha(1);
       node.label.setScale(1.08);
       node.pulseTween = scene.tweens.add({
         targets: [node.body, node.marker, node.label],
@@ -51,6 +56,7 @@ export function refreshAgentHighlights(
       node.body.clearTint();
       node.body.setScale(1);
       node.marker.setScale(1);
+      node.label.setAlpha(0);
       node.label.setScale(1);
       node.pulseTween = undefined;
     }

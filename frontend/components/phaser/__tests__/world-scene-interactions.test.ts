@@ -63,11 +63,15 @@ describe("world scene interaction helpers", () => {
 
     expect(highlighted.body.setTint).toHaveBeenCalledWith(0xf8fafc);
     expect(highlighted.body.setScale).toHaveBeenCalledWith(1.06);
+    expect(highlighted.label.setAlpha).toHaveBeenCalledWith(1);
+    expect(highlighted.badge.setAlpha).toHaveBeenCalledWith(1);
     expect(highlighted.label.setScale).toHaveBeenCalledWith(1.05);
     expect(highlighted.badge.setScale).toHaveBeenCalledWith(1.05);
     expect(highlighted.glow.setAlpha).toHaveBeenCalledWith(0.34);
     expect(normal.body.clearTint).toHaveBeenCalled();
     expect(normal.body.setScale).toHaveBeenCalledWith(1);
+    expect(normal.label.setAlpha).toHaveBeenCalledWith(0);
+    expect(normal.badge.setAlpha).toHaveBeenCalledWith(0);
   });
 
   it("refreshes agent highlight state and stops stale tweens", () => {
@@ -91,6 +95,7 @@ describe("world scene interaction helpers", () => {
 
     expect(highlighted.body.setTint).toHaveBeenCalledWith(0xfef08a);
     expect(highlighted.marker.setScale).toHaveBeenCalledWith(1.08);
+    expect(highlighted.label.setAlpha).toHaveBeenCalledWith(1);
     expect(scene.tweens.add).toHaveBeenCalledWith(
       expect.objectContaining({
         targets: [highlighted.body, highlighted.marker, highlighted.label],
@@ -99,6 +104,7 @@ describe("world scene interaction helpers", () => {
     );
     expect(staleTween.stop).toHaveBeenCalled();
     expect(normal.body.clearTint).toHaveBeenCalled();
+    expect(normal.label.setAlpha).toHaveBeenCalledWith(0);
     expect(normal.pulseTween).toBeUndefined();
   });
 

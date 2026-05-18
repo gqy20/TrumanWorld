@@ -121,32 +121,34 @@ export function generateBuildingTexture(
   const darkColor = Phaser.Display.Color.IntegerToColor(baseColor).darken(35).color;
 
   graphics.fillStyle(0x0b1220, 0.5);
-  graphics.fillRect(5, 20, 14, 2);
+  graphics.fillRect(3, 21, 18, 2);
 
   switch (visualPreset) {
     case "shop":
     case "cafe":
       graphics.fillStyle(roofColor, 1);
-      graphics.fillRect(4, 5, 16, 3);
+      graphics.fillRect(2, 4, 20, 5);
       graphics.fillStyle(baseColor, 1);
-      graphics.fillRect(5, 8, 14, 10);
-      graphics.fillStyle(0xf8fafc, 1);
-      graphics.fillRect(5, 9, 14, 2);
-      graphics.fillStyle(lightColor, 1);
-      graphics.fillRect(7, 12, 4, 3);
-      graphics.fillRect(13, 12, 4, 3);
+      graphics.fillRect(4, 9, 16, 11);
       graphics.fillStyle(darkColor, 1);
-      graphics.fillRect(10, 14, 4, 4);
+      graphics.fillRect(18, 10, 3, 10);
+      graphics.fillStyle(0xf8fafc, 1);
+      graphics.fillRect(4, 10, 16, 2);
+      graphics.fillStyle(lightColor, 1);
+      graphics.fillRect(6, 14, 4, 3);
+      graphics.fillRect(13, 14, 4, 3);
+      graphics.fillStyle(darkColor, 1);
+      graphics.fillRect(10, 16, 4, 4);
       break;
     case "grove":
     case "park":
     case "quad":
       graphics.fillStyle(0x14532d, 1);
-      graphics.fillRect(5, 18, 14, 3);
+      graphics.fillRect(3, 19, 18, 3);
       graphics.fillStyle(0x22c55e, 1);
-      graphics.fillRect(7, 10, 10, 8);
-      graphics.fillRect(4, 12, 4, 5);
-      graphics.fillRect(16, 12, 4, 5);
+      graphics.fillRect(7, 7, 10, 10);
+      graphics.fillRect(3, 11, 6, 6);
+      graphics.fillRect(15, 10, 6, 7);
       graphics.fillStyle(0x166534, 1);
       graphics.fillRect(10, 16, 4, 2);
       graphics.fillStyle(0x854d0e, 1);
@@ -155,9 +157,11 @@ export function generateBuildingTexture(
     case "tower":
     case "office":
       graphics.fillStyle(roofColor, 1);
-      graphics.fillRect(6, 3, 12, 3);
+      graphics.fillRect(5, 2, 14, 4);
       graphics.fillStyle(baseColor, 1);
-      graphics.fillRect(6, 6, 12, 14);
+      graphics.fillRect(5, 6, 14, 15);
+      graphics.fillStyle(darkColor, 1);
+      graphics.fillRect(17, 7, 3, 13);
       graphics.fillStyle(lightColor, 1);
       for (const x of [8, 12, 16]) {
         for (const y of [8, 12, 16]) {
@@ -171,9 +175,11 @@ export function generateBuildingTexture(
     case "home":
     case "dorm":
       graphics.fillStyle(roofColor, 1);
-      graphics.fillRect(4, 6, 16, 4);
+      graphics.fillRect(3, 5, 18, 6);
       graphics.fillStyle(baseColor, 1);
-      graphics.fillRect(6, 10, 12, 9);
+      graphics.fillRect(5, 11, 14, 9);
+      graphics.fillStyle(darkColor, 1);
+      graphics.fillRect(17, 12, 3, 8);
       graphics.fillStyle(lightColor, 1);
       graphics.fillRect(8, 12, 3, 3);
       graphics.fillRect(13, 12, 3, 3);
@@ -184,9 +190,11 @@ export function generateBuildingTexture(
     case "library":
     case "lecture_hall":
       graphics.fillStyle(roofColor, 1);
-      graphics.fillRect(3, 5, 18, 3);
+      graphics.fillRect(2, 4, 20, 5);
       graphics.fillStyle(baseColor, 1);
-      graphics.fillRect(5, 8, 14, 10);
+      graphics.fillRect(4, 9, 16, 11);
+      graphics.fillStyle(darkColor, 1);
+      graphics.fillRect(19, 10, 2, 10);
       graphics.fillStyle(lightColor, 1);
       for (const x of [7, 11, 15]) {
         graphics.fillRect(x, 10, 2, 6);
@@ -197,9 +205,9 @@ export function generateBuildingTexture(
     case "square":
     case "plaza":
       graphics.fillStyle(roofColor, 1);
-      graphics.fillRect(6, 18, 12, 2);
+      graphics.fillRect(4, 19, 16, 2);
       graphics.fillStyle(baseColor, 1);
-      graphics.fillRect(7, 8, 10, 10);
+      graphics.fillRect(6, 7, 12, 12);
       graphics.fillStyle(lightColor, 1);
       graphics.fillRect(10, 5, 4, 3);
       graphics.fillRect(9, 11, 6, 2);
@@ -208,9 +216,11 @@ export function generateBuildingTexture(
       break;
     default:
       graphics.fillStyle(roofColor, 1);
-      graphics.fillRect(4, 5, 16, 3);
+      graphics.fillRect(3, 5, 18, 5);
       graphics.fillStyle(baseColor, 1);
-      graphics.fillRect(5, 8, 14, 10);
+      graphics.fillRect(5, 10, 14, 10);
+      graphics.fillStyle(darkColor, 1);
+      graphics.fillRect(17, 11, 3, 9);
       graphics.fillStyle(lightColor, 1);
       graphics.fillRect(8, 11, 3, 3);
       graphics.fillRect(13, 11, 3, 3);
@@ -220,7 +230,7 @@ export function generateBuildingTexture(
   }
 
   graphics.lineStyle(1, 0xe2e8f0, 0.45);
-  graphics.strokeRect(5, 8, 14, 10);
+  graphics.strokeRect(4, 9, 16, 11);
   graphics.generateTexture(key, BUILDING_TEXTURE_SIZE, BUILDING_TEXTURE_SIZE);
   graphics.destroy();
 }

@@ -3,9 +3,8 @@ import type { SceneLocation } from "@/lib/world-scene-adapter";
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  SCENE_PADDING_X,
-  SCENE_PADDING_Y,
 } from "./world-scene-style";
+import { getTownEntrancePoint, getTownLocationPoint } from "./town-layout";
 
 export type CanvasPoint = {
   x: number;
@@ -21,21 +20,10 @@ export function mapWorldToCanvas(
     return { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
   }
 
-  const xs = locations.map((location) => location.x);
-  const ys = locations.map((location) => location.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const width = maxX - minX;
-  const height = maxY - minY;
-  const normalizedX = width === 0 ? 0.5 : (x - minX) / width;
-  const normalizedY = height === 0 ? 0.5 : (y - minY) / height;
-
-  return {
-    x: SCENE_PADDING_X + normalizedX * (CANVAS_WIDTH - SCENE_PADDING_X * 2),
-    y: SCENE_PADDING_Y + normalizedY * (CANVAS_HEIGHT - SCENE_PADDING_Y * 2),
-  };
+  const matchingLocation = locations.find((location) => location.x === x && location.y === y);
+  return matchingLocation
+    ? getTownLocationPoint(matchingLocation, locations)
+    : { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
 }
 
 export function getAgentPosition(
@@ -43,11 +31,11 @@ export function getAgentPosition(
   slotIndex: number,
   locations: SceneLocation[],
 ): CanvasPoint {
-  const center = mapWorldToCanvas(location.x, location.y, locations.length > 0 ? locations : [location]);
-  const columns = 3;
+  const center = getTownEntrancePoint(location, locations.length > 0 ? locations : [location]);
+  const columns = 4;
   const col = slotIndex % columns;
   const row = Math.floor(slotIndex / columns);
-  const offsetX = (col - 1) * 18;
+  const offsetX = -24 + col * 16 + row * 6;
   const offsetY = 34 + row * 18;
 
   return {

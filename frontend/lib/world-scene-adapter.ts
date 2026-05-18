@@ -156,7 +156,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
       ),
     bubbles: world.recent_events
       .filter((event) => event.event_type === EVENT_SPEECH || event.event_type === EVENT_TALK)
-      .slice(0, 3)
+      .slice(0, 2)
       .map((event, index) => {
         const text = String(event.payload.message ?? "").trim();
         const locationId = String(event.location_id ?? "");

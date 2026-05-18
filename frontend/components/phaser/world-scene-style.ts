@@ -2,14 +2,20 @@ import type { SceneAgent, SceneStagePalette } from "@/lib/world-scene-adapter";
 
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
-export const LOCATION_WIDTH = 88;
-export const LOCATION_HEIGHT = 58;
+export const LOCATION_WIDTH = 86;
+export const LOCATION_HEIGHT = 104;
 export const SCENE_PADDING_X = 120;
 export const SCENE_PADDING_Y = 90;
 export const PIXEL_SCALE = 3;
 export const BUILDING_TEXTURE_SIZE = 24;
 export const AGENT_TEXTURE_SIZE = 16;
 export const GROUND_TEXTURE_SIZE = 32;
+export const ISO_TILE_WIDTH = 76;
+export const ISO_TILE_HEIGHT = 38;
+export const ISO_GRID_COLUMNS = 7;
+export const ISO_GRID_ROWS = 7;
+export const ISO_ORIGIN_X = CANVAS_WIDTH / 2;
+export const ISO_ORIGIN_Y = 132;
 
 export type StagePalette = {
   backgroundColor: string;

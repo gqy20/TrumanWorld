@@ -17,6 +17,15 @@ jest.mock("phaser", () => ({
         x: 0,
         y: 0,
         clearTint: jest.fn().mockReturnThis(),
+        beginPath: jest.fn().mockReturnThis(),
+        clear: jest.fn().mockReturnThis(),
+        closePath: jest.fn().mockReturnThis(),
+        fillPath: jest.fn().mockReturnThis(),
+        fillStyle: jest.fn().mockReturnThis(),
+        lineStyle: jest.fn().mockReturnThis(),
+        lineTo: jest.fn().mockReturnThis(),
+        moveTo: jest.fn().mockReturnThis(),
+        strokePath: jest.fn().mockReturnThis(),
         setAlpha: jest.fn().mockImplementation(function (this: typeof object, alpha: number) {
           this.alpha = alpha;
           return this;
@@ -59,6 +68,7 @@ jest.mock("phaser", () => ({
       text: jest.fn(() => this.createGameObject()),
       image: jest.fn(() => this.createGameObject()),
       tileSprite: jest.fn(() => this.createGameObject()),
+      graphics: jest.fn(() => this.createGameObject()),
     };
     cameras = {
       main: {

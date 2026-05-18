@@ -17,6 +17,7 @@ import {
   createStageShell as createSceneStageShell,
   syncAmbience as syncSceneAmbience,
   syncStageTheme as syncSceneStageTheme,
+  syncTownGround as syncSceneTownGround,
   type StageNodes,
 } from "./world-scene-stage";
 import {
@@ -70,6 +71,7 @@ export class WorldScene extends Phaser.Scene {
     syncSceneStageTheme(this, this.stageNodes, world, (groundPreset) =>
       this.ensureGroundTexture(groundPreset)
     );
+    syncSceneTownGround(this.stageNodes, world.locations);
     syncSceneAmbience(this.stageNodes, world);
     this.syncLocations(world.locations);
     this.syncAgents(world.agents, world.locations);
