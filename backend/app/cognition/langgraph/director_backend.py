@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.cognition.claude.director_agent import DirectorAgent
+from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
 from app.cognition.langgraph.model_factory import build_langgraph_chat_model
 from app.cognition.protocols import ChatModelProtocol, DirectorIntervention
 from app.cognition.types import DirectorDecisionInvocation
@@ -49,8 +50,11 @@ class LangGraphDirectorBackend:
     async def propose_intervention(
         self, invocation: DirectorDecisionInvocation
     ) -> DirectorIntervention | None:
-        if not self._enabled or self._text_model is None:
+        if not self._enabled:
             return None
+        if self._text_model is None:
+            msg = "LangGraph director model is not configured or unavailable"
+            raise UpstreamApiUnavailableError(msg)
 
         context = invocation.context
         support_agents = self._agent._select_support_agents(context)
@@ -65,8 +69,9 @@ class LangGraphDirectorBackend:
         try:
             response = await self._text_model.ainvoke(full_prompt)
         except Exception as exc:
-            logger.warning(f"LangGraph director decision failed: {exc}")
-            return None
+            if is_upstream_api_unavailable_error(exc):
+                raise UpstreamApiUnavailableError(str(exc)) from exc
+            raise
 
         return self._agent._parse_response(
             self._extract_text_content(response),

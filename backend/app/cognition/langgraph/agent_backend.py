@@ -190,7 +190,8 @@ class LangGraphAgentBackend:
         runtime_ctx: BackendExecutionContext | None,
     ) -> dict[str, Any] | None:
         if self._text_model is None:
-            return None
+            msg = f"LangGraph {task} model is not configured or unavailable"
+            raise UpstreamApiUnavailableError(msg)
         started_at = perf_counter()
         try:
             response = await self._text_model.ainvoke(
@@ -210,8 +211,7 @@ class LangGraphAgentBackend:
                 duration_ms,
                 type(exc).__name__,
             )
-            logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
-            return None
+            raise
 
         self._maybe_record_usage(runtime_ctx, agent_id, task, response, duration_ms)
         content = self._extract_text_content(response)
@@ -224,8 +224,8 @@ class LangGraphAgentBackend:
                 task,
                 duration_ms,
             )
-            logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
-            return None
+            msg = f"LangGraph {task} returned empty response for {agent_id}"
+            raise RuntimeError(msg)
         parsed = PromptLoader.extract_json_from_text(content)
         if parsed is None:
             logger.warning(f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}")
@@ -237,7 +237,8 @@ class LangGraphAgentBackend:
                 task,
                 duration_ms,
             )
-            logger.warning(f"LangGraph {task} fallback applied for {agent_id}: result=None")
+            msg = f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}"
+            raise ValueError(msg)
         else:
             logger.debug(
                 "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "

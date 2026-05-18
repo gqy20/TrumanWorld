@@ -81,7 +81,7 @@ def build_langgraph_chat_model(
         return ChatAnthropic(**model_kwargs)
     except ModuleNotFoundError:
         logger.warning(
-            "%s is unavailable; LangGraph backend will use fallback mode",
+            "%s is unavailable; LangGraph model construction failed",
             ("langchain_openai" if provider == "openai" else "langchain_anthropic"),
         )
         return None

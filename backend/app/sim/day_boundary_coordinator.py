@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.infra.logging import get_logger
 from app.sim.day_boundary import (
     run_evening_reflection,
@@ -46,6 +47,8 @@ class DayBoundaryCoordinator:
             return True
         except Exception as exc:
             logger.warning(f"Day boundary planner failed: {exc}")
+            if not isinstance(agent_runtime.backend, HeuristicAgentBackend):
+                raise
             return False
 
     async def run_reflector_if_needed(
@@ -70,6 +73,8 @@ class DayBoundaryCoordinator:
             )
         except Exception as exc:
             logger.warning(f"Day boundary reflector failed: {exc}")
+            if not isinstance(agent_runtime.backend, HeuristicAgentBackend):
+                raise
 
     async def run(
         self,

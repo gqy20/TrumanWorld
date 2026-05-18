@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from app.cognition.claude.free_text_utils import run_text_query
+from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
 from app.infra.logging import get_logger
 from app.sim.state_delta_models import (
     AgentDelta,
@@ -204,14 +205,15 @@ async def generate_consequences(
         matched_rules: Description of matched rules
         max_budget_usd: Maximum budget for LLM call
 
-    Returns:
-        StateDelta if generation succeeded and passes validation, None otherwise
+    Raises:
+        RuntimeError or ValueError if generation failed or validation failed.
     """
     import shutil
 
     if shutil.which("claude") is None:
-        logger.warning("consequence_generator: claude CLI not available")
-        return None
+        raise UpstreamApiUnavailableError(
+            "Claude CLI is not available in the current environment"
+        )
 
     prompt = _build_consequence_prompt(
         action_type=action_type,
@@ -247,23 +249,24 @@ async def generate_consequences(
         result_text = await run_text_query(prompt=prompt, options=options)
 
         if not result_text:
-            logger.warning("consequence_generator: empty response")
-            return None
+            msg = "consequence_generator: empty response"
+            raise RuntimeError(msg)
 
         state_delta = _parse_consequence_response(result_text)
         if state_delta is None:
-            return None
+            msg = "consequence_generator: could not parse StateDelta response"
+            raise ValueError(msg)
 
         # Validate currency conservation
         if not state_delta.validate_currency_conservation():
-            logger.warning(
-                "consequence_generator: currency conservation violated for action_type=%s",
-                action_type,
-            )
-            return None
+            msg = f"consequence_generator: currency conservation violated for {action_type}"
+            raise ValueError(msg)
 
         return state_delta
 
     except Exception as exc:
-        logger.warning("consequence_generator: LLM call failed: %s", exc)
-        return None
+        if isinstance(exc, UpstreamApiUnavailableError):
+            raise
+        if is_upstream_api_unavailable_error(exc):
+            raise UpstreamApiUnavailableError(str(exc)) from exc
+        raise

@@ -19,6 +19,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
 from app.scenario.bundle_world.scenario import BundleWorldScenario
+from app.cognition.registry import get_cognition_registry
 from app.director.service import DirectorEventService
 from app.infra.settings import get_settings
 from app.sim.world_loader import load_tick_data
@@ -120,7 +121,10 @@ async def test_build_director_plan_does_not_write_db_in_read_phase(db_session):
 
     monkey_settings = get_settings()
     original = monkey_settings.director_auto_intervention_enabled
+    original_backend = monkey_settings.director_backend
     monkey_settings.director_auto_intervention_enabled = True
+    monkey_settings.director_backend = "heuristic"
+    get_cognition_registry.cache_clear()
     coordinator = BundleWorldCoordinator(db_session)
     agents = [cast, truman]
 
@@ -129,6 +133,8 @@ async def test_build_director_plan_does_not_write_db_in_read_phase(db_session):
         plan = await coordinator.build_director_plan(run_id, agents)
     finally:
         monkey_settings.director_auto_intervention_enabled = original
+        monkey_settings.director_backend = original_backend
+        get_cognition_registry.cache_clear()
 
     # 统计调用后的 director_memories 行数
     count_after = (
@@ -212,12 +218,17 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
         service = SimulationService.create_for_scheduler(runtime)
         monkey_settings = get_settings()
         original = monkey_settings.director_auto_intervention_enabled
+        original_backend = monkey_settings.director_backend
         monkey_settings.director_auto_intervention_enabled = True
+        monkey_settings.director_backend = "heuristic"
+        get_cognition_registry.cache_clear()
 
         try:
             await service.run_tick_isolated(run_id, engine)
         finally:
             monkey_settings.director_auto_intervention_enabled = original
+            monkey_settings.director_backend = original_backend
+            get_cognition_registry.cache_clear()
 
         # 验证：Phase 3 应该已将触发的 director plan 写入 director_memories
         async with AsyncSessionType(engine, expire_on_commit=False) as verify_session:
@@ -306,7 +317,10 @@ async def test_load_tick_data_returns_director_plan_for_high_suspicion(db_sessio
 
     monkey_settings = get_settings()
     original = monkey_settings.director_auto_intervention_enabled
+    original_backend = monkey_settings.director_backend
     monkey_settings.director_auto_intervention_enabled = True
+    monkey_settings.director_backend = "heuristic"
+    get_cognition_registry.cache_clear()
     try:
         scenario = BundleWorldScenario(db_session)
         loaded = await load_tick_data(
@@ -316,6 +330,8 @@ async def test_load_tick_data_returns_director_plan_for_high_suspicion(db_sessio
         )
     finally:
         monkey_settings.director_auto_intervention_enabled = original
+        monkey_settings.director_backend = original_backend
+        get_cognition_registry.cache_clear()
 
     # 修复后，TickData 应包含 director_plan 字段
     assert hasattr(loaded, "director_plan"), (

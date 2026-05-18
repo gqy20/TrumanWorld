@@ -4,6 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from app.cognition.claude.director_agent import DirectorContext
+from app.cognition.heuristic.director_backend import HeuristicDirectorBackend
 from app.cognition.interfaces import DirectorCognitionBackend
 from app.cognition.registry import get_cognition_registry
 from app.cognition.types import DirectorDecisionInvocation
@@ -116,7 +117,11 @@ class DirectorPlanner:
                 except Exception as exc:
                     logger.warning(f"DirectorAgent async decision failed: {exc}")
                     self._pending_decision = None
+                    if not self._allows_config_fallback():
+                        raise
             # 如果决策还在进行中，继续执行规则决策（不阻塞）
+            if not self._allows_config_fallback():
+                return None
 
         # 实验性功能：启动 LLM 智能决策（异步，不阻塞）
         if self._backend.is_enabled() and self._backend.should_decide(current_tick):
@@ -155,10 +160,18 @@ class DirectorPlanner:
                     )
                 )
                 logger.debug(f"DirectorAgent started async decision at tick {current_tick}")
+                if not self._allows_config_fallback():
+                    return None
+
+        if not self._allows_config_fallback():
+            return None
 
         # 回退到配置化规则决策（同步，立即返回）
         # _build_config_based_plan 仍使用原始 ORM 对象（同步访问，无 greenlet 问题）
         return self._build_config_based_plan(assessment, support_agents, recent_goals)
+
+    def _allows_config_fallback(self) -> bool:
+        return isinstance(self._backend, HeuristicDirectorBackend)
 
     def _build_config_based_plan(
         self,

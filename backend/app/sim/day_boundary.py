@@ -18,6 +18,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from app.agent.runtime import RuntimeContext
+from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
 from app.sim.llm_call_collector import LlmCallCollector
@@ -37,6 +38,13 @@ logger = get_logger(__name__)
 # memory_type 常量
 MEMORY_TYPE_DAILY_PLAN = "daily_plan"
 MEMORY_TYPE_DAILY_REFLECTION = "daily_reflection"
+
+
+def _allows_day_boundary_failure_fallback(agent_runtime: AgentRuntime) -> bool:
+    backend = getattr(agent_runtime, "backend", None)
+    if backend is None:
+        return True
+    return isinstance(backend, HeuristicAgentBackend)
 
 
 # ── 触发检测 ─────────────────────────────────────────────────────────────────
@@ -341,6 +349,10 @@ async def run_morning_planning(
         return agent.id, agent.name, result
 
     results = await asyncio.gather(*[plan_one(a) for a in pending], return_exceptions=True)
+    if not _allows_day_boundary_failure_fallback(agent_runtime):
+        for res in results:
+            if isinstance(res, Exception):
+                raise res
 
     async with AsyncSession(engine, expire_on_commit=False) as write_session:
         agent_repo = AgentRepository(write_session)
@@ -476,6 +488,10 @@ async def run_evening_reflection(
         return agent.id, agent.name, result
 
     results = await asyncio.gather(*[reflect_one(a) for a in pending], return_exceptions=True)
+    if not _allows_day_boundary_failure_fallback(agent_runtime):
+        for res in results:
+            if isinstance(res, Exception):
+                raise res
 
     async with AsyncSession(engine, expire_on_commit=False) as write_session:
         memory_repo = MemoryRepository(write_session)

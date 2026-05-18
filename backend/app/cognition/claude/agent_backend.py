@@ -9,6 +9,7 @@ from app.cognition.claude.connection_pool import AgentConnectionPool
 from app.cognition.claude.decision_provider import ClaudeSDKDecisionProvider
 from app.cognition.claude.decision_utils import clean_response_text
 from app.cognition.claude.free_text_utils import run_text_query
+from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
 from app.cognition.types import (
     AgentActionInvocation,
     AgentDecisionResult,
@@ -137,8 +138,9 @@ class ClaudeSdkAgentBackend:
         # reactor connection pool. These tasks are intentionally modeled as
         # one-shot query() calls.
         if shutil.which("claude") is None:
-            logger.warning(f"Skipping {task} for {agent_id}: claude CLI not available")
-            return None
+            raise UpstreamApiUnavailableError(
+                "Claude CLI is not available in the current environment"
+            )
 
         from app.agent.system_prompt import build_system_prompt
         from app.cognition.claude.sdk_options import build_sdk_options
@@ -173,16 +175,20 @@ class ClaudeSdkAgentBackend:
                 ),
             )
         except RuntimeError as exc:
-            logger.warning(f"{task} LLM error for {agent_id}: {exc}")
-            return None
+            if is_upstream_api_unavailable_error(exc):
+                raise UpstreamApiUnavailableError(str(exc)) from exc
+            raise
         except Exception as exc:
-            logger.warning(f"{task} LLM call failed for {agent_id}: {exc}")
-            return None
+            if is_upstream_api_unavailable_error(exc):
+                raise UpstreamApiUnavailableError(str(exc)) from exc
+            raise
 
         if not result_text:
-            return None
+            msg = f"{task} LLM returned empty response for {agent_id}"
+            raise RuntimeError(msg)
 
         parsed = PromptLoader.extract_json_from_text(clean_response_text(result_text))
         if parsed is None:
-            logger.warning(f"{task} could not parse JSON for {agent_id}: {result_text[:200]}")
+            msg = f"{task} could not parse JSON for {agent_id}: {result_text[:200]}"
+            raise ValueError(msg)
         return parsed

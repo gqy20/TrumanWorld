@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.cognition.claude.decision_utils import clean_response_text
 from app.cognition.claude.free_text_utils import run_text_query
+from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
 from app.director.observer import DirectorAssessment
 from app.director.types import DirectorPlan
 from app.infra.logging import get_logger
@@ -103,13 +105,8 @@ class DirectorAgent:
             return None
 
         prompt = self._build_decision_prompt(context, support_agents, recent_goals)
-
-        try:
-            response = await self._call_llm(prompt)
-            return self._parse_response(response, context, support_agents)
-        except Exception as exc:
-            logger.warning(f"DirectorAgent LLM decision failed: {exc}")
-            return None
+        response = await self._call_llm(prompt)
+        return self._parse_response(response, context, support_agents)
 
     def _select_support_agents(self, context: DirectorContext) -> list[dict[str, Any]]:
         support_roles = set(context.support_roles or ["cast"])
@@ -186,11 +183,10 @@ class DirectorAgent:
 
         logger.debug("DirectorAgent calling LLM for decision")
 
-        import shutil
-
         if shutil.which("claude") is None:
-            logger.warning("Claude CLI not available, falling back to mock")
-            return self._mock_llm_response()
+            raise UpstreamApiUnavailableError(
+                "Claude CLI is not available in the current environment"
+            )
 
         llm_config = self._config.llm
         options = build_sdk_options(
@@ -216,15 +212,18 @@ class DirectorAgent:
             return await self._call_llm_internal(full_prompt, options)
         except asyncio.CancelledError:
             logger.debug("DirectorAgent LLM call cancelled")
-            return self._mock_llm_response()
+            raise
         except RuntimeError as exc:
             if "cancel scope" in str(exc).lower() or "different task" in str(exc).lower():
                 logger.debug(f"DirectorAgent cancel scope error: {exc}")
-                return self._mock_llm_response()
+                raise
+            if is_upstream_api_unavailable_error(exc):
+                raise UpstreamApiUnavailableError(str(exc)) from exc
             raise
         except Exception as exc:
-            logger.warning(f"DirectorAgent LLM call failed: {exc}, using mock")
-            return self._mock_llm_response()
+            if is_upstream_api_unavailable_error(exc):
+                raise UpstreamApiUnavailableError(str(exc)) from exc
+            raise
 
     async def _call_llm_internal(self, full_prompt: str, options: ClaudeAgentOptions) -> str:
         try:
@@ -238,26 +237,6 @@ class DirectorAgent:
             return clean_response_text(result)
         except RuntimeError:
             raise
-
-    def _mock_llm_response(self) -> str:
-        import random
-
-        if random.random() < 0.3:
-            return json.dumps(
-                {
-                    "should_intervene": True,
-                    "scene_goal": "break_isolation",
-                    "target_agent_names": ["Alice"],
-                    "priority": "normal",
-                    "urgency": "advisory",
-                    "reasoning": "The subject has been isolated for several ticks. A natural encounter would help maintain engagement.",
-                    "message_hint": "You happen to be going to the same location as the subject. Keep it natural, don't force interaction.",
-                    "strategy": "Natural encounter to break isolation",
-                    "cooldown_ticks": 4,
-                }
-            )
-
-        return json.dumps({"should_intervene": False, "scene_goal": "none"})
 
     def _parse_response(
         self,
@@ -304,8 +283,8 @@ class DirectorAgent:
             )
 
         except json.JSONDecodeError as exc:
-            logger.warning(f"Failed to parse DirectorAgent response: {exc}")
-            return None
+            msg = f"Failed to parse DirectorAgent response: {exc}"
+            raise ValueError(msg) from exc
         except Exception as exc:
-            logger.warning(f"Error parsing DirectorAgent response: {exc}")
-            return None
+            msg = f"Error parsing DirectorAgent response: {exc}"
+            raise RuntimeError(msg) from exc

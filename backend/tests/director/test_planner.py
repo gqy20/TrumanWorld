@@ -2,6 +2,7 @@ import pytest
 import asyncio
 
 from app.infra.settings import get_settings
+from app.cognition.heuristic.director_backend import HeuristicDirectorBackend
 from app.director.observer import DirectorAssessment, SuspicionTrend
 from app.director.planner import DirectorPlanner, DirectorPlannerSemantics
 from app.protocol.simulation import (
@@ -11,6 +12,10 @@ from app.protocol.simulation import (
     DIRECTOR_SCENE_SOFT_CHECK_IN,
 )
 from app.store.models import Agent
+
+
+def _make_rule_planner(**kwargs) -> DirectorPlanner:
+    return DirectorPlanner(backend=HeuristicDirectorBackend(), **kwargs)
 
 
 def _make_cast_agent(agent_id: str, name: str, config_id: str = "spouse") -> Agent:
@@ -77,7 +82,7 @@ def test_director_planner_uses_default_bundle_config_when_scenario_id_omitted(
 
 @pytest.mark.asyncio
 async def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-spouse", "Meryl", "spouse"),
         _make_truman_agent(0.86),
@@ -104,7 +109,7 @@ async def test_director_planner_builds_soft_check_in_plan_for_high_suspicion():
 
 @pytest.mark.asyncio
 async def test_director_planner_uses_semantics_support_roles():
-    planner = DirectorPlanner(
+    planner = _make_rule_planner(
         semantics=DirectorPlannerSemantics(support_roles=["ally"]),
     )
     agents = [
@@ -141,7 +146,7 @@ async def test_director_planner_uses_semantics_support_roles():
 @pytest.mark.asyncio
 async def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
     """测试怀疑度快速上升时触发预防性安抚"""
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-friend", "Bob", "friend"),
         _make_truman_agent(0.35),
@@ -177,7 +182,7 @@ async def test_director_planner_builds_preemptive_comfort_for_rapid_rise():
 @pytest.mark.asyncio
 async def test_director_planner_builds_break_isolation_for_lonely_subject():
     """测试主体长时间独处时触发打破隔离"""
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-neighbor", "Neighbor", "neighbor"),
         _make_truman_agent(0.2),
@@ -204,7 +209,7 @@ async def test_director_planner_builds_break_isolation_for_lonely_subject():
 @pytest.mark.asyncio
 async def test_director_planner_builds_rejection_recovery_for_multiple_rejections():
     """测试连续被拒绝时触发恢复计划"""
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-spouse", "Meryl", "spouse"),
         _make_truman_agent(0.4),
@@ -232,7 +237,7 @@ async def test_director_planner_builds_rejection_recovery_for_multiple_rejection
 @pytest.mark.asyncio
 async def test_director_planner_avoids_duplicate_interventions():
     """测试避免重复干预"""
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-spouse", "Meryl", "spouse"),
         _make_truman_agent(0.86),
@@ -269,7 +274,7 @@ async def test_director_planner_avoids_duplicate_interventions():
 @pytest.mark.asyncio
 async def test_director_planner_prioritizes_rapid_rise_over_high_suspicion():
     """测试快速上升优先于高怀疑度"""
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-spouse", "Meryl", "spouse"),
         _make_truman_agent(0.85),
@@ -379,7 +384,7 @@ async def test_director_planner_consumes_langgraph_backend_async_result():
 
 @pytest.mark.asyncio
 async def test_director_planner_can_trigger_continuity_strategy_without_alert_tracking():
-    planner = DirectorPlanner()
+    planner = _make_rule_planner()
     agents = [
         _make_cast_agent("cast-spouse", "Meryl", "spouse"),
         _make_truman_agent(0.0),

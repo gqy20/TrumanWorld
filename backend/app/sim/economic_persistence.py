@@ -136,14 +136,11 @@ class EconomicPersistence:
             )
 
             if state_delta is None:
-                logger.warning(
-                    "free_action_consequence_failed: agent=%s action=%s tick=%d",
-                    agent_id,
-                    action_type,
-                    tick_no,
+                msg = (
+                    f"free_action_consequence_failed: agent={agent_id} "
+                    f"action={action_type} tick={tick_no}"
                 )
-                item.event_payload["consequence_source"] = "generation_failed"
-                continue
+                raise RuntimeError(msg)
 
             affected = await applier.apply(
                 state_delta,
