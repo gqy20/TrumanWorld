@@ -66,6 +66,98 @@
       ]
     }
   },
+  "tiles": {
+    "roadStraight": {
+      "frame": 7,
+      "anchor": [
+        0.5,
+        0.5
+      ],
+      "display": [
+        78,
+        38
+      ]
+    },
+    "roadCross": {
+      "frame": 8,
+      "anchor": [
+        0.5,
+        0.5
+      ],
+      "display": [
+        78,
+        38
+      ]
+    },
+    "roadBend": {
+      "frame": 9,
+      "anchor": [
+        0.5,
+        0.5
+      ],
+      "display": [
+        78,
+        38
+      ]
+    }
+  },
+  "props": {
+    "tree": {
+      "frame": 10,
+      "anchor": [
+        0.5,
+        0.9
+      ],
+      "display": [
+        54,
+        68
+      ]
+    },
+    "lamp": {
+      "frame": 11,
+      "anchor": [
+        0.5,
+        0.95
+      ],
+      "display": [
+        28,
+        56
+      ]
+    },
+    "bench": {
+      "frame": 12,
+      "anchor": [
+        0.5,
+        0.78
+      ],
+      "display": [
+        48,
+        32
+      ]
+    },
+    "flowers": {
+      "frame": 13,
+      "anchor": [
+        0.5,
+        0.76
+      ],
+      "display": [
+        36,
+        26
+      ]
+    },
+    "shrub": {
+      "frame": 14,
+      "anchor": [
+        0.5,
+        0.8
+      ],
+      "display": [
+        40,
+        30
+      ]
+    }
+  },
   "agents": {
     "idle": [
       {

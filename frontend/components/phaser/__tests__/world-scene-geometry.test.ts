@@ -59,11 +59,11 @@ describe("world scene geometry helpers", () => {
 
     expect(getAgentPosition(locations[0], 0, locations)).toEqual({
       x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 24,
-      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 66,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 46,
     });
     expect(getAgentPosition(locations[0], 4, locations)).toEqual({
-      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 18,
-      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 84,
+      x: ISO_ORIGIN_X - ISO_TILE_WIDTH * 1.5 - 20,
+      y: ISO_ORIGIN_Y + ISO_TILE_HEIGHT * 2.5 + 60,
     });
   });
 });

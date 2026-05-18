@@ -83,7 +83,7 @@ export class WorldScene extends Phaser.Scene {
     syncSceneStageTheme(this, this.stageNodes, world, (groundPreset) =>
       this.ensureGroundTexture(groundPreset)
     );
-    syncSceneTownGround(this.stageNodes, world.locations);
+    syncSceneTownGround(this, this.stageNodes, world.locations, getTownAssetPackManifest(this));
     syncSceneAmbience(this.stageNodes, world);
     this.syncLocations(world.locations);
     this.syncAgents(world.agents, world.locations);

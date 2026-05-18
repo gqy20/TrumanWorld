@@ -1,6 +1,12 @@
 import type { SceneWorld } from "@/lib/world-scene-adapter";
 
-import { createStageShell, syncAmbience, syncStageTheme, type StageNodes } from "../world-scene-stage";
+import {
+  createStageShell,
+  syncAmbience,
+  syncStageTheme,
+  syncTownGround,
+  type StageNodes,
+} from "../world-scene-stage";
 
 function gameObject(overrides: Record<string, unknown> = {}) {
   return {
@@ -22,6 +28,8 @@ function gameObject(overrides: Record<string, unknown> = {}) {
     lineTo: jest.fn().mockReturnThis(),
     moveTo: jest.fn().mockReturnThis(),
     strokePath: jest.fn().mockReturnThis(),
+    destroy: jest.fn(),
+    setDisplaySize: jest.fn().mockReturnThis(),
     ...overrides,
   };
 }
@@ -31,6 +39,7 @@ function stageNodes(): StageNodes {
     stageGround: gameObject(),
     townTiles: gameObject(),
     townRoads: gameObject(),
+    townAssetNodes: [],
     stageHeader: gameObject(),
     stageVignette: gameObject(),
     ambienceOverlay: gameObject(),
@@ -124,5 +133,41 @@ describe("world scene stage helpers", () => {
     expect(nodes.stageHeader.setFillStyle).toHaveBeenCalledWith(0x0ea5e9, expect.any(Number));
     expect(nodes.stageVignette.setFillStyle).toHaveBeenCalled();
     expect(nodes.ambienceLabel.setColor).toHaveBeenCalled();
+  });
+
+  it("syncs asset-backed roads and decorations", () => {
+    const scene = {
+      add: {
+        image: jest.fn(() => gameObject()),
+      },
+    };
+    const staleNode = gameObject();
+    const nodes = stageNodes();
+    nodes.townAssetNodes = [staleNode as never];
+
+    syncTownGround(scene as never, nodes, [], {
+      schemaVersion: 2,
+      sprite: {
+        image: "spritesheet.webp",
+        frameWidth: 128,
+        frameHeight: 128,
+        columns: 8,
+        rows: 4,
+        frameCount: 32,
+      },
+      tiles: {
+        roadStraight: { frame: 7, anchor: [0.5, 0.5], display: [78, 38] },
+        roadCross: { frame: 8, anchor: [0.5, 0.5], display: [78, 38] },
+      },
+      props: {
+        tree: { frame: 10, anchor: [0.5, 0.9], display: [54, 68] },
+      },
+    });
+
+    expect(staleNode.destroy).toHaveBeenCalled();
+    expect(nodes.townTiles.clear).toHaveBeenCalled();
+    expect(nodes.townRoads.clear).toHaveBeenCalled();
+    expect(scene.add.image).toHaveBeenCalled();
+    expect(nodes.townAssetNodes.length).toBeGreaterThan(0);
   });
 });

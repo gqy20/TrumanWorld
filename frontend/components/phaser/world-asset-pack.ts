@@ -14,6 +14,12 @@ export type TownAssetTimelineFrame = {
   duration: number;
 };
 
+export type TownAssetFrameSpec = {
+  frame: number;
+  anchor?: [number, number];
+  display?: [number, number];
+};
+
 export type TownAssetPackManifest = {
   schemaVersion: number;
   sprite: {
@@ -24,7 +30,9 @@ export type TownAssetPackManifest = {
     rows: number;
     frameCount: number;
   };
-  buildings?: Record<string, { frame: number; anchor?: [number, number] }>;
+  buildings?: Record<string, TownAssetFrameSpec>;
+  tiles?: Record<string, TownAssetFrameSpec>;
+  props?: Record<string, TownAssetFrameSpec>;
   agents?: Partial<Record<SceneAgent["status"], TownAssetTimelineFrame[]>>;
 };
 
@@ -51,6 +59,20 @@ const AGENT_FRAMES: Record<SceneAgent["status"], number> = {
   talking: 18,
   working: 19,
   resting: 20,
+};
+
+const TILE_FALLBACKS: Record<string, TownAssetFrameSpec> = {
+  roadStraight: { frame: 7, anchor: [0.5, 0.5], display: [78, 38] },
+  roadCross: { frame: 8, anchor: [0.5, 0.5], display: [78, 38] },
+  roadBend: { frame: 9, anchor: [0.5, 0.5], display: [78, 38] },
+};
+
+const PROP_FALLBACKS: Record<string, TownAssetFrameSpec> = {
+  tree: { frame: 10, anchor: [0.5, 0.9], display: [54, 68] },
+  lamp: { frame: 11, anchor: [0.5, 0.95], display: [28, 56] },
+  bench: { frame: 12, anchor: [0.5, 0.78], display: [48, 32] },
+  flowers: { frame: 13, anchor: [0.5, 0.76], display: [36, 26] },
+  shrub: { frame: 14, anchor: [0.5, 0.8], display: [40, 30] },
 };
 
 export function preloadTownAssetPack(scene: Phaser.Scene): void {
@@ -86,6 +108,20 @@ export function getAgentAssetFrame(
     return resolveTimelineFrame(timeline, nowMs);
   }
   return AGENT_FRAMES[agent.status] ?? AGENT_FRAMES.idle;
+}
+
+export function getTownTileAssetSpec(
+  key: string,
+  manifest?: TownAssetPackManifest | null,
+): TownAssetFrameSpec {
+  return manifest?.tiles?.[key] ?? TILE_FALLBACKS[key] ?? TILE_FALLBACKS.roadStraight;
+}
+
+export function getTownPropAssetSpec(
+  key: string,
+  manifest?: TownAssetPackManifest | null,
+): TownAssetFrameSpec {
+  return manifest?.props?.[key] ?? PROP_FALLBACKS[key] ?? PROP_FALLBACKS.shrub;
 }
 
 export function resolveTimelineFrame(timeline: TownAssetTimelineFrame[], nowMs: number): number {

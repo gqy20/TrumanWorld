@@ -196,12 +196,10 @@ describe("WorldScene", () => {
     scene.create();
     scene.syncWorld(sceneWorld);
 
-    expect(scene.add.image).toHaveBeenCalledTimes(2);
     expect(scene.add.line).toHaveBeenCalledTimes(1);
     expect(scene.add.triangle).toHaveBeenCalledTimes(1);
 
-    const locationBody = (scene.add.image as jest.Mock).mock.results[0].value;
-    const agentBody = (scene.add.image as jest.Mock).mock.results[1].value;
+    const [locationBody, agentBody] = interactiveImageNodes(scene);
     locationBody.__handlers.pointerdown();
     agentBody.__handlers.pointerdown();
 
@@ -215,8 +213,7 @@ describe("WorldScene", () => {
     scene.create();
     scene.syncWorld(sceneWorld);
 
-    const locationBody = (scene.add.image as jest.Mock).mock.results[0].value;
-    const agentBody = (scene.add.image as jest.Mock).mock.results[1].value;
+    const [locationBody, agentBody] = interactiveImageNodes(scene);
     const trailLine = (scene.add.line as jest.Mock).mock.results[0].value;
     const bubbleBox = (scene.add.rectangle as jest.Mock).mock.results.at(-1)?.value;
 
@@ -234,3 +231,9 @@ describe("WorldScene", () => {
     expect(bubbleBox.destroy).toHaveBeenCalled();
   });
 });
+
+function interactiveImageNodes(scene: WorldScene) {
+  return (scene.add.image as jest.Mock).mock.results
+    .map((result) => result.value)
+    .filter((node) => node.__handlers.pointerdown);
+}

@@ -35,8 +35,8 @@ export function getAgentPosition(
   const columns = 4;
   const col = slotIndex % columns;
   const row = Math.floor(slotIndex / columns);
-  const offsetX = -24 + col * 16 + row * 6;
-  const offsetY = 34 + row * 18;
+  const offsetX = -24 + col * 16 + row * 4;
+  const offsetY = 14 + row * 14;
 
   return {
     x: center.x + offsetX,
