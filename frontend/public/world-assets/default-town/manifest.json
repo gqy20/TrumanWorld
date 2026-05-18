@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "id": "default-town",
+  "displayName": "Default Town",
+  "description": "Generated isometric town sprites for TrumanWorld stage rendering.",
+  "render": {
+    "mode": "sheet",
+    "pixelated": false
+  },
+  "sprite": {
+    "image": "spritesheet.webp",
+    "frameWidth": 128,
+    "frameHeight": 128,
+    "columns": 8,
+    "rows": 4,
+    "frameCount": 32
+  },
+  "buildings": {
+    "home": {
+      "frame": 0,
+      "anchor": [
+        0.5,
+        0.86
+      ]
+    },
+    "cafe": {
+      "frame": 1,
+      "anchor": [
+        0.5,
+        0.86
+      ]
+    },
+    "office": {
+      "frame": 2,
+      "anchor": [
+        0.5,
+        0.88
+      ]
+    },
+    "library": {
+      "frame": 3,
+      "anchor": [
+        0.5,
+        0.86
+      ]
+    },
+    "plaza": {
+      "frame": 4,
+      "anchor": [
+        0.5,
+        0.86
+      ]
+    },
+    "park": {
+      "frame": 5,
+      "anchor": [
+        0.5,
+        0.86
+      ]
+    },
+    "generic": {
+      "frame": 6,
+      "anchor": [
+        0.5,
+        0.86
+      ]
+    }
+  },
+  "agents": {
+    "idle": [
+      {
+        "sprite": 16,
+        "duration": 800
+      }
+    ],
+    "moving": [
+      {
+        "sprite": 17,
+        "duration": 140
+      },
+      {
+        "sprite": 16,
+        "duration": 140
+      }
+    ],
+    "talking": [
+      {
+        "sprite": 18,
+        "duration": 220
+      },
+      {
+        "sprite": 16,
+        "duration": 220
+      }
+    ],
+    "working": [
+      {
+        "sprite": 19,
+        "duration": 260
+      }
+    ],
+    "resting": [
+      {
+        "sprite": 20,
+        "duration": 900
+      }
+    ]
+  }
+}

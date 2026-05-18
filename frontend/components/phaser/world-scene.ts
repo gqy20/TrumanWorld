@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 
 import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
+import { preloadTownAssetPack } from "./world-asset-pack";
 import {
   getAgentPosition as getAgentPositionPoint,
   mapWorldToCanvas as mapWorldToCanvasPoint,
@@ -51,7 +52,9 @@ export class WorldScene extends Phaser.Scene {
     super({ key: "WorldScene" });
   }
 
-  preload(): void {}
+  preload(): void {
+    preloadTownAssetPack(this);
+  }
 
   create(_initialWorld?: SceneWorld): void {
     this.createPixelTextures();

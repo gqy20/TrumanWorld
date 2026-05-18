@@ -4,14 +4,17 @@ import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-ad
 import { getHeatLevel } from "@/lib/world-utils";
 
 import {
+  TOWN_SPRITESHEET_KEY,
+  getAgentAssetFrame,
+  getLocationAssetFrame,
+} from "./world-asset-pack";
+import {
   AGENT_TEXTURE_SIZE,
   LOCATION_HEIGHT,
   LOCATION_WIDTH,
   PIXEL_SCALE,
   getAgentMarker,
   getArrowAngleDegrees,
-  getConfiguredAgentTextureKey,
-  getConfiguredLocationTextureKey,
   getLocationGlyph,
 } from "./world-scene-style";
 
@@ -88,10 +91,7 @@ export function syncLocations(
     const alpha = 0.92 + occupantRatio * 0.08;
     const heatLevel = getHeatLevel(location.heat);
     const baseDepth = Math.round(point.y);
-    const textureKey = getConfiguredLocationTextureKey(
-      location.visual.visualPreset ?? location.locationType,
-      location.locationType,
-    );
+    const assetFrame = getLocationAssetFrame(location);
 
     if (existing) {
       context.ensureLocationTexture(location);
@@ -103,7 +103,7 @@ export function syncLocations(
       );
       existing.glow.setDepth(baseDepth - 6);
       existing.body.setPosition(point.x, point.y - 28);
-      existing.body.setTexture(textureKey);
+      existing.body.setTexture(TOWN_SPRITESHEET_KEY, assetFrame);
       existing.body.setAlpha(alpha);
       existing.body.setDepth(baseDepth + 2);
       existing.icon.setPosition(point.x, point.y - 54);
@@ -132,7 +132,7 @@ export function syncLocations(
       .setDepth(baseDepth - 6);
     context.ensureLocationTexture(location);
     const body = context.scene.add
-      .image(point.x, point.y - 28, textureKey)
+      .image(point.x, point.y - 28, TOWN_SPRITESHEET_KEY, assetFrame)
       .setDisplaySize(LOCATION_WIDTH, LOCATION_HEIGHT)
       .setAlpha(alpha)
       .setDepth(baseDepth + 2)
@@ -227,10 +227,7 @@ export function syncAgents(
     const point = context.getAgentPosition(location, agent.slotIndex);
     const existing = agentNodes.get(agent.id);
     const agentDepth = Math.round(point.y + 24);
-    const textureKey = getConfiguredAgentTextureKey(
-      agent.visual?.visualPreset ?? "default",
-      agent.status,
-    );
+    const assetFrame = getAgentAssetFrame(agent);
 
     if (existing) {
       context.scene.tweens.add({
@@ -255,7 +252,7 @@ export function syncAgents(
         ease: "Quad.Out",
       });
       context.ensureAgentTexture(agent);
-      existing.body.setTexture(textureKey);
+      existing.body.setTexture(TOWN_SPRITESHEET_KEY, assetFrame);
       existing.body.setAlpha(1);
       existing.body.setDepth(agentDepth);
       existing.marker.setText(agent.visual?.marker ?? getAgentMarker(agent.status));
@@ -268,7 +265,7 @@ export function syncAgents(
 
     context.ensureAgentTexture(agent);
     const body = context.scene.add
-      .image(point.x, point.y, textureKey)
+      .image(point.x, point.y, TOWN_SPRITESHEET_KEY, assetFrame)
       .setDisplaySize(AGENT_TEXTURE_SIZE * PIXEL_SCALE, AGENT_TEXTURE_SIZE * PIXEL_SCALE)
       .setDepth(agentDepth)
       .setInteractive({ cursor: "pointer" });

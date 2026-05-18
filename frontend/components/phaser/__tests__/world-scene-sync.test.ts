@@ -1,5 +1,6 @@
 import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
 
+import { TOWN_SPRITESHEET_KEY, getAgentAssetFrame } from "../world-asset-pack";
 import {
   syncAgents,
   syncBubbles,
@@ -287,7 +288,10 @@ describe("world scene sync helpers", () => {
         y: 430,
       }),
     );
-    expect(mei?.body.setTexture).toHaveBeenCalledWith("pixel-agent-student-talking");
+    expect(mei?.body.setTexture).toHaveBeenCalledWith(
+      TOWN_SPRITESHEET_KEY,
+      getAgentAssetFrame(agent({ status: "talking" })),
+    );
     expect(mei?.marker.setText).toHaveBeenCalledWith("!");
     expect(mei?.label.setText).toHaveBeenCalledWith("Mei Lin");
 
