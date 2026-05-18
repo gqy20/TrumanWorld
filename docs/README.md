@@ -25,6 +25,11 @@
 2. 看 [product/FEATURE_WORLD_2D_SCENE.md](product/FEATURE_WORLD_2D_SCENE.md)
 3. 如需历史基线，补看 [references/PRD.md](references/PRD.md)
 
+### 我想准备比赛或面试介绍
+
+1. 看 [references/COMPETITION_INTERVIEW_PITCH.md](references/COMPETITION_INTERVIEW_PITCH.md)
+2. 根据场景选用 30 秒版本、2 分钟版本或问答备选
+
 ### 我想做技术决策
 
 1. 看 [engineering/CURRENT_ARCHITECTURE.md](engineering/CURRENT_ARCHITECTURE.md)

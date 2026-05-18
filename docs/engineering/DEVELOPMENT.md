@@ -16,18 +16,18 @@
 | 工具 | 版本 | 说明 |
 |------|------|------|
 | Python | 3.13 | 后端运行时 |
-| Node.js | 20.9+ 且 <21 | 前端运行时 |
+| Node.js | 24.x | 前端运行时 |
 | PostgreSQL | 17.3 | 主数据库 |
 | Redis | 7+ | 缓存层 |
 | uv | 0.9.18 | Python 包管理 |
 
-仓库根目录提供 `.nvmrc`，当前为 `20.19.0`。进入仓库后建议先执行：
+仓库根目录提供 `.nvmrc`，当前为 `24.3.0`。进入仓库后建议先执行：
 
 ```bash
 nvm use
 ```
 
-如果使用 Node 21+ 或 24+ 执行前端命令，`pnpm` 会提示 unsupported engine；这表示当前 shell 没有使用项目声明的 Node 20 运行时。请切回 `.nvmrc` 指定版本后再跑 `pnpm install`、`pnpm test` 或 `pnpm build`。
+如果使用非 Node 24 运行前端命令，`pnpm` 可能会提示 unsupported engine；这表示当前 shell 没有使用项目声明的 Node 24 运行时。请切回 `.nvmrc` 指定版本后再跑 `pnpm install`、`pnpm test` 或 `pnpm build`。
 
 ### 可选
 

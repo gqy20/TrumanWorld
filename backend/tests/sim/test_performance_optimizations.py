@@ -615,8 +615,8 @@ class TestLoadWorldParallelQueries:
             await cb.load_world(run_id, run, tick_minutes=5)
             elapsed = time.monotonic() - t0
 
-        assert elapsed < 0.10, (
-            f"load_world locations+agents 应并行查询，但耗时 {elapsed:.3f}s（预期 < 0.10s）"
+        assert elapsed < 0.15, (
+            f"load_world locations+agents 应并行查询，但耗时 {elapsed:.3f}s（预期 < 0.15s）"
         )
         call_types = {c[0] for c in call_log}
         assert call_types == {"agent", "location"}

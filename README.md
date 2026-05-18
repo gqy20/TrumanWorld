@@ -88,7 +88,7 @@ cp .env.example .env
 make dev
 ```
 
-仓库根目录的 `.nvmrc` 指定 Node `20.19.0`，前端 lockfile 使用 `frontend/pnpm-lock.yaml`。请使用 `pnpm` 执行前端脚本，不要引入 `package-lock.json`。
+仓库根目录的 `.nvmrc` 指定 Node `24.3.0`，前端 lockfile 使用 `frontend/pnpm-lock.yaml`。请使用 `pnpm` 执行前端脚本，不要引入 `package-lock.json`。
 
 默认端口：
 
