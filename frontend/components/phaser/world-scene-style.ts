@@ -2,8 +2,8 @@ import type { SceneAgent, SceneStagePalette } from "@/lib/world-scene-adapter";
 
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
-export const LOCATION_WIDTH = 104;
-export const LOCATION_HEIGHT = 126;
+export const LOCATION_WIDTH = 92;
+export const LOCATION_HEIGHT = 112;
 export const SCENE_PADDING_X = 120;
 export const SCENE_PADDING_Y = 90;
 export const PIXEL_SCALE = 1.85;

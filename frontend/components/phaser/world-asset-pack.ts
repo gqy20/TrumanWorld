@@ -62,20 +62,20 @@ const AGENT_FRAMES: Record<SceneAgent["status"], number> = {
 };
 
 const TILE_FALLBACKS: Record<string, TownAssetFrameSpec> = {
-  roadStraight: { frame: 7, anchor: [0.5, 0.5], display: [78, 38] },
-  roadCross: { frame: 8, anchor: [0.5, 0.5], display: [78, 38] },
-  roadBend: { frame: 9, anchor: [0.5, 0.5], display: [78, 38] },
-  roadEnd: { frame: 15, anchor: [0.5, 0.5], display: [78, 38] },
-  roadT: { frame: 21, anchor: [0.5, 0.5], display: [78, 38] },
-  roadDot: { frame: 22, anchor: [0.5, 0.5], display: [78, 38] },
+  roadStraight: { frame: 7, anchor: [0.5, 0.5], display: [68, 32] },
+  roadCross: { frame: 8, anchor: [0.5, 0.5], display: [68, 32] },
+  roadBend: { frame: 9, anchor: [0.5, 0.5], display: [68, 32] },
+  roadEnd: { frame: 15, anchor: [0.5, 0.5], display: [68, 32] },
+  roadT: { frame: 21, anchor: [0.5, 0.5], display: [68, 32] },
+  roadDot: { frame: 22, anchor: [0.5, 0.5], display: [68, 32] },
 };
 
 const PROP_FALLBACKS: Record<string, TownAssetFrameSpec> = {
-  tree: { frame: 10, anchor: [0.5, 0.9], display: [54, 68] },
-  lamp: { frame: 11, anchor: [0.5, 0.95], display: [28, 56] },
-  bench: { frame: 12, anchor: [0.5, 0.78], display: [48, 32] },
-  flowers: { frame: 13, anchor: [0.5, 0.76], display: [36, 26] },
-  shrub: { frame: 14, anchor: [0.5, 0.8], display: [40, 30] },
+  tree: { frame: 10, anchor: [0.5, 0.9], display: [44, 58] },
+  lamp: { frame: 11, anchor: [0.5, 0.95], display: [22, 48] },
+  bench: { frame: 12, anchor: [0.5, 0.78], display: [40, 27] },
+  flowers: { frame: 13, anchor: [0.5, 0.76], display: [30, 22] },
+  shrub: { frame: 14, anchor: [0.5, 0.8], display: [34, 25] },
 };
 
 export function preloadTownAssetPack(scene: Phaser.Scene): void {
