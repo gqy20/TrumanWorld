@@ -9,7 +9,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -126,6 +126,17 @@ ci: quality backend-test-ci backend-migration-check backend-integration-test fro
 
 benchmark-reactor-pool:
 	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo
+
+RUN_QUALITY_BASE_URL ?= http://127.0.0.1:$(BACKEND_PORT)/api
+RUN_QUALITY_TICKS ?= 0
+RUN_QUALITY_OUTPUT ?=
+
+evaluate-run:
+	@test -n "$(RUN_ID)" || (echo "RUN_ID is required" && exit 1)
+	cd $(BACKEND_DIR) && uv run python scripts/evaluate_run_quality.py \
+		--base-url "$(RUN_QUALITY_BASE_URL)" \
+		--run-id "$(RUN_ID)" \
+		--ticks "$(RUN_QUALITY_TICKS)" $(if $(RUN_QUALITY_OUTPUT),--output "$(RUN_QUALITY_OUTPUT)",)
 
 migrate:
 	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) uv run alembic upgrade head

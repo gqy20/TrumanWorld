@@ -11,6 +11,7 @@ from app.api.schemas.simulation import (
     AgentEconomicSummaryResponse,
     AgentEventResponse,
     AgentGovernanceRecordsResponse,
+    AgentMemoryCountsResponse,
     AgentMemoryResponse,
     AgentRelationshipResponse,
     AgentsListResponse,
@@ -75,6 +76,40 @@ async def list_agents(
             )
             for agent in agents
         ],
+    )
+
+
+@router.get(
+    "/memory-counts",
+    response_model=AgentMemoryCountsResponse,
+    summary="批量获取 Agent 记忆计数",
+    description="一次查询返回运行中所有 Agent 的记忆计数快照，供质量评估使用",
+    responses=COMMON_RESPONSES,
+)
+async def get_agent_memory_counts(
+    run_id: UUID,
+    memory_limit: int = Query(100, ge=1, le=100, description="每个 Agent 的观测上限"),
+    session: AsyncSession = Depends(get_db_session),
+) -> AgentMemoryCountsResponse:
+    run_repo = RunRepository(session)
+    run = await run_repo.get(str(run_id))
+    if run is None:
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+            code="RUN_NOT_FOUND",
+            context={"run_id": str(run_id)},
+        )
+
+    counts = await AgentRepository(session).count_memories_for_run(str(run_id))
+    return AgentMemoryCountsResponse(
+        run_id=str(run_id),
+        tick_no=run.current_tick,
+        memory_limit=memory_limit,
+        observed_counts={agent_id: min(count, memory_limit) for agent_id, count in counts.items()},
+        capped_agent_ids=sorted(
+            agent_id for agent_id, count in counts.items() if count >= memory_limit
+        ),
     )
 
 

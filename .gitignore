@@ -12,6 +12,7 @@ Thumbs.db
 !.env.example
 !frontend/.env.local.example
 *.local
+/.neon
 
 # Python
 __pycache__/

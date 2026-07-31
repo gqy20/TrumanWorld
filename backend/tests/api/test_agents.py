@@ -194,6 +194,40 @@ async def test_list_agents_returns_404_when_run_missing(client):
 
 
 @pytest.mark.asyncio
+async def test_get_agent_memory_counts_returns_batched_capped_snapshot(client, db_session):
+    run_id = "00000000-0000-0000-0000-000000000111"
+    run = SimulationRun(id=run_id, name="memory counts", status="paused", current_tick=7)
+    alice = Agent(id="alice-counts", run_id=run_id, name="Alice")
+    bob = Agent(id="bob-counts", run_id=run_id, name="Bob")
+    memories = [
+        Memory(
+            id=f"memory-counts-{index}",
+            run_id=run_id,
+            agent_id="alice-counts",
+            memory_type="episodic",
+            content=f"Memory {index}",
+        )
+        for index in range(2)
+    ]
+    db_session.add_all([run, alice, bob, *memories])
+    await db_session.commit()
+
+    response = await client.get(
+        f"/api/runs/{run_id}/agents/memory-counts",
+        params={"memory_limit": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "run_id": run_id,
+        "tick_no": 7,
+        "memory_limit": 1,
+        "observed_counts": {"alice-counts": 1, "bob-counts": 0},
+        "capped_agent_ids": ["alice-counts"],
+    }
+
+
+@pytest.mark.asyncio
 async def test_get_agent_returns_generated_tick_memories(client, db_session):
     run_id = "00000000-0000-0000-0000-000000000103"
     run = SimulationRun(id=run_id, name="demo", status="running", current_tick=0, tick_minutes=5)

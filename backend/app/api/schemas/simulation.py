@@ -292,6 +292,20 @@ class AgentsListResponse(BaseModel):
     agents: list[AgentSummaryResponse] = Field(default_factory=list, description="Agent 列表")
 
 
+class AgentMemoryCountsResponse(BaseModel):
+    run_id: str = Field(..., description="运行 ID")
+    tick_no: int = Field(..., description="采样时的 Tick 编号", ge=0)
+    memory_limit: int = Field(..., description="每个 Agent 的观测上限", ge=1, le=100)
+    observed_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="每个 Agent 在观测上限内的记忆数量",
+    )
+    capped_agent_ids: list[str] = Field(
+        default_factory=list,
+        description="记忆数量达到或超过观测上限的 Agent ID",
+    )
+
+
 class AgentEventResponse(BaseModel):
     id: str = Field(..., description="事件 ID")
     tick_no: int = Field(..., description="Tick 编号")

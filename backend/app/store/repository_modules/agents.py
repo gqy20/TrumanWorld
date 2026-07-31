@@ -51,6 +51,20 @@ class AgentRepository:
             for row in result.all()
         ]
 
+    async def count_memories_for_run(self, run_id: str) -> dict[str, int]:
+        stmt = (
+            select(Agent.id, func.count(Memory.id).label("memory_count"))
+            .outerjoin(
+                Memory,
+                and_(Memory.agent_id == Agent.id, Memory.run_id == run_id),
+            )
+            .where(Agent.run_id == run_id)
+            .group_by(Agent.id)
+            .order_by(Agent.id.asc())
+        )
+        result = await self.session.execute(stmt)
+        return {row.id: int(row.memory_count) for row in result.all()}
+
     async def list_recent_memories(
         self,
         agent_id: str,

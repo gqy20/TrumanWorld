@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Select, String, and_, case, cast, delete, or_, select
+from sqlalchemy import Select, String, and_, case, cast, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.store.models import (

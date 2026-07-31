@@ -9,11 +9,13 @@
 ## [Unreleased]
 
 ### Added
+- 可读取现有 run 或推进 tick 的运行质量评估 CLI，输出动作、导演、主体告警、记忆与性能指标
 - 数据库 readiness 探针 `/api/ready`，供部署切流前检查关键依赖
 - Voxel plot / parcel 布局模型、入口、角色锚点和标准场景无重叠测试
 - PostgreSQL integration tests 进入 GitHub Actions
 
 ### Fixed
+- 运行质量评估禁止与自动调度并发推进 tick，并将 agent 记忆快照合并为单次批量查询
 - 删除 run 时同步清理治理案件、限制和经济状态/日志
 - 世界 pulse 首次轮询、时间线筛选分页与迟到响应竞态
 - Demo 权限状态请求失败时改为只读 fail-closed
@@ -21,6 +23,7 @@
 - Git hooks 安装入口、CI path filters 与 Railway config-as-code 漂移
 
 ### Changed
+- Director 单次预算提高到 `$0.20`，并禁用不需要的 Claude SDK 工具上下文以降低调用成本
 - 非开发环境必须设置 `TRUMANWORLD_DEMO_ADMIN_PASSWORD`
 - Railway 使用仓库根目录构建、pre-deploy 迁移和数据库 readiness healthcheck
 - 世界页改进窄屏滚动与侧栏覆盖行为
