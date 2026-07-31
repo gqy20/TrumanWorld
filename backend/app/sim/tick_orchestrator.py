@@ -64,6 +64,8 @@ class TickOrchestrator:
         if self.session is None or self.context_builder is None or self.agent_repo is None:
             msg = "TickOrchestrator.prepare_tick_intents requires a bound session context"
             raise RuntimeError(msg)
+        if not world.agents:
+            return []
 
         started_at = perf_counter()
         agents = await self.agent_repo.list_for_run(run_id)
@@ -105,6 +107,7 @@ class TickOrchestrator:
                     profile=profile,
                     recent_events=agent_recent_events.get(agent.id, []),
                     subject_alert_score=subject_alert_score,
+                    current_plan=agent.current_plan,
                     relationship_context=world.relationship_contexts.get(agent.id),
                 )
             )

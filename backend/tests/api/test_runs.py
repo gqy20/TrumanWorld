@@ -502,7 +502,7 @@ async def test_advance_run_tick_for_empty_run_skips_sleep_hours(client, db_sessi
 
 
 @pytest.mark.asyncio
-async def test_advance_run_tick_triggers_morning_planner(
+async def test_advance_run_tick_skips_morning_planner_without_agents(
     client, db_session: AsyncSession, monkeypatch
 ):
     run_id = "00000000-0000-0000-0000-000000000303"
@@ -531,7 +531,7 @@ async def test_advance_run_tick_triggers_morning_planner(
 
     assert tick_response.status_code == 200
     assert tick_response.json()["tick_no"] == 1
-    assert calls == [(run_id, 0)]
+    assert calls == []
 
 
 @pytest.mark.asyncio

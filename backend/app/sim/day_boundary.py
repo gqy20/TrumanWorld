@@ -387,6 +387,11 @@ async def run_morning_planning(
         agent_repo = AgentRepository(write_session)
         memory_repo = MemoryRepository(write_session)
         memories_to_create: list[Memory] = []
+        agents_by_id = (
+            {agent.id: agent for agent in await agent_repo.list_for_run(run_id)}
+            if any(not isinstance(res, Exception) and res[2] for res in results)
+            else {}
+        )
 
         for res in results:
             if isinstance(res, Exception):
@@ -402,7 +407,7 @@ async def run_morning_planning(
             new_plan = {k: v for k, v in plan.items() if k in ("morning", "daytime", "evening")}
 
             # Update agent.current_plan in DB
-            agent_obj = await agent_repo.get(agent_id)
+            agent_obj = agents_by_id.get(agent_id)
             if agent_obj is not None:
                 agent_obj.current_plan = new_plan
                 write_session.add(agent_obj)

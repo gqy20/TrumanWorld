@@ -34,7 +34,7 @@ class DayBoundaryCoordinator:
 
         返回 True 表示 Planner 已执行，调用方的 agent_data 应重新加载以获取新计划。
         """
-        if engine is None or not should_run_planner(world):
+        if engine is None or not world.agents or not should_run_planner(world):
             return False
         try:
             await run_morning_planning(

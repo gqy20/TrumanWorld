@@ -198,6 +198,8 @@ class PersistenceManager:
 
     async def set_agent_locations(self, run_id: str, world: WorldState) -> None:
         """Update agent locations without committing."""
+        if not world.agents:
+            return
         agents = await self.agent_repo.list_for_run(run_id)
         for agent in agents:
             state = world.get_agent(agent.id)

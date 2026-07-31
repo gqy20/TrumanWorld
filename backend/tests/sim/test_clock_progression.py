@@ -47,7 +47,7 @@ async def test_empty_run_tick_reports_database_activity(db_session, monkeypatch)
     assert get_run_world_time(updated_run).isoformat() == "2026-03-02T06:05:00+00:00"
     assert len(observations) == 1
     assert observations[0]["operation"] == "tick.inline"
-    assert observations[0]["query_count"] > 0
+    assert 1 <= observations[0]["query_count"] <= 4
     assert observations[0]["duration_seconds"] >= 0
 
 

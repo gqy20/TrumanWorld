@@ -59,7 +59,6 @@ class RunRepository:
     async def set_tick(self, run: SimulationRun, tick_no: int) -> SimulationRun:
         run.current_tick = tick_no
         await self.session.flush()
-        await self.session.refresh(run)
         return run
 
     async def delete(self, run: SimulationRun) -> None:

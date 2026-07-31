@@ -53,11 +53,13 @@ class RecordingDecisionProvider(AgentDecisionProvider):
 class ContextCapturingDecisionProvider(AgentDecisionProvider):
     def __init__(self) -> None:
         self.recent_events_by_agent: dict[str, list[dict]] = {}
+        self.world_by_agent: dict[str, dict] = {}
 
     async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
         self.recent_events_by_agent[invocation.agent_id] = list(
             invocation.context.get("recent_events", [])
         )
+        self.world_by_agent[invocation.agent_id] = dict(invocation.context.get("world", {}))
         return RuntimeDecision(action_type="rest")
 
 
@@ -562,6 +564,65 @@ async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_sess
     assert len(events) == 1
     assert events[0].event_type == "move"
     assert recording_provider.agent_ids == ["alice"]
+
+
+@pytest.mark.asyncio
+async def test_simulation_service_includes_current_plan_in_agent_context(db_session, tmp_path):
+    agent_dir = tmp_path / "alice"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "\n".join(
+            [
+                "id: alice",
+                "name: Alice",
+                "occupation: resident",
+                "home: loc-home-current-plan",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+    run = SimulationRun(
+        id="run-service-current-plan",
+        name="service",
+        status="running",
+        current_tick=1,
+        tick_minutes=5,
+    )
+    home = Location(
+        id="loc-home-current-plan",
+        run_id=run.id,
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    agent = Agent(
+        id="agent-current-plan",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=home.id,
+        current_location_id=home.id,
+        current_goal="rest",
+        personality={},
+        profile={"agent_config_id": "alice"},
+        status={},
+        current_plan={"morning": "read", "daytime": "work", "evening": "walk"},
+    )
+    db_session.add_all([run, home, agent])
+    await db_session.commit()
+
+    provider = ContextCapturingDecisionProvider()
+    runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
+    runtime.backend = HeuristicAgentBackend(provider)
+
+    await SimulationService(
+        db_session,
+        agent_runtime=runtime,
+        agents_root=tmp_path,
+    ).run_tick(run.id)
+
+    assert provider.world_by_agent["alice"]["daily_schedule"] == agent.current_plan
 
 
 @pytest.mark.asyncio

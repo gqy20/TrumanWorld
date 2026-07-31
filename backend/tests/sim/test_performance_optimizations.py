@@ -324,6 +324,50 @@ async def test_daily_memory_index_loads_only_latest_requested_days(db_session):
 
 
 @pytest.mark.asyncio
+async def test_morning_planning_batches_agent_updates(db_session):
+    from app.sim.day_boundary import run_morning_planning
+    from app.sim.world import WorldState
+
+    class PlannerRuntime:
+        async def run_planner(self, *, agent_name, **_kwargs):
+            return {
+                "morning": "commute",
+                "daytime": "work",
+                "evening": "rest",
+                "intention": f"{agent_name} stays focused",
+            }
+
+    run_id = "batched-morning-plan-updates"
+    run = _make_run(run_id)
+    loc = _make_location(f"{run_id}-loc", run_id)
+    agents = [_make_agent(f"{run_id}-agent-{index}", run_id, loc.id) for index in range(3)]
+    db_session.add_all([run, loc, *agents])
+    await db_session.commit()
+
+    agent_select_count = 0
+
+    def count_agent_selects(_conn, _cursor, statement, _parameters, _context, _executemany):
+        nonlocal agent_select_count
+        normalized = " ".join(statement.split())
+        if normalized.startswith("SELECT") and " FROM agents " in normalized:
+            agent_select_count += 1
+
+    sa_event.listen(db_session.bind.sync_engine, "before_cursor_execute", count_agent_selects)
+    try:
+        await run_morning_planning(
+            run_id=run_id,
+            tick_no=0,
+            world=WorldState(current_time=datetime(2026, 3, 2, 6, 0, tzinfo=UTC)),
+            engine=db_session.bind,
+            agent_runtime=PlannerRuntime(),
+        )
+    finally:
+        sa_event.remove(db_session.bind.sync_engine, "before_cursor_execute", count_agent_selects)
+
+    assert agent_select_count <= 2
+
+
+@pytest.mark.asyncio
 async def test_morning_inputs_use_fixed_query_count_for_multiple_agents(db_session):
     from app.sim.day_boundary import _load_morning_inputs
 

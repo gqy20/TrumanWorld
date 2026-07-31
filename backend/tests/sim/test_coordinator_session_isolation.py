@@ -440,6 +440,7 @@ async def test_run_planner_if_needed_calls_planning_at_morning_boundary():
         current_time=datetime(2026, 3, 2, 6, 0),  # 06:00 清晨
         tick_minutes=5,
     )
+    world.agents["test-agent"] = MagicMock()
     coordinator = DayBoundaryCoordinator()
 
     with patch(
