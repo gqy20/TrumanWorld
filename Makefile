@@ -9,7 +9,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -31,7 +31,7 @@ hooks-install:
 	$(PRE_COMMIT) install --hook-type pre-commit --hook-type pre-push
 
 backend-install:
-	cd $(BACKEND_DIR) && uv sync --group dev
+	cd $(BACKEND_DIR) && uv sync --group dev --frozen
 
 frontend-install:
 	cd $(FRONTEND_DIR) && pnpm install --frozen-lockfile
@@ -65,6 +65,9 @@ frontend-clean-port:
 
 backend-lint:
 	cd $(BACKEND_DIR) && uv run ruff check app tests
+
+backend-lock-check:
+	cd $(BACKEND_DIR) && uv lock --check
 
 backend-format-check:
 	cd $(BACKEND_DIR) && uv run ruff format --check app tests
@@ -105,6 +108,7 @@ lint:
 	$(MAKE) frontend-lint
 
 quality:
+	$(MAKE) backend-lock-check
 	$(MAKE) backend-lint
 	$(MAKE) backend-format-check
 	$(MAKE) backend-typecheck

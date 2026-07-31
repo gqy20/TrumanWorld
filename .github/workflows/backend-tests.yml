@@ -48,7 +48,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./backend
-        run: uv sync --group dev
+        run: uv lock --check && uv sync --group dev --frozen
 
       - name: Run tests
         run: make backend-test-ci
@@ -94,7 +94,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./backend
-        run: uv sync --group dev
+        run: uv lock --check && uv sync --group dev --frozen
 
       - name: Run database migrations
         env:
