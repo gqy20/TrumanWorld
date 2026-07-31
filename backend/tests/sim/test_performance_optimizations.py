@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
 
 import pytest
 
@@ -202,40 +201,61 @@ async def test_persist_tick_memories_does_not_overlap_queries_on_one_session(db_
 
 
 @pytest.mark.asyncio
-async def test_relationship_persistence_updates_both_directions(db_session):
+async def test_relationship_persistence_batches_queries_and_flushes(db_session):
     from app.sim.persistence import PersistenceManager
-    from app.store.repositories import RelationshipRepository
+    from app.store.repositories import AgentRepository
 
-    run_id = "perf-rel-correct"
+    run_id = "batched-relationship-persistence"
     run = _make_run(run_id)
     loc = _make_location(f"{run_id}-loc", run_id)
     actor = _make_agent(f"{run_id}-actor", run_id, loc.id)
     target = _make_agent(f"{run_id}-target", run_id, loc.id)
     db_session.add_all([run, loc, actor, target])
     await db_session.commit()
+    events = [
+        Event(
+            id=f"{run_id}-event-{index}",
+            run_id=run_id,
+            tick_no=index,
+            event_type="speech",
+            actor_agent_id=actor.id,
+            target_agent_id=target.id,
+            location_id=loc.id,
+            world_time=datetime.now(UTC),
+            payload={},
+        )
+        for index in range(3)
+    ]
 
-    calls: list[tuple[str, str]] = []
-    original = RelationshipRepository.upsert_interaction
+    execute_count = 0
+    flush_count = 0
+    original_execute = db_session.execute
+    original_flush = db_session.flush
 
-    async def tracking_upsert(self, run_id, agent_id, other_agent_id, **kwargs):
-        calls.append((agent_id, other_agent_id))
-        return await original(self, run_id, agent_id, other_agent_id, **kwargs)
+    async def tracking_execute(*args, **kwargs):
+        nonlocal execute_count
+        execute_count += 1
+        return await original_execute(*args, **kwargs)
 
-    event = Event(
-        id=str(uuid4()),
-        run_id=run_id,
-        tick_no=1,
-        event_type="talk",
-        actor_agent_id=actor.id,
-        target_agent_id=target.id,
-        world_time=datetime.now(UTC),
-        payload={},
-    )
+    async def tracking_flush(*args, **kwargs):
+        nonlocal flush_count
+        flush_count += 1
+        return await original_flush(*args, **kwargs)
 
-    with patch.object(RelationshipRepository, "upsert_interaction", tracking_upsert):
-        await PersistenceManager(db_session).persist_tick_relationships(run_id, [event])
+    with (
+        patch.object(db_session, "execute", tracking_execute),
+        patch.object(db_session, "flush", tracking_flush),
+    ):
+        await PersistenceManager(db_session).persist_tick_relationships(run_id, events)
 
-    assert calls == [(actor.id, target.id), (target.id, actor.id)]
+    actor_relationship = (await AgentRepository(db_session).list_relationships(run_id, actor.id))[0]
+    target_relationship = (await AgentRepository(db_session).list_relationships(run_id, target.id))[
+        0
+    ]
+    assert actor_relationship.familiarity == pytest.approx(0.3)
+    assert target_relationship.familiarity == pytest.approx(0.3)
+    assert execute_count <= 4
+    assert flush_count == 1
 
 
 @pytest.mark.asyncio
