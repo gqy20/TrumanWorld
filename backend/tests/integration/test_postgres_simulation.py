@@ -18,8 +18,9 @@ from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.infra.db import Base
 from app.infra.settings import get_settings
 from app.sim.action_resolver import ActionIntent
+from app.sim.day_boundary import MEMORY_TYPE_DAILY_PLAN, _load_daily_memory_index
 from app.sim.service import SimulationService
-from app.store.models import Agent, Location, SimulationRun
+from app.store.models import Agent, Location, Memory, SimulationRun
 from app.store.repositories import (
     EventRepository,
     LlmCallRepository,
@@ -127,6 +128,65 @@ async def test_postgres_run_tick_persists_events_and_time(postgres_session):
     assert updated_run.current_tick == 1
     assert len(events) == 1
     assert events[0].payload["to_location_id"] == park.id
+
+
+@pytest.mark.asyncio
+async def test_postgres_daily_memory_index_filters_json_days(postgres_session):
+    session, _engine = postgres_session
+    run = SimulationRun(id="pg-daily-index", name="pg", status="running")
+    session.add(run)
+    await session.commit()
+
+    home = Location(
+        id="pg-daily-index-home",
+        run_id=run.id,
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    session.add(home)
+    await session.commit()
+
+    agent = Agent(
+        id="pg-daily-index-agent",
+        run_id=run.id,
+        name="Alice",
+        occupation="resident",
+        home_location_id=home.id,
+        current_location_id=home.id,
+        personality={},
+        profile={},
+        status={},
+        current_plan={},
+    )
+    session.add(agent)
+    await session.commit()
+
+    memories = [
+        Memory(
+            id=f"pg-daily-index-{day}",
+            run_id=run.id,
+            agent_id=agent.id,
+            memory_type=MEMORY_TYPE_DAILY_PLAN,
+            memory_category="long_term",
+            content=content,
+            metadata_json={"day": day},
+        )
+        for day, content in (("2026-03-02", "旧计划"), ("2026-03-03", "今日计划"))
+    ]
+    session.add_all(memories)
+    await session.commit()
+
+    index = await _load_daily_memory_index(
+        session,
+        run_id=run.id,
+        agent_ids=[agent.id],
+        memory_type=MEMORY_TYPE_DAILY_PLAN,
+        day_keys={"2026-03-03"},
+    )
+
+    assert index[agent.id]["2026-03-03"].content == "今日计划"
+    assert set(index[agent.id]) == {"2026-03-03"}
 
 
 @pytest.mark.asyncio

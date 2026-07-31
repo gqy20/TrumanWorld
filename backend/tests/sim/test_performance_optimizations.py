@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import event as sa_event
 
 from app.sim.agent_snapshot_builder import build_agent_memory_cache
 from app.store.models import Agent, DirectorMemory, Event, LlmCall, Location, Memory, SimulationRun
@@ -256,6 +257,70 @@ async def test_relationship_persistence_batches_queries_and_flushes(db_session):
     assert target_relationship.familiarity == pytest.approx(0.3)
     assert execute_count <= 4
     assert flush_count == 1
+
+
+@pytest.mark.asyncio
+async def test_daily_memory_index_loads_only_latest_requested_days(db_session):
+    from app.sim.day_boundary import MEMORY_TYPE_DAILY_PLAN, _load_daily_memory_index
+
+    run_id = "bounded-daily-memory-index"
+    run = _make_run(run_id)
+    loc = _make_location(f"{run_id}-loc", run_id)
+    agent = _make_agent(f"{run_id}-agent", run_id, loc.id)
+    requested_day = datetime(2026, 3, 3, tzinfo=UTC).date()
+    base_time = datetime(2026, 3, 1, tzinfo=UTC)
+    historical_memories = [
+        Memory(
+            id=f"{run_id}-history-{index}",
+            run_id=run_id,
+            agent_id=agent.id,
+            tick_no=index,
+            memory_type=MEMORY_TYPE_DAILY_PLAN,
+            memory_category="long_term",
+            content=f"历史计划 {index}",
+            metadata_json={"day": f"2026-02-{index + 1:02d}"},
+            created_at=base_time - timedelta(days=index + 1),
+        )
+        for index in range(20)
+    ]
+    duplicate_plans = [
+        Memory(
+            id=f"{run_id}-requested-{index}",
+            run_id=run_id,
+            agent_id=agent.id,
+            tick_no=100 + index,
+            memory_type=MEMORY_TYPE_DAILY_PLAN,
+            memory_category="long_term",
+            content=f"当日计划 {index}",
+            metadata_json={"day": requested_day.isoformat()},
+            created_at=base_time + timedelta(hours=index),
+        )
+        for index in range(2)
+    ]
+    db_session.add_all([run, loc, agent, *historical_memories, *duplicate_plans])
+    await db_session.commit()
+    db_session.expunge_all()
+
+    loaded_memory_ids: list[str] = []
+
+    def track_loaded_memory(_session, instance):
+        if isinstance(instance, Memory):
+            loaded_memory_ids.append(instance.id)
+
+    sa_event.listen(db_session.sync_session, "loaded_as_persistent", track_loaded_memory)
+    try:
+        index = await _load_daily_memory_index(
+            db_session,
+            run_id=run_id,
+            agent_ids=[agent.id],
+            memory_type=MEMORY_TYPE_DAILY_PLAN,
+            day_keys={requested_day.isoformat()},
+        )
+    finally:
+        sa_event.remove(db_session.sync_session, "loaded_as_persistent", track_loaded_memory)
+
+    assert index[agent.id][requested_day.isoformat()].content == "当日计划 1"
+    assert loaded_memory_ids == [f"{run_id}-requested-1"]
 
 
 @pytest.mark.asyncio

@@ -84,17 +84,34 @@ async def _load_daily_memory_index(
     run_id: str,
     agent_ids: list[str],
     memory_type: str,
+    day_keys: set[str],
 ) -> dict[str, dict[str, Memory]]:
-    if not agent_ids:
+    if not agent_ids or not day_keys:
         return {}
-    result = await session.execute(
-        select(Memory)
+    memory_day = Memory.metadata_json["day"].as_string()
+    ranked_memories = (
+        select(
+            Memory.id.label("memory_id"),
+            func.row_number()
+            .over(
+                partition_by=(Memory.agent_id, memory_day),
+                order_by=(Memory.created_at.desc(), Memory.id.desc()),
+            )
+            .label("row_num"),
+        )
         .where(
             Memory.run_id == run_id,
             Memory.agent_id.in_(agent_ids),
             Memory.memory_type == memory_type,
+            memory_day.in_(sorted(day_keys)),
         )
-        .order_by(Memory.created_at.desc())
+        .subquery()
+    )
+    result = await session.execute(
+        select(Memory)
+        .join(ranked_memories, Memory.id == ranked_memories.c.memory_id)
+        .where(ranked_memories.c.row_num == 1)
+        .order_by(Memory.agent_id.asc(), Memory.created_at.desc())
     )
     index: dict[str, dict[str, Memory]] = {agent_id: {} for agent_id in agent_ids}
     for memory in result.scalars():
@@ -219,13 +236,15 @@ async def _load_morning_inputs(
     ticks_per_day: int,
 ) -> tuple[list[Agent], dict[str, list[dict]], dict[str, str]]:
     agent_ids = [agent.id for agent in agents]
+    today_key = today.isoformat()
+    yesterday_key = (today - timedelta(days=1)).isoformat()
     plan_index = await _load_daily_memory_index(
         session,
         run_id=run_id,
         agent_ids=agent_ids,
         memory_type=MEMORY_TYPE_DAILY_PLAN,
+        day_keys={today_key, yesterday_key},
     )
-    today_key = today.isoformat()
     pending = [agent for agent in agents if today_key not in plan_index.get(agent.id, {})]
     pending_ids = [agent.id for agent in pending]
     memories_by_agent = await _load_recent_memories_for_agents(
@@ -234,7 +253,6 @@ async def _load_morning_inputs(
         agent_ids=pending_ids,
     )
 
-    yesterday_key = (today - timedelta(days=1)).isoformat()
     yesterday_plans = {
         agent_id: plan_index[agent_id][yesterday_key].content
         for agent_id in pending_ids
@@ -265,13 +283,14 @@ async def _load_evening_inputs(
     ticks_per_day: int,
 ) -> tuple[list[Agent], dict[str, list[dict]]]:
     agent_ids = [agent.id for agent in agents]
+    today_key = today.isoformat()
     reflection_index = await _load_daily_memory_index(
         session,
         run_id=run_id,
         agent_ids=agent_ids,
         memory_type=MEMORY_TYPE_DAILY_REFLECTION,
+        day_keys={today_key},
     )
-    today_key = today.isoformat()
     pending = [agent for agent in agents if today_key not in reflection_index.get(agent.id, {})]
     pending_ids = [agent.id for agent in pending]
     events = await _load_events_for_agents(
