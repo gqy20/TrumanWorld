@@ -289,13 +289,9 @@ class EventRepository:
     async def add_many(self, events: Sequence[Event]) -> Sequence[Event]:
         self.session.add_all(list(events))
         await self.session.flush()
-        for event in events:
-            await self.session.refresh(event)
         return events
 
     async def create_many(self, events: Sequence[Event]) -> Sequence[Event]:
         await self.add_many(events)
         await self.session.commit()
-        for event in events:
-            await self.session.refresh(event)
         return events

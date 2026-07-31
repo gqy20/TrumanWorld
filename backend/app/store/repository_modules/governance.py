@@ -11,8 +11,6 @@ class GovernanceRecordRepository:
     async def create_many(self, records: Sequence[GovernanceRecord]) -> Sequence[GovernanceRecord]:
         records = await self.add_many(records)
         await self.session.commit()
-        for record in records:
-            await self.session.refresh(record)
         return records
 
     async def add_many(self, records: Sequence[GovernanceRecord]) -> Sequence[GovernanceRecord]:
@@ -20,8 +18,6 @@ class GovernanceRecordRepository:
             return []
         self.session.add_all(list(records))
         await self.session.flush()
-        for record in records:
-            await self.session.refresh(record)
         return records
 
     async def list_for_agent(

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.scenario.runtime.world_design import load_world_design_runtime_package
@@ -103,11 +101,9 @@ class RelationshipPersistence:
             self.location_repo if session is None else LocationRepository(active_session)
         )
         agent_repo = self.agent_repo if session is None else AgentRepository(active_session)
-        run, locations, agents = await asyncio.gather(
-            run_repo.get(run_id),
-            location_repo.list_for_run(run_id),
-            agent_repo.list_for_run(run_id),
-        )
+        run = await run_repo.get(run_id)
+        locations = await location_repo.list_for_run(run_id)
+        agents = await agent_repo.list_for_run(run_id)
         location_type_map = {location.id: location.location_type for location in locations}
         agent_status_map = {agent.id: dict(agent.status or {}) for agent in agents}
         return run, location_type_map, agent_status_map

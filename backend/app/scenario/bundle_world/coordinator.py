@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -71,10 +70,8 @@ class BundleWorldCoordinator:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
 
-        agents, events = await asyncio.gather(
-            self.agent_repo.list_for_run(run_id),
-            self.event_repo.list_for_run(run_id, limit=event_limit),
-        )
+        agents = await self.agent_repo.list_for_run(run_id)
+        events = await self.event_repo.list_for_run(run_id, limit=event_limit)
 
         previous_subject_alert_score = 0.0
         if self.director_memory_repo is not None:
@@ -151,17 +148,10 @@ class BundleWorldCoordinator:
                 return await self.event_repo.list_for_run(run_id, limit=20)
             return []
 
-        (
-            previous_subject_alert_score,
-            recent_goals,
-            recent_interventions,
-            raw_events,
-        ) = await asyncio.gather(
-            _load_subject_alert(),
-            _load_goals(),
-            _load_interventions(),
-            _load_events(),
-        )
+        previous_subject_alert_score = await _load_subject_alert()
+        recent_goals = await _load_goals()
+        recent_interventions = await _load_interventions()
+        raw_events = await _load_events()
 
         assessment = self.observer.assess(
             run_id=run_id,

@@ -11,15 +11,11 @@ class MemoryRepository:
     async def create_many(self, memories: Sequence[Memory]) -> Sequence[Memory]:
         memories = await self.add_many(memories)
         await self.session.commit()
-        for memory in memories:
-            await self.session.refresh(memory)
         return memories
 
     async def add_many(self, memories: Sequence[Memory]) -> Sequence[Memory]:
         self.session.add_all(list(memories))
         await self.session.flush()
-        for memory in memories:
-            await self.session.refresh(memory)
         return memories
 
     async def find_recent_routine_memory(

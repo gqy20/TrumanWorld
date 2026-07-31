@@ -1,4 +1,3 @@
-import asyncio
 import json
 from uuid import UUID
 
@@ -107,15 +106,13 @@ async def get_director_governance_records(
     location_repo = LocationRepository(session)
     governance_repo = GovernanceRecordRepository(session)
 
-    agents, locations, records = await asyncio.gather(
-        agent_repo.list_names_for_run(str(run_id)),
-        location_repo.list_names_for_run(str(run_id)),
-        governance_repo.list_for_run(
-            str(run_id),
-            limit=limit,
-            decision=decision,
-            agent_id=agent_id,
-        ),
+    agents = await agent_repo.list_names_for_run(str(run_id))
+    locations = await location_repo.list_names_for_run(str(run_id))
+    records = await governance_repo.list_for_run(
+        str(run_id),
+        limit=limit,
+        decision=decision,
+        agent_id=agent_id,
     )
 
     agent_name_map = {agent.id: agent.name for agent in agents}
@@ -202,11 +199,9 @@ async def get_director_memories(
     location_repo = LocationRepository(session)
     director_memory_repo = DirectorMemoryRepository(session)
 
-    agents, locations, memories = await asyncio.gather(
-        agent_repo.list_names_for_run(str(run_id)),
-        location_repo.list_names_for_run(str(run_id)),
-        director_memory_repo.list_for_run(str(run_id), limit=limit),
-    )
+    agents = await agent_repo.list_names_for_run(str(run_id))
+    locations = await location_repo.list_names_for_run(str(run_id))
+    memories = await director_memory_repo.list_for_run(str(run_id), limit=limit)
 
     agent_name_map = {agent.id: agent.name for agent in agents}
     location_name_map = {location.id: location.name for location in locations}
@@ -298,14 +293,12 @@ async def get_director_governance_cases(
     agent_repo = AgentRepository(session)
     case_repo = GovernanceCaseRepository(session)
 
-    agents, cases = await asyncio.gather(
-        agent_repo.list_names_for_run(str(run_id)),
-        case_repo.list_for_run(
-            str(run_id),
-            agent_id=agent_id,
-            status=status,
-            limit=limit,
-        ),
+    agents = await agent_repo.list_names_for_run(str(run_id))
+    cases = await case_repo.list_for_run(
+        str(run_id),
+        agent_id=agent_id,
+        status=status,
+        limit=limit,
     )
 
     agent_name_map = {agent.id: agent.name for agent in agents}
@@ -357,15 +350,13 @@ async def get_director_governance_restrictions(
     agent_repo = AgentRepository(session)
     restriction_repo = GovernanceRestrictionRepository(session)
 
-    agents, restrictions = await asyncio.gather(
-        agent_repo.list_names_for_run(str(run_id)),
-        restriction_repo.list_for_run(
-            str(run_id),
-            agent_id=agent_id,
-            restriction_type=restriction_type,
-            status=status,
-            limit=limit,
-        ),
+    agents = await agent_repo.list_names_for_run(str(run_id))
+    restrictions = await restriction_repo.list_for_run(
+        str(run_id),
+        agent_id=agent_id,
+        restriction_type=restriction_type,
+        status=status,
+        limit=limit,
     )
 
     agent_name_map = {agent.id: agent.name for agent in agents}

@@ -6,7 +6,6 @@ and preparing context for agent decisions.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -59,10 +58,8 @@ class ContextBuilder:
         Returns:
             WorldState with locations and agents
         """
-        locations, agents = await asyncio.gather(
-            self.location_repo.list_for_run(run_id),
-            self.agent_repo.list_for_run(run_id),
-        )
+        locations = await self.location_repo.list_for_run(run_id)
+        agents = await self.agent_repo.list_for_run(run_id)
         from app.sim.agent_snapshot_builder import build_agent_relationship_contexts
 
         relationship_contexts = await build_agent_relationship_contexts(

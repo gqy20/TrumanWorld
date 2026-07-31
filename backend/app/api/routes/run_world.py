@@ -1,4 +1,3 @@
-import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
@@ -194,10 +193,8 @@ async def get_timeline(
     location_repo = LocationRepository(session)
     event_repo = EventRepository(session)
 
-    agents, locations = await asyncio.gather(
-        agent_repo.list_names_for_run(str(run_id)),
-        location_repo.list_names_for_run(str(run_id)),
-    )
+    agents = await agent_repo.list_names_for_run(str(run_id))
+    locations = await location_repo.list_names_for_run(str(run_id))
     agent_name_map, location_name_map = build_name_maps(agents, locations)
     world_start = resolve_world_start(run)
     tick_minutes = run.tick_minutes or 5
@@ -281,11 +278,9 @@ async def get_run_events(
     agent_repo = AgentRepository(session)
     location_repo = LocationRepository(session)
     event_repo = EventRepository(session)
-    agents, locations, events = await asyncio.gather(
-        agent_repo.list_names_for_run(str(run_id)),
-        location_repo.list_names_for_run(str(run_id)),
-        event_repo.list_api_rows_for_run(str(run_id), limit=limit, since_tick=since_tick),
-    )
+    agents = await agent_repo.list_names_for_run(str(run_id))
+    locations = await location_repo.list_names_for_run(str(run_id))
+    events = await event_repo.list_api_rows_for_run(str(run_id), limit=limit, since_tick=since_tick)
 
     agent_name_map, location_name_map = build_name_maps(agents, locations)
 
@@ -341,15 +336,13 @@ async def get_world_pulse(
     event_repo = EventRepository(session)
     llm_call_repo = LlmCallRepository(session)
 
-    all_time_event_counts, token_totals = await asyncio.gather(
-        event_repo.count_events_by_type(
-            str(run_id),
-            tick_from=None,
-            tick_to=None,
-            event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
-        ),
-        llm_call_repo.get_token_totals(str(run_id)),
+    all_time_event_counts = await event_repo.count_events_by_type(
+        str(run_id),
+        tick_from=None,
+        tick_to=None,
+        event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
     )
+    token_totals = await llm_call_repo.get_token_totals(str(run_id))
 
     world_time = get_run_world_time(run)
 
@@ -399,28 +392,18 @@ async def get_world_snapshot(
     director_memory_repo = DirectorMemoryRepository(session)
     llm_call_repo = LlmCallRepository(session)
 
-    (
-        agents,
-        locations,
-        events,
-        director_total,
-        director_executed,
-        all_time_event_counts,
-        token_totals,
-    ) = await asyncio.gather(
-        agent_repo.list_world_rows_for_run(str(run_id)),
-        location_repo.list_world_rows_for_run(str(run_id)),
-        event_repo.list_api_rows_for_run(str(run_id), limit=WORLD_RECENT_EVENT_LIMIT),
-        director_memory_repo.count_for_run(str(run_id)),
-        director_memory_repo.count_executed_for_run(str(run_id)),
-        event_repo.count_events_by_type(
-            str(run_id),
-            tick_from=None,
-            tick_to=None,
-            event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
-        ),
-        llm_call_repo.get_token_totals(str(run_id)),
+    agents = await agent_repo.list_world_rows_for_run(str(run_id))
+    locations = await location_repo.list_world_rows_for_run(str(run_id))
+    events = await event_repo.list_api_rows_for_run(str(run_id), limit=WORLD_RECENT_EVENT_LIMIT)
+    director_total = await director_memory_repo.count_for_run(str(run_id))
+    director_executed = await director_memory_repo.count_executed_for_run(str(run_id))
+    all_time_event_counts = await event_repo.count_events_by_type(
+        str(run_id),
+        tick_from=None,
+        tick_to=None,
+        event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
     )
+    token_totals = await llm_call_repo.get_token_totals(str(run_id))
 
     agent_summaries = {
         agent.id: AgentSummaryResponse(

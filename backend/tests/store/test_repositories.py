@@ -68,7 +68,9 @@ async def test_event_repository_add_many_flushes_without_committing(db_session, 
     db_session.add(run)
     await db_session.commit()
     commit = AsyncMock()
+    refresh = AsyncMock()
     monkeypatch.setattr(db_session, "commit", commit)
+    monkeypatch.setattr(db_session, "refresh", refresh)
 
     repo = EventRepository(db_session)
     events = await repo.add_many(
@@ -85,6 +87,7 @@ async def test_event_repository_add_many_flushes_without_committing(db_session, 
 
     assert [event.id for event in events] == ["event-no-commit-a"]
     commit.assert_not_awaited()
+    refresh.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -109,7 +112,9 @@ async def test_governance_record_repository_add_many_flushes_without_committing(
     db_session.add(run)
     await db_session.commit()
     commit = AsyncMock()
+    refresh = AsyncMock()
     monkeypatch.setattr(db_session, "commit", commit)
+    monkeypatch.setattr(db_session, "refresh", refresh)
 
     records = await GovernanceRecordRepository(db_session).add_many(
         [
@@ -127,6 +132,7 @@ async def test_governance_record_repository_add_many_flushes_without_committing(
 
     assert [record.id for record in records] == ["governance-no-commit"]
     commit.assert_not_awaited()
+    refresh.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -181,7 +187,9 @@ async def test_memory_repository_add_many_flushes_without_committing(db_session,
     db_session.add(run)
     await db_session.commit()
     commit = AsyncMock()
+    refresh = AsyncMock()
     monkeypatch.setattr(db_session, "commit", commit)
+    monkeypatch.setattr(db_session, "refresh", refresh)
 
     memories = await MemoryRepository(db_session).add_many(
         [
@@ -201,6 +209,7 @@ async def test_memory_repository_add_many_flushes_without_committing(db_session,
 
     assert [memory.id for memory in memories] == ["memory-no-commit"]
     commit.assert_not_awaited()
+    refresh.assert_not_awaited()
 
 
 # ============================================================

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -35,10 +34,8 @@ class MemoryPersistence:
 
     async def persist_tick_memories(self, run_id: str, events: list[Event]) -> None:
         """Persist memories from tick events."""
-        agents_list, locations_list = await asyncio.gather(
-            self.agent_repo.list_for_run(run_id),
-            self.location_repo.list_for_run(run_id),
-        )
+        agents_list = await self.agent_repo.list_for_run(run_id)
+        locations_list = await self.location_repo.list_for_run(run_id)
         await self._persist_tick_memories_loaded(
             session=self.session,
             run_id=run_id,
@@ -57,10 +54,8 @@ class MemoryPersistence:
         """Persist memories using a provided session (for isolated tick operations)."""
         agent_repo = AgentRepository(session)
         location_repo = LocationRepository(session)
-        agents, locations = await asyncio.gather(
-            agent_repo.list_for_run(run_id),
-            location_repo.list_for_run(run_id),
-        )
+        agents = await agent_repo.list_for_run(run_id)
+        locations = await location_repo.list_for_run(run_id)
         await self._persist_tick_memories_loaded(
             session=session,
             run_id=run_id,

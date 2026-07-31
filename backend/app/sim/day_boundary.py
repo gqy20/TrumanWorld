@@ -274,36 +274,31 @@ async def run_morning_planning(
         agent_repo = AgentRepository(read_session)
         agents = list(await agent_repo.list_for_run(run_id))
 
-        # 并行检查所有 agent 是否已有今日计划
-        has_plan_results = await asyncio.gather(
-            *[has_plan_for_today(read_session, run_id, a.id, today) for a in agents]
-        )
+        has_plan_results = [
+            await has_plan_for_today(read_session, run_id, agent.id, today) for agent in agents
+        ]
         pending: list[Agent] = [
             a for a, already_planned in zip(agents, has_plan_results) if not already_planned
         ]
 
-        # 并行预加载所有待处理 agent 的近期记忆
-        memories_list = await asyncio.gather(
-            *[_load_recent_memories(read_session, run_id, a.id) for a in pending]
-        )
+        memories_list = [
+            await _load_recent_memories(read_session, run_id, agent.id) for agent in pending
+        ]
         memories_by_agent: dict[str, list[dict]] = {
             a.id: mems for a, mems in zip(pending, memories_list)
         }
 
-        # 并行预加载昨日计划执行情况
-        yesterday_execution_list = await asyncio.gather(
-            *[
-                _load_yesterday_plan_execution(
-                    read_session,
-                    run_id,
-                    a.id,
-                    yesterday,
-                    tick_no,
-                    ticks_per_day,
-                )
-                for a in pending
-            ]
-        )
+        yesterday_execution_list = [
+            await _load_yesterday_plan_execution(
+                read_session,
+                run_id,
+                agent.id,
+                yesterday,
+                tick_no,
+                ticks_per_day,
+            )
+            for agent in pending
+        ]
         yesterday_execution_by_agent: dict[str, str] = {
             a.id: exec_text for a, exec_text in zip(pending, yesterday_execution_list)
         }
@@ -436,23 +431,20 @@ async def run_evening_reflection(
         agent_repo = AgentRepository(read_session)
         agents = list(await agent_repo.list_for_run(run_id))
 
-        # 并行检查所有 agent 是否已有今日反思
-        has_reflection_results = await asyncio.gather(
-            *[has_reflection_for_today(read_session, run_id, a.id, today) for a in agents]
-        )
+        has_reflection_results = [
+            await has_reflection_for_today(read_session, run_id, agent.id, today)
+            for agent in agents
+        ]
         pending: list[Agent] = [
             a
             for a, already_reflected in zip(agents, has_reflection_results)
             if not already_reflected
         ]
 
-        # 并行预加载所有待处理 agent 的当日事件
-        events_list = await asyncio.gather(
-            *[
-                _load_today_events(read_session, run_id, a.id, tick_no, ticks_per_day)
-                for a in pending
-            ]
-        )
+        events_list = [
+            await _load_today_events(read_session, run_id, agent.id, tick_no, ticks_per_day)
+            for agent in pending
+        ]
         events_by_agent: dict[str, list[dict]] = {
             a.id: evts for a, evts in zip(pending, events_list)
         }
