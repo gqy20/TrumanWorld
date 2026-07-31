@@ -29,9 +29,28 @@ updates:
       prefix: "chore(deps)"
     reviewers:
       - "gqy20"
+    groups:
+      nextjs:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      jest:
+        patterns:
+          - "jest"
+          - "jest-environment-jsdom"
+          - "@types/jest"
     ignore:
       - dependency-name: "eslint"
         versions: [">=10.0.0"]
+      - dependency-name: "phaser"
+        update-types:
+          - "version-update:semver-major"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
