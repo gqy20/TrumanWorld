@@ -17,7 +17,7 @@ dependencies = [
     "prometheus-client>=0.25.0",
     "redis>=7.4.0",
     "claude-agent-sdk>=0.2.82",
-    "langgraph==1.2.0",
+    "langgraph==1.2.9",
     "langchain-anthropic==1.4.3",
     "langchain-openai==1.2.1",
 ]
