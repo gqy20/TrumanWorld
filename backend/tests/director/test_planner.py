@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 
 from app.infra.settings import get_settings
 from app.cognition.heuristic.director_backend import HeuristicDirectorBackend
@@ -360,15 +359,7 @@ async def test_director_planner_consumes_langgraph_backend_async_result():
         notes=[],
     )
 
-    first = await planner.build_plan(
-        assessment=assessment,
-        agents=agents,
-        current_tick=5,
-        world_time="2026-03-02T08:00:00+00:00",
-        run_id="run-1",
-    )
-    await asyncio.sleep(0)
-    second = await planner.build_plan(
+    plan = await planner.build_plan(
         assessment=assessment,
         agents=agents,
         current_tick=5,
@@ -376,10 +367,9 @@ async def test_director_planner_consumes_langgraph_backend_async_result():
         run_id="run-1",
     )
 
-    assert first is None
-    assert second is not None
-    assert second.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
-    assert second.target_agent_ids == ["cast-spouse"]
+    assert plan is not None
+    assert plan.scene_goal == DIRECTOR_SCENE_SOFT_CHECK_IN
+    assert plan.target_agent_ids == ["cast-spouse"]
 
 
 @pytest.mark.asyncio

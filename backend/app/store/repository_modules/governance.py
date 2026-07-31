@@ -66,9 +66,14 @@ class GovernanceCaseRepository:
         self.session = session
 
     async def create(self, case: GovernanceCase) -> GovernanceCase:
-        self.session.add(case)
+        await self.add(case)
         await self.session.commit()
         await self.session.refresh(case)
+        return case
+
+    async def add(self, case: GovernanceCase) -> GovernanceCase:
+        self.session.add(case)
+        await self.session.flush()
         return case
 
     async def get_by_id(self, case_id: str) -> GovernanceCase | None:
@@ -166,6 +171,25 @@ class GovernanceCaseRepository:
         record_count: int | None = None,
         last_updated_tick: int | None = None,
     ) -> GovernanceCase | None:
+        case = await self.update_status_no_commit(
+            case_id=case_id,
+            new_status=new_status,
+            record_count=record_count,
+            last_updated_tick=last_updated_tick,
+        )
+        if case is None:
+            return None
+        await self.session.commit()
+        await self.session.refresh(case)
+        return case
+
+    async def update_status_no_commit(
+        self,
+        case_id: str,
+        new_status: str,
+        record_count: int | None = None,
+        last_updated_tick: int | None = None,
+    ) -> GovernanceCase | None:
         case = await self.get_by_id(case_id)
         if case is None:
             return None
@@ -174,8 +198,7 @@ class GovernanceCaseRepository:
             case.record_count = record_count
         if last_updated_tick is not None:
             case.last_updated_tick = last_updated_tick
-        await self.session.commit()
-        await self.session.refresh(case)
+        await self.session.flush()
         return case
 
     async def increment_record_count(
@@ -198,9 +221,14 @@ class GovernanceRestrictionRepository:
         self.session = session
 
     async def create(self, restriction: GovernanceRestriction) -> GovernanceRestriction:
-        self.session.add(restriction)
+        await self.add(restriction)
         await self.session.commit()
         await self.session.refresh(restriction)
+        return restriction
+
+    async def add(self, restriction: GovernanceRestriction) -> GovernanceRestriction:
+        self.session.add(restriction)
+        await self.session.flush()
         return restriction
 
     async def get_by_id(self, restriction_id: str) -> GovernanceRestriction | None:

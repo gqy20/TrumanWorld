@@ -82,7 +82,7 @@ class GovernancePersistence:
         world: WorldState,
     ) -> None:
         """Persist governance cases and restrictions from tick results."""
-        service = GovernanceCaseService(self.session)
+        service = GovernanceCaseService(self.session, commit_changes=False)
 
         for item in [*result.accepted, *result.rejected]:
             governance_execution = item.governance_execution

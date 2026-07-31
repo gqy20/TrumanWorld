@@ -1,6 +1,7 @@
 """Tests for governance_case_service."""
 
 from datetime import datetime
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -64,6 +65,35 @@ class TestGovernanceCaseServiceProcessRecord:
         assert case.primary_reason == primary_reason
         assert case.opened_tick == tick_no
         assert case.last_updated_tick == tick_no
+
+    @pytest.mark.asyncio
+    async def test_tick_managed_service_flushes_without_committing(self, db_session, monkeypatch):
+        commit = AsyncMock()
+        monkeypatch.setattr(db_session, "commit", commit)
+        result = ActionResult(
+            accepted=True,
+            action_type="move",
+            reason="accepted",
+            event_payload={"agent_id": "alice"},
+            governance_execution=GovernanceExecutionResult(
+                decision="warn",
+                reason="late_night_activity",
+                enforcement_action="warning",
+            ),
+        )
+
+        case = await GovernanceCaseService(
+            db_session, commit_changes=False
+        ).process_governance_record(
+            world=_build_world_with_agent(),
+            result=result,
+            run_id="run-transaction-owned-by-tick",
+            agent_id="alice",
+            tick_no=5,
+        )
+
+        assert case is not None
+        commit.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_process_warn_merges_into_existing_case(self, db_session):

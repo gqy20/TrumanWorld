@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Any
 
 from app.cognition.claude.director_agent import DirectorContext
@@ -38,9 +37,7 @@ class DirectorPlanner:
 
     实验性功能：当 director_backend != heuristic 时，优先使用 LLM 智能决策
 
-    性能优化：
-    - 导演决策与 tick 执行并行（非阻塞）
-    - 可配置决策间隔（默认 5 tick）
+    导演决策按配置间隔执行，并在当前 tick 内返回可持久化结果。
     """
 
     def __init__(
@@ -55,8 +52,6 @@ class DirectorPlanner:
         self._semantics = semantics or DirectorPlannerSemantics()
         self._backend = backend or get_cognition_registry().build_director_backend()
         self._strategy_executor = StrategyExecutor()
-        self._pending_decision: asyncio.Task[DirectorPlan | None] | None = None
-        self._last_decision_tick: int = 0
         self._config = load_director_config(scenario_id=resolved_scenario_id)
 
     async def build_plan(
@@ -73,9 +68,8 @@ class DirectorPlanner:
     ) -> DirectorPlan | None:
         """构建导演干预计划
 
-        支持两种模式：
-        1. 同步模式：立即返回决策结果（使用规则决策）
-        2. 异步模式：启动 LLM 决策任务，不阻塞 tick 执行
+        规则后端立即返回；LLM 后端在当前 tick 内等待一次决策结果，避免结果随临时
+        Scenario 实例销毁而丢失。
 
         Args:
             assessment: 世界状态评估
@@ -101,67 +95,41 @@ class DirectorPlanner:
         # 检查最近已执行的干预，避免重复
         recent_goals = set(recent_intervention_goals or [])
 
-        # 检查是否有待完成的 LLM 决策
-        if self._pending_decision is not None:
-            if self._pending_decision.done():
-                # LLM 决策已完成，获取结果
-                try:
-                    plan = self._pending_decision.result()
-                    self._pending_decision = None
-                    if plan is not None:
-                        logger.info(
-                            f"DirectorAgent async decision completed at tick {current_tick}: "
-                            f"{plan.scene_goal} targeting {plan.target_agent_ids}"
-                        )
-                        return plan
-                except Exception as exc:
-                    logger.warning(f"DirectorAgent async decision failed: {exc}")
-                    self._pending_decision = None
-                    if not self._allows_config_fallback():
-                        raise
-            # 如果决策还在进行中，继续执行规则决策（不阻塞）
-            if not self._allows_config_fallback():
-                return None
-
-        # 实验性功能：启动 LLM 智能决策（异步，不阻塞）
         if self._backend.is_enabled() and self._backend.should_decide(current_tick):
-            if self._pending_decision is None and current_tick > self._last_decision_tick:
-                # 在 create_task 之前，将 ORM Agent 对象序列化为纯 dict
-                # 必须在这里（session 仍活着时）读取属性，避免后台 Task 在 session
-                # 关闭后访问 detached 对象触发懒加载 → greenlet_spawn 报错
-                agent_snapshots: list[dict[str, Any]] = [
-                    {
-                        "id": a.id,
-                        "name": a.name,
-                        "profile": dict(a.profile or {}),
-                        "current_location_id": a.current_location_id,
-                    }
-                    for a in agents
-                ]
-                # 启动新的异步决策任务
-                self._last_decision_tick = current_tick
-                context = DirectorContext(
-                    run_id=run_id,
-                    current_tick=current_tick,
-                    assessment=assessment,
-                    agents=agent_snapshots,  # 纯 dict，不绑定 session
-                    support_roles=list(self._semantics.support_roles),
-                    recent_events=recent_events or [],
-                    recent_interventions=recent_interventions or [],
-                    world_time=world_time,
+            agent_snapshots: list[dict[str, Any]] = [
+                {
+                    "id": agent.id,
+                    "name": agent.name,
+                    "profile": dict(agent.profile or {}),
+                    "current_location_id": agent.current_location_id,
+                }
+                for agent in agents
+            ]
+            context = DirectorContext(
+                run_id=run_id,
+                current_tick=current_tick,
+                assessment=assessment,
+                agents=agent_snapshots,
+                support_roles=list(self._semantics.support_roles),
+                recent_events=recent_events or [],
+                recent_interventions=recent_interventions or [],
+                world_time=world_time,
+            )
+            plan = await self._backend.propose_intervention(
+                DirectorDecisionInvocation(
+                    prompt="",
+                    context=context,
+                    recent_goals=recent_goals,
                 )
-                self._pending_decision = asyncio.create_task(
-                    self._backend.propose_intervention(
-                        DirectorDecisionInvocation(
-                            prompt="",
-                            context=context,
-                            recent_goals=recent_goals,
-                        )
-                    )
+            )
+            if plan is not None:
+                logger.info(
+                    "DirectorAgent decision completed at tick %s: %s targeting %s",
+                    current_tick,
+                    plan.scene_goal,
+                    plan.target_agent_ids,
                 )
-                logger.debug(f"DirectorAgent started async decision at tick {current_tick}")
-                if not self._allows_config_fallback():
-                    return None
+                return plan
 
         if not self._allows_config_fallback():
             return None

@@ -18,8 +18,9 @@ DEFAULT_WORK_BAN_DURATION_TICKS = 20
 class GovernanceCaseService:
     """Service for managing governance cases and restrictions."""
 
-    def __init__(self, session) -> None:
+    def __init__(self, session, *, commit_changes: bool = True) -> None:
         self.session = session
+        self.commit_changes = commit_changes
         self.case_repo = GovernanceCaseRepository(session)
         self.restriction_repo = GovernanceRestrictionRepository(session)
 
@@ -96,7 +97,9 @@ class GovernanceCaseService:
             record_count=1,
             active_restriction_count=0,
         )
-        return await self.case_repo.create(case)
+        if self.commit_changes:
+            return await self.case_repo.create(case)
+        return await self.case_repo.add(case)
 
     async def _update_case(
         self,
@@ -115,7 +118,12 @@ class GovernanceCaseService:
         else:
             new_status = case.status  # Keep current status
 
-        return await self.case_repo.update_status(
+        update = (
+            self.case_repo.update_status
+            if self.commit_changes
+            else self.case_repo.update_status_no_commit
+        )
+        return await update(
             case_id=case.id,
             new_status=new_status,
             record_count=new_record_count,
@@ -187,4 +195,6 @@ class GovernanceCaseService:
             end_tick=tick_no + DEFAULT_WORK_BAN_DURATION_TICKS,
             severity="medium",
         )
-        return await self.restriction_repo.create(restriction)
+        if self.commit_changes:
+            return await self.restriction_repo.create(restriction)
+        return await self.restriction_repo.add(restriction)

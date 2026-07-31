@@ -2,11 +2,13 @@ import pytest
 from unittest.mock import AsyncMock
 
 from app.store.models import Agent, Event, LlmCall, SimulationRun
-from app.store.models import GovernanceRecord, Memory
+from app.store.models import GovernanceCase, GovernanceRecord, GovernanceRestriction, Memory
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
     GovernanceRecordRepository,
+    GovernanceCaseRepository,
+    GovernanceRestrictionRepository,
     LlmCallRepository,
     MemoryRepository,
     RelationshipRepository,
@@ -124,6 +126,52 @@ async def test_governance_record_repository_add_many_flushes_without_committing(
     )
 
     assert [record.id for record in records] == ["governance-no-commit"]
+    commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_governance_case_repository_add_flushes_without_committing(db_session, monkeypatch):
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+    case = GovernanceCase(
+        id="governance-case-no-commit",
+        run_id="run-governance-no-commit",
+        agent_id="alice",
+        status="warned",
+        opened_tick=1,
+        last_updated_tick=1,
+        primary_reason="test",
+    )
+
+    added = await GovernanceCaseRepository(db_session).add(case)
+
+    assert added.id == case.id
+    commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_governance_restriction_repository_add_flushes_without_committing(
+    db_session, monkeypatch
+):
+    commit = AsyncMock()
+    monkeypatch.setattr(db_session, "commit", commit)
+    restriction = GovernanceRestriction(
+        id="governance-restriction-no-commit",
+        run_id="run-governance-no-commit",
+        agent_id="alice",
+        restriction_type="work_ban",
+        status="active",
+        scope_type="action",
+        scope_value="work",
+        reason="test",
+        start_tick=1,
+        end_tick=2,
+        severity="medium",
+    )
+
+    added = await GovernanceRestrictionRepository(db_session).add(restriction)
+
+    assert added.id == restriction.id
     commit.assert_not_awaited()
 
 
