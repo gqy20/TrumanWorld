@@ -14,6 +14,12 @@ updates:
       prefix: "chore(deps)"
     reviewers:
       - "gqy20"
+    groups:
+      agent-runtime:
+        patterns:
+          - "langgraph"
+          - "langchain-anthropic"
+          - "langchain-openai"
 
   # Node.js frontend dependencies
   - package-ecosystem: "npm"
