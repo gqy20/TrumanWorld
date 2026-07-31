@@ -191,6 +191,7 @@ class DirectorAgent:
         llm_config = self._config.llm
         options = build_sdk_options(
             self.settings,
+            tools=[],
             max_turns=llm_config.max_turns,
             max_budget_usd=llm_config.max_budget_usd,
             model=self._model,

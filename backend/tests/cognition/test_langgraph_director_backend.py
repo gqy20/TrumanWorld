@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.cognition.registry import CognitionRegistry
 from app.cognition.types import DirectorDecisionInvocation
@@ -199,6 +199,21 @@ def test_director_agent_builds_prompt_with_generic_subject_vocabulary() -> None:
     assert "Subject Status" in prompt
     assert "subject-1" in prompt
     assert "0.86" in prompt
+
+
+async def test_claude_director_disables_unused_sdk_tools() -> None:
+    from app.cognition.claude.director_agent import DirectorAgent
+
+    agent = DirectorAgent(Settings(agent_backend="heuristic", director_backend="claude_sdk"))
+    agent._call_llm_internal = AsyncMock(return_value='{"should_intervene": false}')
+
+    with (
+        patch("app.cognition.claude.director_agent.shutil.which", return_value="/bin/claude"),
+        patch("app.cognition.claude.sdk_options.build_sdk_options") as build_options,
+    ):
+        await agent._call_llm("Assess the current scene.")
+
+    assert build_options.call_args.kwargs["tools"] == []
 
 
 async def test_langgraph_director_backend_uses_context_support_roles() -> None:
