@@ -51,10 +51,17 @@ updates:
           - "jest"
           - "jest-environment-jsdom"
           - "@types/jest"
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/postcss"
     ignore:
       - dependency-name: "eslint"
         versions: [">=10.0.0"]
       - dependency-name: "phaser"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
 
