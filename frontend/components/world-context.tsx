@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, getWorldPulseResult, type ApiResult } from "@/lib/api";
 import type { WorldPulse, WorldSnapshot } from "@/lib/types";
@@ -59,6 +67,21 @@ export function WorldProvider({ runId, initialData, children }: Props) {
   const { searchParams } = useUiSearchParams();
   const activeModal = searchParams.get("modal");
   const pausePolling = activeModal !== null;
+  const lastKnownRunStatus = useRef(initialData?.run.status ?? null);
+
+  const pollingInterval = useCallback(
+    (
+      snapshot: ApiResult<WorldSnapshot | WorldPulse> | undefined,
+      intervalMs: number,
+    ) => {
+      const currentStatus = snapshot?.data?.run.status;
+      if (currentStatus) {
+        lastKnownRunStatus.current = currentStatus;
+      }
+      return (currentStatus ?? lastKnownRunStatus.current) === "running" ? intervalMs : 0;
+    },
+    [],
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -76,7 +99,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
         status: initialData ? 200 : null,
       },
       refreshInterval: (snapshot) =>
-        pausePolling ? 0 : snapshot?.data?.run.status === "running" ? 15000 : 0,
+        pausePolling ? 0 : pollingInterval(snapshot, 15000),
       revalidateOnFocus: false,
       revalidateOnMount: true,
       // Keep previous data during revalidation to prevent full-screen flash
@@ -97,12 +120,11 @@ export function WorldProvider({ runId, initialData, children }: Props) {
     },
   );
 
-  const { data: pulseResult } = useSWR<ApiResult<WorldPulse>>(
+  const { data: pulseResult, mutate: mutatePulse } = useSWR<ApiResult<WorldPulse>>(
     isClient && !pausePolling ? `/runs/${runId}/world/pulse` : null,
     () => getWorldPulseResult(runId),
     {
-      refreshInterval: (snapshot) =>
-        snapshot?.data?.run.status === "running" ? 5000 : 0,
+      refreshInterval: (snapshot) => pollingInterval(snapshot, 5000),
       revalidateOnFocus: false,
       revalidateOnMount: true,
       keepPreviousData: true,
@@ -111,7 +133,8 @@ export function WorldProvider({ runId, initialData, children }: Props) {
 
   const refresh = useCallback(() => {
     void mutate();
-  }, [mutate]);
+    void mutatePulse();
+  }, [mutate, mutatePulse]);
 
   const error = result?.error ?? null;
   const world = result?.data ?? initialData ?? null;

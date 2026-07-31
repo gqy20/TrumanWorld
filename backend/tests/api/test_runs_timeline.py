@@ -113,7 +113,7 @@ async def test_get_timeline_resolves_agent_name_and_world_datetime_filters(clien
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 1
+    assert body["total"] == 2
     assert body["filtered"] == 1
     assert [event["id"] for event in body["events"]] == ["timeline-event-1"]
     assert body["events"][0]["payload"]["actor_name"] == "Alice"
@@ -512,17 +512,24 @@ async def test_get_timeline_supports_order_desc_and_event_type_filter(client, db
             Event(
                 id="timeline-order-move", run_id=run_id, tick_no=5, event_type="move", payload={}
             ),
+            Event(
+                id="timeline-order-move-older",
+                run_id=run_id,
+                tick_no=4,
+                event_type="move",
+                payload={},
+            ),
         ]
     )
     await db_session.commit()
 
     response = await client.get(
         f"/api/runs/{run_id}/timeline",
-        params={"event_type": "move", "order_desc": "true"},
+        params={"event_type": "move", "order_desc": "true", "limit": 1},
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 1
-    assert body["filtered"] == 1
+    assert body["total"] == 3
+    assert body["filtered"] == 2
     assert [event["id"] for event in body["events"]] == ["timeline-order-move"]

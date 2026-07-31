@@ -226,5 +226,17 @@ describe("WorldPage", () => {
       expect(screen.getByRole("heading", { name: "世界加载失败" })).toBeInTheDocument();
     });
     expect(screen.getByText("后端当前不可达，请确认 API 服务已启动。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+  });
+
+  it("keeps the last world visible when a refresh fails", async () => {
+    (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
+      .mockResolvedValue(errorResult<WorldSnapshot>("network_error"));
+
+    renderWorldPage({ initialWorld: world });
+
+    expect(await screen.findByRole("heading", { name: "Campus Morning" })).toBeInTheDocument();
+    expect(await screen.findByText("刷新失败")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "世界加载失败" })).not.toBeInTheDocument();
   });
 });

@@ -35,6 +35,7 @@ export function EventCard({
   const description = describeWorldEvent(event, agentNameMap, locationNameMap);
   const explanations = getEventExplanations(event);
   const messageText = event.payload.message;
+  const importance = event.importance;
   const hasMessage = typeof messageText === "string" && messageText.length > 0;
   const showTalkHint =
     (event.event_type === EVENT_TALK || event.event_type === EVENT_SPEECH) && !hasMessage;
@@ -140,9 +141,9 @@ export function EventCard({
               type="location"
             />
           )}
-          {(event.payload.importance as number | undefined) && (event.payload.importance as number) >= 7 && (
+          {importance != null && importance >= 0.8 && (
             <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
-              ⭐ {event.payload.importance as number}
+              ⭐ {importance}
             </span>
           )}
         </div>

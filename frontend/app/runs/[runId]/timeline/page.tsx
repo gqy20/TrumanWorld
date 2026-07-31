@@ -147,7 +147,7 @@ export default function TimelinePage() {
   }, [timeline]);
 
   const importantCount = useMemo(
-    () => (timeline?.events ?? []).filter((e) => (e.importance ?? 0) >= 7).length,
+    () => (timeline?.events ?? []).filter((e) => (e.importance ?? 0) >= 0.8).length,
     [timeline],
   );
 

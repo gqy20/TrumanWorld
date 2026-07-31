@@ -215,7 +215,7 @@ async def get_timeline(
                 resolved_agent_id = agent.id
                 break
 
-    events, total = await event_repo.list_timeline_api_rows(
+    events, filtered_total = await event_repo.list_timeline_api_rows(
         run_id=str(run_id),
         tick_from=resolved_tick_from,
         tick_to=resolved_tick_to,
@@ -225,14 +225,18 @@ async def get_timeline(
         offset=offset,
         order_desc=order_desc,
     )
+    total = await event_repo.count_for_run(str(run_id))
 
     current_world_time = get_run_world_time(run)
 
-    logger.debug(f"Timeline retrieved for run {run_id}: total={total}, filtered={len(events)}")
+    logger.debug(
+        f"Timeline retrieved for run {run_id}: total={total}, "
+        f"filtered={filtered_total}, page_size={len(events)}"
+    )
     return TimelineResponse(
         run_id=str(run_id),
         total=total,
-        filtered=len(events),
+        filtered=filtered_total,
         run_info=TimelineRunInfo(
             current_tick=run.current_tick or 0,
             tick_minutes=tick_minutes,

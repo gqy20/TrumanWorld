@@ -420,9 +420,9 @@ export function calculateLocationHeat(
   let heat = 0;
   for (const event of locationEvents) {
     const baseWeight = eventWeights[event.event_type] ?? 0.5;
-    const importance = (event.payload.importance as number | undefined) ?? 5;
+    const importance = event.importance ?? 0.5;
     // 重要度归一化到 0.5-2.0 倍数
-    const importanceMultiplier = 0.5 + (importance / 10) * 1.5;
+    const importanceMultiplier = 0.5 + importance * 1.5;
     heat += baseWeight * importanceMultiplier;
   }
 

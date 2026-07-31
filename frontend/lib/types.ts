@@ -105,6 +105,7 @@ export type WorldEvent = {
   id: string;
   tick_no: number;
   event_type: EventType;
+  importance?: number;
   location_id?: string;
   actor_agent_id?: string;
   target_agent_id?: string;

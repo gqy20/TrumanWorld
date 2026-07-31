@@ -176,10 +176,11 @@ describe("EventCard", () => {
     expect(screen.getByText(/「你好，今天天气不错」/)).toBeInTheDocument();
   });
 
-  it("renders importance star when importance >= 7", () => {
+  it("renders importance star when importance is at least 0.8", () => {
     const eventWithImportance: WorldEvent = {
       ...mockEvent,
-      payload: { importance: 8 },
+      importance: 0.8,
+      payload: {},
     };
 
     render(
@@ -192,13 +193,14 @@ describe("EventCard", () => {
       />
     );
 
-    expect(screen.getByText(/⭐ 8/)).toBeInTheDocument();
+    expect(screen.getByText(/⭐ 0.8/)).toBeInTheDocument();
   });
 
-  it("does not render importance star when importance < 7", () => {
+  it("does not render importance star when importance is below 0.8", () => {
     const eventWithLowImportance: WorldEvent = {
       ...mockEvent,
-      payload: { importance: 5 },
+      importance: 0.5,
+      payload: {},
     };
 
     render(

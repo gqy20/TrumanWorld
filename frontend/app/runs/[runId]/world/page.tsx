@@ -7,10 +7,10 @@ import { useScenarioCatalog } from "@/hooks/use-scenario-catalog";
 import { formatScenarioLabel } from "@/lib/scenario";
 
 export default function WorldPage() {
-  const { runId, world, error } = useWorld();
+  const { runId, world, error, refresh } = useWorld();
   const { scenarioNameMap } = useScenarioCatalog();
 
-  if (error) {
+  if (error && !world) {
     return (
       <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)]">
         <div className="flex flex-1 items-center justify-center px-6">
@@ -19,6 +19,13 @@ export default function WorldPage() {
             <p className="mt-2 text-sm text-slate-600">
               {error === "network_error" ? "后端当前不可达，请确认 API 服务已启动。" : "未能获取世界快照。"}
             </p>
+            <button
+              type="button"
+              onClick={refresh}
+              className="mt-4 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+            >
+              重试
+            </button>
           </div>
         </div>
       </div>

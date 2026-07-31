@@ -128,7 +128,7 @@ export function makeTimelineEvent(overrides: Partial<TimelineEvent> = {}): Timel
     id: "timeline-event-1",
     tick_no: 24,
     event_type: "talk",
-    importance: 8,
+      importance: 0.8,
     world_time: "08:00",
     world_date: "2026-03-02",
     payload: {
@@ -150,7 +150,7 @@ export function makeTimelineResponse(
       id: "timeline-event-2",
       tick_no: 23,
       event_type: "move",
-      importance: 4,
+      importance: 0.4,
       world_time: "07:55",
       payload: {
         actor_name: "Mei Lin",

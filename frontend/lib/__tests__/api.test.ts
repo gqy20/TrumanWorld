@@ -381,7 +381,7 @@ describe('API', () => {
       const eventData = {
         event_type: 'announcement',
         payload: { message: 'Hello' },
-        importance: 5,
+        importance: 0.5,
       }
       mockFetch.mockResolvedValueOnce({
         ok: true,

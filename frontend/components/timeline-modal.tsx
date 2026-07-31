@@ -195,7 +195,7 @@ export function TimelineModal({ isOpen, onClose, runId, agents = [] }: TimelineM
   }, [timeline]);
 
   const importantCount = useMemo(
-    () => (timeline?.events ?? []).filter((e) => (e.importance ?? 0) >= 7).length,
+    () => (timeline?.events ?? []).filter((e) => (e.importance ?? 0) >= 0.8).length,
     [timeline],
   );
 
@@ -207,7 +207,7 @@ export function TimelineModal({ isOpen, onClose, runId, agents = [] }: TimelineM
     [groups, visibleGroupCount],
   );
   const hasMoreGroups = groups.length > visibleGroupCount;
-  const hasMoreEvents = timeline != null && timeline.events.length < (timeline.filtered || timeline.total);
+  const hasMoreEvents = timeline != null && timeline.events.length < timeline.filtered;
 
   useEffect(() => {
     const root = listContainerRef.current;

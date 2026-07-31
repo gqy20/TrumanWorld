@@ -222,6 +222,15 @@ class EventRepository:
         result = await self.session.execute(stmt)
         return self._to_event_api_rows(result.all()), total
 
+    async def count_for_run(self, run_id: str) -> int:
+        """Return the unfiltered event count for a run."""
+        from sqlalchemy import func as sql_func
+
+        result = await self.session.execute(
+            select(sql_func.count(Event.id)).where(Event.run_id == run_id)
+        )
+        return result.scalar_one() or 0
+
     async def count_events_by_type(
         self,
         run_id: str,

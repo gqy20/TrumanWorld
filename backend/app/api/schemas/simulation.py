@@ -248,8 +248,8 @@ class TimelineRunInfo(BaseModel):
 class TimelineResponse(BaseModel):
     run_id: str = Field(..., description="运行 ID")
     events: list[TimelineEventResponse] = Field(default_factory=list, description="事件列表")
-    total: int = Field(0, description="总事件数", ge=0)
-    filtered: int = Field(0, description="过滤后事件数", ge=0)
+    total: int = Field(0, description="当前运行的未过滤事件总数", ge=0)
+    filtered: int = Field(0, description="应用查询条件后的事件总数", ge=0)
     run_info: TimelineRunInfo | None = Field(None, description="运行信息")
 
 
