@@ -21,7 +21,7 @@ decision_interval: 5
 prompt:
   # 提示词文件路径（相对于 scenario/narrative_world/）
   file: "director_prompt.md"
-  
+
   # 上下文窗口大小（最近事件数）
   recent_events_limit: 10
   recent_interventions_limit: 5
@@ -43,7 +43,7 @@ strategies:
       urgency: "advisory"
       cooldown_ticks: 4
     message_hint: "主体已经独处较长时间，如果有自然理由（如路过、办完事），可以尝试发起简单互动，比如打个招呼或聊聊日常。"
-    
+
   preemptive_comfort:
     name: "预防性安抚"
     description: "当主体告警快速上升时，提前干预防止恶化"
@@ -58,7 +58,7 @@ strategies:
       urgency: "immediate"
       cooldown_ticks: 2
     message_hint: "主体最近似乎有些不安，如果自然遇到，可以用轻松的日常话题转移注意力，比如聊聊天气或最近的小事。"
-    
+
   soft_check_in:
     name: "温和关注"
     description: "当主体告警较高时，通过熟人互动稳定场面"
@@ -73,7 +73,7 @@ strategies:
       urgency: "advisory"
       cooldown_ticks: 3
     message_hint: "如果你刚好和主体有自然互动，可以顺着熟悉的话题聊几句，保持日常节奏，不必刻意安抚。"
-    
+
   keep_scene_natural:
     name: "保持自然"
     description: "当连续性风险较高时，维持场景自然感"
@@ -88,7 +88,7 @@ strategies:
       urgency: "advisory"
       cooldown_ticks: 3
     message_hint: "如果场景里出现互动，优先保持连续、熟悉、低突兀感的回应，不要主动放大最近的小异常。"
-    
+
   rejection_recovery:
     name: "拒绝恢复"
     description: "当连续被拒绝时，修补世界自然感"
@@ -108,17 +108,17 @@ strategies:
 effectiveness:
   # 评估延迟：干预后 N 个 tick 评估效果
   evaluation_delay_ticks: 5
-  
+
   # 评估指标
   metrics:
     suspicion_change:
       weight: 0.6
       success_threshold: 0.1  # 怀疑度下降 0.1 算成功
-      
+
     isolation_reduction:
       weight: 0.3
       success_threshold: 3    # 隔离时间减少 3 ticks
-      
+
     social_interaction:
       weight: 0.1
       success_threshold: 1    # 至少 1 次社交互动
@@ -128,23 +128,23 @@ scene_goals:
   soft_check_in:
     description: "高怀疑度时的温和互动"
     priority: "advisory"
-    
+
   preemptive_comfort:
     description: "怀疑度快速上升时的预防性干预"
     priority: "high"
-    
+
   keep_scene_natural:
     description: "连续性风险时的场景维护"
     priority: "advisory"
-    
+
   break_isolation:
     description: "打破 Truman 长时间独处"
     priority: "normal"
-    
+
   rejection_recovery:
     description: "处理连续被拒绝的场景"
     priority: "high"
-    
+
   none:
     description: "无需干预"
     priority: "low"

@@ -70,7 +70,17 @@ class RunRepository:
         run_id = run.id
         await self.session.execute(delete(Relationship).where(Relationship.run_id == run_id))
         await self.session.execute(
+            delete(GovernanceRestriction).where(GovernanceRestriction.run_id == run_id)
+        )
+        await self.session.execute(delete(GovernanceCase).where(GovernanceCase.run_id == run_id))
+        await self.session.execute(
             delete(GovernanceRecord).where(GovernanceRecord.run_id == run_id)
+        )
+        await self.session.execute(
+            delete(EconomicEffectLog).where(EconomicEffectLog.run_id == run_id)
+        )
+        await self.session.execute(
+            delete(AgentEconomicState).where(AgentEconomicState.run_id == run_id)
         )
         await self.session.execute(delete(Memory).where(Memory.run_id == run_id))
         await self.session.execute(delete(DirectorMemory).where(DirectorMemory.run_id == run_id))

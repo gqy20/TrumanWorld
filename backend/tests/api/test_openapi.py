@@ -42,6 +42,9 @@ async def test_openapi_documents_core_response_models(client):
         _response_ref(document, "/api/health", "get", "200")
         == "#/components/schemas/HealthResponse"
     )
+    assert (
+        _response_ref(document, "/api/ready", "get", "200") == "#/components/schemas/HealthResponse"
+    )
     assert _response_ref(document, "/api/system/overview", "get", "200") == (
         "#/components/schemas/SystemOverviewResponse"
     )

@@ -65,7 +65,7 @@ export function AgentAvatar({
 
   // 自定义 logo URL - 直接使用 public 目录下的静态文件
   const customLogoUrl = configId ? `/agents/${configId}.svg` : null;
-  
+
   // 根据状态决定是否使用自定义 logo
   const useCustomLogo = logoState === "custom" && customLogoUrl !== null;
 

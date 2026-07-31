@@ -126,4 +126,5 @@ dev = [
     "aiosqlite>=0.22.1",
     "ruff>=0.15.13",
     "mypy>=2.1.0",
+    "pre-commit>=4.6.1",
 ]

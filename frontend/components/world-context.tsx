@@ -104,7 +104,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
       refreshInterval: (snapshot) =>
         snapshot?.data?.run.status === "running" ? 5000 : 0,
       revalidateOnFocus: false,
-      revalidateOnMount: false,
+      revalidateOnMount: true,
       keepPreviousData: true,
     },
   );

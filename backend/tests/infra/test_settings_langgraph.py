@@ -1,6 +1,26 @@
 import pytest
+from pydantic import ValidationError
 
 from app.infra.settings import Settings
+
+
+def test_settings_require_admin_password_outside_development() -> None:
+    with pytest.raises(ValidationError, match="TRUMANWORLD_DEMO_ADMIN_PASSWORD"):
+        Settings(
+            app_env="production",
+            database_url="postgresql+psycopg://user:password@example.invalid/app",
+            demo_admin_password=None,
+        )
+
+
+def test_settings_accept_protected_production_configuration() -> None:
+    settings = Settings(
+        app_env="production",
+        database_url="postgresql+psycopg://user:password@example.invalid/app",
+        demo_admin_password="strong-password",
+    )
+
+    assert settings.demo_admin_password == "strong-password"
 
 
 def test_settings_support_langgraph_specific_model_config() -> None:

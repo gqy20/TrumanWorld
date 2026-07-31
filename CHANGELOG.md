@@ -9,7 +9,21 @@
 ## [Unreleased]
 
 ### Added
-- (待添加)
+- 数据库 readiness 探针 `/api/ready`，供部署切流前检查关键依赖
+- Voxel plot / parcel 布局模型、入口、角色锚点和标准场景无重叠测试
+- PostgreSQL integration tests 进入 GitHub Actions
+
+### Fixed
+- 删除 run 时同步清理治理案件、限制和经济状态/日志
+- 世界 pulse 首次轮询、时间线筛选分页与迟到响应竞态
+- Demo 权限状态请求失败时改为只读 fail-closed
+- Docker 开发链路统一使用 `uv --group dev` 和 pnpm
+- Git hooks 安装入口、CI path filters 与 Railway config-as-code 漂移
+
+### Changed
+- 非开发环境必须设置 `TRUMANWORLD_DEMO_ADMIN_PASSWORD`
+- Railway 使用仓库根目录构建、pre-deploy 迁移和数据库 readiness healthcheck
+- 世界页改进窄屏滚动与侧栏覆盖行为
 
 ---
 

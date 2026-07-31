@@ -3,369 +3,146 @@
 - 类型：`runbook`
 - 状态：`active`
 - 负责人：`infra`
-- 最后更新：`2026-03-11`
+- 最后更新：`2026-07-31`
 
-本项目适合在 Railway 上拆成 3 个服务：
+本项目在 Railway 上拆为 `backend`、`frontend` 和 PostgreSQL 三个服务。后端运行时会读取
+仓库根目录的 `agents/`、`scenarios/` 和 `scripts/`，因此两个应用服务都从仓库根目录构建，
+再通过独立的 config-as-code 文件选择各自命令。
 
-- `backend`：FastAPI + Alembic
-- `frontend`：Next.js
-- `postgres`：Railway PostgreSQL
+Railway 官方说明：Root Directory 会改变构建和启动命令的工作目录；自定义配置文件路径不跟随
+Root Directory，必须使用仓库绝对路径。参见 [Deploying a Monorepo](https://docs.railway.com/deployments/monorepo)
+和 [Using Config as Code](https://docs.railway.com/config-as-code)。
 
-当前代码里虽然有 `docker-compose.yml` 和前后端 `Dockerfile`，但它们是本地开发用途，不建议直接拿去做 Railway 生产部署：
+## 服务配置
 
-- 后端 Dockerfile 会启动 `uvicorn --reload`
-- 前端 Dockerfile 会启动 `pnpm dev`
-- `docker-compose.yml` 里的 `db` 主机名只适用于 Compose 网络，不适用于 Railway
+### Backend
 
-另外，仓库里已经补了 Railway config-as-code 文件：
+在服务设置中配置：
 
-- [backend/railway.toml](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/backend/railway.toml)
-- [frontend/railway.toml](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/frontend/railway.toml)
+- Root Directory：`/`（仓库根目录）
+- Config File：`/backend/railway.toml`
+- Healthcheck Path：由配置文件设为 `/api/ready`
 
-它们显式指定了 `builder = "RAILPACK"`，避免 Railway 因为检测到现有 `Dockerfile` 而误用开发态镜像构建流程。
+[backend/railway.toml](../../backend/railway.toml) 已声明：
 
-## 推荐拓扑
-
-### 1. Backend
-
-- Root Directory: `/backend`
-- Build Command: `uv sync --frozen`
-- Start Command: `sh scripts/start-railway.sh`
+- Railpack 构建和 `uv sync --frozen`
+- pre-deploy 阶段执行 `alembic upgrade head`
+- 启动 Uvicorn 并监听 Railway 注入的 `PORT`
+- readiness 只有在数据库执行 `SELECT 1` 成功后才返回 200
 
 必要变量：
 
 ```env
 TRUMANWORLD_APP_ENV=production
 TRUMANWORLD_LOG_LEVEL=INFO
+TRUMANWORLD_LOG_FORMAT=json
 TRUMANWORLD_DATABASE_URL=${{Postgres.DATABASE_URL}}
+TRUMANWORLD_DEMO_ADMIN_PASSWORD=替换为强密码
 TRUMANWORLD_CORS_ALLOWED_ORIGINS=["https://${{Frontend.RAILWAY_PUBLIC_DOMAIN}}"]
 ```
 
-如果你要把站点作为公开 demo 展示，同时避免访客启动、暂停或删除 run，建议额外配置：
+非开发环境缺少 `TRUMANWORLD_DATABASE_URL` 或 `TRUMANWORLD_DEMO_ADMIN_PASSWORD` 时，后端会拒绝
+启动。管理员密码保护创建、启动、暂停、删除和导演注入等写操作。
 
-```env
-TRUMANWORLD_DEMO_ADMIN_PASSWORD=换成你自己的强密码
-```
-
-说明：
-
-- 配置后，前端默认进入只读演示模式，访客仍可查看 world、timeline、agent 详情
-- 创建 run、启动/暂停、删除、导演干预等写操作会被后端拦截
-- 页面右上角会出现 `Demo / Read Only` 和管理员解锁入口；只有输入正确密码后才显示控制按钮
-
-按需补充：
-
-```env
-TRUMANWORLD_AGENT_BACKEND=claude_sdk
-TRUMANWORLD_ANTHROPIC_API_KEY=你的_key
-TRUMANWORLD_LLM_MODEL=你的模型名
-TRUMANWORLD_DIRECTOR_BACKEND=claude_sdk
-TRUMANWORLD_DIRECTOR_AGENT_MODEL=你的导演模型名
-```
-
-如果你暂时只想验证链路，不想消耗 LLM 额度，可以先这样：
+不使用 LLM 的链路验证配置：
 
 ```env
 TRUMANWORLD_AGENT_BACKEND=heuristic
 TRUMANWORLD_DIRECTOR_BACKEND=heuristic
+TRUMANWORLD_DIRECTOR_AUTO_INTERVENTION_ENABLED=false
 ```
 
-说明：
+Anthropic / Claude SDK 配置：
 
-- 启动脚本会在进程启动前执行 `alembic upgrade head`
-- Railway 私网只在运行时可用，所以迁移应放在 Start Command 阶段，不要放到 Build Command。Railway 官方文档也明确说明了这一点
+```env
+TRUMANWORLD_AGENT_BACKEND=claude_sdk
+TRUMANWORLD_LLM_PROVIDER=anthropic
+TRUMANWORLD_LLM_API_KEY=替换为真实密钥
+TRUMANWORLD_LLM_MODEL=替换为模型名
+TRUMANWORLD_DIRECTOR_BACKEND=claude_sdk
+TRUMANWORLD_DIRECTOR_AGENT_MODEL=替换为导演模型名
+```
 
-### 2. Frontend
+### Frontend
 
-- Root Directory: `/frontend`
-- Build Command: `pnpm install --frozen-lockfile && pnpm build`
-- Start Command: `sh scripts/start-railway.sh`
+在服务设置中配置：
 
-变量：
+- Root Directory：`/`（仓库根目录）
+- Config File：`/frontend/railway.toml`
+- 生成公网域名
+
+必要变量：
 
 ```env
 INTERNAL_API_BASE_URL=http://backend.railway.internal/api
-NEXT_PUBLIC_API_BASE_URL=
+NEXT_PUBLIC_API_BASE_URL=/api
 ```
 
-说明：
+[frontend/railway.toml](../../frontend/railway.toml) 使用 pnpm 安装、构建和启动 Next.js。
+浏览器访问相对 `/api`，Next.js rewrite 再通过 Railway 私网访问后端。
 
-- 当前前端已经支持服务端走 `INTERNAL_API_BASE_URL`，浏览器端走 `/api`
-- `frontend/next.config.ts` 已配置 rewrite，`/api/*` 会转发到后端
-- Railway 私网文档说明同项目内服务可直接通过 `SERVICE_NAME.railway.internal` 通信，不需要额外暴露后端公网域名
-- 因此前端公开，后端可只保留私网访问；如果你需要直接打开 `/api/docs`，再给后端单独生成公网域名
+### PostgreSQL
 
-### 3. Postgres
+在同一 Railway Project 添加 PostgreSQL 服务，并把它的 `DATABASE_URL` 引用给 backend。
+当前主链路不要求 Redis，也没有必须启用的 pgvector 扩展。
 
-直接在 Railway 项目里添加 PostgreSQL 服务即可。
+## 自动引导脚本
 
-本项目当前迁移和模型没有发现对 `pgvector` 扩展的实际硬依赖，所以先用标准 PostgreSQL 即可。
-
-## CLI 操作建议
-
-Railway 官方 CLI 文档里 `railway up` 支持按服务部署，但对于 monorepo，官方也说明更稳的方式是先在服务设置里把 Root Directory 配好。
-
-建议顺序：
-
-1. `railway login`
-2. 在 Railway 控制台新建一个 Project
-3. 在项目里创建 `backend`、`frontend`、`Postgres` 三个服务
-4. 把仓库连接到 `backend` 和 `frontend`
-5. 分别设置 Root Directory、Build Command、Start Command、变量
-6. 先部署 `backend`
-7. 再部署 `frontend`
-
-如果你已经把当前目录 link 到项目里，也可以用 CLI 触发重部署：
+仓库提供 [railway-bootstrap.sh](../../scripts/railway-bootstrap.sh)。运行前至少提供前端域名和生产
+管理员密码：
 
 ```bash
+FRONTEND_DOMAIN=your-frontend.up.railway.app \
+TRUMANWORLD_DEMO_ADMIN_PASSWORD='replace-with-a-strong-password' \
+bash scripts/railway-bootstrap.sh
+```
+
+启用 Claude SDK 时额外提供：
+
+```bash
+FRONTEND_DOMAIN=your-frontend.up.railway.app \
+TRUMANWORLD_DEMO_ADMIN_PASSWORD='replace-with-a-strong-password' \
+ENABLE_CLAUDE=true \
+TRUMANWORLD_AGENT_BACKEND=claude_sdk \
+TRUMANWORLD_LLM_API_KEY='your-key' \
+TRUMANWORLD_LLM_MODEL='your-model' \
+TRUMANWORLD_DIRECTOR_AGENT_MODEL='your-director-model' \
+bash scripts/railway-bootstrap.sh
+```
+
+脚本会创建服务、设置核心变量，并输出控制台中仍需确认的 Root Directory 和 Config File。
+密钥通过标准输入写入 Railway，不会出现在命令参数中。
+
+## 部署与验收
+
+```bash
+railway link
 railway up --service backend
 railway up --service frontend
-```
-
-注意：Railway 官方文档提到，如果你在 monorepo 子目录里直接运行 `railway up`，默认仍可能从项目根目录上传；要长期稳定按子目录部署，应以服务配置里的 Root Directory 为准。
-
-## 一套可直接执行的 CLI 流程
-
-下面假设：
-
-- Railway 项目名叫 `NarrativeWorld`
-- 服务名固定为 `backend`、`frontend`、`postgres`
-- 你在仓库根目录执行命令
-
-### 1. 登录并初始化项目
-
-```bash
-railway login
-railway init -n NarrativeWorld
-```
-
-检查当前绑定状态：
-
-```bash
-railway status
-```
-
-### 2. 创建 3 个服务
-
-```bash
-railway add --service backend
-railway add --service frontend
-railway add --database postgres
-```
-
-创建完后再看一次：
-
-```bash
-railway service status
-```
-
-### 3. 给前端生成公网域名
-
-```bash
-railway domain --service frontend
-```
-
-这一步会返回一个 Railway 域名，后面把它填进后端 CORS。
-
-### 4. 配 backend 变量
-
-先设置基础变量：
-
-```bash
-railway variable set --service backend \
-  TRUMANWORLD_APP_ENV=production \
-  TRUMANWORLD_LOG_LEVEL=INFO \
-  TRUMANWORLD_DATABASE_URL='${{Postgres.DATABASE_URL}}'
-```
-
-然后设置 CORS。把下面的 `YOUR_FRONTEND_DOMAIN` 替换成上一步生成的域名，例如 `your-app.up.railway.app`：
-
-```bash
-railway variable set --service backend \
-  'TRUMANWORLD_CORS_ALLOWED_ORIGINS=["https://YOUR_FRONTEND_DOMAIN"]'
-```
-
-如果你要启用 Claude：
-
-```bash
-railway variable set --service backend \
-  TRUMANWORLD_AGENT_BACKEND=claude_sdk \
-  TRUMANWORLD_LLM_MODEL='your-model' \
-  TRUMANWORLD_DIRECTOR_BACKEND=claude_sdk \
-  TRUMANWORLD_DIRECTOR_AGENT_MODEL='your-director-model'
-```
-
-再单独从标准输入写入 API Key，避免进 shell 历史：
-
-```bash
-printf '%s' 'YOUR_ANTHROPIC_API_KEY' | railway variable set --service backend TRUMANWORLD_ANTHROPIC_API_KEY --stdin
-```
-
-如果你只想先把站跑起来，不想接 LLM：
-
-```bash
-railway variable set --service backend \
-  TRUMANWORLD_AGENT_BACKEND=heuristic \
-  TRUMANWORLD_DIRECTOR_BACKEND=heuristic
-```
-
-### 5. 配 frontend 变量
-
-```bash
-railway variable set --service frontend \
-  INTERNAL_API_BASE_URL=http://backend.railway.internal/api \
-  NEXT_PUBLIC_API_BASE_URL=
-```
-
-### 6. 在 Railway 服务设置里补 Root Directory / Config File
-
-CLI 目前不适合稳定管理这些构建设置，建议直接在 Railway 控制台里配：
-
-`backend`
-
-- Root Directory: `backend`
-- Config File: `/backend/railway.toml`
-
-`frontend`
-
-- Root Directory: `frontend`
-- Config File: `/frontend/railway.toml`
-
-如果你不想用 Config File，才退回到手动填写：
-
-`backend`
-
-- Build Command: `uv sync --frozen`
-- Start Command: `sh scripts/start-railway.sh`
-
-`frontend`
-
-- Build Command: `pnpm install --frozen-lockfile && pnpm build`
-- Start Command: `sh scripts/start-railway.sh`
-
-### 7. 触发部署
-
-```bash
-railway up --service backend
-railway up --service frontend
-```
-
-如果 `up` 因为当前目录未绑定到目标服务而报错，可以先切换绑定：
-
-```bash
-railway service link backend
-railway up
-
-railway service link frontend
-railway up
-```
-
-### 8. 看日志和状态
-
-```bash
 railway logs --service backend
 railway logs --service frontend
-railway status
 ```
 
-如果后端启动失败，优先看是否卡在迁移或数据库连通性。
+首次上线检查：
 
-## 脚本模板
+1. 后端日志显示 Alembic pre-deploy 成功。
+2. `GET /api/health` 返回 `{"status":"ok"}`。
+3. `GET /api/ready` 返回 `{"status":"ready"}`。
+4. 前端首页能读取 run 列表，world、timeline 和 agent 页面没有 SSR 请求错误。
+5. 未解锁时写操作不可见；直接调用写接口返回 401。
+6. Railway deployment details 中的构建、pre-deploy、启动和 healthcheck 均显示来自配置文件。
 
-仓库里还提供了一份可直接改变量后执行的模板：
+Railway healthcheck 只用于新部署切流前的就绪验证，不是持续监控。生产环境仍应另配 uptime 和告警。
+参见 [Railway Healthchecks](https://docs.railway.com/deployments/healthchecks)。
 
-- [scripts/railway-bootstrap.sh](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/scripts/railway-bootstrap.sh)
+## 常见问题
 
-使用方式：
+- 构建命令找不到 `backend/` 或 `frontend/`：确认 Root Directory 是仓库根目录 `/`。
+- 配置没有生效：确认 Config File 分别是 `/backend/railway.toml` 和 `/frontend/railway.toml`。
+- `/api/ready` 返回 503：检查数据库引用变量、私网连通性和 Alembic 日志。
+- 前端 SSR 访问 `127.0.0.1:18080`：检查 `INTERNAL_API_BASE_URL`。
+- 浏览器写操作返回 401：使用页面右上角管理员入口输入
+  `TRUMANWORLD_DEMO_ADMIN_PASSWORD`。
 
-```bash
-chmod +x scripts/railway-bootstrap.sh
-
-FRONTEND_DOMAIN=your-frontend.up.railway.app \
-ENABLE_CLAUDE=false \
-bash scripts/railway-bootstrap.sh
-```
-
-默认会先读取仓库根目录 `.env`，再用你显式传入的 shell 变量覆盖。
-
-例如你可以保留 `.env` 里的模型配置，只覆盖生产域名：
-
-```bash
-FRONTEND_DOMAIN=your-frontend.up.railway.app \
-bash scripts/railway-bootstrap.sh
-```
-
-如果你要启用 Claude：
-
-```bash
-FRONTEND_DOMAIN=your-frontend.up.railway.app \
-ENABLE_CLAUDE=true \
-TRUMANWORLD_ANTHROPIC_API_KEY=your_key \
-TRUMANWORLD_LLM_MODEL=your-model \
-TRUMANWORLD_DIRECTOR_AGENT_MODEL=your-director-model \
-bash scripts/railway-bootstrap.sh
-```
-
-这个脚本会：
-
-- 初始化 Railway 项目
-- 创建 `backend`、`frontend`、`postgres`
-- 写入核心环境变量
-- 提示你去控制台补 Root Directory / Config File
-
-注意：
-
-- `.env` 里的本地值不会自动变成生产安全值
-- 生产环境至少应覆盖 `FRONTEND_DOMAIN`
-- 如果 `.env` 里仍是 `TRUMANWORLD_APP_ENV=development`、`TRUMANWORLD_LOG_LEVEL=DEBUG`、`localhost` 数据库地址，建议显式覆盖
-
-## 首次上线后的检查项
-
-### 后端
-
-- 打开前端后确认首页可以拉到 run 列表
-- 查看后端日志，确认 Alembic 成功执行到 `head`
-- 检查 `/api/health`
-
-### 前端
-
-- 首页加载无 `network_error`
-- 创建 run 成功
-- 进入 world/timeline 页面没有 SSR 请求失败
-
-## 当前仓库里的已知部署注意点
-
-### 1. 不要直接复用现有 Dockerfile
-
-现有文件偏开发环境：
-
-- [backend/Dockerfile](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/backend/Dockerfile)
-- [frontend/Dockerfile](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/frontend/Dockerfile)
-
-它们目前分别用了 `--reload` 和 `pnpm dev`。
-
-### 2. 后端 CORS 必须带上前端域名
-
-配置入口在：
-
-- [backend/app/infra/settings.py](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/backend/app/infra/settings.py)
-
-如果前端域名变了，记得同步更新 `TRUMANWORLD_CORS_ALLOWED_ORIGINS`。
-
-### 3. 前端 SSR 依赖内部 API 地址
-
-配置入口在：
-
-- [frontend/lib/api.ts](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/frontend/lib/api.ts)
-- [frontend/next.config.ts](/home/qy113/workspace/project/2603/TrumanWorld/TrumanWorld/frontend/next.config.ts)
-
-不设置 `INTERNAL_API_BASE_URL` 时，SSR 默认会回退到本地地址 `http://127.0.0.1:18080/api`，上线一定会失败。
-
-## 参考资料
-
-- Railway Monorepo Guide: https://docs.railway.com/guides/deploying-a-monorepo
-- Railway Private Networking: https://docs.railway.com/networking/private-networking
-- Railway Private Networking Internals: https://docs.railway.com/networking/private-networking/how-it-works
-- Railway Dockerfile Path: https://docs.railway.com/builds/dockerfiles
-- Railway Variables Reference: https://docs.railway.com/variables/reference
-- Railway Build and Start Commands: https://docs.railway.com/reference/build-and-start-commands
+本地开发使用 [docker-compose.yml](../../docker-compose.yml) 及开发 Dockerfile；Railway 使用 Railpack 配置，
+不要把本地 `--reload` / `pnpm dev` 命令当作生产启动方式。

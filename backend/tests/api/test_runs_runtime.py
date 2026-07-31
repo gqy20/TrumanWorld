@@ -5,9 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import app.api.routes.runs as runs_route
 from app.store.models import (
     Agent,
+    AgentEconomicState,
     DirectorMemory,
+    EconomicEffectLog,
     Event,
+    GovernanceCase,
     GovernanceRecord,
+    GovernanceRestriction,
     Location,
     Memory,
     Relationship,
@@ -588,6 +592,42 @@ async def test_delete_run_removes_related_records_and_cleans_pool(
                 message_hint="Meet now",
                 was_executed=False,
             ),
+            GovernanceRecord(
+                id="governance-record-delete",
+                run_id=run_id,
+                agent_id="agent-delete-a",
+                tick_no=1,
+                source_event_id="event-delete",
+                location_id="loc-delete",
+                action_type="work",
+                decision="warn",
+            ),
+            GovernanceCase(
+                id="governance-case-delete",
+                run_id=run_id,
+                agent_id="agent-delete-a",
+                primary_reason="Repeated policy violation",
+            ),
+            GovernanceRestriction(
+                id="governance-restriction-delete",
+                run_id=run_id,
+                agent_id="agent-delete-a",
+                case_id="governance-case-delete",
+                restriction_type="work_ban",
+            ),
+            AgentEconomicState(
+                id="economic-state-delete",
+                run_id=run_id,
+                agent_id="agent-delete-a",
+            ),
+            EconomicEffectLog(
+                id="economic-log-delete",
+                run_id=run_id,
+                agent_id="agent-delete-a",
+                case_id="governance-case-delete",
+                tick_no=1,
+                effect_type="governance_work_loss",
+            ),
         ]
     )
     await db_session.commit()
@@ -604,6 +644,11 @@ async def test_delete_run_removes_related_records_and_cleans_pool(
     assert await db_session.get(Memory, "memory-delete") is None
     assert await db_session.get(Relationship, "relationship-delete") is None
     assert await db_session.get(DirectorMemory, "director-memory-delete") is None
+    assert await db_session.get(GovernanceRecord, "governance-record-delete") is None
+    assert await db_session.get(GovernanceCase, "governance-case-delete") is None
+    assert await db_session.get(GovernanceRestriction, "governance-restriction-delete") is None
+    assert await db_session.get(AgentEconomicState, "economic-state-delete") is None
+    assert await db_session.get(EconomicEffectLog, "economic-log-delete") is None
 
 
 @pytest.mark.asyncio

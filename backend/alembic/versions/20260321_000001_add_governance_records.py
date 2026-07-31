@@ -33,7 +33,9 @@ def upgrade() -> None:
         sa.Column("observation_score", sa.Float(), nullable=False, server_default="0"),
         sa.Column("intervention_score", sa.Float(), nullable=False, server_default="0"),
         sa.Column("metadata", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["agent_id"], ["agents.id"]),
         sa.ForeignKeyConstraint(["location_id"], ["locations.id"]),
         sa.ForeignKeyConstraint(["run_id"], ["simulation_runs.id"]),

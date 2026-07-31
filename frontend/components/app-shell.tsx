@@ -47,10 +47,10 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex min-h-screen w-full min-w-0 overflow-x-hidden lg:h-screen lg:overflow-hidden">
       {/* 侧边栏 - 完全折叠时隐藏 */}
       <nav
-        className={`flex shrink-0 flex-col border-r border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(247,249,252,0.72))] backdrop-blur-xl transition-all duration-300 ${
+        className={`fixed inset-y-0 left-0 z-[60] flex shrink-0 flex-col border-r border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(247,249,252,0.92))] backdrop-blur-xl transition-all duration-300 lg:static lg:z-auto lg:bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(247,249,252,0.72))] ${
           isCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-[272px] opacity-100"
         }`}
       >
@@ -142,7 +142,7 @@ export function AppShell({ children }: AppShellProps) {
         </button>
       )}
 
-      <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden lg:min-h-0 lg:overflow-hidden">
         <div className="absolute right-4 top-4 z-50">
           <DemoAccessControl />
         </div>

@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.api.routes.health as health_route
 import app.api.routes.system as system_route
 import app.sim.day_boundary_coordinator as day_boundary_coordinator_module
 from app.infra.settings import get_settings
@@ -30,6 +31,42 @@ async def test_health_check(client):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_readiness_check_verifies_database(client, monkeypatch: pytest.MonkeyPatch):
+    checked = False
+
+    async def check_database(_session: AsyncSession) -> None:
+        nonlocal checked
+        checked = True
+
+    monkeypatch.setattr(health_route, "check_database", check_database)
+
+    response = await client.get("/api/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+    assert checked is True
+
+
+@pytest.mark.asyncio
+async def test_readiness_check_returns_503_when_database_is_unavailable(
+    client, monkeypatch: pytest.MonkeyPatch
+):
+    async def check_database(_session: AsyncSession) -> None:
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(health_route, "check_database", check_database)
+
+    response = await client.get("/api/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Database is unavailable",
+        "code": "DATABASE_UNAVAILABLE",
+        "context": {},
+    }
 
 
 @pytest.mark.asyncio

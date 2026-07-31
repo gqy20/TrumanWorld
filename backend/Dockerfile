@@ -24,10 +24,10 @@ WORKDIR /app/backend
 
 COPY backend/pyproject.toml backend/uv.lock ./
 
-RUN uv sync --extra dev --frozen && \
+RUN uv sync --group dev --frozen && \
     chown -R appuser:appuser /app
 
 # 切换到非 root 用户
 USER appuser
 
-CMD ["sh", "-c", "uv sync --extra dev && uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+CMD ["sh", "-c", "uv sync --group dev --frozen && uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]

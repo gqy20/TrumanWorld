@@ -82,7 +82,7 @@ Respond with a JSON object:
 - **should_intervene**: Set to `false` if no intervention is needed at this moment
 - **scene_goal**: Choose based on the situation analysis above
 - **target_agent_names**: Select 1-2 appropriate agents by their names
-- **priority**: 
+- **priority**:
   - `critical`: Truman is about to discover the truth
   - `high`: Suspicion is rapidly rising or major continuity issue
   - `normal`: Standard intervention needed

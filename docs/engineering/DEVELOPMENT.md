@@ -340,6 +340,7 @@ SELECT * FROM events ORDER BY created_at DESC LIMIT 10;
 ```bash
 # 健康检查
 curl http://127.0.0.1:8000/api/health
+curl http://127.0.0.1:8000/api/ready
 
 # 创建 run
 curl -X POST http://127.0.0.1:8000/api/runs \

@@ -6,12 +6,18 @@ on:
     paths:
       - "frontend/**"
       - "agents/**"
+      - "Makefile"
+      - ".nvmrc"
+      - "docker-compose.yml"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "frontend/**"
       - "agents/**"
+      - "Makefile"
+      - ".nvmrc"
+      - "docker-compose.yml"
       - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
 

@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
+import { buildVoxelPlots, findPlotForLocation } from "@/components/voxel/plot-layout";
+import type { VoxelPlot } from "@/components/voxel/types";
 
 type Props = {
   sceneWorld: SceneWorld;
@@ -12,35 +14,6 @@ type Props = {
   onAgentClick?: (agentId: string) => void;
   onLocationClick?: (locationId: string) => void;
 };
-
-type VoxelSlot = {
-  x: number;
-  z: number;
-};
-
-const LOCATION_SLOTS: Record<string, VoxelSlot> = {
-  home: { x: -3, z: 3 },
-  dorm: { x: -4, z: 4 },
-  cafe: { x: 0, z: 4 },
-  shop: { x: 3, z: 4 },
-  plaza: { x: 0, z: 0 },
-  square: { x: 0, z: 0 },
-  office: { x: 4, z: -1 },
-  library: { x: 2, z: -4 },
-  lecture_hall: { x: 4, z: -4 },
-  park: { x: -4, z: -2 },
-  grove: { x: -5, z: -4 },
-  quad: { x: -2, z: -2 },
-};
-
-const FALLBACK_SLOTS: VoxelSlot[] = [
-  { x: -2, z: 2 },
-  { x: 2, z: 2 },
-  { x: -2, z: -3 },
-  { x: 4, z: 1 },
-  { x: -5, z: 1 },
-  { x: 5, z: -2 },
-];
 
 const palette = {
   grass: 0x8fcf72,
@@ -120,10 +93,11 @@ export function VoxelWorldRenderer({
     const renderWorld = () => {
       clickable.length = 0;
       worldGroup.clear();
+      const plots = buildVoxelPlots(sceneWorld.locations);
       buildGround(worldGroup);
       buildRoads(worldGroup);
-      buildLocations(worldGroup, sceneWorld.locations, highlightedLocationId, clickable);
-      buildAgents(worldGroup, sceneWorld.agents, sceneWorld.locations, highlightedAgentId, clickable);
+      buildLocations(worldGroup, plots, highlightedLocationId, clickable);
+      buildAgents(worldGroup, sceneWorld.agents, plots, highlightedAgentId, clickable);
       renderer.render(scene, camera);
     };
 
@@ -207,35 +181,35 @@ function buildRoads(group: THREE.Group): void {
 
 function buildLocations(
   group: THREE.Group,
-  locations: SceneLocation[],
+  plots: VoxelPlot[],
   highlightedLocationId: string | null | undefined,
   clickable: THREE.Object3D[],
 ): void {
-  locations.forEach((location, index) => {
-    const slot = resolveSlot(location, locations, index);
-    addBox(group, slot.x, 0.03, slot.z, 1.8, 0.08, 1.8, palette.plot);
+  plots.forEach((plotItem) => {
+    const location = plotItem.source;
+    addBox(group, plotItem.center.x, 0.03, plotItem.center.z, plotItem.size.width, 0.08, plotItem.size.depth, palette.plot);
     if (isGreenLocation(location)) {
-      const park = buildPark(location, slot, highlightedLocationId === location.id);
+      const park = buildPark(location, plotItem, highlightedLocationId === location.id);
       park.userData = { kind: "location", id: location.id };
       group.add(park);
       clickable.push(park);
       return;
     }
-    const building = buildBuilding(location, slot, highlightedLocationId === location.id);
+    const building = buildBuilding(location, plotItem, highlightedLocationId === location.id);
     building.userData = { kind: "location", id: location.id };
     group.add(building);
     clickable.push(building);
   });
 }
 
-function buildBuilding(location: SceneLocation, slot: VoxelSlot, highlighted: boolean): THREE.Group {
+function buildBuilding(location: SceneLocation, plotItem: VoxelPlot, highlighted: boolean): THREE.Group {
   const building = new THREE.Group();
-  building.position.set(slot.x, 0, slot.z);
+  building.position.set(plotItem.center.x, 0, plotItem.center.z);
   const type = location.visual.visualPreset ?? location.locationType;
   const height = type.includes("office") || type.includes("tower") ? 1.7 : 1.1;
   const wall = getBuildingWallColor(type);
   const roof = getBuildingRoofColor(type);
-  addBox(building, 0, height / 2, 0, 1.1, height, 1.1, wall);
+  addBox(building, 0, height / 2, 0, plotItem.footprint.width, height, plotItem.footprint.depth, wall);
   addVoxelRoof(building, height, type, roof);
   addBox(building, 0, 0.08, 0, 1.28, 0.16, 1.28, palette.shadow);
   addBox(building, -0.58, height * 0.58, 0.02, 0.05, 0.42, 0.72, 0xffffff);
@@ -279,10 +253,10 @@ function addBuildingDetails(group: THREE.Group, height: number, type: string): v
   }
 }
 
-function buildPark(location: SceneLocation, slot: VoxelSlot, highlighted: boolean): THREE.Group {
+function buildPark(location: SceneLocation, plotItem: VoxelPlot, highlighted: boolean): THREE.Group {
   const park = new THREE.Group();
-  park.position.set(slot.x, 0, slot.z);
-  addBox(park, 0, 0.08, 0, 1.6, 0.12, 1.6, 0x80c76f);
+  park.position.set(plotItem.center.x, 0, plotItem.center.z);
+  addBox(park, 0, 0.08, 0, plotItem.size.width - 0.4, 0.12, plotItem.size.depth - 0.4, 0x80c76f);
   buildTree(park, -0.42, -0.3, 0.85);
   buildTree(park, 0.34, 0.28, 0.72);
   addBox(park, 0.08, 0.18, -0.56, 0.7, 0.08, 0.18, palette.road);
@@ -311,18 +285,16 @@ function addWindowRow(group: THREE.Group, height: number, type: string): void {
 function buildAgents(
   group: THREE.Group,
   agents: SceneAgent[],
-  locations: SceneLocation[],
+  plots: VoxelPlot[],
   highlightedAgentId: string | null | undefined,
   clickable: THREE.Object3D[],
 ): void {
-  const locationMap = new Map(locations.map((location, index) => [location.id, resolveSlot(location, locations, index)]));
   for (const agent of agents) {
-    const slot = locationMap.get(agent.locationId);
-    if (!slot) continue;
+    const plotItem = findPlotForLocation(plots, agent.locationId);
+    if (!plotItem) continue;
+    const anchor = plotItem.agentAnchors[agent.slotIndex % plotItem.agentAnchors.length];
     const agentGroup = new THREE.Group();
-    const offsetX = -0.45 + (agent.slotIndex % 4) * 0.28;
-    const offsetZ = 0.85 + Math.floor(agent.slotIndex / 4) * 0.24;
-    agentGroup.position.set(slot.x + offsetX, 0, slot.z + offsetZ);
+    agentGroup.position.set(anchor.x, 0, anchor.z);
     const color = getAgentColor(agent.status);
     addBox(agentGroup, 0, 0.34, 0, 0.22, 0.5, 0.18, color);
     addBox(agentGroup, 0, 0.68, 0, 0.2, 0.2, 0.2, 0xffc69c);
@@ -361,21 +333,6 @@ function addBox(
   mesh.receiveShadow = true;
   group.add(mesh);
   return mesh;
-}
-
-function resolveSlot(location: SceneLocation, locations: SceneLocation[], index: number): VoxelSlot {
-  const base = LOCATION_SLOTS[location.locationType] ?? LOCATION_SLOTS[location.visual.visualPreset ?? ""] ?? FALLBACK_SLOTS[index % FALLBACK_SLOTS.length];
-  const sameType = locations.filter((candidate) => candidate.locationType === location.locationType).sort((left, right) => left.id.localeCompare(right.id));
-  const duplicateIndex = sameType.findIndex((candidate) => candidate.id === location.id);
-  if (duplicateIndex <= 0) return base;
-  const offsets = [
-    { x: 1.5, z: 0 },
-    { x: 0, z: 1.5 },
-    { x: -1.5, z: 0 },
-    { x: 0, z: -1.5 },
-  ];
-  const offset = offsets[(duplicateIndex - 1) % offsets.length];
-  return { x: base.x + offset.x, z: base.z + offset.z };
 }
 
 function getBuildingWallColor(type: string): number {

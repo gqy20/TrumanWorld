@@ -1,12 +1,13 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`backend/` contains the FastAPI service, simulation core, persistence layer, and Alembic migrations. Main application code lives under `backend/app/` with feature areas such as `api/`, `agent/`, `sim/`, `store/`, and `infra/`. Backend tests live in `backend/tests/`. `frontend/` contains the Next.js 15 director console; route files are under `frontend/app/`. `agents/` stores agent-facing configuration and prompts, while `docs/` holds product and architecture notes.
+`backend/` contains the FastAPI service, simulation core, persistence layer, and Alembic migrations. Main application code lives under `backend/app/` with feature areas such as `api/`, `agent/`, `sim/`, `store/`, and `infra/`. Backend tests live in `backend/tests/`. `frontend/` contains the Next.js 16 director console; route files are under `frontend/app/`. `agents/` stores agent-facing configuration and prompts, while `docs/` holds product and architecture notes.
 
 ## Build, Test, and Development Commands
 Use the top-level `Makefile` for common workflows:
 
 - `make install`: install backend dependencies with `uv` and frontend dependencies with `pnpm`.
+- `make hooks-install`: install the repository pre-commit and pre-push hooks for this clone.
 - `make backend-dev`: run the FastAPI server with reload on `http://127.0.0.1:18080`.
 - `make frontend-dev`: start the Next.js dev server on `http://127.0.0.1:13000`.
 - `make migrate`: apply Alembic migrations.

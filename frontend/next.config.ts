@@ -8,6 +8,10 @@ const internalApiBaseUrl =
   process.env.INTERNAL_API_BASE_URL?.replace(/\/$/, "") ??
   railwayInternalApiBaseUrl ??
   "http://127.0.0.1:18080/api";
+const extraAllowedDevOrigins =
+  process.env.NEXT_ALLOWED_DEV_ORIGINS?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean) ?? [];
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -19,7 +23,9 @@ const nextConfig: NextConfig = {
     "10.*",
     "172.*",
     "192.168.*",
+    "10.10.11.153",
     "100.79.129.46",
+    ...extraAllowedDevOrigins,
   ],
   async rewrites() {
     return [

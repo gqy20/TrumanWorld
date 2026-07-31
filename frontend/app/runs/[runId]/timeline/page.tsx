@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScrollArea } from "@/components/scroll-area";
 import { getTimelineResult, listAgentsResult } from "@/lib/api";
@@ -77,6 +77,7 @@ export default function TimelinePage() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
 
   // 加载角色列表
   useEffect(() => {
@@ -87,9 +88,11 @@ export default function TimelinePage() {
 
   const fetchTimeline = useCallback(
     async (appliedFilters: Filters, currentOffset: number, orderDesc: boolean = true) => {
+      const requestId = ++requestSequence.current;
       setLoading(true);
       setError(null);
       const result = await getTimelineResult(runId, toTimelineFilter(appliedFilters, currentOffset, orderDesc));
+      if (requestId !== requestSequence.current) return;
       if (result.data) {
         setTimeline(result.data);
       } else {
@@ -104,8 +107,7 @@ export default function TimelinePage() {
   // 初始加载
   useEffect(() => {
     void fetchTimeline(EMPTY_FILTERS, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTimeline]);
 
   const handleSearch = () => {
     setFilters(pendingFilters);
@@ -152,7 +154,8 @@ export default function TimelinePage() {
   const total = timeline?.total ?? 0;
   const filtered = timeline?.filtered ?? 0;
   const hasFilter = Object.values(filters).some(Boolean);
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const paginationTotal = filtered;
+  const totalPages = Math.ceil(paginationTotal / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   const updatePending = (key: keyof Filters, value: string) =>
@@ -219,7 +222,7 @@ export default function TimelinePage() {
                   过滤后匹配 <span className="font-semibold text-moss">{filtered}</span> 条 / 共 {total} 条
                 </p>
               )}
-              {total > PAGE_SIZE && (
+              {paginationTotal > PAGE_SIZE && (
                 <p className="mt-1 text-[11px] text-amber-600">
                   数据较多，当前第 {currentPage}/{totalPages} 页（每页 {PAGE_SIZE} 条）
                 </p>
@@ -472,7 +475,7 @@ export default function TimelinePage() {
                 </div>
 
                 {/* 分页控制 */}
-                {total > PAGE_SIZE && (
+                {paginationTotal > PAGE_SIZE && (
                   <div className="mt-6 flex items-center justify-between rounded-[24px] border border-slate-200 bg-white px-5 py-3">
                     <button
                       onClick={handlePrevPage}
@@ -482,11 +485,11 @@ export default function TimelinePage() {
                       ← 上一页
                     </button>
                     <span className="text-xs text-slate-500">
-                      第 {currentPage} / {totalPages} 页（共 {total} 条）
+                      第 {currentPage} / {totalPages} 页（共 {paginationTotal} 条）
                     </span>
                     <button
                       onClick={handleNextPage}
-                      disabled={offset + PAGE_SIZE >= total || loading}
+                      disabled={offset + PAGE_SIZE >= paginationTotal || loading}
                       className="rounded-xl border border-slate-200 px-4 py-2 text-xs text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
                     >
                       下一页 →

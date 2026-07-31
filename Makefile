@@ -4,11 +4,12 @@ FRONTEND_DIR := frontend
 LOGS_DIR := logs
 BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py
 BACKEND_TEST_ENV := TRUMANWORLD_ANTHROPIC_API_KEY=test-key
+PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -24,6 +25,10 @@ sync-agent-logos:
 	@echo "✅ Agent logos 同步完成"
 
 install: backend-install frontend-install sync-agent-logos
+
+hooks-install:
+	git config --unset-all core.hooksPath 2>/dev/null || true
+	$(PRE_COMMIT) install --hook-type pre-commit --hook-type pre-push
 
 backend-install:
 	cd $(BACKEND_DIR) && uv sync --group dev
@@ -86,7 +91,7 @@ backend-test-ci:
 	cd $(BACKEND_DIR) && $(BACKEND_TEST_ENV) uv run pytest -m "not integration" -v --cov=app --cov-report=xml
 
 backend-integration-test:
-	cd $(BACKEND_DIR) && uv run pytest -m integration
+	cd $(BACKEND_DIR) && TRUMANWORLD_TEST_POSTGRES_URL="$(DATABASE_URL)" uv run pytest -m integration
 
 backend-migration-check:
 	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL="$${TRUMANWORLD_DATABASE_URL:-$(DATABASE_URL)}" uv run alembic upgrade head
@@ -113,7 +118,7 @@ test:
 	$(MAKE) backend-test
 	$(MAKE) frontend-test
 
-ci: quality backend-test-ci frontend-test frontend-build
+ci: quality backend-test-ci backend-migration-check backend-integration-test frontend-test frontend-build
 
 benchmark-reactor-pool:
 	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo
@@ -122,10 +127,10 @@ migrate:
 	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) uv run alembic upgrade head
 
 pre-commit:
-	$(PYTHON) -m pre_commit run --all-files
+	$(PRE_COMMIT) run --all-files
 
 pre-push:
-	$(PYTHON) -m pre_commit run --hook-stage pre-push --all-files
+	$(PRE_COMMIT) run --hook-stage pre-push --all-files
 
 # 数据库配置（本地开发环境，从环境变量或使用默认值）
 # 生产环境请务必设置环境变量 TRUMANWORLD_DB_PASSWORD
@@ -291,18 +296,18 @@ docker-dev:
 	echo "后端日志: docker_$${LOG_TIMESTAMP}_backend.log"; \
 	echo "前端日志: docker_$${LOG_TIMESTAMP}_frontend.log"; \
 	echo "================================"; \
-	docker-compose up --build 2>&1 | tee >(grep -E "(backend|trumanworld-backend|INFO:|ERROR:|WARNING:|DEBUG:)" > "$${LOG_FILE_BACKEND}") >(grep -E "(frontend|trumanworld-front|Next.js|GET|POST|PUT|DELETE|PATCH)" > "$${LOG_FILE_FRONTEND}")
+	docker compose up --build 2>&1 | tee >(grep -E "(backend|trumanworld-backend|INFO:|ERROR:|WARNING:|DEBUG:)" > "$${LOG_FILE_BACKEND}") >(grep -E "(frontend|trumanworld-front|Next.js|GET|POST|PUT|DELETE|PATCH)" > "$${LOG_FILE_FRONTEND}")
 
 # 停止并移除 Docker 容器（保留数据卷）
 docker-down:
 	@echo "🛑 停止 Docker 容器..."
-	@docker-compose down
+	@docker compose down
 	@echo "✅ 容器已停止"
 
 # 完全清理 Docker 环境（容器 + 数据卷）
 docker-clean:
 	@echo "🗑️  清理 Docker 环境（容器 + 数据卷）..."
-	@docker-compose down -v --remove-orphans
+	@docker compose down -v --remove-orphans
 	@echo "✅ Docker 环境已清理"
 
 # 清理日志文件（保留最近 7 天）

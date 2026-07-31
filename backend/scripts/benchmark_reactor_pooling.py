@@ -126,7 +126,9 @@ def run_benchmark(
             pass
 
     pool_size_after = _extract_metric_value(metrics_after, "trumanworld_claude_reactor_pool_size")
-    pool_active_after = _extract_metric_value(metrics_after, "trumanworld_claude_reactor_pool_active")
+    pool_active_after = _extract_metric_value(
+        metrics_after, "trumanworld_claude_reactor_pool_active"
+    )
     tick_count_after = _extract_histogram_count(
         metrics_after, "trumanworld_tick_duration_seconds", "inline"
     )
@@ -138,7 +140,9 @@ def run_benchmark(
     avg_duration = statistics.mean(durations) if durations else 0.0
     median_duration = statistics.median(durations) if durations else 0.0
     p95_duration = (
-        statistics.quantiles(durations, n=20, method="inclusive")[18] if len(durations) >= 2 else avg_duration
+        statistics.quantiles(durations, n=20, method="inclusive")[18]
+        if len(durations) >= 2
+        else avg_duration
     )
 
     histogram_count_delta = (

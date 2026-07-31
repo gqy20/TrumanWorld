@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import {
   fetchApiResult,
   getDemoAccessStatusResult,
+  getWorldPulseResult,
   listScenariosResult,
 } from "@/lib/api";
 import type { DemoAccessStatus, ScenarioSummary, WorldSnapshot } from "@/lib/types";
@@ -170,6 +171,8 @@ describe("WorldPage", () => {
         makeScenarioSummary(),
       ]));
     (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>).mockResolvedValue(okResult(world));
+    (getWorldPulseResult as jest.MockedFunction<typeof getWorldPulseResult>)
+      .mockResolvedValue(okResult({ run: world.run, world_clock: world.world_clock }));
   });
 
   it("renders the world snapshot and opens location and agent flows", async () => {
@@ -182,6 +185,7 @@ describe("WorldPage", () => {
     expect(screen.getByTestId("phaser-game-container")).toBeInTheDocument();
     expect(screen.getAllByText("Cafe").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mei Lin").length).toBeGreaterThan(0);
+    await waitFor(() => expect(getWorldPulseResult).toHaveBeenCalledWith("run-1"));
 
     fireEvent.click(screen.getByRole("button", { name: "Phaser Library" }));
 

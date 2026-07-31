@@ -3,10 +3,11 @@
 > 你就是楚门世界的导演
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)
-![Node.js](https://img.shields.io/badge/Node.js-20.9%2B%20%3C21-green?logo=node.js)
+![Node.js](https://img.shields.io/badge/Node.js-24-green?logo=node.js)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Status](https://img.shields.io/badge/Status-Experimental-orange)
-[![CI](https://github.com/gqy20/TrumanWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/gqy20/TrumanWorld/actions/workflows/ci.yml)
+[![Backend Tests](https://github.com/gqy20/TrumanWorld/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/gqy20/TrumanWorld/actions/workflows/backend-tests.yml)
+[![Frontend CI](https://github.com/gqy20/TrumanWorld/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/gqy20/TrumanWorld/actions/workflows/frontend-ci.yml)
 [![Coverage](https://codecov.io/gh/gqy20/TrumanWorld/branch/main/graph/badge.svg)](https://codecov.io/gh/gqy20/TrumanWorld)
 
 
@@ -116,13 +117,14 @@ make test                    # 后端 fast tests + 前端 Jest
 make backend-integration-test # 后端 integration tests
 make lint
 make ci                      # CI 同等质量、测试和前端 build 检查
+make hooks-install           # 为当前 clone 安装 pre-commit / pre-push hooks
 
 cd frontend && pnpm test      # 前端 Jest
 cd frontend && pnpm lint      # 前端 ESLint + TypeScript
 cd frontend && pnpm build     # 前端生产构建检查
 ```
 
-最近一次本地验证基线：后端 fast tests `637 passed, 8 deselected`；前端 Jest `33 suites / 148 tests passed`；前端 Next.js production build 已通过。
+最近一次本地验证基线（2026-07-31）：后端 fast tests `645 passed, 8 deselected`；前端 Jest `36 suites / 162 tests passed`；前端 Next.js production build 已通过。
 
 ---
 

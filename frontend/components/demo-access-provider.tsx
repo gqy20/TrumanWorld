@@ -13,7 +13,6 @@ import {
 import {
   clearDemoAdminPassword,
   getDemoAccessStatusResult,
-  getDemoAdminPassword,
   setDemoAdminPassword,
 } from "@/lib/api";
 
@@ -39,8 +38,8 @@ export function DemoAccessProvider({ children }: { children: ReactNode }) {
       setWriteProtected(result.data.write_protected);
       setAdminAuthorized(result.data.admin_authorized);
     } else {
-      setWriteProtected(false);
-      setAdminAuthorized(Boolean(getDemoAdminPassword()));
+      setWriteProtected(true);
+      setAdminAuthorized(false);
     }
     setReady(true);
   }, []);

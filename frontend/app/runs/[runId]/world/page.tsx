@@ -37,9 +37,9 @@ export default function WorldPage() {
     scenarioNameMap[world.run.scenario_type ?? ""] ?? formatScenarioLabel(world.run.scenario_type);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)]">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)] lg:h-full lg:min-h-0 lg:overflow-hidden">
         {/* 头部：标题 + 状态栏 */}
-      <div className="flex shrink-0 items-center justify-between border-b border-white/40 bg-white/55 px-6 py-3 backdrop-blur-sm">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/40 bg-white/55 px-4 py-3 backdrop-blur-sm sm:px-6">
         <div className="flex items-center gap-6">
           <div>
             <div className="mt-0.5 flex items-baseline gap-3">
@@ -54,7 +54,7 @@ export default function WorldPage() {
       </div>
 
       {/* 全屏地图区 */}
-      <div className="min-h-0 flex-1 overflow-hidden p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:overflow-hidden">
         <WorldCanvas runId={runId} />
       </div>
     </div>

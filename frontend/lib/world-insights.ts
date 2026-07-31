@@ -170,7 +170,7 @@ export function calculateWorldHealthMetrics(
   const directorStats = world.director_stats;
   const totalDirectorInterventions = directorStats?.total ?? totalMemories;
   const executedDirectorInterventions = directorStats?.executed ?? executedMemories;
-  
+
   // 5. 活动摘要
   const activitySummary = calculateActivitySummary(
     agents,

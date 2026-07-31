@@ -6,12 +6,22 @@ on:
     paths:
       - "backend/**"
       - "agents/**"
+      - "scenarios/**"
+      - "Makefile"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "scripts/**"
       - ".github/workflows/backend-tests.yml"
   pull_request:
     branches: [main]
     paths:
       - "backend/**"
       - "agents/**"
+      - "scenarios/**"
+      - "Makefile"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "scripts/**"
       - ".github/workflows/backend-tests.yml"
   workflow_dispatch:
 
@@ -51,8 +61,8 @@ jobs:
           name: codecov-trumanworld
           fail_ci_if_error: false
 
-  backend-db-migrations:
-    name: Backend DB Migrations
+  backend-db-integration:
+    name: Backend DB Migrations and Integration
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -90,3 +100,9 @@ jobs:
         env:
           TRUMANWORLD_DATABASE_URL: postgresql+psycopg://truman:truman123@localhost:5432/trumanworld_test
         run: make backend-migration-check
+
+      - name: Run PostgreSQL integration tests
+        env:
+          TRUMANWORLD_TEST_POSTGRES_URL: postgresql+psycopg://truman:truman123@localhost:5432/postgres
+        working-directory: ./backend
+        run: uv run pytest -m integration

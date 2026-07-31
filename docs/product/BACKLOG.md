@@ -4,11 +4,21 @@
 
 - 类型： `product`
 - 版本： `v0.1.0`
-- 最后更新： `2026-04-01`
+- 最后更新： `2026-07-31`
 
 ## In Progress
 
 <!-- 当前正在处理 -->
+
+- [x] **Voxel 2.5D Phase 1：Plot / Parcel System**
+  - [x] 抽离 `VoxelPlot`、plot layout、入口和 agent anchors
+  - [x] 默认 narrative / campus 场景布局无重叠测试
+  - [x] renderer 使用 plot 输出，保持地点和角色点击链路
+- [x] **可靠性收口**
+  - [x] 修复 pulse 首次轮询、时间线筛选分页和迟到响应覆盖
+  - [x] 修复 run 删除时治理/经济数据清理
+  - [x] 增加数据库 readiness，生产环境强制写操作密码
+  - [x] 修复 Docker、hooks、CI 和 Railway 配置漂移
 
 ## Todo (P1)
 

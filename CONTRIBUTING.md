@@ -132,9 +132,9 @@ make lint
 
 ```bash
 cd frontend
-npm run lint
-npm run test
-npm run build
+pnpm lint
+pnpm test
+pnpm build
 ```
 
 ### 测试

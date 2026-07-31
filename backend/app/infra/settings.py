@@ -104,6 +104,10 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "TRUMANWORLD_DATABASE_URL must be set in non-development environments"
                 )
+        if self.app_env != "development" and self.demo_admin_password is None:
+            raise ValueError(
+                "TRUMANWORLD_DEMO_ADMIN_PASSWORD must be set in non-development environments"
+            )
 
         if self.llm_model is None:
             self.llm_model = self.anthropic_model

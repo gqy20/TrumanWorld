@@ -127,9 +127,9 @@ export function WorldCanvas({ runId }: Props) {
     : [];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(720px,1fr)_340px]">
-        <div className="h-full min-h-[620px]">
+    <div className="flex min-h-0 flex-col gap-4 xl:h-full">
+      <div className="grid min-h-0 gap-4 xl:h-full xl:grid-cols-[minmax(720px,1fr)_340px]">
+        <div className="min-h-[620px] xl:h-full">
           <div className="flex h-full min-h-[460px] flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <div>

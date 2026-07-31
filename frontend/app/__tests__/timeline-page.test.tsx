@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import TimelinePage from "@/app/runs/[runId]/timeline/page";
 import { getTimelineResult, listAgentsResult } from "@/lib/api";
@@ -6,8 +6,10 @@ import type { TimelineResponse } from "@/lib/types";
 import { makeTimelineResponse } from "@/test-utils/app/fixtures";
 import { errorResult, okResult } from "@/test-utils/app/render";
 
+let currentRunId = "run-1";
+
 jest.mock("next/navigation", () => ({
-  useParams: () => ({ runId: "run-1" }),
+  useParams: () => ({ runId: currentRunId }),
 }));
 
 jest.mock("@/lib/api", () => {
@@ -24,6 +26,7 @@ const timeline = makeTimelineResponse();
 
 describe("TimelinePage", () => {
   beforeEach(() => {
+    currentRunId = "run-1";
     jest.clearAllMocks();
     (getTimelineResult as jest.MockedFunction<typeof getTimelineResult>)
       .mockResolvedValue(okResult(timeline));
@@ -109,5 +112,48 @@ describe("TimelinePage", () => {
 
     expect(await screen.findByText("网络错误")).toBeInTheDocument();
     expect(screen.queryByText("时间步 24")).not.toBeInTheDocument();
+  });
+
+  it("paginates by the filtered result count", async () => {
+    (getTimelineResult as jest.MockedFunction<typeof getTimelineResult>)
+      .mockResolvedValue(okResult(makeTimelineResponse({ total: 600, filtered: 1 })));
+
+    render(<TimelinePage />);
+
+    expect(await screen.findByText("时间步 24")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "下一页 →" })).not.toBeInTheDocument();
+  });
+
+  it("ignores a stale response after the run id changes", async () => {
+    let resolveFirst: (value: ReturnType<typeof okResult<TimelineResponse>>) => void = () => {};
+    const firstRequest = new Promise<ReturnType<typeof okResult<TimelineResponse>>>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondTimeline = makeTimelineResponse({
+      run_id: "run-2",
+      events: [timeline.events[1]],
+      total: 1,
+      filtered: 1,
+    });
+    (getTimelineResult as jest.MockedFunction<typeof getTimelineResult>)
+      .mockImplementation((runId) =>
+        runId === "run-1" ? firstRequest : Promise.resolve(okResult(secondTimeline)),
+      );
+
+    const { rerender } = render(<TimelinePage />);
+    await waitFor(() => expect(getTimelineResult).toHaveBeenCalledWith("run-1", expect.anything()));
+
+    currentRunId = "run-2";
+    rerender(<TimelinePage />);
+
+    expect(await screen.findByText("时间步 23")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirst(okResult(timeline));
+      await firstRequest;
+    });
+
+    expect(screen.queryByText("时间步 24")).not.toBeInTheDocument();
+    expect(screen.getByText("时间步 23")).toBeInTheDocument();
   });
 });

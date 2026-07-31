@@ -58,7 +58,7 @@ export function ConversationBubble({
         >
           {speakerName}
         </p>
-        
+
         {/* 消息内容 */}
         <p className="text-sm leading-relaxed">
           {isStreaming ? (

@@ -144,7 +144,7 @@ TRUMANWORLD_LLM_BASE_URL=https://api.cohere.ai/v1
 | `TRUMANWORLD_LOG_LEVEL` | 日志级别：`DEBUG`、`INFO`、`WARNING`、`ERROR` |
 | `TRUMANWORLD_LOG_FORMAT` | 日志格式：`text`、`json`。本地默认 `text`，生产建议 `json` |
 | `TRUMANWORLD_CORS_ALLOWED_ORIGINS` | 允许的 CORS 源列表（JSON 数组） |
-| `TRUMANWORLD_DEMO_ADMIN_PASSWORD` | 演示模式管理员密码（留空不启用） |
+| `TRUMANWORLD_DEMO_ADMIN_PASSWORD` | 写操作管理员密码；开发环境可留空，非开发环境必填 |
 
 生产环境建议使用 `TRUMANWORLD_LOG_FORMAT=json`，日志会输出单行 JSON，并自动附带
 `request_id`。HTTP 请求支持传入 `x-request-id`，响应会回传同名 header；未传入时后端会生成。
@@ -215,6 +215,7 @@ TRUMANWORLD_CORS_ALLOWED_ORIGINS=["http://127.0.0.1:13000","http://localhost:130
 ```bash
 TRUMANWORLD_APP_ENV=production
 TRUMANWORLD_DATABASE_URL=postgresql+psycopg://truman:password@db:5432/trumanworld
+TRUMANWORLD_DEMO_ADMIN_PASSWORD=replace-with-a-strong-password
 TRUMANWORLD_REDIS_URL=redis://redis:6379/0
 TRUMANWORLD_LLM_PROVIDER=openai
 TRUMANWORLD_LLM_MODEL=gpt-4o

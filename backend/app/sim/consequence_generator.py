@@ -211,9 +211,7 @@ async def generate_consequences(
     import shutil
 
     if shutil.which("claude") is None:
-        raise UpstreamApiUnavailableError(
-            "Claude CLI is not available in the current environment"
-        )
+        raise UpstreamApiUnavailableError("Claude CLI is not available in the current environment")
 
     prompt = _build_consequence_prompt(
         action_type=action_type,

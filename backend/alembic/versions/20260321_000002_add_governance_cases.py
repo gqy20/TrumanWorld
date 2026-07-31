@@ -5,6 +5,7 @@ Revises: 20260321_000001
 Create Date: 2026-03-21
 
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -39,7 +40,9 @@ def upgrade() -> None:
         ),
     )
     op.create_index("ix_governance_cases_run_id", "governance_cases", ["run_id"])
-    op.create_index("ix_governance_cases_run_id_agent_id", "governance_cases", ["run_id", "agent_id"])
+    op.create_index(
+        "ix_governance_cases_run_id_agent_id", "governance_cases", ["run_id", "agent_id"]
+    )
     op.create_index(
         "ix_governance_cases_run_id_agent_id_status",
         "governance_cases",

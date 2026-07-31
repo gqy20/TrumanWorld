@@ -6,12 +6,24 @@ on:
     paths:
       - "backend/**"
       - "agents/**"
+      - "scenarios/**"
+      - "Makefile"
+      - ".pre-commit-config.yaml"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "scripts/**"
       - ".github/workflows/backend-quality.yml"
   pull_request:
     branches: [main]
     paths:
       - "backend/**"
       - "agents/**"
+      - "scenarios/**"
+      - "Makefile"
+      - ".pre-commit-config.yaml"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "scripts/**"
       - ".github/workflows/backend-quality.yml"
   workflow_dispatch:
 
