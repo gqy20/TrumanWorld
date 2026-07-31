@@ -490,7 +490,7 @@ async def test_langgraph_backend_reports_usage_via_runtime_context() -> None:
     assert recorded[0]["agent_id"] == "alice"
     assert recorded[0]["task_type"] == "reactor"
     assert recorded[0]["usage"] == {"input_tokens": 11, "output_tokens": 7}
-    assert recorded[0]["cost"] == 0.0
+    assert recorded[0]["cost"] is None
     assert recorded[0]["duration"] > 0
 
 
@@ -547,7 +547,7 @@ async def test_langgraph_backend_plan_day_returns_parsed_json() -> None:
     assert recorded[0]["agent_id"] == "alice"
     assert recorded[0]["task_type"] == "planner"
     assert recorded[0]["usage"] == {"input_tokens": 19, "output_tokens": 13}
-    assert recorded[0]["cost"] == 0.0
+    assert recorded[0]["cost"] is None
     assert recorded[0]["duration"] > 0
 
 

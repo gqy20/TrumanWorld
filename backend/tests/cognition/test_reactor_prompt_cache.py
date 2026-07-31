@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.agent.prompt_loader import PromptLoader
 from app.cognition.langgraph.agent_backend import LangGraphAgentBackend
 from app.cognition.types import AgentActionInvocation
 from app.infra.settings import Settings
@@ -152,6 +153,34 @@ class TestReactorPromptCache:
         assert dynamic1 != dynamic2
         assert '"tick": 1' in dynamic1
         assert '"tick": 100' in dynamic2
+
+    def test_runtime_context_is_serialized_once_and_excluded_from_cache_prefix(
+        self, backend_with_cache_enabled: LangGraphAgentBackend
+    ) -> None:
+        context = {
+            "world": {"tick": 17, "current_goal": "visit-unique-context-marker"},
+            "recent_events": [{"summary": "unique-context-marker"}],
+        }
+        rendered_prompt = PromptLoader().render_decision_prompt(
+            "You are Alice.",
+            context=context,
+            allowed_actions=["rest"],
+        )
+        invocation = AgentActionInvocation(
+            agent_id="alice",
+            prompt=rendered_prompt,
+            context=context,
+            max_turns=2,
+            max_budget_usd=0.1,
+            allowed_actions=["rest"],
+        )
+
+        full_prompt = backend_with_cache_enabled._build_text_json_prompt(invocation)
+        stable_prefix, dynamic_suffix = backend_with_cache_enabled._split_reactor_prompt(invocation)
+
+        assert full_prompt.count('"current_goal": "visit-unique-context-marker"') == 1
+        assert "unique-context-marker" not in stable_prefix
+        assert "unique-context-marker" in dynamic_suffix
 
     def test_build_reactor_messages_with_cache_enabled_returns_message_blocks(
         self,

@@ -27,145 +27,40 @@ class PromptLoader:
         context: dict[str, object],
         allowed_actions: list[str],
     ) -> str:
+        action_names = ", ".join(allowed_actions)
         lines = [
             base_prompt,
             "",
-        ]
-
-        # 渲染日程引导（如果有 daily_schedule）
-        # daily_schedule 在 context["world"] 子字典中（由 build_agent_world_context 注入）
-        _world_ctx = context.get("world") or {}
-        daily_schedule = _world_ctx.get("daily_schedule") if isinstance(_world_ctx, dict) else None
-        time_period = _world_ctx.get("time_period") if isinstance(_world_ctx, dict) else None
-        if daily_schedule and isinstance(daily_schedule, dict):
-            lines.append("# 我的日程计划")
-            lines.append(
-                "以下是我今天的日程安排。我应当主动根据当前时间段选择符合计划的行为，不要仅仅因为不确定就选 rest。"
-            )
-            lines.append("")
-            period_label = {
-                "dawn": "黎明",
-                "morning": "上午",
-                "daytime": "白天",
-                "noon": "中午",
-                "afternoon": "下午",
-                "evening": "傍晚",
-                "night": "夜间",
-            }
-            for key in ("morning", "daytime", "evening"):
-                val = daily_schedule.get(key)
-                if val:
-                    period_zh = period_label.get(key, key)
-                    # 直接显示原始文本，不再查字典翻译
-                    is_current = (
-                        (key == "morning" and time_period in {"dawn", "morning"})
-                        or (key == "daytime" and time_period in {"noon", "afternoon"})
-                        or (key == "evening" and time_period == "evening")
-                    )
-                    marker = " (← 当前时段)" if is_current else ""
-                    lines.append(f"- {period_zh}: {val}{marker}")
-            lines.append("")
-
-        pending_reply = _world_ctx.get("pending_reply") if isinstance(_world_ctx, dict) else None
-        if pending_reply and isinstance(pending_reply, dict):
-            from_agent_name = pending_reply.get("from_agent_name", "对方")
-            message = pending_reply.get("message", "")
-            priority = pending_reply.get("priority", "medium")
-            lines.append("# 待回应对话")
-            lines.append(
-                "有人刚刚直接对你说话。如果对方还在附近，优先延续这段对话，不要无故转去 rest。"
-            )
-            lines.append(f"- 发言人: {from_agent_name}")
-            lines.append(f"- 优先级: {priority}")
-            if isinstance(message, str) and message:
-                lines.append(f'- 对方刚才说: "{message}"')
-            lines.append("")
-
-        conversation_state = (
-            _world_ctx.get("conversation_state") if isinstance(_world_ctx, dict) else None
-        )
-        if conversation_state and isinstance(conversation_state, dict):
-            lines.append("# 当前对话状态")
-            lines.append("如果还在延续同一段对话，请优先推进内容，不要重复上一轮的提议。")
-            repeat_count = conversation_state.get("repeat_count")
-            if isinstance(repeat_count, int):
-                lines.append(f"- 当前重复次数: {repeat_count}")
-            last_proposal = conversation_state.get("last_proposal")
-            if isinstance(last_proposal, str) and last_proposal:
-                lines.append(f'- 最近提议: "{last_proposal}"')
-            open_question = conversation_state.get("open_question")
-            if isinstance(open_question, str) and open_question:
-                lines.append(f'- 待回应问题: "{open_question}"')
-            lines.append("")
-
-        conversation_diagnostics = (
-            _world_ctx.get("conversation_diagnostics") if isinstance(_world_ctx, dict) else None
-        )
-        if conversation_diagnostics and isinstance(conversation_diagnostics, dict):
-            lines.append("# 当前对话判断线索")
-            lines.append("这些线索用于帮助你判断对话下一步该推进什么，而不是机械重复上一句。")
-            conversation_focus = conversation_diagnostics.get("conversation_focus")
-            if isinstance(conversation_focus, str) and conversation_focus:
-                lines.append(f"- 当前话题: {conversation_focus}")
-            latest_new_info = conversation_diagnostics.get("other_party_latest_new_info")
-            if isinstance(latest_new_info, str) and latest_new_info:
-                lines.append(f"- 对方上一轮新增信息: {latest_new_info}")
-            latest_intent = conversation_diagnostics.get("other_party_latest_intent")
-            if isinstance(latest_intent, str) and latest_intent:
-                lines.append(f"- 对方最近意图: {latest_intent}")
-            conversation_phase = conversation_diagnostics.get("conversation_phase")
-            if isinstance(conversation_phase, str) and conversation_phase:
-                lines.append(f"- 当前阶段: {conversation_phase}")
-            repetition = conversation_diagnostics.get("self_recent_repetition")
-            if isinstance(repetition, dict) and repetition.get("is_repeating") is True:
-                repeat_type = repetition.get("type") or "表达"
-                repeat_span = repetition.get("repeat_span")
-                if isinstance(repeat_span, int) and repeat_span > 0:
-                    lines.append(f"- 你最近可能在重复: {repeat_type}（连续 {repeat_span} 轮）")
-                else:
-                    lines.append(f"- 你最近可能在重复: {repeat_type}")
-            unresolved_item = conversation_diagnostics.get("unresolved_item")
-            if isinstance(unresolved_item, str) and unresolved_item:
-                lines.append(f"- 仍待处理的问题: {unresolved_item}")
-            lines.append("")
-
-        # 渲染对话历史（如果有）
-        recent_events = context.get("recent_events", [])
-        if recent_events:
-            lines.append("# 最近对话")
-            lines.append(
-                "以下是最近发生的事件（按时间倒序）。你需要延续这些对话，而不是重复或忽略。"
-            )
-            lines.append("")
-            for evt in reversed(recent_events):  # 按时间正序显示
-                lines.append(self._format_event(evt))
-            lines.append("")
-
-        lines.extend(
-            [
-                "# 决策任务",
-                "基于你的角色和上述对话历史，决定下一步动作。",
-                "优先保持当前情境一致，不要因为不确定就默认选择 work 或 rest。",
-                "不要把普通停留、等待、整理或在家活动表述成 `work`。",
-                "",
-                "## 标准动作",
-                "- move: 移动到指定地点（需提供 target_location_id，使用真实存在的地点 ID）",
-                "- talk: 与附近的 agent 对话（需提供 target_agent_id 和 message，30-200 字自然发言）",
-                "- work: 在当前地点工作（仅在合理工作场景中使用）",
-                "- rest: 休息/等待/日常活动",
-                "",
-                "## 自由动作（可选）",
-                "除了标准动作，你还可以执行任何合理的社会行为。",
-                "当标准动作无法表达你的意图时，可以选择自由动作：",
-                "- trade: 与他人交易物品（需 target_agent_id，payload 包含 item、price）",
-                "- gift: 赠送物品给他人（需 target_agent_id，payload 包含 item）",
-                "- craft: 制作物品（payload 包含 item、materials）",
-                "- open_business: 开店经营（payload 包含 type、investment、location）",
-                "- lend: 借出物品或钱款（需 target_agent_id，payload 包含 item 或 amount）",
-                "- negotiate: 协商/议价（需 target_agent_id，payload 包含 topic、proposal）",
-                "",
-                "自由动作示例：",
-                """```json
+            "# 决策任务",
+            "基于你的角色和上述对话历史，决定下一步动作。",
+            "优先保持当前情境一致，不要因为不确定就默认选择 work 或 rest。",
+            "不要把普通停留、等待、整理或在家活动表述成 `work`。",
+            f"本场景允许的动作类型：{action_names}。",
+            "",
+            "## 上下文使用原则",
+            "- 根据 world.daily_schedule 与 world.time_period 主动执行当前时段计划",
+            "- 存在 world.pending_reply 时，若对方仍在附近，优先延续对话",
+            "- 使用 world.conversation_state 和 conversation_diagnostics 推进话题，避免重复",
+            "- recent_events 按事件历史理解，只引入与当前决策相关的信息",
+            "",
+            "## 标准动作",
+            "- move: 移动到指定地点（需提供 target_location_id，使用真实存在的地点 ID）",
+            "- talk: 与附近的 agent 对话（需提供 target_agent_id 和 message，30-200 字自然发言）",
+            "- work: 在当前地点工作（仅在合理工作场景中使用）",
+            "- rest: 休息/等待/日常活动",
+            "",
+            "## 自由动作（可选）",
+            "除了标准动作，你还可以执行任何合理的社会行为。",
+            "当标准动作无法表达你的意图时，可以选择自由动作：",
+            "- trade: 与他人交易物品（需 target_agent_id，payload 包含 item、price）",
+            "- gift: 赠送物品给他人（需 target_agent_id，payload 包含 item）",
+            "- craft: 制作物品（payload 包含 item、materials）",
+            "- open_business: 开店经营（payload 包含 type、investment、location）",
+            "- lend: 借出物品或钱款（需 target_agent_id，payload 包含 item 或 amount）",
+            "- negotiate: 协商/议价（需 target_agent_id，payload 包含 topic、proposal）",
+            "",
+            "自由动作示例：",
+            """```json
 {
   "action_type": "trade",
   "target_agent_id": "alice",
@@ -177,25 +72,25 @@ class PromptLoader:
   "raw_intent": "我想从 Alice 那买一杯咖啡，价格 30 元"
 }
 ```""",
-                "",
-                "# 输出约束",
-                "- 只能返回一个 JSON 对象",
-                "- 标准动作 JSON 仅可包含字段：`action_type`、`target_location_id`、`target_agent_id`、`message`、`payload`",
-                "- JSON 仅可包含字段：`action_type`、`target_location_id`、`target_agent_id`、`message`、`payload`、`raw_intent`、`plan_update`（可选）",
-                "- 标准动作优先使用标准类型（move/talk/work/rest）",
-                "- 当 `action_type=move` 时，只能使用运行上下文中真实存在的地点 ID，不要编造别名、英文变体或不存在的地点",
-                "- 当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然发言；会在执行层映射为 speech 事件）",
-                "- 自由动作必须通过 `payload` 提供完整参数，并通过 `raw_intent` 描述你的意图",
-                "- 如果信息不足或不确定，优先返回 `rest`",
-                "- **重要**：对话要延续之前的内容，不要重复已说过的话",
-                "",
-                "# 计划更新（可选）",
-                "如果遇到以下情况，可以考虑更新今日计划：",
-                "- 遇到了重要的人，想多交流",
-                "- 突发世界事件（如停电、活动、广播）",
-                "- 有意外的社交机会",
-                "如果需要更新计划，在 JSON 中添加 `plan_update` 字段：",
-                """```json
+            "",
+            "# 输出约束",
+            "- 只能返回一个 JSON 对象",
+            "- 标准动作 JSON 仅可包含字段：`action_type`、`target_location_id`、`target_agent_id`、`message`、`payload`",
+            "- JSON 仅可包含字段：`action_type`、`target_location_id`、`target_agent_id`、`message`、`payload`、`raw_intent`、`plan_update`（可选）",
+            "- 标准动作优先使用标准类型（move/talk/work/rest）",
+            "- 当 `action_type=move` 时，只能使用运行上下文中真实存在的地点 ID，不要编造别名、英文变体或不存在的地点",
+            "- 当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然发言；会在执行层映射为 speech 事件）",
+            "- 自由动作必须通过 `payload` 提供完整参数，并通过 `raw_intent` 描述你的意图",
+            "- 选择最符合角色、日程和当前情境的低风险动作；仅在确实没有合理动作时返回 `rest`",
+            "- **重要**：对话要延续之前的内容，不要重复已说过的话",
+            "",
+            "# 计划更新（可选）",
+            "如果遇到以下情况，可以考虑更新今日计划：",
+            "- 遇到了重要的人，想多交流",
+            "- 突发世界事件（如停电、活动、广播）",
+            "- 有意外的社交机会",
+            "如果需要更新计划，在 JSON 中添加 `plan_update` 字段：",
+            """```json
 {
   "action_type": "talk",
   "target_agent_id": "bob",
@@ -206,14 +101,61 @@ class PromptLoader:
   }
 }
 ```""",
-                "",
-                "# 运行上下文",
-                "```json",
-                self._to_pretty_json(context),
-                "```",
-            ]
-        )
+            "",
+            "# 动态决策上下文",
+            *self._render_decision_context_hints(context),
+            "",
+            "# 运行上下文",
+            "```json",
+            self._to_pretty_json(context),
+            "```",
+        ]
         return "\n".join(lines)
+
+    @staticmethod
+    def _render_decision_context_hints(context: dict[str, object]) -> list[str]:
+        world = context.get("world")
+        if not isinstance(world, dict):
+            return []
+
+        lines: list[str] = []
+        pending_reply = world.get("pending_reply")
+        if isinstance(pending_reply, dict):
+            lines.extend(
+                [
+                    "# 待回应对话",
+                    "有人刚刚直接对你说话。如果对方还在附近，优先延续这段对话。",
+                    f"- 发言人: {pending_reply.get('from_agent_name', '对方')}",
+                    f"- 优先级: {pending_reply.get('priority', 'medium')}",
+                ]
+            )
+            message = pending_reply.get("message")
+            if isinstance(message, str) and message:
+                lines.append(f'- 对方刚才说: "{message}"')
+            lines.append("")
+
+        diagnostics = world.get("conversation_diagnostics")
+        if isinstance(diagnostics, dict):
+            lines.extend(["# 当前对话判断线索", "用这些线索推进话题，不要机械重复上一句。"])
+            fields = (
+                ("conversation_focus", "当前话题"),
+                ("other_party_latest_new_info", "对方上一轮新增信息"),
+                ("other_party_latest_intent", "对方最近意图"),
+                ("conversation_phase", "当前阶段"),
+                ("unresolved_item", "仍待处理的问题"),
+            )
+            for key, label in fields:
+                value = diagnostics.get(key)
+                if isinstance(value, str) and value:
+                    lines.append(f"- {label}: {value}")
+            repetition = diagnostics.get("self_recent_repetition")
+            if isinstance(repetition, dict) and repetition.get("is_repeating") is True:
+                repeat_type = repetition.get("type") or "表达"
+                repeat_span = repetition.get("repeat_span")
+                suffix = f"（连续 {repeat_span} 轮）" if isinstance(repeat_span, int) else ""
+                lines.append(f"- 你最近可能在重复: {repeat_type}{suffix}")
+
+        return lines
 
     def _format_event(self, evt: dict[str, object]) -> str:
         """格式化单个事件为可读文本"""

@@ -260,12 +260,14 @@ class LangGraphAgentBackend:
     def _build_model_prompt(self, invocation: AgentActionInvocation) -> str:
         context_json = json.dumps(invocation.context, ensure_ascii=False, sort_keys=True)
         allowed_actions = ", ".join(invocation.allowed_actions)
-        # Reordered: instructions + schema before context for better cache efficiency
+        static_prompt, dynamic_context = self._split_embedded_runtime_context(
+            invocation.prompt, context_json
+        )
         return (
-            f"{invocation.prompt}\n\n"
+            f"{static_prompt}\n\n"
             f"Allowed actions: {allowed_actions}\n\n"
             "Return only the structured action decision.\n\n"
-            f"Agent context JSON:\n{context_json}"
+            f"Agent context JSON:\n{dynamic_context}"
         )
 
     def _split_reactor_prompt(self, invocation: AgentActionInvocation) -> tuple[str, str]:
@@ -433,17 +435,31 @@ class LangGraphAgentBackend:
         )
         context_json = json.dumps(invocation.context, ensure_ascii=False, sort_keys=True)
         allowed_actions = ", ".join(invocation.allowed_actions)
-        # Optimized order: stable content first (prompt, actions, instructions, schema),
-        # then dynamic content (context JSON) for better prompt caching
+        static_prompt, dynamic_context = self._split_embedded_runtime_context(
+            invocation.prompt, context_json
+        )
         return (
-            f"{invocation.prompt}\n\n"
+            f"{static_prompt}\n\n"
             f"Allowed actions: {allowed_actions}\n\n"
             "Return only the structured action decision.\n\n"
             "If native structured output is unavailable, return exactly one JSON object "
             "matching this schema and no additional text.\n"
             f"{schema_json}\n\n"
-            f"Agent context JSON:\n{context_json}"
+            f"Agent context JSON:\n{dynamic_context}"
         )
+
+    @staticmethod
+    def _split_embedded_runtime_context(prompt: str, context_json: str) -> tuple[str, str]:
+        dynamic_marker = "\n# 动态决策上下文\n"
+        static_prompt, separator, dynamic_context = prompt.partition(dynamic_marker)
+        if separator:
+            return static_prompt.rstrip(), dynamic_context.strip()
+
+        legacy_marker = "\n# 运行上下文\n```json\n"
+        static_prompt, separator, embedded_json = prompt.partition(legacy_marker)
+        if separator:
+            return static_prompt.rstrip(), embedded_json.removesuffix("\n```").strip()
+        return prompt, context_json
 
     def _build_structured_decision_model(self) -> StructuredModelProtocol:
         try:
@@ -572,6 +588,18 @@ class LangGraphAgentBackend:
             agent_id=agent_id,
             task_type=task_type,
             usage=usage,
-            total_cost_usd=0.0,
+            total_cost_usd=self._extract_total_cost_usd(response, usage),
             duration_ms=duration_ms,
         )
+
+    @staticmethod
+    def _extract_total_cost_usd(response: Any, usage: Any) -> float | None:
+        sources = [usage, getattr(response, "response_metadata", None)]
+        for source in sources:
+            if not isinstance(source, dict):
+                continue
+            for key in ("total_cost_usd", "cost_usd"):
+                value = source.get(key)
+                if isinstance(value, int | float):
+                    return float(value)
+        return None
