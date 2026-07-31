@@ -20,7 +20,12 @@ from app.infra.settings import get_settings
 from app.sim.action_resolver import ActionIntent
 from app.sim.service import SimulationService
 from app.store.models import Agent, Location, SimulationRun
-from app.store.repositories import EventRepository, LlmCallRepository, RunRepository
+from app.store.repositories import (
+    EventRepository,
+    LlmCallRepository,
+    RunRepository,
+    WorldStatsRepository,
+)
 
 
 pytestmark = pytest.mark.integration
@@ -164,8 +169,11 @@ async def test_postgres_run_tick_isolated_persists_llm_calls(postgres_session, t
     )
     result = await SimulationService.create_for_scheduler(runtime).run_tick_isolated(run.id, engine)
     totals = await LlmCallRepository(session).get_token_totals(run.id)
+    world_stats = await WorldStatsRepository(session).get_for_run(run.id)
 
     assert result.tick_no == 1
     assert totals["input_tokens"] == 21
     assert totals["output_tokens"] == 34
     assert totals["cache_read_tokens"] == 5
+    assert world_stats.token_totals["input_tokens"] == 21
+    assert world_stats.director_total == 0

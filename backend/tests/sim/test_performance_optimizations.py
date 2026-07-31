@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 
 from app.sim.agent_snapshot_builder import build_agent_memory_cache
-from app.store.models import Agent, Event, Location, Memory, SimulationRun
+from app.store.models import Agent, DirectorMemory, Event, LlmCall, Location, Memory, SimulationRun
 
 
 def _make_run(run_id: str) -> SimulationRun:
@@ -367,3 +367,89 @@ async def test_evening_inputs_use_fixed_query_count_for_multiple_agents(db_sessi
     assert events_by_agent[agents[1].id][0]["event_type"] == "talk"
     assert events_by_agent[agents[2].id][0]["event_type"] == "talk"
     assert query_count == 2
+
+
+@pytest.mark.asyncio
+async def test_world_stats_are_loaded_in_one_query(db_session):
+    from app.store.repositories import WorldStatsRepository
+
+    run_id = "batched-world-stats"
+    run = _make_run(run_id)
+    db_session.add_all(
+        [
+            run,
+            Event(
+                id=f"{run_id}-speech",
+                run_id=run_id,
+                tick_no=1,
+                event_type="speech",
+                payload={},
+            ),
+            Event(
+                id=f"{run_id}-move-rejected",
+                run_id=run_id,
+                tick_no=2,
+                event_type="move_rejected",
+                payload={},
+            ),
+            DirectorMemory(
+                id=f"{run_id}-director-1",
+                run_id=run_id,
+                tick_no=1,
+                scene_goal="activity",
+                target_agent_ids="[]",
+                was_executed=True,
+                metadata_json={},
+            ),
+            DirectorMemory(
+                id=f"{run_id}-director-2",
+                run_id=run_id,
+                tick_no=2,
+                scene_goal="gather",
+                target_agent_ids="[]",
+                was_executed=False,
+                metadata_json={},
+            ),
+            LlmCall(
+                id=f"{run_id}-llm-1",
+                run_id=run_id,
+                task_type="reactor",
+                provider="openai",
+                model="MiniMax-M3",
+                tick_no=1,
+                input_tokens=10,
+                output_tokens=20,
+                reasoning_tokens=3,
+                cache_read_tokens=4,
+                cache_creation_tokens=5,
+                duration_ms=100,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    query_count = 0
+    original_execute = db_session.execute
+
+    async def tracking_execute(*args, **kwargs):
+        nonlocal query_count
+        query_count += 1
+        return await original_execute(*args, **kwargs)
+
+    with patch.object(db_session, "execute", tracking_execute):
+        stats = await WorldStatsRepository(db_session).get_for_run(run_id)
+
+    assert stats.event_counts["speech"] == 1
+    assert stats.event_counts["move_rejected"] == 1
+    assert stats.director_total == 2
+    assert stats.director_executed == 1
+    assert stats.token_totals == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "reasoning_tokens": 3,
+        "cache_read_tokens": 4,
+        "cache_creation_tokens": 5,
+        "provider": "openai",
+        "model": "MiniMax-M3",
+    }
+    assert query_count == 1

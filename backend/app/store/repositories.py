@@ -17,6 +17,7 @@ from app.store.repository_modules.locations import LocationRepository
 from app.store.repository_modules.memories import MemoryRepository
 from app.store.repository_modules.relationships import RelationshipRepository
 from app.store.repository_modules.runs import RunRepository
+from app.store.repository_modules.world_stats import WorldStatsRepository
 
 __all__ = [
     "AgentEconomicStateRepository",
@@ -32,4 +33,5 @@ __all__ = [
     "MemoryRepository",
     "RelationshipRepository",
     "RunRepository",
+    "WorldStatsRepository",
 ]

@@ -38,10 +38,9 @@ from app.sim.context import get_run_world_time
 from app.sim.world_time import resolve_tick_bound, resolve_world_start
 from app.store.repositories import (
     AgentRepository,
-    DirectorMemoryRepository,
     EventRepository,
-    LlmCallRepository,
     LocationRepository,
+    WorldStatsRepository,
 )
 
 router = APIRouter()
@@ -333,16 +332,9 @@ async def get_world_pulse(
     logger.debug(f"Getting world pulse for run {run_id}")
     run = await get_required_run(session, run_id)
 
-    event_repo = EventRepository(session)
-    llm_call_repo = LlmCallRepository(session)
-
-    all_time_event_counts = await event_repo.count_events_by_type(
-        str(run_id),
-        tick_from=None,
-        tick_to=None,
-        event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
-    )
-    token_totals = await llm_call_repo.get_token_totals(str(run_id))
+    stats = await WorldStatsRepository(session).get_for_run(str(run_id))
+    all_time_event_counts = stats.event_counts
+    token_totals = stats.token_totals
 
     world_time = get_run_world_time(run)
 
@@ -389,21 +381,15 @@ async def get_world_snapshot(
     agent_repo = AgentRepository(session)
     location_repo = LocationRepository(session)
     event_repo = EventRepository(session)
-    director_memory_repo = DirectorMemoryRepository(session)
-    llm_call_repo = LlmCallRepository(session)
 
     agents = await agent_repo.list_world_rows_for_run(str(run_id))
     locations = await location_repo.list_world_rows_for_run(str(run_id))
     events = await event_repo.list_api_rows_for_run(str(run_id), limit=WORLD_RECENT_EVENT_LIMIT)
-    director_total = await director_memory_repo.count_for_run(str(run_id))
-    director_executed = await director_memory_repo.count_executed_for_run(str(run_id))
-    all_time_event_counts = await event_repo.count_events_by_type(
-        str(run_id),
-        tick_from=None,
-        tick_to=None,
-        event_types=["speech", "talk", "listen", "move", "move_rejected", "talk_rejected"],
-    )
-    token_totals = await llm_call_repo.get_token_totals(str(run_id))
+    stats = await WorldStatsRepository(session).get_for_run(str(run_id))
+    director_total = stats.director_total
+    director_executed = stats.director_executed
+    all_time_event_counts = stats.event_counts
+    token_totals = stats.token_totals
 
     agent_summaries = {
         agent.id: AgentSummaryResponse(
