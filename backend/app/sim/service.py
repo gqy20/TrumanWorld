@@ -166,13 +166,19 @@ class SimulationService:
         return TickEventWriter(self.session)
 
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
-        engine = self._require_session_bound().bind
+        session = self._require_session_bound()
+        engine = session.bind
         if engine is None:
             raise RuntimeError("SimulationService database session is not bound to an engine")
         async with acquire_run_tick_lock(engine, run_id):
             with track_sql_queries() as database_stats:
                 try:
-                    return await self._run_tick_unlocked(run_id, intents)
+                    result = await self._run_tick_unlocked(run_id, intents)
+                    await session.commit()
+                    return result
+                except BaseException:
+                    await session.rollback()
+                    raise
                 finally:
                     _record_database_activity("tick.inline", database_stats)
 

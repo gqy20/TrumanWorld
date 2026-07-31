@@ -52,6 +52,25 @@ async def test_empty_run_tick_reports_database_activity(db_session, monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_inline_tick_commit_is_visible_to_new_session():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    run_id = "clock-inline-commit"
+    async with AsyncSession(engine, expire_on_commit=False) as writer:
+        await create_clock_run(writer, run_id=run_id, include_agent=False)
+        await SimulationService(writer).run_tick(run_id)
+
+    async with AsyncSession(engine, expire_on_commit=False) as reader:
+        persisted = await RunRepository(reader).get(run_id)
+
+    await engine.dispose()
+    assert persisted is not None
+    assert persisted.current_tick == 1
+
+
+@pytest.mark.asyncio
 async def test_empty_run_tick_skips_sleep_hours_without_ai(db_session):
     run_id = "clock-empty-skip"
     await create_clock_run(
