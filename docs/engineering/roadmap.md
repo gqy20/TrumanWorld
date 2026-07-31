@@ -227,7 +227,8 @@ P2:
    - `governance_persistence.py` 已抽出，承接 governance records / cases 写入。
    - `relationship_persistence.py` 已抽出，承接 relationship upsert / impact annotation。
    - `memory_persistence.py` 已抽出，承接 memory record 构建、routine memory 合并与 relationship strength 预加载。
-   - `economic_persistence.py` 已抽出，承接 tick economic state、free action consequence 与 state delta 应用。
+   - `economic_persistence.py` 已抽出，仅承接确定性的 tick economic state 写入。
+   - 未完成的自由动作 consequence / state delta 链已删除；当前运行时只接受 `move`、`talk`、`work`、`rest`，后续业务动作必须以确定性用例重新设计。
 3. 最后拆前端地图组件，把纯计算、交互 hook、子视图组件和 Phaser 渲染辅助分离。
    - `world-scene-style.ts` 已抽出，承接 Phaser 场景的尺寸常量、颜色/纹理 key、glyph/marker、palette 合并与箭头角度计算。
    - `town-map-utils.ts` 已抽出，承接 SVG 地图常量、地点样式、坐标缩放、viewBox clamp、地图节点/连线/移动路径构建。

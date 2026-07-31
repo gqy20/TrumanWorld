@@ -96,7 +96,6 @@ class ClaudeSdkAgentBackend:
             target_agent_id=decision.target_agent_id,
             message=decision.message,
             payload=dict(decision.payload),
-            raw_intent=decision.raw_intent,
         )
 
     async def plan_day(

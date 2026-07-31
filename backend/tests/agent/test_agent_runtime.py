@@ -572,3 +572,8 @@ async def test_claude_provider_fails_fast_when_cli_missing(monkeypatch: pytest.M
         await provider.decide(invocation)
 
     get_settings.cache_clear()
+
+
+def test_configure_allowed_actions_rejects_unimplemented_actions(runtime):
+    with pytest.raises(ValueError, match="Unsupported actions: observe"):
+        runtime.configure_allowed_actions(["rest", "observe"])

@@ -22,7 +22,7 @@ from app.cognition.types import (
 )
 from app.infra.logging import get_logger
 from app.infra.settings import get_settings
-from app.sim.action_resolver import ActionIntent, PlanUpdate
+from app.sim.action_resolver import SUPPORTED_ACTIONS, ActionIntent, PlanUpdate
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -86,7 +86,13 @@ class AgentRuntime:
         self.backend = backend or self._build_default_backend()
 
     def configure_allowed_actions(self, allowed_actions: list[str]) -> None:
-        self._allowed_actions = list(allowed_actions)
+        unsupported = sorted(set(allowed_actions) - SUPPORTED_ACTIONS)
+        if unsupported:
+            msg = f"Unsupported actions: {', '.join(unsupported)}"
+            raise ValueError(msg)
+        if not allowed_actions:
+            raise ValueError("At least one supported action is required")
+        self._allowed_actions = list(dict.fromkeys(allowed_actions))
 
     def configure_fallback_decision_hook(self, decision_hook: Any) -> bool:
         if hasattr(self.backend, "set_decision_hook"):
@@ -243,7 +249,6 @@ class AgentRuntime:
             target_agent_id=decision.target_agent_id,
             payload=payload,
             plan_update=plan_update_obj,
-            raw_intent=decision.raw_intent,
         )
 
     async def react(

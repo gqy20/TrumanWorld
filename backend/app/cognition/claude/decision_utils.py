@@ -11,11 +11,8 @@ DECISION_OUTPUT_SCHEMA = {
     "properties": {
         "action_type": {
             "type": "string",
-            "description": (
-                "动作类型。标准动作：move（移动）、talk（对话）、work（工作）、rest（休息）。"
-                "自由动作：trade（交易）、gift（赠送）、craft（制作）、open_business（开店）等。"
-                "自由动作必须通过 payload 提供完整参数。"
-            ),
+            "enum": ["move", "talk", "work", "rest"],
+            "description": "动作类型：move（移动）、talk（对话）、work（工作）、rest（休息）。",
         },
         "target_location_id": {"type": ["string", "null"]},
         "target_agent_id": {"type": ["string", "null"]},
@@ -25,14 +22,7 @@ DECISION_OUTPUT_SCHEMA = {
         },
         "payload": {
             "type": ["object", "null"],
-            "description": (
-                "动作参数。标准动作：空对象或 {}。自由动作必须提供完整参数，"
-                "如 trade 需要 {item, price, quantity}，gift 需要 {item}。"
-            ),
-        },
-        "raw_intent": {
-            "type": ["string", "null"],
-            "description": "原始意图描述（仅自由动作使用，用于记录 agent 想做什么）",
+            "description": "动作参数；没有额外参数时使用空对象。",
         },
     },
     "required": ["action_type"],
@@ -46,7 +36,6 @@ class RuntimeDecision(BaseModel):
     target_agent_id: str | None = None
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
-    raw_intent: str | None = None
 
     @model_validator(mode="before")
     @classmethod
