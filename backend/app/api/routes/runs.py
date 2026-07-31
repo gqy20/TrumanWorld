@@ -22,6 +22,7 @@ from app.infra.logging import get_logger
 from app.scenario.bundle_registry import get_scenario_bundle_registry, resolve_default_scenario_id
 from app.scenario.factory import create_scenario
 from app.sim.run_lifecycle import ensure_run_started, pause_run_execution
+from app.sim.errors import TickInProgressError
 from app.sim.scheduler import get_scheduler
 from app.sim.service import SimulationService
 from app.store.models import Agent, Event, Location, SimulationRun
@@ -281,7 +282,15 @@ async def advance_run_tick(
     await get_required_run(session, run_id)
 
     service = SimulationService(session)
-    result = await service.run_tick(str(run_id))
+    try:
+        result = await service.run_tick(str(run_id))
+    except TickInProgressError as exc:
+        raise api_error(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A tick is already in progress for this run",
+            code="RUN_TICK_IN_PROGRESS",
+            context={"run_id": exc.run_id},
+        ) from exc
     logger.info(
         f"Tick {result.tick_no} completed: "
         f"accepted={len(result.accepted)}, rejected={len(result.rejected)}"

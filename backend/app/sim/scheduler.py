@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from app.cognition.errors import UpstreamApiUnavailableError
+from app.sim.errors import TickInProgressError
 from app.infra.logging import debug, error, info, warning
 from app.infra.settings import get_settings
 
@@ -139,6 +140,8 @@ class SimulationScheduler:
                         pass
                     info(f"Tick callback cancelled for run {run_id} (tick #{tick_count})")
                     raise
+                except TickInProgressError:
+                    debug(f"Skipping overlapping scheduled tick for run {run_id}")
                 except RuntimeError as e:
                     # Handle claude_agent_sdk anyio cancel scope errors
                     if "cancel scope" in str(e).lower():

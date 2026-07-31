@@ -26,6 +26,7 @@ from app.sim.persistence import PersistenceManager
 from app.sim.runner import TickResult
 from app.sim.tick_persistence_coordinator import TickPersistenceCoordinator
 from app.sim.tick_event_writer import TickEventWriter
+from app.sim.tick_lock import acquire_run_tick_lock
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.world import WorldState
 from app.store.models import SimulationRun
@@ -147,6 +148,15 @@ class SimulationService:
         return TickEventWriter(self.session)
 
     async def run_tick(self, run_id: str, intents: list[ActionIntent] | None = None) -> TickResult:
+        engine = self._require_session_bound().bind
+        if engine is None:
+            raise RuntimeError("SimulationService database session is not bound to an engine")
+        async with acquire_run_tick_lock(engine, run_id):
+            return await self._run_tick_unlocked(run_id, intents)
+
+    async def _run_tick_unlocked(
+        self, run_id: str, intents: list[ActionIntent] | None = None
+    ) -> TickResult:
         started_at = perf_counter()
         context_token = bind_log_context(run_id=run_id)
         logger.debug(f"Starting tick for run {run_id}")
@@ -233,7 +243,17 @@ class SimulationService:
         engine: async_engine,
         intents: list[ActionIntent] | None = None,
     ) -> TickResult:
-        """Run a tick with isolated database sessions to avoid greenlet conflicts.
+        """Run a tick with isolated database sessions to avoid greenlet conflicts."""
+        async with acquire_run_tick_lock(engine, run_id):
+            return await self._run_tick_isolated_unlocked(run_id, engine, intents)
+
+    async def _run_tick_isolated_unlocked(
+        self,
+        run_id: str,
+        engine: async_engine,
+        intents: list[ActionIntent] | None = None,
+    ) -> TickResult:
+        """Execute one isolated tick after its run-scoped lock has been acquired.
 
         This method separates database operations from SDK calls:
         1. Read phase: Load all needed data from database

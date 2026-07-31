@@ -5,7 +5,9 @@ import app.api.routes.health as health_route
 import app.api.routes.system as system_route
 import app.sim.day_boundary_coordinator as day_boundary_coordinator_module
 from app.infra.settings import get_settings
+from app.sim.errors import TickInProgressError
 from app.sim.scheduler import get_scheduler
+from app.sim.service import SimulationService
 from app.store.models import Agent, Event, Location, SimulationRun
 
 RUN_COMMON_FIELDS = {
@@ -447,6 +449,26 @@ async def test_advance_run_tick_updates_tick_counter(client):
 
     assert run_response.status_code == 200
     assert run_response.json()["current_tick"] == 1
+
+
+@pytest.mark.asyncio
+async def test_advance_run_tick_returns_conflict_when_tick_is_already_running(
+    client, db_session: AsyncSession, monkeypatch
+):
+    run_id = "00000000-0000-0000-0000-000000000300"
+    db_session.add(SimulationRun(id=run_id, name="busy-run", status="running"))
+    await db_session.commit()
+
+    async def reject_overlapping_tick(self, requested_run_id, intents=None):  # noqa: ANN001
+        raise TickInProgressError(requested_run_id)
+
+    monkeypatch.setattr(SimulationService, "run_tick", reject_overlapping_tick)
+
+    response = await client.post(f"/api/runs/{run_id}/tick")
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "RUN_TICK_IN_PROGRESS"
+    assert response.json()["context"] == {"run_id": run_id}
 
 
 @pytest.mark.asyncio
