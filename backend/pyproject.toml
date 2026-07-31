@@ -19,7 +19,7 @@ dependencies = [
     "claude-agent-sdk>=0.2.82",
     "langgraph==1.2.0",
     "langchain-anthropic==1.4.3",
-    "langchain-openai==1.2.1",
+    "langchain-openai==1.4.1",
 ]
 
 [build-system]
