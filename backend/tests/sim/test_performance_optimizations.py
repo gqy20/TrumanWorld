@@ -236,3 +236,134 @@ async def test_relationship_persistence_updates_both_directions(db_session):
         await PersistenceManager(db_session).persist_tick_relationships(run_id, [event])
 
     assert calls == [(actor.id, target.id), (target.id, actor.id)]
+
+
+@pytest.mark.asyncio
+async def test_morning_inputs_use_fixed_query_count_for_multiple_agents(db_session):
+    from app.sim.day_boundary import _load_morning_inputs
+
+    run_id = "batched-morning-inputs"
+    today = datetime(2026, 3, 3, tzinfo=UTC).date()
+    run = _make_run(run_id)
+    loc = _make_location(f"{run_id}-loc", run_id)
+    agents = [_make_agent(f"{run_id}-agent-{index}", run_id, loc.id) for index in range(3)]
+    memories = [
+        Memory(
+            id=f"{run_id}-today-plan",
+            run_id=run_id,
+            agent_id=agents[0].id,
+            tick_no=288,
+            memory_type="daily_plan",
+            memory_category="long_term",
+            content="今天已有计划",
+            metadata_json={"day": today.isoformat()},
+        ),
+        Memory(
+            id=f"{run_id}-yesterday-plan",
+            run_id=run_id,
+            agent_id=agents[1].id,
+            tick_no=1,
+            memory_type="daily_plan",
+            memory_category="long_term",
+            content="昨日工作计划",
+            metadata_json={"day": "2026-03-02"},
+        ),
+        Memory(
+            id=f"{run_id}-context",
+            run_id=run_id,
+            agent_id=agents[2].id,
+            tick_no=100,
+            memory_type="event",
+            memory_category="long_term",
+            content="长期记忆",
+            metadata_json={},
+        ),
+    ]
+    event = Event(
+        id=f"{run_id}-work",
+        run_id=run_id,
+        tick_no=200,
+        event_type="work",
+        actor_agent_id=agents[1].id,
+        payload={},
+    )
+    db_session.add_all([run, loc, *agents, *memories, event])
+    await db_session.commit()
+
+    query_count = 0
+    original_execute = db_session.execute
+
+    async def tracking_execute(*args, **kwargs):
+        nonlocal query_count
+        query_count += 1
+        return await original_execute(*args, **kwargs)
+
+    with patch.object(db_session, "execute", tracking_execute):
+        pending, memories_by_agent, yesterday_by_agent = await _load_morning_inputs(
+            db_session,
+            run_id=run_id,
+            agents=agents,
+            today=today,
+            current_tick=288,
+            ticks_per_day=288,
+        )
+
+    assert [agent.id for agent in pending] == [agents[1].id, agents[2].id]
+    assert memories_by_agent[agents[2].id][0]["content"] == "长期记忆"
+    assert yesterday_by_agent[agents[1].id].endswith("昨日实际：work1次")
+    assert query_count == 3
+
+
+@pytest.mark.asyncio
+async def test_evening_inputs_use_fixed_query_count_for_multiple_agents(db_session):
+    from app.sim.day_boundary import _load_evening_inputs
+
+    run_id = "batched-evening-inputs"
+    today = datetime(2026, 3, 3, tzinfo=UTC).date()
+    run = _make_run(run_id)
+    loc = _make_location(f"{run_id}-loc", run_id)
+    agents = [_make_agent(f"{run_id}-agent-{index}", run_id, loc.id) for index in range(3)]
+    reflection = Memory(
+        id=f"{run_id}-reflection",
+        run_id=run_id,
+        agent_id=agents[0].id,
+        tick_no=288,
+        memory_type="daily_reflection",
+        memory_category="long_term",
+        content="今天已有反思",
+        metadata_json={"day": today.isoformat()},
+    )
+    event = Event(
+        id=f"{run_id}-talk",
+        run_id=run_id,
+        tick_no=200,
+        event_type="talk",
+        actor_agent_id=agents[1].id,
+        target_agent_id=agents[2].id,
+        payload={"message": "晚上好"},
+    )
+    db_session.add_all([run, loc, *agents, reflection, event])
+    await db_session.commit()
+
+    query_count = 0
+    original_execute = db_session.execute
+
+    async def tracking_execute(*args, **kwargs):
+        nonlocal query_count
+        query_count += 1
+        return await original_execute(*args, **kwargs)
+
+    with patch.object(db_session, "execute", tracking_execute):
+        pending, events_by_agent = await _load_evening_inputs(
+            db_session,
+            run_id=run_id,
+            agents=agents,
+            today=today,
+            tick_no=288,
+            ticks_per_day=288,
+        )
+
+    assert [agent.id for agent in pending] == [agents[1].id, agents[2].id]
+    assert events_by_agent[agents[1].id][0]["event_type"] == "talk"
+    assert events_by_agent[agents[2].id][0]["event_type"] == "talk"
+    assert query_count == 2

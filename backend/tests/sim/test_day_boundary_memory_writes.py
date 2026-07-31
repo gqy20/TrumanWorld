@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.agent.runtime import RuntimeContext
 from app.sim import day_boundary as day_boundary_module
 from app.sim.day_boundary import (
-    _load_yesterday_plan_execution,
+    _load_morning_inputs,
     run_evening_reflection,
     run_morning_planning,
 )
@@ -626,7 +626,7 @@ async def test_evening_reflection_rolls_back_reflection_memory_when_promotion_fa
 
 
 @pytest.mark.asyncio
-async def test_load_yesterday_plan_execution_uses_previous_day_tick_window():
+async def test_load_morning_inputs_uses_previous_day_tick_window():
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         poolclass=StaticPool,
@@ -706,14 +706,15 @@ async def test_load_yesterday_plan_execution_uses_previous_day_tick_window():
         )
         await session.commit()
 
-        summary = await _load_yesterday_plan_execution(
+        _pending, _memories, yesterday_by_agent = await _load_morning_inputs(
             session,
-            run.id,
-            agent.id,
-            yesterday=datetime(2026, 3, 3, tzinfo=UTC).date(),
+            run_id=run.id,
+            agents=[agent],
+            today=datetime(2026, 3, 4, tzinfo=UTC).date(),
             current_tick=current_tick,
             ticks_per_day=ticks_per_day,
         )
+        summary = yesterday_by_agent[agent.id]
 
     await engine.dispose()
 

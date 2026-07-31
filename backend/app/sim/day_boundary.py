@@ -11,11 +11,11 @@ before the sleep jump at 23:00 (see world.py advance_tick).
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from app.agent.runtime import RuntimeContext
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
@@ -65,48 +65,6 @@ def should_run_reflector(world: WorldState) -> bool:
     return world.current_time.hour == 22 and world.current_time.minute < world.tick_minutes
 
 
-async def has_plan_for_today(
-    session: AsyncSession,
-    run_id: str,
-    agent_id: str,
-    today: date,
-) -> bool:
-    """Check whether a daily_plan memory already exists for this agent today."""
-    result = await session.execute(
-        select(Memory).where(
-            Memory.run_id == run_id,
-            Memory.agent_id == agent_id,
-            Memory.memory_type == MEMORY_TYPE_DAILY_PLAN,
-        )
-    )
-    for mem in result.scalars().all():
-        meta = mem.metadata_json or {}
-        if meta.get("day") == today.isoformat():
-            return True
-    return False
-
-
-async def has_reflection_for_today(
-    session: AsyncSession,
-    run_id: str,
-    agent_id: str,
-    today: date,
-) -> bool:
-    """Check whether a daily_reflection memory already exists for this agent today."""
-    result = await session.execute(
-        select(Memory).where(
-            Memory.run_id == run_id,
-            Memory.agent_id == agent_id,
-            Memory.memory_type == MEMORY_TYPE_DAILY_REFLECTION,
-        )
-    )
-    for mem in result.scalars().all():
-        meta = mem.metadata_json or {}
-        if meta.get("day") == today.isoformat():
-            return True
-    return False
-
-
 # ── 上下文构建辅助 ────────────────────────────────────────────────────────────
 
 
@@ -120,133 +78,214 @@ def _build_basic_world_context(world: WorldState) -> dict:
     }
 
 
-async def _load_recent_memories(
+async def _load_daily_memory_index(
     session: AsyncSession,
+    *,
     run_id: str,
-    agent_id: str,
-    limit: int = 5,
-) -> list[dict]:
-    """Load recent long_term memories for the agent as simple dicts."""
+    agent_ids: list[str],
+    memory_type: str,
+) -> dict[str, dict[str, Memory]]:
+    if not agent_ids:
+        return {}
     result = await session.execute(
         select(Memory)
         .where(
             Memory.run_id == run_id,
-            Memory.agent_id == agent_id,
-            Memory.memory_category == "long_term",
+            Memory.agent_id.in_(agent_ids),
+            Memory.memory_type == memory_type,
         )
         .order_by(Memory.created_at.desc())
-        .limit(limit)
     )
-    return [
-        {"content": m.content, "memory_type": m.memory_type, "tick_no": m.tick_no}
-        for m in result.scalars().all()
-    ]
+    index: dict[str, dict[str, Memory]] = {agent_id: {} for agent_id in agent_ids}
+    for memory in result.scalars():
+        day = (memory.metadata_json or {}).get("day")
+        if isinstance(day, str):
+            index[memory.agent_id].setdefault(day, memory)
+    return index
 
 
-async def _load_yesterday_plan_execution(
+async def _load_recent_memories_for_agents(
     session: AsyncSession,
+    *,
     run_id: str,
-    agent_id: str,
-    yesterday: date,
-    current_tick: int,
-    ticks_per_day: int,
-) -> str:
-    """Load yesterday's plan and actual execution, generate comparison summary.
-
-    Returns a string describing:
-    - Yesterday's plan (what was planned)
-    - Yesterday's actual behavior (what actually happened)
-    """
-
-    # 1. Get yesterday's plan from daily_plan memory
-    yesterday_str = yesterday.isoformat()
-    result = await session.execute(
-        select(Memory).where(
-            Memory.run_id == run_id,
-            Memory.agent_id == agent_id,
-            Memory.memory_type == MEMORY_TYPE_DAILY_PLAN,
+    agent_ids: list[str],
+    limit: int = 5,
+) -> dict[str, list[dict]]:
+    memories_by_agent: dict[str, list[dict]] = {agent_id: [] for agent_id in agent_ids}
+    if not agent_ids:
+        return memories_by_agent
+    ranked_memories = (
+        select(
+            Memory.id.label("memory_id"),
+            func.row_number()
+            .over(partition_by=Memory.agent_id, order_by=Memory.created_at.desc())
+            .label("row_num"),
         )
+        .where(
+            Memory.run_id == run_id,
+            Memory.agent_id.in_(agent_ids),
+            Memory.memory_category == "long_term",
+        )
+        .subquery()
     )
-    plan_text = None
-    for mem in result.scalars().all():
-        meta = mem.metadata_json or {}
-        if meta.get("day") == yesterday_str:
-            # Extract plan from content like "今日计划：早晨=X，白天=Y，傍晚=Z。"
-            plan_text = mem.content
-            break
+    result = await session.execute(
+        select(Memory)
+        .join(ranked_memories, Memory.id == ranked_memories.c.memory_id)
+        .where(ranked_memories.c.row_num <= limit)
+        .order_by(Memory.agent_id.asc(), Memory.created_at.desc())
+    )
+    for memory in result.scalars():
+        memories_by_agent[memory.agent_id].append(
+            {
+                "content": memory.content,
+                "memory_type": memory.memory_type,
+                "tick_no": memory.tick_no,
+            }
+        )
+    return memories_by_agent
 
-    if not plan_text:
-        return ""  # No yesterday plan found
 
-    # 2. Get yesterday's actual events relative to the current day boundary.
-    yesterday_start_tick = max(0, current_tick - ticks_per_day)
-    events_result = await session.execute(
+async def _load_events_for_agents(
+    session: AsyncSession,
+    *,
+    run_id: str,
+    agent_ids: list[str],
+    tick_from: int,
+    tick_to: int,
+    include_targets: bool,
+) -> dict[str, list[Event]]:
+    events_by_agent: dict[str, list[Event]] = {agent_id: [] for agent_id in agent_ids}
+    if not agent_ids:
+        return events_by_agent
+    event_scope = Event.actor_agent_id.in_(agent_ids)
+    if include_targets:
+        event_scope = or_(event_scope, Event.target_agent_id.in_(agent_ids))
+    result = await session.execute(
         select(Event)
         .where(
             Event.run_id == run_id,
-            Event.actor_agent_id == agent_id,
-            Event.tick_no > yesterday_start_tick,
-            Event.tick_no <= current_tick,
+            Event.tick_no > tick_from,
+            Event.tick_no <= tick_to,
+            event_scope,
         )
         .order_by(Event.tick_no.asc())
     )
-    yesterday_events = list(events_result.scalars().all())
+    agent_id_set = set(agent_ids)
+    for event in result.scalars():
+        if event.actor_agent_id in agent_id_set:
+            events_by_agent[event.actor_agent_id].append(event)
+        if (
+            include_targets
+            and event.target_agent_id in agent_id_set
+            and event.target_agent_id != event.actor_agent_id
+        ):
+            events_by_agent[event.target_agent_id].append(event)
+    return events_by_agent
 
-    # 3. Analyze actual behavior
-    action_counts: dict[str, int] = {}
-    for evt in yesterday_events:
-        action_type = evt.event_type
-        if action_type in ("talk", "speech"):
-            action_counts["socialize"] = action_counts.get("socialize", 0) + 1
-        elif action_type == "work":
-            action_counts["work"] = action_counts.get("work", 0) + 1
-        elif action_type == "rest":
-            action_counts["rest"] = action_counts.get("rest", 0) + 1
-        elif action_type == "move":
-            action_counts["move"] = action_counts.get("move", 0) + 1
 
-    # 4. Generate comparison text
-    if not yesterday_events:
+def _summarize_yesterday_execution(plan_text: str, events: list[Event]) -> str:
+    if not events:
         return f"昨日计划：{plan_text}\n昨日实际：未找到行为记录"
-
-    actions_summary = "、".join([f"{k}{v}次" for k, v in action_counts.items()]) or "无"
+    action_counts: dict[str, int] = {}
+    for event in events:
+        action_type = event.event_type
+        if action_type in ("talk", "speech"):
+            action_type = "socialize"
+        if action_type in {"socialize", "work", "rest", "move"}:
+            action_counts[action_type] = action_counts.get(action_type, 0) + 1
+    actions_summary = (
+        "、".join(f"{action}{count}次" for action, count in action_counts.items()) or "无"
+    )
     return f"昨日计划：{plan_text}\n昨日实际：{actions_summary}"
 
 
-async def _load_today_events(
+def _serialize_reflection_event(event: Event) -> dict:
+    return {
+        "event_type": event.event_type,
+        "tick_no": event.tick_no,
+        "actor_agent_id": event.actor_agent_id,
+        "target_agent_id": event.target_agent_id,
+        "payload": event.payload or {},
+    }
+
+
+async def _load_morning_inputs(
     session: AsyncSession,
+    *,
     run_id: str,
-    agent_id: str,
+    agents: list[Agent],
+    today: date,
+    current_tick: int,
+    ticks_per_day: int,
+) -> tuple[list[Agent], dict[str, list[dict]], dict[str, str]]:
+    agent_ids = [agent.id for agent in agents]
+    plan_index = await _load_daily_memory_index(
+        session,
+        run_id=run_id,
+        agent_ids=agent_ids,
+        memory_type=MEMORY_TYPE_DAILY_PLAN,
+    )
+    today_key = today.isoformat()
+    pending = [agent for agent in agents if today_key not in plan_index.get(agent.id, {})]
+    pending_ids = [agent.id for agent in pending]
+    memories_by_agent = await _load_recent_memories_for_agents(
+        session,
+        run_id=run_id,
+        agent_ids=pending_ids,
+    )
+
+    yesterday_key = (today - timedelta(days=1)).isoformat()
+    yesterday_plans = {
+        agent_id: plan_index[agent_id][yesterday_key].content
+        for agent_id in pending_ids
+        if yesterday_key in plan_index.get(agent_id, {})
+    }
+    events_by_agent = await _load_events_for_agents(
+        session,
+        run_id=run_id,
+        agent_ids=list(yesterday_plans),
+        tick_from=max(0, current_tick - ticks_per_day),
+        tick_to=current_tick,
+        include_targets=False,
+    )
+    yesterday_execution_by_agent = {
+        agent_id: _summarize_yesterday_execution(plan_text, events_by_agent[agent_id])
+        for agent_id, plan_text in yesterday_plans.items()
+    }
+    return pending, memories_by_agent, yesterday_execution_by_agent
+
+
+async def _load_evening_inputs(
+    session: AsyncSession,
+    *,
+    run_id: str,
+    agents: list[Agent],
+    today: date,
     tick_no: int,
     ticks_per_day: int,
-) -> list[dict]:
-    """Load events from today (last ticks_per_day ticks) for the agent."""
-    from sqlalchemy import or_
-
-    since_tick = max(0, tick_no - ticks_per_day)
-    result = await session.execute(
-        select(Event)
-        .where(
-            Event.run_id == run_id,
-            Event.tick_no > since_tick,
-            Event.tick_no <= tick_no,
-            or_(
-                Event.actor_agent_id == agent_id,
-                Event.target_agent_id == agent_id,
-            ),
-        )
-        .order_by(Event.tick_no.asc())
+) -> tuple[list[Agent], dict[str, list[dict]]]:
+    agent_ids = [agent.id for agent in agents]
+    reflection_index = await _load_daily_memory_index(
+        session,
+        run_id=run_id,
+        agent_ids=agent_ids,
+        memory_type=MEMORY_TYPE_DAILY_REFLECTION,
     )
-    return [
-        {
-            "event_type": ev.event_type,
-            "tick_no": ev.tick_no,
-            "actor_agent_id": ev.actor_agent_id,
-            "target_agent_id": ev.target_agent_id,
-            "payload": ev.payload or {},
-        }
-        for ev in result.scalars().all()
-    ]
+    today_key = today.isoformat()
+    pending = [agent for agent in agents if today_key not in reflection_index.get(agent.id, {})]
+    pending_ids = [agent.id for agent in pending]
+    events = await _load_events_for_agents(
+        session,
+        run_id=run_id,
+        agent_ids=pending_ids,
+        tick_from=max(0, tick_no - ticks_per_day),
+        tick_to=tick_no,
+        include_targets=True,
+    )
+    return pending, {
+        agent_id: [_serialize_reflection_event(event) for event in agent_events]
+        for agent_id, agent_events in events.items()
+    }
 
 
 # ── Planner 执行 ──────────────────────────────────────────────────────────────
@@ -261,47 +300,23 @@ async def run_morning_planning(
     agent_runtime: AgentRuntime,
 ) -> None:
     """Run the Planner for all agents at morning boundary and persist results."""
-    from datetime import timedelta
-
     from sqlalchemy.ext.asyncio import AsyncSession
 
     today = world.current_time.date()
-    yesterday = today - timedelta(days=1)
     ticks_per_day = (24 * 60) // world.tick_minutes
     world_ctx = _build_basic_world_context(world)
 
     async with AsyncSession(engine, expire_on_commit=False) as read_session:
         agent_repo = AgentRepository(read_session)
         agents = list(await agent_repo.list_for_run(run_id))
-
-        has_plan_results = [
-            await has_plan_for_today(read_session, run_id, agent.id, today) for agent in agents
-        ]
-        pending: list[Agent] = [
-            a for a, already_planned in zip(agents, has_plan_results) if not already_planned
-        ]
-
-        memories_list = [
-            await _load_recent_memories(read_session, run_id, agent.id) for agent in pending
-        ]
-        memories_by_agent: dict[str, list[dict]] = {
-            a.id: mems for a, mems in zip(pending, memories_list)
-        }
-
-        yesterday_execution_list = [
-            await _load_yesterday_plan_execution(
-                read_session,
-                run_id,
-                agent.id,
-                yesterday,
-                tick_no,
-                ticks_per_day,
-            )
-            for agent in pending
-        ]
-        yesterday_execution_by_agent: dict[str, str] = {
-            a.id: exec_text for a, exec_text in zip(pending, yesterday_execution_list)
-        }
+        pending, memories_by_agent, yesterday_execution_by_agent = await _load_morning_inputs(
+            read_session,
+            run_id=run_id,
+            agents=agents,
+            today=today,
+            current_tick=tick_no,
+            ticks_per_day=ticks_per_day,
+        )
 
     if not pending:
         return
@@ -430,24 +445,14 @@ async def run_evening_reflection(
     async with AsyncSession(engine, expire_on_commit=False) as read_session:
         agent_repo = AgentRepository(read_session)
         agents = list(await agent_repo.list_for_run(run_id))
-
-        has_reflection_results = [
-            await has_reflection_for_today(read_session, run_id, agent.id, today)
-            for agent in agents
-        ]
-        pending: list[Agent] = [
-            a
-            for a, already_reflected in zip(agents, has_reflection_results)
-            if not already_reflected
-        ]
-
-        events_list = [
-            await _load_today_events(read_session, run_id, agent.id, tick_no, ticks_per_day)
-            for agent in pending
-        ]
-        events_by_agent: dict[str, list[dict]] = {
-            a.id: evts for a, evts in zip(pending, events_list)
-        }
+        pending, events_by_agent = await _load_evening_inputs(
+            read_session,
+            run_id=run_id,
+            agents=agents,
+            today=today,
+            tick_no=tick_no,
+            ticks_per_day=ticks_per_day,
+        )
 
     if not pending:
         return
