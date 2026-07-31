@@ -35,6 +35,21 @@ TICK_DURATION_SECONDS = Histogram(
     registry=REGISTRY,
 )
 
+DATABASE_QUERIES_PER_OPERATION = Histogram(
+    "trumanworld_database_queries_per_operation",
+    "Number of database queries executed by one measured operation.",
+    labelnames=("operation",),
+    buckets=(0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144),
+    registry=REGISTRY,
+)
+
+DATABASE_DURATION_SECONDS = Histogram(
+    "trumanworld_database_duration_seconds",
+    "Total database execution time within one measured operation.",
+    labelnames=("operation",),
+    registry=REGISTRY,
+)
+
 ACTIVE_RUNS = Gauge(
     "trumanworld_active_runs",
     "Number of currently scheduled runs.",
@@ -94,6 +109,16 @@ LLM_COST_USD_TOTAL = Counter(
 def observe_tick(*, mode: str, status: str, duration_seconds: float) -> None:
     TICK_TOTAL.labels(mode=mode, status=status).inc()
     TICK_DURATION_SECONDS.labels(mode=mode).observe(duration_seconds)
+
+
+def observe_database_operation(
+    *,
+    operation: str,
+    query_count: int,
+    duration_seconds: float,
+) -> None:
+    DATABASE_QUERIES_PER_OPERATION.labels(operation=operation).observe(query_count)
+    DATABASE_DURATION_SECONDS.labels(operation=operation).observe(duration_seconds)
 
 
 def observe_llm_records(llm_records: list) -> None:

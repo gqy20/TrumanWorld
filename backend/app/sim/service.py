@@ -10,8 +10,9 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.director.observer import DirectorAssessment
 from app.infra.logging import bind_log_context, get_logger, reset_log_context
-from app.infra.metrics import observe_tick
+from app.infra.metrics import observe_database_operation, observe_tick
 from app.infra.settings import get_settings
+from app.infra.sql_observability import SqlQueryStats, track_sql_queries
 from app.scenario.base import Scenario
 from app.scenario.bundle_registry import (
     resolve_agents_root_for_scenario,
@@ -40,6 +41,23 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+
+def _record_database_activity(operation: str, stats: SqlQueryStats) -> None:
+    observe_database_operation(
+        operation=operation,
+        query_count=stats.query_count,
+        duration_seconds=stats.duration_seconds,
+    )
+    logger.debug(
+        "Database operation completed",
+        extra={
+            "event": "database_operation",
+            "operation": operation,
+            "db_query_count": stats.query_count,
+            "db_duration_ms": stats.duration_ms,
+        },
+    )
 
 
 class SimulationService:
@@ -152,7 +170,11 @@ class SimulationService:
         if engine is None:
             raise RuntimeError("SimulationService database session is not bound to an engine")
         async with acquire_run_tick_lock(engine, run_id):
-            return await self._run_tick_unlocked(run_id, intents)
+            with track_sql_queries() as database_stats:
+                try:
+                    return await self._run_tick_unlocked(run_id, intents)
+                finally:
+                    _record_database_activity("tick.inline", database_stats)
 
     async def _run_tick_unlocked(
         self, run_id: str, intents: list[ActionIntent] | None = None
@@ -245,7 +267,11 @@ class SimulationService:
     ) -> TickResult:
         """Run a tick with isolated database sessions to avoid greenlet conflicts."""
         async with acquire_run_tick_lock(engine, run_id):
-            return await self._run_tick_isolated_unlocked(run_id, engine, intents)
+            with track_sql_queries() as database_stats:
+                try:
+                    return await self._run_tick_isolated_unlocked(run_id, engine, intents)
+                finally:
+                    _record_database_activity("tick.isolated", database_stats)
 
     async def _run_tick_isolated_unlocked(
         self,

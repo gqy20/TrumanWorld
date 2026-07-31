@@ -14,7 +14,9 @@ from app.api.errors import default_error_code
 from app.api.schemas.simulation import ErrorResponse, ValidationErrorResponse
 from app.infra.db import get_db_session_context
 from app.infra.logging import get_logger, info, reset_request_id, set_request_id
+from app.infra.metrics import observe_database_operation
 from app.infra.settings import get_settings
+from app.infra.sql_observability import track_sql_queries
 from app.store.repositories import RunRepository
 
 logger = get_logger(__name__)
@@ -197,36 +199,46 @@ Prometheus 指标暴露，供监控系统抓取。
         started_at = perf_counter()
         status_code = 500
 
-        try:
-            response = await call_next(request)
-            status_code = response.status_code
-            return response
-        except Exception:
-            logger.exception(
-                "Unhandled request error",
-                extra={
-                    "event": "http_request_error",
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": status_code,
-                },
-            )
-            raise
-        finally:
-            duration_ms = round((perf_counter() - started_at) * 1000, 2)
-            logger.info(
-                "HTTP request completed",
-                extra={
-                    "event": "http_request",
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": status_code,
-                    "duration_ms": duration_ms,
-                },
-            )
-            if "response" in locals():
-                response.headers[REQUEST_ID_HEADER] = request_id
-            reset_request_id(token)
+        with track_sql_queries() as database_stats:
+            try:
+                response = await call_next(request)
+                status_code = response.status_code
+                return response
+            except Exception:
+                logger.exception(
+                    "Unhandled request error",
+                    extra={
+                        "event": "http_request_error",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status_code": status_code,
+                    },
+                )
+                raise
+            finally:
+                duration_ms = round((perf_counter() - started_at) * 1000, 2)
+                route = request.scope.get("route")
+                operation = f"http.{getattr(route, 'name', 'unmatched')}"
+                observe_database_operation(
+                    operation=operation,
+                    query_count=database_stats.query_count,
+                    duration_seconds=database_stats.duration_seconds,
+                )
+                logger.info(
+                    "HTTP request completed",
+                    extra={
+                        "event": "http_request",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status_code": status_code,
+                        "duration_ms": duration_ms,
+                        "db_query_count": database_stats.query_count,
+                        "db_duration_ms": database_stats.duration_ms,
+                    },
+                )
+                if "response" in locals():
+                    response.headers[REQUEST_ID_HEADER] = request_id
+                reset_request_id(token)
 
     info(f"API routes registered with prefix: {settings.api_prefix}")
     return app

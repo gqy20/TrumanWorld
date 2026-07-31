@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+import app.sim.service as service_module
 from app.sim.context import get_run_world_time
 from app.sim.service import SimulationService
 from app.store.models import Base
@@ -16,13 +17,20 @@ from .helpers import build_rest_runtime, create_clock_run
 
 
 @pytest.mark.asyncio
-async def test_empty_run_tick_advances_time_without_ai(db_session):
+async def test_empty_run_tick_reports_database_activity(db_session, monkeypatch):
     run_id = "clock-empty-inline"
     await create_clock_run(
         db_session,
         run_id=run_id,
         current_tick=0,
         include_agent=False,
+    )
+
+    observations: list[dict] = []
+    monkeypatch.setattr(
+        service_module,
+        "observe_database_operation",
+        lambda **fields: observations.append(fields),
     )
 
     service = SimulationService(db_session)
@@ -37,6 +45,10 @@ async def test_empty_run_tick_advances_time_without_ai(db_session):
     assert updated_run is not None
     assert updated_run.current_tick == 1
     assert get_run_world_time(updated_run).isoformat() == "2026-03-02T06:05:00+00:00"
+    assert len(observations) == 1
+    assert observations[0]["operation"] == "tick.inline"
+    assert observations[0]["query_count"] > 0
+    assert observations[0]["duration_seconds"] >= 0
 
 
 @pytest.mark.asyncio
@@ -66,7 +78,7 @@ async def test_empty_run_tick_skips_sleep_hours_without_ai(db_session):
 
 
 @pytest.mark.asyncio
-async def test_rest_only_runtime_persists_event_and_time_consistently():
+async def test_rest_only_runtime_persists_event_and_reports_database_activity(monkeypatch):
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -83,6 +95,12 @@ async def test_rest_only_runtime_persists_event_and_time_consistently():
     tmp_path = Path(tempfile.mkdtemp())
     runtime = build_rest_runtime(tmp_path)
     service = SimulationService.create_for_scheduler(runtime)
+    observations: list[dict] = []
+    monkeypatch.setattr(
+        service_module,
+        "observe_database_operation",
+        lambda **fields: observations.append(fields),
+    )
 
     try:
         result = await service.run_tick_isolated(run_id, engine)
@@ -100,6 +118,9 @@ async def test_rest_only_runtime_persists_event_and_time_consistently():
         assert len(events) == 1
         assert events[0].event_type == "rest"
         assert events[0].tick_no == 288
+        assert len(observations) == 1
+        assert observations[0]["operation"] == "tick.isolated"
+        assert observations[0]["query_count"] > 0
     finally:
         await engine.dispose()
         shutil.rmtree(tmp_path)
