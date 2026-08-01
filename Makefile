@@ -9,7 +9,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -268,15 +268,24 @@ db-wait:
 	docker logs --tail 50 $(DB_CONTAINER_NAME) 2>/dev/null || true; \
 	exit 1
 
-# 执行数据库迁移
-db-migrate: db-wait
+# 使用 .env 当前选择的数据库执行迁移
+db-migrate: migrate
+
+# 仅用于显式本地容器工作流
+local-db-migrate: db-wait
 	@echo "🔄 执行数据库迁移..."
 	@cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) uv run alembic upgrade head
 
-# 一行命令同时启动前后端（测试环境，非 Docker）
+# 一行命令同时启动前后端；数据库完全由根目录 .env 决定
 # 使用非常用端口避免冲突：后端 18080，前端 13000
 # 日志会自动保存到 logs/ 目录，文件名包含时间戳
-dev: check-ports db-start db-migrate sync-agent-logos
+dev: check-ports migrate sync-agent-logos dev-services
+
+# 显式使用项目自带 PostgreSQL 容器，不影响默认 .env 工作流
+local-dev: export TRUMANWORLD_DATABASE_URL := $(DATABASE_URL)
+local-dev: check-ports db-start local-db-migrate sync-agent-logos dev-services
+
+dev-services:
 	@mkdir -p $(LOGS_DIR)
 	@LOG_TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
 	LOG_FILE_BACKEND="$(CURDIR)/$(LOGS_DIR)/dev_$${LOG_TIMESTAMP}_backend.log"; \
@@ -284,14 +293,14 @@ dev: check-ports db-start db-migrate sync-agent-logos
 	echo ""; \
 	echo "🚀 启动 Truman World 开发环境..."; \
 	echo "================================"; \
-	echo "数据库: postgresql://$(DB_USER):$(DB_PASSWORD)@127.0.0.1:$(DB_PORT)/$(DB_NAME)"; \
+	echo "数据库: 根目录 .env 中的 TRUMANWORLD_DATABASE_URL"; \
 	echo "后端:   http://127.0.0.1:$(BACKEND_PORT)"; \
 	echo "前端:   http://127.0.0.1:$(FRONTEND_PORT)"; \
 	echo "日志:   $(LOGS_DIR)/dev_$${LOG_TIMESTAMP}_*.log"; \
 	echo "================================"; \
 	echo "按 Ctrl+C 停止前后端（数据库会继续运行）"; \
 	echo ""; \
-	(cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL=$(DATABASE_URL) env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
+	(cd $(BACKEND_DIR) && env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}") & \
 	BACKEND_PID=$$!; \
 	(cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}") & \
 	FRONTEND_PID=$$!; \

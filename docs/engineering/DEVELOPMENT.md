@@ -78,29 +78,30 @@ make backend-install
 make frontend-install
 ```
 
-### 4. 启动数据库
+### 4. 选择数据库
 
 ```bash
-# 使用 Docker（推荐）
-make db-start
+# .env 中只修改这一行即可切换本地 PostgreSQL / Neon
+TRUMANWORLD_DATABASE_URL=postgresql+psycopg://...
 
-# 或手动启动 PostgreSQL 后，执行迁移
+# 对当前 .env 选择的数据库执行迁移
 make db-migrate
 ```
 
-如果你不保留本地数据库数据，先执行一次清理再重建：
+使用项目自带的本地 PostgreSQL 容器时，可以直接运行：
 
 ```bash
-make db-clean
-make db-start
-make db-migrate
+make local-dev
 ```
 
 ### 5. 启动开发服务器
 
 ```bash
-# 一键启动前后端 + 数据库
+# 一键启动前后端，连接 .env 指定的数据库
 make dev
+
+# 显式启动本地 PostgreSQL 容器、迁移并启动前后端
+make local-dev
 
 # 或分别启动
 make backend-dev    # http://127.0.0.1:18080
@@ -111,7 +112,7 @@ make frontend-dev   # http://127.0.0.1:13000
 
 - 前端：`13000`
 - 后端：`18080`
-- 数据库：`5432`
+- 本地容器数据库：`5432`（仅 `make local-dev`）
 
 ---
 
@@ -120,7 +121,8 @@ make frontend-dev   # http://127.0.0.1:13000
 ### 开发
 
 ```bash
-make dev            # 一键启动前后端 + 数据库
+make dev            # 使用 .env 数据库启动前后端
+make local-dev      # 使用项目本地 PostgreSQL 容器启动
 make backend-dev    # 后端开发模式（热重载）
 make frontend-dev   # 前端开发模式（热重载）
 ```
@@ -130,7 +132,7 @@ make frontend-dev   # 前端开发模式（热重载）
 ```bash
 make db-start       # 启动 PostgreSQL 容器
 make db-stop        # 停止容器
-make db-migrate     # 执行数据库迁移
+make db-migrate     # 迁移 .env 当前选择的数据库
 make db-clean       # 删除容器（数据会丢失）
 make db-status      # 查看容器状态
 ```

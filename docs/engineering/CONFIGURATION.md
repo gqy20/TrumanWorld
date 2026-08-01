@@ -130,7 +130,7 @@ TRUMANWORLD_LLM_BASE_URL=https://api.cohere.ai/v1
 
 | 变量 | 说明 |
 |------|------|
-| `TRUMANWORLD_DATABASE_URL` | PostgreSQL 连接 URL（必填） |
+| `TRUMANWORLD_DATABASE_URL` | 唯一的应用数据库开关；`make dev`、后端和迁移命令均读取此值 |
 | `TRUMANWORLD_REDIS_URL` | Redis 连接 URL |
 
 ---
@@ -194,6 +194,10 @@ TRUMANWORLD_LLM_BASE_URL=https://api.cohere.ai/v1
 ---
 
 ## 完整示例
+
+切换数据库时只修改 `.env` 中的 `TRUMANWORLD_DATABASE_URL`。本地 PostgreSQL 与 Neon
+不需要不同的启动命令；`make dev` 始终使用这里选择的数据库。只有希望自动管理项目自带
+PostgreSQL 容器时才使用 `make local-dev`。
 
 ### 开发环境（Anthropic）
 

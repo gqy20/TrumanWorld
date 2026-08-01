@@ -82,12 +82,16 @@ cd TrumanWorld
 nvm use
 
 # 3. 配置环境
-# 编辑 .env，按需填写 API Key 等配置
 cp .env.example .env
+# 编辑 .env；TRUMANWORLD_DATABASE_URL 一行决定使用本地 PostgreSQL 还是 Neon
 
 # 4. 启动
 make dev
 ```
+
+`make dev` 不会再隐式启动或覆盖数据库。若使用 Neon，只需把 `.env` 中
+`TRUMANWORLD_DATABASE_URL` 改为 Neon pooled URL；若需要项目自带的本地 PostgreSQL，运行
+`make local-dev`。
 
 仓库根目录的 `.nvmrc` 指定 Node `24.3.0`，前端 lockfile 使用 `frontend/pnpm-lock.yaml`。请使用 `pnpm` 执行前端脚本，不要引入 `package-lock.json`。
 
