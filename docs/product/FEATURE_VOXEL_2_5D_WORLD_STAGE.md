@@ -26,17 +26,19 @@
 - 拖拽使用移动阈值并抑制松手后的误点击；窄屏普通滚轮保留给页面滚动
 - 视图切换已移入舞台浮层，桌面端支持一键聚焦舞台并用 Escape 恢复信息栏
 - 应用外壳在窄屏恢复页面纵向滚动，舞台下方信息不再被 viewport 裁切
+- 最近 speech/talk 已通过 DOM overlay 投影到人物或地点锚点，并随相机缩放、平移同步
+- 最近 move 已映射到 Road Graph，以逐渐增大的琥珀色路标表达移动方向
+- 事件层使用 9 秒气泡和 7 秒路径 TTL，支持显隐；窄屏只展示最新一条气泡
 - 生产世界页不再依赖 Phaser 导出的视图切换组件，Phaser 仅作为 legacy 实现保留
 - scenario UI 配置已将 renderer 从 `pixel` 收口为 `voxel`
 
-Phase 1–3 的空间底座和 Phase 5 的相机交互已经完成。Phase 4 的展示外壳仍在逐步收敛，下一阶段优先进入事件可视化，让静态世界开始表达正在发生的故事。
+Phase 1–3 的空间底座和 Phase 5 的相机交互已经完成。Phase 4 的展示外壳仍在逐步收敛，Phase 6 已进入首批实现，舞台开始表达最近的对话与移动。
 
 当前世界页已经从 SVG 地图、Phaser 像素小镇推进到可扩展的 Three.js voxel 舞台。基础结构已经成立，剩余问题主要位于展示和叙事层：
 
 - 右侧信息栏仍长期占据横向空间
-- 舞台工具条仍在 Canvas 外部占用垂直空间
 - 缺少 hover 信息和选中目标的轻量 DOM 摘要
-- move、speech、talk 等事件还没有进入舞台表现层
+- location heat、拒绝动作和告警事件还没有进入舞台表现层
 - 材质仍以统一 Lambert 方块为主，缺少更细的表面与氛围层次
 
 本计划定义下一阶段如何把 `VoxelWorldRenderer` 从“可运行原型”升级为“优雅、可展示、可持续扩展的 2.5D 世界舞台”。
@@ -185,7 +187,7 @@ Three.js raycast
   -> LocationDetailModal / AgentDetailModal
 ```
 
-这个数据流是正确的，应当保留。问题主要在 `SceneWorld -> Three.js scene` 中间缺少 scene planning 层。
+这个数据流是正确的，应当保留。`SceneWorld -> VoxelScenePlan -> Three.js scene` 的 planning 层已经补齐，后续事件表现继续通过独立 EventPlan 扩展。
 
 ## 5. 目标架构
 
@@ -623,6 +625,10 @@ Prefab 质量标准：
 
 ### Phase 6: Event Visualization
 
+状态：`in_progress`
+
+已完成第一批：`event-plan.ts` 将 speech/talk 和 move 映射到 scene anchors 与 Road Graph，`use-stage-events.ts` 负责新事件去重、并发上限和自动过期，`voxel-canvas.tsx` 负责相机投影、DOM 气泡、移动路标及事件层开关。
+
 目标：把仿真事件变成可观察的舞台变化。
 
 任务：
@@ -645,6 +651,12 @@ Prefab 质量标准：
 3. move trail 使用 road graph 上的高亮 tile 或 line。
 4. location heat 映射到 plot glow/emissive 或 selection pulse。
 5. 事件层可根据 recency 自动淡出。
+
+当前还需完成：
+
+- location heat 的材质或地块色温映射
+- warning / rejected action 的短时 pulse
+- 事件层强度分级，区分普通观察与高优先级信号
 
 ## 7.7 Phase 7: Performance and Cleanup
 
@@ -707,6 +719,7 @@ frontend/components/voxel/
     prefabs.test.ts
     scene-plan.test.ts
   camera-controller.ts
+  event-plan.ts
   geometry.ts
   interaction.ts
   materials.ts
@@ -715,6 +728,7 @@ frontend/components/voxel/
   road-graph.ts
   scene-plan.ts
   types.ts
+  use-stage-events.ts
 ```
 
 `types.ts` 放所有 voxel 内部类型，避免每个模块重复定义。
@@ -805,6 +819,8 @@ function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan;
 7. 改变窗口宽度，确认 stage 不空、不拉伸。
 8. 在 390x844 下从舞台区域滚动，确认页面能进入健康面板和地点列表。
 9. 检查右侧面板不遮挡主场景。
+10. 确认 speech/talk 气泡随缩放和平移移动，move 路标沿道路出现。
+11. 关闭并重新打开舞台事件层，确认 Canvas 交互和自动过期不受影响。
 
 ## 10. Risk / Tradeoffs
 

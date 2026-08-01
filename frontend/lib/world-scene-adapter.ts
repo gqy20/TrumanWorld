@@ -162,7 +162,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
         const locationId = String(event.location_id ?? "");
         return {
           id: event.id,
-          text: text.length > 22 ? `${text.slice(0, 22)}...` : text,
+          text: text.length > 22 ? `${text.slice(0, 22)}…` : text,
           speakerAgentId: event.actor_agent_id,
           speakerName:
             agentNameMap[event.actor_agent_id ?? ""] ?? event.actor_name ?? event.actor_agent_id ?? "某人",

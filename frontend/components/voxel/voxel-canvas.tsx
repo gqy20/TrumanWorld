@@ -10,6 +10,12 @@ import {
   easeOutQuint,
   type VoxelCameraFocusRequest,
 } from "./camera-controller";
+import {
+  buildVoxelEventPlan,
+  type VoxelEventBubble,
+  type VoxelEventPlan,
+  type VoxelMoveTrail,
+} from "./event-plan";
 import { VOXEL_MATERIAL_COLORS } from "./materials";
 import type { VoxelWorldRendererProps } from "./renderer-types";
 import { buildVoxelScenePlan } from "./scene-plan";
@@ -22,6 +28,7 @@ import type {
   VoxelSelectionAnchor,
   VoxelVector3,
 } from "./types";
+import { useActiveVoxelStageEvents } from "./use-stage-events";
 
 type BlockBatch = {
   key: string;
@@ -48,6 +55,15 @@ type CameraAnimation = {
   to: CameraPose;
 };
 
+type ProjectedBubble = {
+  id: string;
+  visible: boolean;
+  x: number;
+  y: number;
+};
+
+const EMPTY_EVENT_PLAN: VoxelEventPlan = { bubbles: [], moveTrails: [] };
+
 export function VoxelCanvas({
   sceneWorld,
   highlightedLocationId,
@@ -57,8 +73,22 @@ export function VoxelCanvas({
   onLocationClick,
 }: VoxelWorldRendererProps) {
   const plan = useMemo(() => buildVoxelScenePlan(sceneWorld), [sceneWorld]);
+  const activeStageEvents = useActiveVoxelStageEvents(sceneWorld);
+  const eventPlan = useMemo(
+    () =>
+      buildVoxelEventPlan(
+        activeStageEvents.bubbles,
+        activeStageEvents.moveTrails,
+        plan,
+      ),
+    [activeStageEvents.bubbles, activeStageEvents.moveTrails, plan],
+  );
   const backgroundColor = sceneWorld.stage.palette?.backgroundColor ?? "#eef5e8";
   const [cameraResetRevision, setCameraResetRevision] = useState(0);
+  const [projectedBubbles, setProjectedBubbles] = useState<ProjectedBubble[]>([]);
+  const [showStageEvents, setShowStageEvents] = useState(true);
+  const stageEventCount = eventPlan.bubbles.length + eventPlan.moveTrails.length;
+  const visibleEventPlan = showStageEvents ? eventPlan : EMPTY_EVENT_PLAN;
 
   return (
     <div
@@ -84,10 +114,32 @@ export function VoxelCanvas({
           highlightedAgentId={highlightedAgentId}
           cameraFocusRequest={cameraFocusRequest}
           cameraResetRevision={cameraResetRevision}
+          eventPlan={visibleEventPlan}
+          onBubbleProjectionChange={setProjectedBubbles}
           onAgentClick={onAgentClick}
           onLocationClick={onLocationClick}
         />
       </Canvas>
+      <StageEventOverlay
+        bubbles={showStageEvents ? eventPlan.bubbles : []}
+        projectedBubbles={projectedBubbles}
+      />
+      {stageEventCount > 0 ? (
+        <button
+          type="button"
+          aria-pressed={showStageEvents}
+          aria-label={showStageEvents ? "隐藏舞台事件" : "显示舞台事件"}
+          title={showStageEvents ? "隐藏舞台事件" : "显示舞台事件"}
+          onClick={() => setShowStageEvents((current) => !current)}
+          className="absolute bottom-3 left-3 z-20 inline-flex h-9 items-center gap-2 rounded-xl bg-white/95 px-2.5 text-xs font-medium text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.12)] transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:px-3"
+        >
+          <StageEventsIcon />
+          <span className="hidden sm:inline">{showStageEvents ? "隐藏事件" : "显示事件"}</span>
+          <span className="min-w-4 rounded-full bg-slate-100 px-1 text-[10px] tabular-nums text-slate-500">
+            {stageEventCount}
+          </span>
+        </button>
+      ) : null}
       <button
         type="button"
         data-testid="voxel-camera-reset"
@@ -120,6 +172,8 @@ function StageScene({
   highlightedAgentId,
   cameraFocusRequest,
   cameraResetRevision,
+  eventPlan,
+  onBubbleProjectionChange,
   onAgentClick,
   onLocationClick,
 }: {
@@ -128,6 +182,8 @@ function StageScene({
   highlightedAgentId?: string | null;
   cameraFocusRequest?: VoxelCameraFocusRequest | null;
   cameraResetRevision: number;
+  eventPlan: VoxelEventPlan;
+  onBubbleProjectionChange: (bubbles: ProjectedBubble[]) => void;
   onAgentClick?: (agentId: string) => void;
   onLocationClick?: (locationId: string) => void;
 }) {
@@ -167,6 +223,11 @@ function StageScene({
           onLocationClick={onLocationClick}
         />
       ))}
+      <MoveTrailLayer trails={eventPlan.moveTrails} />
+      <BubbleProjectionBridge
+        bubbles={eventPlan.bubbles}
+        onProjectionChange={onBubbleProjectionChange}
+      />
       <SelectionLayer
         locationAnchor={
           highlightedLocationId ? plan.locationAnchors[highlightedLocationId] : undefined
@@ -175,6 +236,189 @@ function StageScene({
       />
     </>
   );
+}
+
+function StageEventOverlay({
+  bubbles,
+  projectedBubbles,
+}: {
+  bubbles: VoxelEventBubble[];
+  projectedBubbles: ProjectedBubble[];
+}) {
+  const projectionById = new Map(projectedBubbles.map((bubble) => [bubble.id, bubble]));
+  const visibleBubbles = resolveBubbleCollisions(
+    bubbles.flatMap((bubble) => {
+      const projection = projectionById.get(bubble.id);
+      return projection?.visible ? [{ bubble, projection }] : [];
+    }),
+  );
+
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
+      aria-live="polite"
+      aria-atomic="false"
+    >
+      {visibleBubbles.map(({ bubble, projection }) => (
+        <div
+          key={bubble.id}
+          data-testid={`voxel-event-bubble-${bubble.id}`}
+          className={`absolute -translate-x-1/2 -translate-y-full px-2 pb-3 ${
+            bubble.recencyIndex > 0 ? "hidden sm:block" : ""
+          }`}
+          style={{ left: projection.x, top: projection.y }}
+        >
+          <div className="voxel-stage-event-bubble relative min-w-36 max-w-[210px] rounded-xl bg-white px-3 py-2 text-left shadow-[0_2px_8px_rgba(15,23,42,0.18)]">
+            <p className="truncate text-[10px] font-semibold text-moss">{bubble.speakerName}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs leading-[1.4] text-slate-700">
+              {bubble.text}
+            </p>
+            <span
+              aria-hidden="true"
+              className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 bg-white"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BubbleProjectionBridge({
+  bubbles,
+  onProjectionChange,
+}: {
+  bubbles: VoxelEventBubble[];
+  onProjectionChange: (bubbles: ProjectedBubble[]) => void;
+}) {
+  const invalidate = useThree((state) => state.invalidate);
+  const lastProjectionRef = useRef("");
+
+  useEffect(() => {
+    if (bubbles.length === 0) {
+      lastProjectionRef.current = "";
+      onProjectionChange([]);
+    }
+    invalidate();
+  }, [bubbles, invalidate, onProjectionChange]);
+
+  useFrame(({ camera, size }) => {
+    const horizontalMargin = Math.min(106, size.width * 0.25);
+    const minimumBubbleY = size.width < 640 ? 160 : 118;
+    const projected = bubbles.map((bubble) => {
+      const point = new THREE.Vector3(
+        bubble.position.x,
+        bubble.position.y,
+        bubble.position.z,
+      ).project(camera);
+      const rawX = (point.x * 0.5 + 0.5) * size.width;
+      const rawY = (-point.y * 0.5 + 0.5) * size.height;
+      return {
+        id: bubble.id,
+        visible: point.z >= -1 && point.z <= 1,
+        x: Math.round(Math.min(size.width - horizontalMargin, Math.max(horizontalMargin, rawX))),
+        y: Math.round(Math.min(size.height - 28, Math.max(minimumBubbleY, rawY))),
+      };
+    });
+    const signature = projected
+      .map((bubble) => `${bubble.id}:${Number(bubble.visible)}:${bubble.x}:${bubble.y}`)
+      .join("|");
+    if (signature === lastProjectionRef.current) return;
+    lastProjectionRef.current = signature;
+    onProjectionChange(projected);
+  });
+
+  return null;
+}
+
+function MoveTrailLayer({ trails }: { trails: VoxelMoveTrail[] }) {
+  return (
+    <>
+      {trails.map((trail) => (
+        <MoveTrailMarkers key={trail.id} trail={trail} />
+      ))}
+    </>
+  );
+}
+
+function MoveTrailMarkers({ trail }: { trail: VoxelMoveTrail }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const invalidate = useThree((state) => state.invalidate);
+  const markerPoints = useMemo(() => interpolateTrailPoints(trail.points), [trail.points]);
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const transform = new THREE.Object3D();
+    const progressDenominator = Math.max(1, markerPoints.length - 1);
+    markerPoints.forEach((point, index) => {
+      const progress = index / progressDenominator;
+      const markerSize = 0.14 + progress * 0.14;
+      transform.position.set(point.x, point.y, point.z);
+      transform.rotation.set(0, Math.PI / 4, 0);
+      transform.scale.set(markerSize, 0.035, markerSize);
+      transform.updateMatrix();
+      mesh.setMatrixAt(index, transform.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    invalidate();
+  }, [invalidate, markerPoints]);
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, markerPoints.length]}
+      frustumCulled={false}
+      renderOrder={3}
+    >
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial
+        color={0xd86f45}
+        transparent
+        opacity={0.82}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </instancedMesh>
+  );
+}
+
+function resolveBubbleCollisions(
+  items: Array<{ bubble: VoxelEventBubble; projection: ProjectedBubble }>,
+): Array<{ bubble: VoxelEventBubble; projection: ProjectedBubble }> {
+  const resolved: Array<{ bubble: VoxelEventBubble; projection: ProjectedBubble }> = [];
+  for (const item of items) {
+    const projection = { ...item.projection };
+    const collision = resolved.find(
+      (candidate) =>
+        Math.abs(candidate.projection.x - projection.x) < 150 &&
+        Math.abs(candidate.projection.y - projection.y) < 68,
+    );
+    if (collision) {
+      projection.y =
+        collision.projection.y >= 176
+          ? collision.projection.y - 78
+          : collision.projection.y + 78;
+    }
+    resolved.push({ bubble: item.bubble, projection });
+  }
+  return resolved;
+}
+
+function interpolateTrailPoints(points: VoxelVector3[]): VoxelVector3[] {
+  return points.flatMap((point, index) => {
+    const nextPoint = points[index + 1];
+    if (!nextPoint) return [point];
+    return [
+      point,
+      {
+        x: (point.x + nextPoint.x) / 2,
+        y: (point.y + nextPoint.y) / 2,
+        z: (point.z + nextPoint.z) / 2,
+      },
+    ];
+  });
 }
 
 function CameraRig({
@@ -560,6 +804,25 @@ function ResetCameraIcon() {
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function StageEventsIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+      <path
+        d="M4.2 5.3h11.6v7.5H9.4l-3.1 2.3v-2.3H4.2V5.3Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 8h6M7 10.3h3.8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
       />
     </svg>
   );

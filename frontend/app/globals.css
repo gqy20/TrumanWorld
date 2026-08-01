@@ -77,6 +77,28 @@ body {
   }
 }
 
+@keyframes voxel-stage-event-life {
+  0%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+.voxel-stage-event-bubble {
+  animation: voxel-stage-event-life 9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voxel-stage-event-bubble {
+    animation-name: none;
+  }
+}
+
 .agent-token {
   animation: drift-float 4.8s ease-in-out infinite;
 }
