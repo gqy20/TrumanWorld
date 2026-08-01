@@ -50,6 +50,7 @@ export type VoxelMaterialKey =
   | "leaf"
   | "leafLight"
   | "plot"
+  | "paving"
   | "road"
   | "roadDetail"
   | "roofBlue"
@@ -62,6 +63,7 @@ export type VoxelMaterialKey =
   | "wallCool"
   | "wallStone"
   | "wallWarm"
+  | "water"
   | "white"
   | "wood";
 
@@ -75,9 +77,24 @@ export type VoxelBlock = {
   position: VoxelVector3;
   size: VoxelVector3;
   material: VoxelMaterialKey;
+  rotationY: number;
   castShadow: boolean;
   receiveShadow: boolean;
   hitTarget?: VoxelHitTarget;
+};
+
+export type VoxelPrefabBlock = {
+  position: VoxelVector3;
+  size: VoxelVector3;
+  material: VoxelMaterialKey;
+  rotationY?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+};
+
+export type VoxelPrefab = {
+  kind: "cafe" | "generic" | "green" | "home" | "hospital" | "library" | "office" | "plaza";
+  blocks: VoxelPrefabBlock[];
 };
 
 export type VoxelBounds = {
@@ -94,10 +111,23 @@ export type VoxelSelectionAnchor = {
   size: VoxelVector3;
 };
 
+export type VoxelRoadConnections = {
+  north: boolean;
+  east: boolean;
+  south: boolean;
+  west: boolean;
+};
+
+export type VoxelRoadTile = VoxelPoint & {
+  role: "connector" | "main" | "plaza";
+  connections: VoxelRoadConnections;
+};
+
 export type VoxelScenePlan = {
   blocks: VoxelBlock[];
   bounds: VoxelBounds;
   plots: VoxelPlot[];
+  roads: VoxelRoadTile[];
   locationAnchors: Record<string, VoxelSelectionAnchor>;
   agentAnchors: Record<string, VoxelSelectionAnchor>;
 };

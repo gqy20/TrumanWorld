@@ -39,13 +39,13 @@ export function VoxelCanvas({
       data-testid="voxel-stage-container"
       role="region"
       aria-label="Truman World 三维世界舞台"
-      className="relative h-full min-h-[420px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-[#eef5e8] shadow-xs sm:min-h-[520px] xl:min-h-[560px]"
+      className="relative h-[380px] min-h-[380px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-[#eef5e8] shadow-xs sm:h-full sm:min-h-[520px] xl:min-h-[560px]"
     >
       <Canvas
         orthographic
         frameloop="demand"
         dpr={[1, 1.75]}
-        shadows
+        shadows={{ type: THREE.PCFShadowMap }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         camera={{ near: 0.1, far: 100, position: [10, 9, 10] }}
         fallback={<StageFallback />}
@@ -68,7 +68,7 @@ export function VoxelCanvas({
 
 function StageFallback() {
   return (
-    <div className="flex h-full min-h-[420px] items-center justify-center bg-slate-50 px-6 text-center text-sm text-slate-500">
+    <div className="flex h-full min-h-[380px] items-center justify-center bg-slate-50 px-6 text-center text-sm text-slate-500 sm:min-h-[420px]">
       当前浏览器无法启动三维舞台，请切换到导演地图。
     </div>
   );
@@ -173,6 +173,7 @@ function InstancedBlockBatch({
     const transform = new THREE.Object3D();
     batch.blocks.forEach((block, index) => {
       transform.position.set(block.position.x, block.position.y, block.position.z);
+      transform.rotation.set(0, block.rotationY, 0);
       transform.scale.set(block.size.x, block.size.y, block.size.z);
       transform.updateMatrix();
       mesh.setMatrixAt(index, transform.matrix);

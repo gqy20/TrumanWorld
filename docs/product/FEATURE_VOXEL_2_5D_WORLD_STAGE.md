@@ -15,21 +15,24 @@
 - Three.js 保留为底层引擎，并由 React Three Fiber v9 管理 Canvas、相机和事件生命周期
 - voxel Canvas 使用 `next/dynamic` 在客户端按需加载，不进入世界页首屏的同步模块图
 - `SceneWorld -> VoxelScenePlan` 已拆成纯函数，可独立测试
+- Road Graph 已根据 plot entrance 生成确定性道路，支持中心 hub、建筑避让和四向连接元数据
+- 类型化 Prefab 已覆盖 home、cafe、office、library、hospital、plaza、green 与 generic，并按入口方向旋转立面
+- plaza 已从“通用房屋”改为铺装、喷泉、纪念物和长椅组成的公共空间
 - 地面、道路、建筑和角色按材质与阴影属性合并为 `InstancedMesh` 批次
 - 选中态独立为 selection layer，不再因选中地点或角色重建 WebGL renderer
+- 正交相机根据 ScenePlan bounds 和 viewport aspect 自动取景，移动端舞台高度已单独收敛
 - 生产世界页不再依赖 Phaser 导出的视图切换组件，Phaser 仅作为 legacy 实现保留
 - scenario UI 配置已将 renderer 从 `pixel` 收口为 `voxel`
 
-下一阶段从 Road Graph 开始，随后实现 prefab、相机交互和事件播放。
+Phase 1–3 的空间底座已经完成。下一阶段进入 Presentation Shell：让舞台真正成为页面主屏，并收敛右栏和控制区；随后再做相机交互和事件播放。
 
-当前世界页已经从 SVG 地图、Phaser 像素小镇，推进到 Three.js voxel 原型。这个方向能更接近“我的世界式”的 2.5D 展示，但当前原型仍然只是第一步：
+当前世界页已经从 SVG 地图、Phaser 像素小镇推进到可扩展的 Three.js voxel 舞台。基础结构已经成立，剩余问题主要位于展示和叙事层：
 
-- 建筑只是基础方块组合
-- 地点缺少地块语义
-- 道路还不是由地点入口自动生成
-- 角色站位没有依赖地点 anchor
-- 环境层和交互层还比较薄
-- 页面右侧信息和舞台之间仍需更清晰的主次关系
+- 右侧信息栏仍长期占据横向空间
+- 舞台工具条仍在 Canvas 外部占用垂直空间
+- 缺少 hover 信息、镜头聚焦、缩放和平移
+- move、speech、talk 等事件还没有进入舞台表现层
+- 材质仍以统一 Lambert 方块为主，缺少更细的表面与氛围层次
 
 本计划定义下一阶段如何把 `VoxelWorldRenderer` 从“可运行原型”升级为“优雅、可展示、可持续扩展的 2.5D 世界舞台”。
 
@@ -73,14 +76,14 @@
 当前代码观察：
 
 - `frontend/components/world-canvas.tsx` 已经开始从三列改为主舞台加右栏，但右栏仍常驻。
-- `frontend/components/voxel-world-renderer.tsx` 当前使用固定 `min-h-[560px]`，还没有根据 viewport 计算最佳舞台高度。
-- `ViewToggleButton` 仍作为舞台上方控制区存在，后续可以移到舞台浮层右上角，减少垂直空间占用。
+- voxel 舞台已区分移动端和桌面端高度，并根据实际 aspect 计算正交相机 frustum。
+- `WorldViewToggle` 仍作为舞台上方控制区存在，后续可以移到舞台浮层右上角，减少垂直空间占用。
 
 ### 4.2 空间结构问题
 
-当前 voxel 原型依然是 location -> coordinate -> building 的简单映射。真正的 2.5D 小镇需要 plot 语义。
+基础 plot 语义已经落地，location 不再直接映射到渲染坐标。
 
-缺失内容：
+已具备：
 
 - plot 边界
 - building footprint
@@ -92,16 +95,15 @@
 
 当前代码观察：
 
-- `LOCATION_SLOTS` 是硬编码坐标表，缺少 plot size、footprint、入口方向等信息。
-- `resolveSlot` 只处理重复类型偏移，没有全局避让。
-- `buildAgents` 根据 location slot 加固定 offset，角色站位不理解建筑入口。
-- click target 绑定在整个 building group 上，后续需要更明确的 hit target metadata。
+- `plot-layout.ts` 统一提供 size、footprint、入口、角色 anchor 和装饰 anchor。
+- 角色使用 plot agent anchors，location/agent block 都携带稳定 hit target metadata。
+- 标准 scenario 和同类型地点具备确定性布局；任意规模的全局 collision solver 仍属于后续能力。
 
 ### 4.3 道路问题
 
-当前道路是固定线路。它不能表达“建筑入口连接主路”，也不能随着地点数量和类型变化。
+道路已由 plot entrance 和中心 hub 确定性生成，可随地点集合变化。
 
-需要道路从静态装饰变成由 plot graph 生成：
+当前 Road Graph 已包含：
 
 - 主路 spine
 - plot entrance connector
@@ -111,10 +113,9 @@
 
 当前代码观察：
 
-- `buildRoads` 使用固定 road 坐标数组。
-- 道路没有读取 location plot entrance。
-- road tile 没有连接关系模型，因此无法区分主路、支路、入口小径。
-- 道路没有做避让，后续 plot 扩展后可能穿过建筑或公园。
+- `road-graph.ts` 使用确定性 A* 将所有入口接入 hub，并避开 building footprint。
+- road tile 已包含 main / connector / plaza role 及四向对称连接元数据。
+- 当前 renderer 仍以方形 tile 表现连接；转角、路沿开口和更细的铺装图案可在美术阶段继续增强。
 
 ### 4.4 重叠问题
 
@@ -143,9 +144,9 @@
 
 当前代码观察：
 
-- `palette` 已集中在 renderer 文件中，但还不是独立 material system。
-- 目前所有 block 都用 `MeshLambertMaterial`，没有按材质类型区分 roughness、emissive、透明或 highlight。
-- `addBox` 每次创建 geometry 和 material，适合原型，不适合后续规模化。
+- palette 已集中到 `materials.ts`，Prefab 只输出与 Three.js 无关的 block 数据。
+- ScenePlan blocks 已按 material/shadow 属性合并为 `InstancedMesh`，不再为每个 block 建立 geometry/material。
+- 目前主体仍统一使用 `MeshLambertMaterial`；roughness、emissive、透明水面和夜间灯光仍待扩展。
 
 ## 4.6 Current Code Inventory
 
@@ -432,6 +433,8 @@ type VoxelMaterialKey =
 
 ### Phase 1: Plot / Parcel System
 
+状态：`complete`
+
 目标：解决重叠和空间语义。
 
 任务：
@@ -476,6 +479,8 @@ type VoxelMaterialKey =
 
 ### Phase 2: Road Graph
 
+状态：`complete`
+
 目标：让道路服务空间结构，而不是静态装饰。
 
 任务：
@@ -511,6 +516,8 @@ type VoxelMaterialKey =
 
 ### Phase 3: Voxel Prefab Library
 
+状态：`complete`
+
 目标：从“方块堆”变成类型化建筑。
 
 任务：
@@ -545,6 +552,8 @@ Prefab 质量标准：
 - plaza：中心广场、水池或雕塑
 
 ### Phase 4: Presentation Shell
+
+状态：`next`
 
 目标：让世界成为页面主屏。
 
@@ -927,20 +936,20 @@ function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan;
 
 下一步建议直接做：
 
-> Phase 2: Road Graph
+> Phase 4: Presentation Shell
 
 原因：
 
-- Plot / Parcel System 已完成，并已由 Scene Plan 消费
-- 当前固定道路无法表达地点入口和场景拓扑
-- Road Graph 是移动路线、相机聚焦和事件轨迹的共同基础
+- Road Graph 与 Prefab 已让场景本身具备稳定空间结构和类型辨识度
+- 当前最大体验瓶颈已经从“场景不像一个世界”转为“页面仍像带 3D 组件的控制台”
+- 先收敛舞台与右栏关系，后续镜头聚焦、hover card 和事件动画才有正确的信息层级
 
-具体第一步：
+建议实现顺序：
 
-1. 新建 `frontend/components/voxel/road-graph.ts`。
-2. 输入 `VoxelPlot[]`，输出去重后的 `VoxelRoadTile[]`。
-3. 将每个 plot entrance 连接到中心 hub，并避开 building footprint。
-4. Scene Plan 使用 road graph 输出替换固定道路数组。
-5. 为连通性、确定性、对称连接和建筑避让补充单元测试。
+1. 将视图切换、重置镜头和 focus mode 控件移入舞台右上角 overlay。
+2. 桌面端让右栏支持 compact / collapsed，focus mode 让舞台占满主内容区。
+3. 窄屏保持信息卡纵向排列，但避免为舞台保留桌面高度。
+4. 选中地点时只更新右栏或轻量 DOM overlay，不在 WebGL 中常驻文字。
+5. 为布局模式、键盘可达性和移动端尺寸补充组件测试与真实浏览器截图验收。
 
-这一步完成后，移动事件可以直接复用道路图生成舞台轨迹。
+这一步完成后，世界页才会从“控制台中的 3D 组件”真正转变为“以世界舞台为主、控制信息为辅”的产品界面。

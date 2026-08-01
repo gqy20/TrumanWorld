@@ -11,7 +11,7 @@ const VoxelCanvas = dynamic(
     loading: () => (
       <div
         data-testid="voxel-stage-loading"
-        className="flex h-full min-h-[420px] items-center justify-center rounded-2xl border border-emerald-100 bg-[#eef5e8] text-sm text-slate-500"
+        className="flex h-[380px] min-h-[380px] items-center justify-center rounded-2xl border border-emerald-100 bg-[#eef5e8] text-sm text-slate-500 sm:h-full sm:min-h-[420px]"
       >
         正在加载世界舞台…
       </div>

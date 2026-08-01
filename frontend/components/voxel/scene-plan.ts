@@ -1,12 +1,15 @@
-import type { SceneAgent, SceneLocation, SceneWorld } from "@/lib/world-scene-adapter";
+import type { SceneAgent, SceneWorld } from "@/lib/world-scene-adapter";
 
 import { buildVoxelPlots, findPlotForLocation } from "./plot-layout";
+import { buildLocationPrefab } from "./prefabs";
+import { buildRoadGraph } from "./road-graph";
 import type {
   VoxelBlock,
   VoxelBounds,
   VoxelHitTarget,
   VoxelMaterialKey,
   VoxelPlot,
+  VoxelRoadTile,
   VoxelScenePlan,
 } from "./types";
 
@@ -19,6 +22,7 @@ type BlockWriter = (
     castShadow?: boolean;
     receiveShadow?: boolean;
     hitTarget?: VoxelHitTarget;
+    rotationY?: number;
   },
 ) => void;
 
@@ -31,6 +35,7 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
       position: { x: position[0], y: position[1], z: position[2] },
       size: { x: size[0], y: size[1], z: size[2] },
       material,
+      rotationY: options.rotationY ?? 0,
       castShadow: options.castShadow ?? true,
       receiveShadow: options.receiveShadow ?? true,
       hitTarget: options.hitTarget,
@@ -39,8 +44,9 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
   };
 
   const plots = buildVoxelPlots(sceneWorld.locations);
+  const roads = buildRoadGraph(plots);
   buildGround(addBlock);
-  buildRoads(addBlock);
+  buildRoads(addBlock, roads);
 
   const locationAnchors: VoxelScenePlan["locationAnchors"] = {};
   for (const plotItem of plots) {
@@ -53,10 +59,24 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
       "plot",
       { castShadow: false, hitTarget: target },
     );
-    if (isGreenLocation(location)) {
-      buildPark(addBlock, location, plotItem, target);
-    } else {
-      buildBuilding(addBlock, location, plotItem, target);
+    const prefab = buildLocationPrefab(location, plotItem);
+    for (const block of prefab.blocks) {
+      addBlock(
+        `location-${location.id}`,
+        [
+          plotItem.center.x + block.position.x,
+          block.position.y,
+          plotItem.center.z + block.position.z,
+        ],
+        [block.size.x, block.size.y, block.size.z],
+        block.material,
+        {
+          castShadow: block.castShadow,
+          receiveShadow: block.receiveShadow,
+          hitTarget: target,
+          rotationY: block.rotationY,
+        },
+      );
     }
     locationAnchors[location.id] = {
       position: { x: plotItem.center.x, y: 0.13, z: plotItem.center.z },
@@ -69,6 +89,7 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
     blocks,
     bounds: calculateBounds(blocks),
     plots,
+    roads,
     locationAnchors,
     agentAnchors,
   };
@@ -91,155 +112,32 @@ function buildGround(addBlock: BlockWriter): void {
   });
 }
 
-function buildRoads(addBlock: BlockWriter): void {
-  const roads = [
-    ...range(-6, 6).map((x) => [x, 0] as const),
-    ...range(-5, 5).map((z) => [0, z] as const),
-    ...range(-4, 4).map((x) => [x, 4] as const),
-    [-3, 3] as const,
-    [4, 2] as const,
-    [3, -3] as const,
-  ];
-  for (const [x, z] of roads) {
-    addBlock("road-curb", [x, 0.02, z], [0.96, 0.08, 0.96], "curb", {
+function buildRoads(addBlock: BlockWriter, roads: VoxelRoadTile[]): void {
+  for (const road of roads) {
+    const roadWidth = road.role === "connector" ? 0.88 : road.role === "main" ? 0.94 : 0.98;
+    addBlock("road-curb", [road.x, 0.02, road.z], [1.01, 0.08, 1.01], "curb", {
       castShadow: false,
     });
-    addBlock("road", [x, 0.08, z], [0.82, 0.06, 0.82], "road", {
+    addBlock("road", [road.x, 0.08, road.z], [roadWidth, 0.06, roadWidth], "road", {
       castShadow: false,
     });
-    addBlock("road-detail", [x - 0.18, 0.13, z + 0.12], [0.22, 0.025, 0.18], "flower", {
-      castShadow: false,
-    });
-    addBlock("road-detail", [x + 0.22, 0.13, z - 0.16], [0.18, 0.025, 0.16], "roadDetail", {
-      castShadow: false,
-    });
-  }
-}
-
-function buildBuilding(
-  addBlock: BlockWriter,
-  location: SceneLocation,
-  plotItem: VoxelPlot,
-  hitTarget: VoxelHitTarget,
-): void {
-  const type = location.visual.visualPreset ?? location.locationType;
-  const height = type.includes("office") || type.includes("tower") ? 1.7 : 1.1;
-  const prefix = `location-${location.id}`;
-  const add = (
-    position: [number, number, number],
-    size: [number, number, number],
-    material: VoxelMaterialKey,
-  ) =>
-    addBlock(
-      prefix,
-      [plotItem.center.x + position[0], position[1], plotItem.center.z + position[2]],
-      size,
-      material,
-      { hitTarget },
-    );
-
-  add([0, height / 2, 0], [plotItem.footprint.width, height, plotItem.footprint.depth], getBuildingWallMaterial(type));
-  addVoxelRoof(add, height, type, getBuildingRoofMaterial(type));
-  add([0, 0.08, 0], [1.28, 0.16, 1.28], "shadow");
-  add([-0.58, height * 0.58, 0.02], [0.05, 0.42, 0.72], "white");
-  add([0.58, height * 0.52, -0.02], [0.05, 0.4, 0.68], "shadow");
-  add([0, 0.42, -0.57], [0.3, 0.52, 0.06], "wood");
-  addWindowRow(add, height, type);
-  addBuildingDetails(add, height, type);
-}
-
-function addVoxelRoof(
-  add: (position: [number, number, number], size: [number, number, number], material: VoxelMaterialKey) => void,
-  height: number,
-  type: string,
-  material: VoxelMaterialKey,
-): void {
-  if (type.includes("office") || type.includes("tower")) {
-    add([0, height + 0.12, 0], [1.24, 0.24, 1.24], material);
-    add([0, height + 0.3, 0], [0.76, 0.16, 0.76], "roofBlue");
-    return;
-  }
-  add([0, height + 0.12, 0], [1.46, 0.18, 1.32], material);
-  add([0, height + 0.3, 0], [1.1, 0.18, 0.98], material);
-  add([0, height + 0.45, 0], [0.66, 0.14, 0.58], material);
-  if (type.includes("cafe") || type.includes("shop")) {
-    add([0, height + 0.02, -0.72], [1.18, 0.16, 0.08], "white");
-    add([-0.28, height + 0.03, -0.76], [0.18, 0.18, 0.08], "roofRed");
-    add([0.18, height + 0.03, -0.76], [0.18, 0.18, 0.08], "roofRed");
-  }
-}
-
-function addWindowRow(
-  add: (position: [number, number, number], size: [number, number, number], material: VoxelMaterialKey) => void,
-  height: number,
-  type: string,
-): void {
-  const rows = type.includes("office") || type.includes("tower") ? [0.75, 1.12, 1.48] : [0.72];
-  for (const y of rows.filter((row) => row < height)) {
-    add([-0.28, y, -0.59], [0.22, 0.18, 0.04], "glass");
-    add([0.28, y, -0.59], [0.22, 0.18, 0.04], "glass");
-  }
-}
-
-function addBuildingDetails(
-  add: (position: [number, number, number], size: [number, number, number], material: VoxelMaterialKey) => void,
-  height: number,
-  type: string,
-): void {
-  add([-0.42, height * 0.34, -0.58], [0.18, 0.08, 0.04], "white");
-  add([0.42, height * 0.34, -0.58], [0.18, 0.08, 0.04], "white");
-  if (type.includes("library") || type.includes("hall")) {
-    for (const x of [-0.42, 0, 0.42]) {
-      add([x, 0.55, -0.62], [0.1, 0.8, 0.08], "wallStone");
+    if (road.role !== "connector") {
+      addBlock(
+        "road-detail",
+        [road.x - 0.18, 0.13, road.z + 0.12],
+        [0.22, 0.025, 0.18],
+        "flower",
+        { castShadow: false },
+      );
+      addBlock(
+        "road-detail",
+        [road.x + 0.22, 0.13, road.z - 0.16],
+        [0.18, 0.025, 0.16],
+        "roadDetail",
+        { castShadow: false },
+      );
     }
-    add([0, 0.12, -0.72], [1.2, 0.1, 0.28], "shadow");
   }
-  if (type.includes("home") || type.includes("dorm")) {
-    add([0.5, 0.9, 0.18], [0.12, 0.5, 0.12], "wood");
-  }
-}
-
-function buildPark(
-  addBlock: BlockWriter,
-  location: SceneLocation,
-  plotItem: VoxelPlot,
-  hitTarget: VoxelHitTarget,
-): void {
-  const prefix = `location-${location.id}`;
-  const add = (
-    position: [number, number, number],
-    size: [number, number, number],
-    material: VoxelMaterialKey,
-  ) =>
-    addBlock(
-      prefix,
-      [plotItem.center.x + position[0], position[1], plotItem.center.z + position[2]],
-      size,
-      material,
-      { hitTarget },
-    );
-
-  add([0, 0.08, 0], [plotItem.size.width - 0.4, 0.12, plotItem.size.depth - 0.4], "grass");
-  buildTree(add, -0.42, -0.3, 0.85);
-  buildTree(add, 0.34, 0.28, 0.72);
-  add([0.08, 0.18, -0.56], [0.7, 0.08, 0.18], "road");
-  add([-0.55, 0.18, 0.5], [0.16, 0.08, 0.16], "flower");
-  add([0.58, 0.18, -0.2], [0.16, 0.08, 0.16], "flowerPink");
-}
-
-function buildTree(
-  add: (position: [number, number, number], size: [number, number, number], material: VoxelMaterialKey) => void,
-  x: number,
-  z: number,
-  scale: number,
-): void {
-  add([x, 0.35 * scale, z], [0.18 * scale, 0.7 * scale, 0.18 * scale], "trunk");
-  add([x, 0.92 * scale, z], [0.68 * scale, 0.5 * scale, 0.68 * scale], "leaf");
-  add(
-    [x - 0.12 * scale, 1.18 * scale, z - 0.08 * scale],
-    [0.42 * scale, 0.34 * scale, 0.42 * scale],
-    "leafLight",
-  );
 }
 
 function buildAgents(
@@ -282,14 +180,20 @@ function buildAgents(
 
 function calculateBounds(blocks: VoxelBlock[]): VoxelBounds {
   return blocks.reduce<VoxelBounds>(
-    (bounds, block) => ({
-      minX: Math.min(bounds.minX, block.position.x - block.size.x / 2),
-      maxX: Math.max(bounds.maxX, block.position.x + block.size.x / 2),
-      minY: Math.min(bounds.minY, block.position.y - block.size.y / 2),
-      maxY: Math.max(bounds.maxY, block.position.y + block.size.y / 2),
-      minZ: Math.min(bounds.minZ, block.position.z - block.size.z / 2),
-      maxZ: Math.max(bounds.maxZ, block.position.z + block.size.z / 2),
-    }),
+    (bounds, block) => {
+      const cos = Math.abs(Math.cos(block.rotationY));
+      const sin = Math.abs(Math.sin(block.rotationY));
+      const halfX = (block.size.x * cos + block.size.z * sin) / 2;
+      const halfZ = (block.size.x * sin + block.size.z * cos) / 2;
+      return {
+        minX: Math.min(bounds.minX, block.position.x - halfX),
+        maxX: Math.max(bounds.maxX, block.position.x + halfX),
+        minY: Math.min(bounds.minY, block.position.y - block.size.y / 2),
+        maxY: Math.max(bounds.maxY, block.position.y + block.size.y / 2),
+        minZ: Math.min(bounds.minZ, block.position.z - halfZ),
+        maxZ: Math.max(bounds.maxZ, block.position.z + halfZ),
+      };
+    },
     {
       minX: Number.POSITIVE_INFINITY,
       maxX: Number.NEGATIVE_INFINITY,
@@ -299,27 +203,6 @@ function calculateBounds(blocks: VoxelBlock[]): VoxelBounds {
       maxZ: Number.NEGATIVE_INFINITY,
     },
   );
-}
-
-function isGreenLocation(location: SceneLocation): boolean {
-  const type = location.visual.visualPreset ?? location.locationType;
-  return type.includes("park") || type.includes("grove") || type.includes("quad");
-}
-
-function getBuildingWallMaterial(type: string): VoxelMaterialKey {
-  if (type.includes("office") || type.includes("tower")) return "wallCool";
-  if (type.includes("library") || type.includes("hall")) return "wallStone";
-  return "wallWarm";
-}
-
-function getBuildingRoofMaterial(type: string): VoxelMaterialKey {
-  if (type.includes("office") || type.includes("tower") || type.includes("library")) {
-    return "roofBlue";
-  }
-  if (type.includes("park") || type.includes("grove") || type.includes("quad")) {
-    return "roofGreen";
-  }
-  return "roofRed";
 }
 
 function getAgentMaterial(status: SceneAgent["status"]): VoxelMaterialKey {
@@ -335,8 +218,4 @@ function getAgentMaterial(status: SceneAgent["status"]): VoxelMaterialKey {
     default:
       return "agent";
   }
-}
-
-function range(from: number, to: number): number[] {
-  return Array.from({ length: to - from + 1 }, (_, index) => from + index);
 }

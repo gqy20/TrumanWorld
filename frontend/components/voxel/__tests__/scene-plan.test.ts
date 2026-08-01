@@ -52,7 +52,8 @@ describe("voxel scene plan", () => {
     const second = buildVoxelScenePlan(world);
 
     expect(second).toEqual(first);
-    expect(first.blocks.length).toBeGreaterThan(350);
+    expect(first.blocks.length).toBeGreaterThan(250);
+    expect(first.roads.length).toBeGreaterThan(0);
     expect(new Set(first.blocks.map((block) => block.id)).size).toBe(first.blocks.length);
     expect(first.blocks.every((block) => Object.values(block.size).every((size) => size > 0)))
       .toBe(true);
@@ -83,10 +84,14 @@ describe("voxel scene plan", () => {
 
     expect(Object.values(plan.bounds).every(Number.isFinite)).toBe(true);
     for (const block of plan.blocks) {
-      expect(block.position.x - block.size.x / 2).toBeGreaterThanOrEqual(plan.bounds.minX);
-      expect(block.position.x + block.size.x / 2).toBeLessThanOrEqual(plan.bounds.maxX);
-      expect(block.position.z - block.size.z / 2).toBeGreaterThanOrEqual(plan.bounds.minZ);
-      expect(block.position.z + block.size.z / 2).toBeLessThanOrEqual(plan.bounds.maxZ);
+      const cos = Math.abs(Math.cos(block.rotationY));
+      const sin = Math.abs(Math.sin(block.rotationY));
+      const halfX = (block.size.x * cos + block.size.z * sin) / 2;
+      const halfZ = (block.size.x * sin + block.size.z * cos) / 2;
+      expect(block.position.x - halfX).toBeGreaterThanOrEqual(plan.bounds.minX);
+      expect(block.position.x + halfX).toBeLessThanOrEqual(plan.bounds.maxX);
+      expect(block.position.z - halfZ).toBeGreaterThanOrEqual(plan.bounds.minZ);
+      expect(block.position.z + halfZ).toBeLessThanOrEqual(plan.bounds.maxZ);
     }
   });
 

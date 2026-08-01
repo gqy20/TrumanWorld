@@ -20,6 +20,7 @@ export const VOXEL_MATERIAL_COLORS: Record<VoxelMaterialKey, number> = {
   leaf: 0x4f9f57,
   leafLight: 0x73bf62,
   plot: 0xcfe2b8,
+  paving: 0xd8d0bb,
   road: 0xd8c18d,
   roadDetail: 0xc9ad78,
   roofBlue: 0x4b6f9f,
@@ -32,6 +33,7 @@ export const VOXEL_MATERIAL_COLORS: Record<VoxelMaterialKey, number> = {
   wallCool: 0xaec7db,
   wallStone: 0xbeb9a8,
   wallWarm: 0xe8c58e,
+  water: 0x58b9d0,
   white: 0xffffff,
   wood: 0x7d5437,
 };
