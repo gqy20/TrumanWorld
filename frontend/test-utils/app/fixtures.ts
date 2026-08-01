@@ -84,6 +84,23 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
         occupants: [],
       },
     ],
+    navigation: {
+      version: 1,
+      nodes: [
+        { id: "road:0:1", x: 0, y: 1 },
+        { id: "road:1:1", x: 1, y: 1 },
+        { id: "road:2:1", x: 2, y: 1 },
+        { id: "road:3:1", x: 3, y: 1 },
+        { id: "road:4:1", x: 4, y: 1 },
+      ],
+      edges: [
+        { from_node_id: "road:0:1", to_node_id: "road:1:1", distance: 0.5 },
+        { from_node_id: "road:1:1", to_node_id: "road:2:1", distance: 0.5 },
+        { from_node_id: "road:2:1", to_node_id: "road:3:1", distance: 0.5 },
+        { from_node_id: "road:3:1", to_node_id: "road:4:1", distance: 0.5 },
+      ],
+      location_entrances: { cafe: "road:0:1", library: "road:4:1" },
+    },
     recent_events: [
       {
         id: "event-1",
@@ -101,7 +118,17 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
         location_id: "cafe",
         actor_agent_id: "agent-1",
         actor_name: "Mei Lin",
-        payload: { from_location_id: "library", to_location_id: "cafe" },
+        payload: {
+          from_location_id: "library",
+          to_location_id: "cafe",
+          route_node_ids: [
+            "road:4:1",
+            "road:3:1",
+            "road:2:1",
+            "road:1:1",
+            "road:0:1",
+          ],
+        },
       },
     ],
     director_stats: {

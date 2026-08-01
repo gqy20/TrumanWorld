@@ -95,7 +95,9 @@ function VoxelAgent({
   const completedMotionIdRef = useRef<string | null>(null);
   const previousPausedRef = useRef(isPaused);
   const invalidate = useThree((state) => state.invalidate);
-  const bodyMaterial = getAgentMaterial(agent.source.status);
+  const statusColor = VOXEL_MATERIAL_COLORS[getAgentMaterial(agent.source.status)];
+  const appearance = agent.appearance;
+  const heightScale = appearance.heightScale;
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -256,23 +258,32 @@ function VoxelAgent({
     <group ref={rootRef} onClick={handleClick}>
       <group ref={bodyRef}>
         <AgentPart
-          position={[0, 0.34, 0]}
-          size={[0.22, 0.5, 0.18]}
-          material={bodyMaterial}
+          position={[0, 0.34 * heightScale, 0]}
+          size={[0.22, 0.5 * heightScale, 0.18]}
+          color={appearance.torso}
         />
-        <AgentPart position={[0, 0.68, 0]} size={[0.2, 0.2, 0.2]} material="skin" />
-        <AgentPart position={[0, 0.82, -0.01]} size={[0.22, 0.08, 0.22]} material="hair" />
+        <AgentPart position={[0, 0.67 * heightScale, 0]} size={[0.2, 0.2, 0.2]} color={appearance.skin} />
+        <AgentPart position={[0, 0.81 * heightScale, -0.01]} size={[0.22, 0.08, 0.22]} color={appearance.hair} />
+        <AgentPart position={[0, 0.45 * heightScale, 0.1]} size={[0.13, 0.08, 0.025]} color={statusColor} />
+        <AgentPart position={[-0.15, 0.39 * heightScale, 0]} size={[0.055, 0.34, 0.06]} color={appearance.skin} />
+        <AgentPart position={[0.15, 0.39 * heightScale, 0]} size={[0.055, 0.34, 0.06]} color={appearance.skin} />
+        {appearance.accessory === "backpack" ? (
+          <AgentPart position={[0, 0.4 * heightScale, -0.12]} size={[0.19, 0.3, 0.08]} color={appearance.accent} />
+        ) : null}
+        {appearance.accessory === "satchel" ? (
+          <AgentPart position={[0.15, 0.31 * heightScale, -0.02]} size={[0.09, 0.16, 0.08]} color={appearance.accent} />
+        ) : null}
         <AgentPart
           ref={leftLegRef}
           position={[-0.07, 0.08, 0]}
           size={[0.06, 0.16, 0.06]}
-          material="trouser"
+          color={appearance.trousers}
         />
         <AgentPart
           ref={rightLegRef}
           position={[0.07, 0.08, 0]}
           size={[0.06, 0.16, 0.06]}
-          material="trouser"
+          color={appearance.trousers}
         />
       </group>
     </group>
@@ -284,13 +295,13 @@ const AgentPart = forwardRef<
   {
     position: [number, number, number];
     size: [number, number, number];
-    material: VoxelMaterialKey;
+    color: number;
   }
->(function AgentPart({ position, size, material }, ref) {
+>(function AgentPart({ position, size, color }, ref) {
   return (
     <mesh ref={ref} position={position} scale={size} castShadow receiveShadow>
       <boxGeometry args={[1, 1, 1]} />
-      <meshLambertMaterial color={VOXEL_MATERIAL_COLORS[material]} />
+      <meshLambertMaterial color={color} />
     </mesh>
   );
 });

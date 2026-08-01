@@ -6,6 +6,7 @@ from datetime import datetime, time, timedelta
 from typing import Any
 
 from app.sim.movement import AgentMovementState, create_agent_movement
+from app.sim.world_map import build_world_map
 
 
 @dataclass
@@ -15,6 +16,8 @@ class LocationState:
     capacity: int = 10
     occupants: set[str] = field(default_factory=set)
     location_type: str | None = None
+    x: int | None = None
+    y: int | None = None
 
 
 @dataclass
@@ -121,6 +124,8 @@ class WorldState:
                     "capacity": location.capacity,
                     "occupants": sorted(location.occupants),
                     "location_type": location.location_type,
+                    "x": location.x,
+                    "y": location.y,
                 }
                 for location_id, location in self.locations.items()
             },
@@ -257,6 +262,13 @@ class WorldState:
     ) -> AgentMovementState:
         agent = self.agents[agent_id]
         origin_id = agent.location_id
+        topology = build_world_map(self.locations.values())
+        route = (
+            topology.route_between_locations(origin_id, destination_id)
+            if origin_id in topology.location_entrances
+            and destination_id in topology.location_entrances
+            else None
+        )
         movement = create_agent_movement(
             agent_id=agent_id,
             from_location_id=origin_id,
@@ -265,6 +277,8 @@ class WorldState:
             # Aligning the movement interval with that public tick keeps a fresh snapshot
             # at progress 0 instead of making the client skip the first half of the route.
             started_tick=self.current_tick + 1,
+            route_node_ids=route.node_ids if route else (),
+            distance=route.distance if route else 0.0,
         )
         self.locations[origin_id].occupants.discard(agent_id)
         agent.movement = movement

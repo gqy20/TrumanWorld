@@ -30,7 +30,7 @@ describe("voxel plot layout", () => {
       expect.objectContaining({
         locationId: "home",
         district: "home",
-        center: { x: -3, z: 3 },
+        center: { x: 0, z: 0 },
       }),
     );
     expect(plots[0].entrance.z).toBeGreaterThan(plots[0].center.z);

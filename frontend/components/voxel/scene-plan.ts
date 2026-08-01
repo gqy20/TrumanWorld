@@ -1,6 +1,7 @@
 import type { SceneAgent, SceneWorld } from "@/lib/world-scene-adapter";
 
 import { buildVoxelPlots, findPlotForLocation } from "./plot-layout";
+import { resolveAgentAppearance } from "./agent-appearance";
 import { buildLocationPrefab } from "./prefabs";
 import { buildRoadGraph } from "./road-graph";
 import type {
@@ -44,8 +45,8 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
     blockIndex += 1;
   };
 
-  const plots = buildVoxelPlots(sceneWorld.locations);
-  const roads = buildRoadGraph(plots);
+  const plots = buildVoxelPlots(sceneWorld.locations, sceneWorld.navigation);
+  const roads = buildRoadGraph(plots, sceneWorld.navigation);
   buildGround(addBlock);
   buildRoads(addBlock, roads);
 
@@ -159,6 +160,7 @@ function buildAgents(
         position: { x: anchor.x, y: 0.04, z: anchor.z },
         size: { x: 0.46, y: 0.04, z: 0.46 },
       },
+      appearance: resolveAgentAppearance(agent.id),
     });
   }
   return agentPlans;

@@ -67,11 +67,17 @@ export function buildVoxelEventPlan(
       const fromPlot = plotByLocationId.get(trail.fromLocationId);
       const toPlot = plotByLocationId.get(trail.toLocationId);
       if (!fromPlot || !toPlot) return [];
-      const roadPath = findRoadPath(
-        scenePlan.roads,
-        snapRoadPoint(fromPlot.entrance),
-        snapRoadPoint(toPlot.entrance),
-      );
+      const authoritativePath = trail.routeNodeIds
+        ?.map((nodeId) => scenePlan.roads.find((road) => road.nodeId === nodeId))
+        .filter((road): road is VoxelRoadTile => Boolean(road))
+        .map(({ x, z }) => ({ x, z }));
+      const roadPath = authoritativePath?.length
+        ? authoritativePath
+        : findRoadPath(
+            scenePlan.roads,
+            snapRoadPoint(fromPlot.entrance),
+            snapRoadPoint(toPlot.entrance),
+          );
       if (roadPath.length === 0) return [];
       const fromAnchor = resolveAgentPathAnchor(
         scenePlan,

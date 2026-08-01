@@ -38,6 +38,9 @@ describe("voxel event plan", () => {
     expect(trail.points.every((point) => point.y === 0)).toBe(true);
     expect(trail.points).toContainEqual({ ...snapRoadPoint(fromPlot!.entrance), y: 0 });
     expect(trail.points).toContainEqual({ ...snapRoadPoint(toPlot!.entrance), y: 0 });
+    expect(trail.points.slice(1, -1).map(({ x, z }) => ({ x, z }))).toEqual(
+      [4, 3, 2, 1, 0].map((x) => ({ x: x - 2, z: 0 })),
+    );
   });
 
   it("falls back to a location roof anchor when the speaker is not present", () => {

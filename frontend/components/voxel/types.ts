@@ -1,4 +1,5 @@
 import type { SceneAgent, SceneLocation } from "@/lib/world-scene-adapter";
+import type { VoxelAgentAppearance } from "./agent-appearance";
 
 export type VoxelPoint = {
   x: number;
@@ -115,6 +116,7 @@ export type VoxelAgentPlan = {
   id: string;
   source: SceneAgent;
   anchor: VoxelSelectionAnchor;
+  appearance: VoxelAgentAppearance;
 };
 
 export type VoxelRoadConnections = {
@@ -125,6 +127,7 @@ export type VoxelRoadConnections = {
 };
 
 export type VoxelRoadTile = VoxelPoint & {
+  nodeId?: string;
   role: "connector" | "main" | "plaza";
   connections: VoxelRoadConnections;
 };

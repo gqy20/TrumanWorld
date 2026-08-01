@@ -1,3 +1,5 @@
+import type { SceneNavigation } from "@/lib/world-scene-adapter";
+
 import type { VoxelPlot, VoxelPoint, VoxelRoadConnections, VoxelRoadTile } from "./types";
 
 type GridBounds = {
@@ -19,7 +21,11 @@ const DIRECTIONS = [
   { name: "west", dx: -1, dz: 0, opposite: "east" },
 ] as const;
 
-export function buildRoadGraph(plots: VoxelPlot[]): VoxelRoadTile[] {
+export function buildRoadGraph(
+  plots: VoxelPlot[],
+  navigation?: SceneNavigation,
+): VoxelRoadTile[] {
+  if (navigation?.nodes.length) return buildAuthoritativeRoadGraph(plots, navigation);
   if (plots.length === 0) return [];
 
   const sortedPlots = plots.slice().sort((left, right) => left.locationId.localeCompare(right.locationId));
@@ -49,6 +55,42 @@ export function buildRoadGraph(plots: VoxelPlot[]): VoxelRoadTile[] {
         role: key === pointKey(hub) ? "plaza" : (usage.get(key) ?? 0) > 1 ? "main" : "connector",
         connections: buildConnections(point, network),
       };
+    });
+}
+
+function buildAuthoritativeRoadGraph(
+  plots: VoxelPlot[],
+  navigation: SceneNavigation,
+): VoxelRoadTile[] {
+  const neighbors = new Map(navigation.nodes.map((node) => [node.id, new Set<string>()]));
+  for (const edge of navigation.edges) {
+    neighbors.get(edge.fromNodeId)?.add(edge.toNodeId);
+    neighbors.get(edge.toNodeId)?.add(edge.fromNodeId);
+  }
+  const centerLocation = plots.find((plotItem) => plotItem.district === "center")?.locationId;
+  const plazaNodeId = centerLocation
+    ? navigation.locationEntrances[centerLocation]
+    : undefined;
+  return navigation.nodes
+    .slice()
+    .sort((left, right) => left.z - right.z || left.x - right.x || left.id.localeCompare(right.id))
+    .map((node) => {
+      const adjacent = neighbors.get(node.id) ?? new Set<string>();
+      const adjacentPoints = Array.from(adjacent)
+        .map((nodeId) => navigation.nodes.find((candidate) => candidate.id === nodeId))
+        .filter((candidate): candidate is SceneNavigation["nodes"][number] => Boolean(candidate));
+      return {
+        nodeId: node.id,
+        x: node.x,
+        z: node.z,
+        role: node.id === plazaNodeId ? "plaza" : adjacent.size > 2 ? "main" : "connector",
+        connections: {
+          north: adjacentPoints.some((point) => point.x === node.x && point.z === node.z - 1),
+          east: adjacentPoints.some((point) => point.x === node.x + 1 && point.z === node.z),
+          south: adjacentPoints.some((point) => point.x === node.x && point.z === node.z + 1),
+          west: adjacentPoints.some((point) => point.x === node.x - 1 && point.z === node.z),
+        },
+      } satisfies VoxelRoadTile;
     });
 }
 

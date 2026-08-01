@@ -283,6 +283,9 @@ class AgentMovementResponse(BaseModel):
     to_location_id: str = Field(..., description="目标地点 ID")
     started_tick: int = Field(..., description="开始 Tick", ge=0)
     arrival_tick: int = Field(..., description="预计到达 Tick", ge=1)
+    route_node_ids: list[str] = Field(default_factory=list, description="服务端规划的道路节点")
+    distance: float = Field(0.0, description="路线距离", ge=0)
+    speed: float = Field(1.5, description="每 Tick 移动距离", gt=0)
 
 
 class AgentSummaryResponse(BaseModel):
@@ -564,6 +567,25 @@ class WorldLocationResponse(BaseModel):
     occupants: list[AgentSummaryResponse] = Field(default_factory=list, description="在场 agent")
 
 
+class WorldMapNodeResponse(BaseModel):
+    id: str = Field(..., description="道路节点 ID")
+    x: int = Field(..., description="地图 X 坐标")
+    y: int = Field(..., description="地图 Y 坐标")
+
+
+class WorldMapEdgeResponse(BaseModel):
+    from_node_id: str = Field(..., description="起始道路节点")
+    to_node_id: str = Field(..., description="结束道路节点")
+    distance: float = Field(..., description="边长度", gt=0)
+
+
+class WorldMapTopologyResponse(BaseModel):
+    version: int = Field(1, description="地图协议版本")
+    nodes: list[WorldMapNodeResponse] = Field(default_factory=list)
+    edges: list[WorldMapEdgeResponse] = Field(default_factory=list)
+    location_entrances: dict[str, str] = Field(default_factory=dict)
+
+
 class WorldEventResponse(BaseModel):
     id: str = Field(..., description="事件 ID")
     tick_no: int = Field(..., description="Tick 编号")
@@ -709,6 +731,10 @@ class WorldSnapshotResponse(BaseModel):
     subject_agent_id: str | None = Field(None, description="当前场景主体 agent ID")
     agents: list[AgentSummaryResponse] = Field(default_factory=list, description="完整 Agent 列表")
     locations: list[WorldLocationResponse] = Field(default_factory=list, description="地点列表")
+    navigation: WorldMapTopologyResponse = Field(
+        default_factory=WorldMapTopologyResponse,
+        description="后端权威道路拓扑",
+    )
     recent_events: list[WorldEventResponse] = Field(default_factory=list, description="最近事件")
     director_stats: WorldDirectorStatsResponse = Field(
         default_factory=WorldDirectorStatsResponse, description="导演统计"

@@ -23,6 +23,7 @@ from app.api.schemas.simulation import (
     WorldEventsResponse,
     WorldHealthMetricsConfig,
     WorldLocationResponse,
+    WorldMapTopologyResponse,
     WorldPulseResponse,
     WorldStageAgentStatusVisualResponse,
     WorldStageAgentUiResponse,
@@ -40,6 +41,7 @@ from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_agent_config_id
 from app.sim.context import get_run_world_time
 from app.sim.movement import AgentMovementState
+from app.sim.world_map import build_world_map
 from app.sim.world_time import resolve_tick_bound, resolve_world_start
 from app.store.repositories import (
     AgentRepository,
@@ -539,6 +541,7 @@ async def get_world_snapshot(
         subject_agent_id=resolve_subject_agent_id(agents, run.scenario_type),
         agents=list(agent_summaries.values()),
         locations=locations_payload,
+        navigation=WorldMapTopologyResponse(**build_world_map(locations).to_dict()),
         recent_events=[
             build_world_event_response(event, agent_name_map, location_name_map)
             for event in events

@@ -59,6 +59,13 @@ export type SceneMoveTrail = {
   recencyIndex: number;
   initialProgress?: number;
   isActive?: boolean;
+  routeNodeIds?: string[];
+};
+
+export type SceneNavigation = {
+  nodes: Array<{ id: string; x: number; z: number }>;
+  edges: Array<{ fromNodeId: string; toNodeId: string; distance: number }>;
+  locationEntrances: Record<string, string>;
 };
 
 export type SceneBubble = {
@@ -78,6 +85,7 @@ export type SceneWorld = {
   activeMovements: SceneMoveTrail[];
   moveTrails: SceneMoveTrail[];
   bubbles: SceneBubble[];
+  navigation?: SceneNavigation;
   ambience: {
     label: string;
     overlayColor: string;
@@ -97,6 +105,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
   const timeOfDay = getTimeOfDay(world.world_clock?.hour ?? 12);
   const timeStyle = getTimeOfDayStyle(timeOfDay);
   const worldAgents = resolveWorldAgents(world);
+  const navigation = centerNavigation(world.navigation);
   const agentsByAnchorLocation = new Map<string, AgentSummary[]>();
 
   for (const agent of worldAgents) {
@@ -157,6 +166,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
           Math.max(0, (currentTick - movement.started_tick) / durationTicks),
         ),
         isActive: true,
+        routeNodeIds: movement.route_node_ids,
       },
     ];
   });
@@ -198,6 +208,11 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
           fromLocationId,
           toLocationId,
           recencyIndex: index,
+          routeNodeIds: Array.isArray(event.payload.route_node_ids)
+            ? event.payload.route_node_ids.filter(
+                (nodeId): nodeId is string => typeof nodeId === "string",
+              )
+            : undefined,
         };
       })
       .filter(
@@ -221,6 +236,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
         };
       })
       .filter((bubble) => bubble.text.length > 0 && locationIds.has(bubble.locationId)),
+    navigation,
     ambience: {
       label: timeStyle.label,
       overlayColor: timeStyle.overlayColor,
@@ -238,6 +254,31 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
         labelColor: world.ui_config?.stage?.palette?.label_color ?? undefined,
       },
     },
+  };
+}
+
+function centerNavigation(navigation: WorldSnapshot["navigation"]): SceneNavigation {
+  if (!navigation || navigation.nodes.length === 0) {
+    return { nodes: [], edges: [], locationEntrances: {} };
+  }
+  const minX = Math.min(...navigation.nodes.map((node) => node.x));
+  const maxX = Math.max(...navigation.nodes.map((node) => node.x));
+  const minY = Math.min(...navigation.nodes.map((node) => node.y));
+  const maxY = Math.max(...navigation.nodes.map((node) => node.y));
+  const offsetX = (minX + maxX) / 2;
+  const offsetY = (minY + maxY) / 2;
+  return {
+    nodes: navigation.nodes.map((node) => ({
+      id: node.id,
+      x: node.x - offsetX,
+      z: node.y - offsetY,
+    })),
+    edges: navigation.edges.map((edge) => ({
+      fromNodeId: edge.from_node_id,
+      toNodeId: edge.to_node_id,
+      distance: edge.distance,
+    })),
+    locationEntrances: navigation.location_entrances,
   };
 }
 

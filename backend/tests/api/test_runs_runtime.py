@@ -42,6 +42,12 @@ async def test_get_world_snapshot_returns_locations_agents_and_public_events(cli
     assert body["run"]["id"] == run_id
     assert body["subject_agent_id"]
     assert len(body["locations"]) == 7
+    assert body["navigation"]["version"] == 1
+    assert body["navigation"]["nodes"]
+    assert body["navigation"]["edges"]
+    assert set(body["navigation"]["location_entrances"]) == {
+        location["id"] for location in body["locations"]
+    }
     assert any(len(location["occupants"]) >= 1 for location in body["locations"])
     occupant = next(
         occupant for location in body["locations"] for occupant in location["occupants"]
@@ -120,6 +126,9 @@ async def test_get_world_snapshot_keeps_in_transit_agent_outside_location_occupa
         "to_location_id": cafe_id,
         "started_tick": 2,
         "arrival_tick": 4,
+        "route_node_ids": [],
+        "distance": 0.0,
+        "speed": 1.5,
     }
     assert all(
         occupant["id"] != agent_id

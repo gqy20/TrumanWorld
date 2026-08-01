@@ -97,6 +97,16 @@ export type AgentMovement = {
   to_location_id: string;
   started_tick: number;
   arrival_tick: number;
+  route_node_ids?: string[];
+  distance?: number;
+  speed?: number;
+};
+
+export type WorldMapTopology = {
+  version: number;
+  nodes: Array<{ id: string; x: number; y: number }>;
+  edges: Array<{ from_node_id: string; to_node_id: string; distance: number }>;
+  location_entrances: Record<string, string>;
 };
 
 export type AgentSummary = {
@@ -173,6 +183,7 @@ export type WorldSnapshot = {
   subject_agent_id?: string | null;
   agents?: AgentSummary[];
   locations: WorldLocation[];
+  navigation?: WorldMapTopology;
   recent_events: WorldEvent[];
   director_stats?: {
     total: number;

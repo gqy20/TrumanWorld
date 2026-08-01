@@ -58,6 +58,8 @@ async def load_tick_data(
             capacity=loc.capacity,
             occupants=set(),
             location_type=loc.location_type,
+            x=loc.x,
+            y=loc.y,
         )
         for loc in locations
     }

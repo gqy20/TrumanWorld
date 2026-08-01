@@ -81,6 +81,8 @@ class ContextBuilder:
                 capacity=location.capacity,
                 occupants=set(),
                 location_type=location.location_type,
+                x=location.x,
+                y=location.y,
             )
             for location in locations
         }
