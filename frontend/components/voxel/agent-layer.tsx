@@ -47,6 +47,7 @@ export function AgentLayer({
   prefersReducedMotion: boolean;
   onAgentClick?: (agentId: string) => void;
 }) {
+  const resources = useMemo(() => buildAgentRenderResources(agents), [agents]);
   const motionByAgentId = useMemo(() => {
     const motions = new Map<string, VoxelMoveTrail>();
     for (const trail of moveTrails) {
@@ -55,6 +56,14 @@ export function AgentLayer({
     return motions;
   }, [moveTrails]);
 
+  useEffect(
+    () => () => {
+      resources.geometry.dispose();
+      for (const material of resources.materials.values()) material.dispose();
+    },
+    [resources],
+  );
+
   return (
     <>
       {agents.map((agent) => (
@@ -62,6 +71,8 @@ export function AgentLayer({
           key={agent.id}
           agent={agent}
           motion={motionByAgentId.get(agent.id)}
+          geometry={resources.geometry}
+          materials={resources.materials}
           poseMap={poseMap}
           isPaused={isPaused}
           prefersReducedMotion={prefersReducedMotion}
@@ -75,6 +86,8 @@ export function AgentLayer({
 function VoxelAgent({
   agent,
   motion,
+  geometry,
+  materials,
   poseMap,
   isPaused,
   prefersReducedMotion,
@@ -82,6 +95,8 @@ function VoxelAgent({
 }: {
   agent: VoxelAgentPlan;
   motion?: VoxelMoveTrail;
+  geometry: THREE.BoxGeometry;
+  materials: Map<number, THREE.MeshLambertMaterial>;
   poseMap: AgentPoseMap;
   isPaused: boolean;
   prefersReducedMotion: boolean;
@@ -260,30 +275,68 @@ function VoxelAgent({
         <AgentPart
           position={[0, 0.34 * heightScale, 0]}
           size={[0.22, 0.5 * heightScale, 0.18]}
-          color={appearance.torso}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.torso)}
         />
-        <AgentPart position={[0, 0.67 * heightScale, 0]} size={[0.2, 0.2, 0.2]} color={appearance.skin} />
-        <AgentPart position={[0, 0.81 * heightScale, -0.01]} size={[0.22, 0.08, 0.22]} color={appearance.hair} />
-        <AgentPart position={[0, 0.45 * heightScale, 0.1]} size={[0.13, 0.08, 0.025]} color={statusColor} />
-        <AgentPart position={[-0.15, 0.39 * heightScale, 0]} size={[0.055, 0.34, 0.06]} color={appearance.skin} />
-        <AgentPart position={[0.15, 0.39 * heightScale, 0]} size={[0.055, 0.34, 0.06]} color={appearance.skin} />
+        <AgentPart
+          position={[0, 0.67 * heightScale, 0]}
+          size={[0.2, 0.2, 0.2]}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.skin)}
+        />
+        <AgentPart
+          position={[0, 0.81 * heightScale, -0.01]}
+          size={[0.22, 0.08, 0.22]}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.hair)}
+        />
+        <AgentPart
+          position={[0, 0.45 * heightScale, 0.1]}
+          size={[0.13, 0.08, 0.025]}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, statusColor)}
+        />
+        <AgentPart
+          position={[-0.15, 0.39 * heightScale, 0]}
+          size={[0.055, 0.34, 0.06]}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.skin)}
+        />
+        <AgentPart
+          position={[0.15, 0.39 * heightScale, 0]}
+          size={[0.055, 0.34, 0.06]}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.skin)}
+        />
         {appearance.accessory === "backpack" ? (
-          <AgentPart position={[0, 0.4 * heightScale, -0.12]} size={[0.19, 0.3, 0.08]} color={appearance.accent} />
+          <AgentPart
+            position={[0, 0.4 * heightScale, -0.12]}
+            size={[0.19, 0.3, 0.08]}
+            geometry={geometry}
+            material={getAgentMaterialForColor(materials, appearance.accent)}
+          />
         ) : null}
         {appearance.accessory === "satchel" ? (
-          <AgentPart position={[0.15, 0.31 * heightScale, -0.02]} size={[0.09, 0.16, 0.08]} color={appearance.accent} />
+          <AgentPart
+            position={[0.15, 0.31 * heightScale, -0.02]}
+            size={[0.09, 0.16, 0.08]}
+            geometry={geometry}
+            material={getAgentMaterialForColor(materials, appearance.accent)}
+          />
         ) : null}
         <AgentPart
           ref={leftLegRef}
           position={[-0.07, 0.08, 0]}
           size={[0.06, 0.16, 0.06]}
-          color={appearance.trousers}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.trousers)}
         />
         <AgentPart
           ref={rightLegRef}
           position={[0.07, 0.08, 0]}
           size={[0.06, 0.16, 0.06]}
-          color={appearance.trousers}
+          geometry={geometry}
+          material={getAgentMaterialForColor(materials, appearance.trousers)}
         />
       </group>
     </group>
@@ -295,16 +348,56 @@ const AgentPart = forwardRef<
   {
     position: [number, number, number];
     size: [number, number, number];
-    color: number;
+    geometry: THREE.BoxGeometry;
+    material: THREE.MeshLambertMaterial;
   }
->(function AgentPart({ position, size, color }, ref) {
+>(function AgentPart({ position, size, geometry, material }, ref) {
   return (
-    <mesh ref={ref} position={position} scale={size} castShadow receiveShadow>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshLambertMaterial color={color} />
-    </mesh>
+    <mesh
+      ref={ref}
+      position={position}
+      scale={size}
+      geometry={geometry}
+      material={material}
+      castShadow
+      receiveShadow
+      dispose={null}
+    />
   );
 });
+
+type AgentRenderResources = {
+  geometry: THREE.BoxGeometry;
+  materials: Map<number, THREE.MeshLambertMaterial>;
+};
+
+function buildAgentRenderResources(agents: VoxelAgentPlan[]): AgentRenderResources {
+  const colors = new Set<number>();
+  for (const agent of agents) {
+    const { appearance } = agent;
+    colors.add(appearance.torso);
+    colors.add(appearance.skin);
+    colors.add(appearance.hair);
+    colors.add(appearance.accent);
+    colors.add(appearance.trousers);
+    colors.add(VOXEL_MATERIAL_COLORS[getAgentMaterial(agent.source.status)]);
+  }
+  return {
+    geometry: new THREE.BoxGeometry(1, 1, 1),
+    materials: new Map(
+      Array.from(colors, (color) => [color, new THREE.MeshLambertMaterial({ color })]),
+    ),
+  };
+}
+
+function getAgentMaterialForColor(
+  materials: Map<number, THREE.MeshLambertMaterial>,
+  color: number,
+): THREE.MeshLambertMaterial {
+  const material = materials.get(color);
+  if (!material) throw new Error(`Missing shared agent material for color ${color}`);
+  return material;
+}
 
 function publishAgentPose(poseMap: AgentPoseMap, agentId: string, position: THREE.Vector3): void {
   const current = poseMap.current.get(agentId);

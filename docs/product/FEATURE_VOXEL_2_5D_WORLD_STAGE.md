@@ -18,7 +18,9 @@
 - Road Graph 已根据 plot entrance 生成确定性道路，支持中心 hub、建筑避让和四向连接元数据
 - 类型化 Prefab 已覆盖 home、cafe、office、library、hospital、plaza、green 与 generic，并按入口方向旋转立面
 - plaza 已从“通用房屋”改为铺装、喷泉、纪念物和长椅组成的公共空间
-- 地面、道路、建筑和角色按材质与阴影属性合并为 `InstancedMesh` 批次
+- 地面、道路和建筑按材质与阴影属性合并为 `InstancedMesh` 批次
+- 角色各部位保留独立变换以支持步态，但已在同一舞台内共享 box geometry 和同色材质，避免按部位重复分配 GPU 资源
+- 舞台容器通过 `data-voxel-*` 属性暴露 FPS、draw calls、三角形、geometry 和 texture 数量，便于无侵入浏览器回归与性能基线采集
 - 选中态独立为 selection layer，不再因选中地点或角色重建 WebGL renderer
 - 正交相机根据 ScenePlan bounds 和 viewport aspect 自动取景，移动端舞台高度已单独收敛
 - 桌面端已支持滚轮缩放、鼠标拖拽平移、地点/角色点击聚焦和一键重置镜头
@@ -31,6 +33,8 @@
 - 事件层使用 9 秒气泡和 7 秒路径 TTL，支持显隐；窄屏只展示最新一条气泡
 - 生产世界页不再依赖 Phaser 导出的视图切换组件，Phaser 仅作为 legacy 实现保留
 - scenario UI 配置已将 renderer 从 `pixel` 收口为 `voxel`
+
+当前稳定版 React Three Fiber 仍会在 Three.js r183+ 输出 `THREE.Clock` 弃用提示。项目本身没有直接使用 `THREE.Clock`；在上游稳定版切换到 `THREE.Timer` 前，不通过降级 Three.js、屏蔽日志或引入 R3F v10 alpha 规避该提示。
 
 Phase 1–3 的空间底座和 Phase 5 的相机交互已经完成。Phase 4 的展示外壳仍在逐步收敛，Phase 6 已进入首批实现，舞台开始表达最近的对话与移动。
 

@@ -25,6 +25,11 @@ import {
   type VoxelMoveTrail,
 } from "./event-plan";
 import { VOXEL_MATERIAL_COLORS } from "./materials";
+import {
+  sampleVoxelRendererMetrics,
+  writeVoxelRendererMetrics,
+  type VoxelRendererMetrics,
+} from "./renderer-metrics";
 import type { VoxelWorldRendererProps } from "./renderer-types";
 import { buildVoxelScenePlan } from "./scene-plan";
 import type {
@@ -78,6 +83,7 @@ export function VoxelCanvas({
   onAgentClick,
   onLocationClick,
 }: VoxelWorldRendererProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const plan = useMemo(() => buildVoxelScenePlan(sceneWorld), [sceneWorld]);
   const activeStageEvents = useActiveVoxelStageEvents(sceneWorld);
   const movementTrails = useMemo(() => {
@@ -103,10 +109,15 @@ export function VoxelCanvas({
   const [showStageEvents, setShowStageEvents] = useState(true);
   const prefersReducedMotion = usePrefersReducedMotion();
   const stageEventCount = eventPlan.bubbles.length + eventPlan.moveTrails.length;
+  const publishRendererMetrics = useCallback((metrics: VoxelRendererMetrics) => {
+    if (containerRef.current) writeVoxelRendererMetrics(containerRef.current, metrics);
+  }, []);
 
   return (
     <div
+      ref={containerRef}
       data-testid="voxel-stage-container"
+      data-voxel-renderer="webgl"
       role="region"
       aria-label="Truman World 三维世界舞台"
       className="relative h-[380px] min-h-[380px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-[#eef5e8] shadow-xs sm:h-full sm:min-h-[520px] xl:min-h-[560px]"
@@ -136,6 +147,7 @@ export function VoxelCanvas({
           onAgentClick={onAgentClick}
           onLocationClick={onLocationClick}
         />
+        <RendererDiagnostics onSample={publishRendererMetrics} />
       </Canvas>
       <StageEventOverlay
         bubbles={showStageEvents ? eventPlan.bubbles : []}
@@ -173,6 +185,37 @@ export function VoxelCanvas({
       </p>
     </div>
   );
+}
+
+function RendererDiagnostics({
+  onSample,
+}: {
+  onSample: (metrics: VoxelRendererMetrics) => void;
+}) {
+  const gl = useThree((state) => state.gl);
+
+  useEffect(() => {
+    let previousFrame = gl.info.render.frame;
+    let previousSampleTime = performance.now();
+    const sample = () => {
+      const sampleTime = performance.now();
+      onSample(
+        sampleVoxelRendererMetrics(
+          previousFrame,
+          sampleTime - previousSampleTime,
+          gl.info.render,
+          gl.info.memory,
+        ),
+      );
+      previousFrame = gl.info.render.frame;
+      previousSampleTime = sampleTime;
+    };
+    const intervalId = window.setInterval(sample, 1000);
+    sample();
+    return () => window.clearInterval(intervalId);
+  }, [gl, onSample]);
+
+  return null;
 }
 
 function StageFallback() {
