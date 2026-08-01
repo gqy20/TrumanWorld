@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "assets:world": "node scripts/generate-world-assets.mjs",
     "start": "next start",
     "lint": "pnpm lint:eslint && pnpm lint:types",
     "lint:eslint": "eslint .",

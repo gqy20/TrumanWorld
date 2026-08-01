@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { AgentLayer, type AgentPoseMap } from "./agent-layer";
 import {
@@ -24,7 +25,13 @@ import {
   type VoxelEventPlan,
   type VoxelMoveTrail,
 } from "./event-plan";
-import { VOXEL_MATERIAL_COLORS } from "./materials";
+import {
+  getVoxelMaterialClass,
+  VOXEL_MATERIAL_CLASS_SPECS,
+  VOXEL_MATERIAL_COLORS,
+  VOXEL_MATERIAL_SPECS,
+  type VoxelMaterialClass,
+} from "./materials";
 import {
   sampleVoxelRendererMetrics,
   writeVoxelRendererMetrics,
@@ -34,18 +41,21 @@ import type { VoxelWorldRendererProps } from "./renderer-types";
 import { buildVoxelScenePlan } from "./scene-plan";
 import type {
   VoxelBlock,
+  VoxelAssetPlacement,
   VoxelBounds,
   VoxelHitTarget,
-  VoxelMaterialKey,
+  VoxelGeometryKind,
   VoxelScenePlan,
   VoxelSelectionAnchor,
   VoxelVector3,
 } from "./types";
 import { useActiveVoxelStageEvents } from "./use-stage-events";
+import { resolveWorldLightingProfile, type WorldLightingProfile } from "./visual-system";
 
 type BlockBatch = {
   key: string;
-  material: VoxelMaterialKey;
+  materialClass: VoxelMaterialClass;
+  geometry: VoxelGeometryKind;
   castShadow: boolean;
   receiveShadow: boolean;
   blocks: VoxelBlock[];
@@ -75,6 +85,15 @@ type ProjectedBubble = {
   y: number;
 };
 
+const SHARED_BLOCK_GEOMETRIES: Record<VoxelGeometryKind, THREE.BufferGeometry> = {
+  box: new THREE.BoxGeometry(1, 1, 1),
+  cone: new THREE.ConeGeometry(0.5, 1, 4),
+  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 8),
+  icosphere: new THREE.IcosahedronGeometry(0.5, 1),
+};
+
+const WORLD_ASSET_CACHE = new Map<string, Promise<THREE.Object3D>>();
+
 export function VoxelCanvas({
   sceneWorld,
   highlightedLocationId,
@@ -103,7 +122,10 @@ export function VoxelCanvas({
       ),
     [activeStageEvents.bubbles, movementTrails, plan],
   );
-  const backgroundColor = sceneWorld.stage.palette?.backgroundColor ?? "#eef5e8";
+  const lightingProfile = useMemo(
+    () => resolveWorldLightingProfile(sceneWorld.ambience.timeOfDay),
+    [sceneWorld.ambience.timeOfDay],
+  );
   const [cameraResetRevision, setCameraResetRevision] = useState(0);
   const [projectedBubbles, setProjectedBubbles] = useState<ProjectedBubble[]>([]);
   const [showStageEvents, setShowStageEvents] = useState(true);
@@ -132,9 +154,11 @@ export function VoxelCanvas({
         style={{ cursor: "grab", touchAction: "pan-y" }}
         fallback={<StageFallback />}
       >
-        <color attach="background" args={[backgroundColor]} />
+        <color attach="background" args={[lightingProfile.background]} />
+        <fog attach="fog" args={[lightingProfile.fog, 24, 52]} />
         <StageScene
           plan={plan}
+          lightingProfile={lightingProfile}
           highlightedLocationId={highlightedLocationId}
           highlightedAgentId={highlightedAgentId}
           cameraFocusRequest={cameraFocusRequest}
@@ -228,6 +252,7 @@ function StageFallback() {
 
 function StageScene({
   plan,
+  lightingProfile,
   highlightedLocationId,
   highlightedAgentId,
   cameraFocusRequest,
@@ -241,6 +266,7 @@ function StageScene({
   onLocationClick,
 }: {
   plan: VoxelScenePlan;
+  lightingProfile: WorldLightingProfile;
   highlightedLocationId?: string | null;
   highlightedAgentId?: string | null;
   cameraFocusRequest?: VoxelCameraFocusRequest | null;
@@ -266,22 +292,34 @@ function StageScene({
 
   return (
     <>
+      <RendererConfiguration exposure={lightingProfile.exposure} />
       <CameraRig
         bounds={plan.bounds}
         focusRequest={resolvedCameraFocus}
         resetRevision={cameraResetRevision}
         agentPosesRef={agentPosesRef}
       />
-      <hemisphereLight args={[0xffffff, 0x9fb18d, 2.2]} />
+      <hemisphereLight
+        args={[
+          lightingProfile.hemisphereSky,
+          lightingProfile.hemisphereGround,
+          lightingProfile.hemisphereIntensity,
+        ]}
+      />
       <directionalLight
         castShadow
-        color={0xffffff}
-        intensity={2.4}
-        position={[6, 10, 5]}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        color={lightingProfile.sun}
+        intensity={lightingProfile.sunIntensity}
+        position={lightingProfile.sunPosition}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-camera-near={0.1}
         shadow-camera-far={40}
+        shadow-bias={-0.00015}
+      />
+      <WorldAssetLayer
+        placements={plan.assets}
+        onLocationClick={onLocationClick}
       />
       {batches.map((batch) => (
         <InstancedBlockBatch
@@ -315,6 +353,208 @@ function StageScene({
       />
     </>
   );
+}
+
+function WorldAssetLayer({
+  placements,
+  onLocationClick,
+}: {
+  placements: VoxelAssetPlacement[];
+  onLocationClick?: (locationId: string) => void;
+}) {
+  const batches = useMemo(() => {
+    const grouped = new Map<string, VoxelAssetPlacement[]>();
+    for (const placement of placements) {
+      const batch = grouped.get(placement.assetId) ?? [];
+      batch.push(placement);
+      grouped.set(placement.assetId, batch);
+    }
+    return Array.from(grouped.entries());
+  }, [placements]);
+  return (
+    <>
+      {batches.map(([assetId, assetPlacements]) => (
+        <WorldAssetBatch
+          key={assetId}
+          placements={assetPlacements}
+          onLocationClick={onLocationClick}
+        />
+      ))}
+    </>
+  );
+}
+
+type LoadedAssetMesh = {
+  geometry: THREE.BufferGeometry;
+  localMatrix: THREE.Matrix4;
+  material: THREE.Material | THREE.Material[];
+  name: string;
+};
+
+function WorldAssetBatch({
+  placements,
+  onLocationClick,
+}: {
+  placements: VoxelAssetPlacement[];
+  onLocationClick?: (locationId: string) => void;
+}) {
+  const [assetMeshes, setAssetMeshes] = useState<LoadedAssetMesh[] | null>(null);
+  const invalidate = useThree((state) => state.invalidate);
+  const uri = placements[0]?.uri;
+
+  useEffect(() => {
+    if (!uri) return;
+    let isActive = true;
+    loadWorldAsset(uri)
+      .then((source) => {
+        if (!isActive) return;
+        setAssetMeshes(collectAssetMeshes(source));
+        invalidate();
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setAssetMeshes(null);
+        invalidate();
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [invalidate, uri]);
+
+  if (!assetMeshes || assetMeshes.length === 0) {
+    return (
+      <WorldAssetFallback
+        blocks={placements.flatMap((placement) => placement.fallbackBlocks)}
+        onLocationClick={onLocationClick}
+      />
+    );
+  }
+
+  return (
+    <>
+      {assetMeshes.map((assetMesh) => (
+        <WorldAssetMeshBatch
+          key={assetMesh.name}
+          assetMesh={assetMesh}
+          placements={placements}
+          onLocationClick={onLocationClick}
+        />
+      ))}
+    </>
+  );
+}
+
+function WorldAssetMeshBatch({
+  assetMesh,
+  placements,
+  onLocationClick,
+}: {
+  assetMesh: LoadedAssetMesh;
+  placements: VoxelAssetPlacement[];
+  onLocationClick?: (locationId: string) => void;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const invalidate = useThree((state) => state.invalidate);
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const transform = new THREE.Object3D();
+    placements.forEach((placement, index) => {
+      transform.position.set(placement.position.x, placement.position.y, placement.position.z);
+      transform.rotation.set(0, placement.rotationY, 0);
+      transform.scale.set(placement.scale.x, placement.scale.y, placement.scale.z);
+      transform.updateMatrix();
+      transform.matrix.multiply(assetMesh.localMatrix);
+      mesh.setMatrixAt(index, transform.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    invalidate();
+  }, [assetMesh.localMatrix, invalidate, placements]);
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[assetMesh.geometry, assetMesh.material, placements.length]}
+      castShadow
+      receiveShadow
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        const placement =
+          event.instanceId === undefined ? undefined : placements[event.instanceId];
+        if (!placement) return;
+        event.stopPropagation();
+        onLocationClick?.(placement.locationId);
+      }}
+    />
+  );
+}
+
+function collectAssetMeshes(source: THREE.Object3D): LoadedAssetMesh[] {
+  source.updateMatrixWorld(true);
+  const meshes: LoadedAssetMesh[] = [];
+  source.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    meshes.push({
+      geometry: child.geometry,
+      localMatrix: child.matrixWorld.clone(),
+      material: child.material,
+      name: child.name || child.uuid,
+    });
+  });
+  return meshes;
+}
+
+function WorldAssetFallback({
+  blocks,
+  onLocationClick,
+}: {
+  blocks: VoxelBlock[];
+  onLocationClick?: (locationId: string) => void;
+}) {
+  const batches = useMemo(() => buildBlockBatches(blocks), [blocks]);
+  return (
+    <>
+      {batches.map((batch) => (
+        <InstancedBlockBatch
+          key={`fallback:${batch.key}`}
+          batch={batch}
+          onLocationClick={onLocationClick}
+        />
+      ))}
+    </>
+  );
+}
+
+function loadWorldAsset(uri: string): Promise<THREE.Object3D> {
+  const cached = WORLD_ASSET_CACHE.get(uri);
+  if (cached) return cached;
+  const pending = new Promise<THREE.Object3D>((resolve, reject) => {
+    new GLTFLoader().load(uri, (gltf) => resolve(gltf.scene), undefined, reject);
+  }).catch((error) => {
+    WORLD_ASSET_CACHE.delete(uri);
+    throw error;
+  });
+  WORLD_ASSET_CACHE.set(uri, pending);
+  return pending;
+}
+
+function RendererConfiguration({ exposure }: { exposure: number }) {
+  const gl = useThree((state) => state.gl);
+  const rendererRef = useRef(gl);
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.AgXToneMapping;
+    renderer.toneMappingExposure = exposure;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    invalidate();
+  }, [exposure, invalidate]);
+
+  return null;
 }
 
 function StageEventOverlay({
@@ -466,6 +706,10 @@ function MoveTrailMarkers({ trail }: { trail: VoxelMoveTrail }) {
       />
     </instancedMesh>
   );
+}
+
+function BatchGeometry({ kind }: { kind: VoxelGeometryKind }) {
+  return <primitive attach="geometry" object={SHARED_BLOCK_GEOMETRIES[kind]} />;
 }
 
 function resolveBubbleCollisions(
@@ -794,6 +1038,7 @@ function InstancedBlockBatch({
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const invalidate = useThree((state) => state.invalidate);
+  const material = VOXEL_MATERIAL_CLASS_SPECS[batch.materialClass];
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -805,8 +1050,10 @@ function InstancedBlockBatch({
       transform.scale.set(block.size.x, block.size.y, block.size.z);
       transform.updateMatrix();
       mesh.setMatrixAt(index, transform.matrix);
+      mesh.setColorAt(index, new THREE.Color(VOXEL_MATERIAL_SPECS[block.material].color));
     });
     mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
     invalidate();
   }, [batch.blocks, invalidate]);
@@ -827,8 +1074,14 @@ function InstancedBlockBatch({
       receiveShadow={batch.receiveShadow}
       onClick={handleClick}
     >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshLambertMaterial color={VOXEL_MATERIAL_COLORS[batch.material]} />
+      <BatchGeometry kind={batch.geometry} />
+      <meshStandardMaterial
+        color={material.color}
+        roughness={material.roughness}
+        metalness={material.metalness ?? 0}
+        emissive={material.emissive ?? 0x000000}
+        emissiveIntensity={material.emissiveIntensity ?? 0}
+      />
     </instancedMesh>
   );
 }
@@ -927,10 +1180,12 @@ function SelectionMarker({
 function buildBlockBatches(blocks: VoxelBlock[]): BlockBatch[] {
   const batches = new Map<string, BlockBatch>();
   for (const block of blocks) {
-    const key = `${block.material}:${Number(block.castShadow)}:${Number(block.receiveShadow)}`;
+    const materialClass = getVoxelMaterialClass(block.material);
+    const key = `${block.geometry}:${materialClass}:${Number(block.castShadow)}:${Number(block.receiveShadow)}`;
     const batch = batches.get(key) ?? {
       key,
-      material: block.material,
+      materialClass,
+      geometry: block.geometry,
       castShadow: block.castShadow,
       receiveShadow: block.receiveShadow,
       blocks: [],

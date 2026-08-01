@@ -4,7 +4,12 @@ import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-import { buildVoxelAgentInstanceParts, type VoxelAgentInstancePart } from "./agent-instances";
+import {
+  buildVoxelAgentInstanceParts,
+  type VoxelAgentGeometryKind,
+  type VoxelAgentInstancePart,
+  VOXEL_AGENT_GEOMETRY_KINDS,
+} from "./agent-instances";
 import {
   advanceVoxelMotionProgress,
   buildVoxelMotionPath,
@@ -34,6 +39,11 @@ type AgentRuntime = {
   rotationY: number;
 };
 
+type AgentPartBatch = {
+  geometry: VoxelAgentGeometryKind;
+  parts: VoxelAgentInstancePart[];
+};
+
 export function AgentLayer({
   agents,
   moveTrails,
@@ -49,12 +59,24 @@ export function AgentLayer({
   prefersReducedMotion: boolean;
   onAgentClick?: (agentId: string) => void;
 }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const meshRefs = useRef<Partial<Record<VoxelAgentGeometryKind, THREE.InstancedMesh>>>({});
   const runtimesRef = useRef<Map<string, AgentRuntime>>(new Map());
   const previousPausedRef = useRef(isPaused);
   const transformRef = useRef({ root: new THREE.Object3D(), part: new THREE.Object3D() });
   const invalidate = useThree((state) => state.invalidate);
   const parts = useMemo(() => buildVoxelAgentInstanceParts(agents), [agents]);
+  const batches = useMemo<AgentPartBatch[]>(
+    () =>
+      VOXEL_AGENT_GEOMETRY_KINDS.map((geometry) => ({
+        geometry,
+        parts: parts.filter((part) => part.geometry === geometry),
+      })).filter((batch) => batch.parts.length > 0),
+    [parts],
+  );
+  const material = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0, roughness: 0.84 }),
+    [],
+  );
   const motionByAgentId = useMemo(() => {
     const motions = new Map<string, VoxelMoveTrail>();
     for (const trail of moveTrails) {
@@ -64,8 +86,6 @@ export function AgentLayer({
   }, [moveTrails]);
 
   useLayoutEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
     const wasPaused = previousPausedRef.current;
     previousPausedRef.current = isPaused;
     const activeAgentIds = new Set(agents.map((agent) => agent.id));
@@ -89,22 +109,26 @@ export function AgentLayer({
       publishAgentPose(poseMap, agent.id, runtime.position);
     }
 
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    parts.forEach((part, index) => mesh.setColorAt(index, new THREE.Color(part.color)));
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    updateAgentInstanceMatrices(
-      mesh,
-      parts,
-      runtimesRef.current,
-      transformRef.current,
-    );
+    for (const batch of batches) {
+      const mesh = meshRefs.current[batch.geometry];
+      if (!mesh) continue;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      batch.parts.forEach((part, index) => mesh.setColorAt(index, new THREE.Color(part.color)));
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      updateAgentInstanceMatrices(
+        mesh,
+        batch.parts,
+        runtimesRef.current,
+        transformRef.current,
+      );
+    }
     invalidate();
   }, [
     agents,
+    batches,
     invalidate,
     isPaused,
     motionByAgentId,
-    parts,
     poseMap,
     prefersReducedMotion,
   ]);
@@ -116,28 +140,33 @@ export function AgentLayer({
     [poseMap],
   );
 
+  useEffect(() => () => material.dispose(), [material]);
+
   useFrame((_state, delta) => {
-    const mesh = meshRef.current;
-    if (!mesh || isPaused) return;
+    if (isPaused) return;
     const { changed, needsNextFrame } = advanceAgentAnimations(
       runtimesRef.current,
       poseMap,
       delta,
     );
     if (changed) {
-      updateAgentInstanceMatrices(
-        mesh,
-        parts,
-        runtimesRef.current,
-        transformRef.current,
-      );
+      for (const batch of batches) {
+        const mesh = meshRefs.current[batch.geometry];
+        if (!mesh) continue;
+        updateAgentInstanceMatrices(
+          mesh,
+          batch.parts,
+          runtimesRef.current,
+          transformRef.current,
+        );
+      }
     }
     if (needsNextFrame) invalidate();
   });
 
-  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+  const handleClick = (event: ThreeEvent<MouseEvent>, batchParts: VoxelAgentInstancePart[]) => {
     const agentId =
-      event.instanceId === undefined ? undefined : parts[event.instanceId]?.agentId;
+      event.instanceId === undefined ? undefined : batchParts[event.instanceId]?.agentId;
     if (!agentId) return;
     event.stopPropagation();
     onAgentClick?.(agentId);
@@ -145,18 +174,39 @@ export function AgentLayer({
 
   if (parts.length === 0) return null;
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, parts.length]}
-      castShadow
-      receiveShadow
-      frustumCulled={false}
-      onClick={handleClick}
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshLambertMaterial color={0xffffff} />
-    </instancedMesh>
+    <group>
+      {batches.map((batch) => (
+        <instancedMesh
+          key={batch.geometry}
+          ref={(mesh) => {
+            if (mesh) meshRefs.current[batch.geometry] = mesh;
+            else delete meshRefs.current[batch.geometry];
+          }}
+          args={[undefined, undefined, batch.parts.length]}
+          material={material}
+          castShadow
+          receiveShadow
+          frustumCulled={false}
+          onClick={(event) => handleClick(event, batch.parts)}
+        >
+          <AgentPartGeometry kind={batch.geometry} />
+        </instancedMesh>
+      ))}
+    </group>
   );
+}
+
+function AgentPartGeometry({ kind }: { kind: VoxelAgentGeometryKind }) {
+  switch (kind) {
+    case "head":
+      return <icosahedronGeometry args={[0.5, 1]} />;
+    case "limb":
+      return <cylinderGeometry args={[0.5, 0.5, 1, 6]} />;
+    case "torso":
+      return <cylinderGeometry args={[0.42, 0.56, 1, 6]} />;
+    default:
+      return <boxGeometry args={[1, 1, 1]} />;
+  }
 }
 
 function advanceAgentAnimations(
@@ -307,7 +357,11 @@ function updateAgentInstanceMatrices(
       part.position.y + runtime.bodyBob,
       part.position.z,
     );
-    transforms.part.rotation.set(runtime.gaitSwing * part.gaitDirection, 0, 0);
+    transforms.part.rotation.set(
+      part.rotation.x + runtime.gaitSwing * part.gaitDirection,
+      part.rotation.y,
+      part.rotation.z,
+    );
     transforms.part.scale.set(part.size.x, part.size.y, part.size.z);
     transforms.part.updateMatrix();
     transforms.part.matrix.premultiply(transforms.root.matrix);

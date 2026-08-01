@@ -54,11 +54,14 @@ describe("voxel scene plan", () => {
     const second = buildVoxelScenePlan(world);
 
     expect(second).toEqual(first);
-    expect(first.blocks.length).toBeGreaterThan(250);
+    expect(first.blocks.length).toBeGreaterThan(30);
     expect(first.roads.length).toBeGreaterThan(0);
     expect(new Set(first.blocks.map((block) => block.id)).size).toBe(first.blocks.length);
     expect(first.blocks.every((block) => Object.values(block.size).every((size) => size > 0)))
       .toBe(true);
+    expect(new Set(first.blocks.map((block) => block.geometry))).toEqual(
+      new Set(["box", "cone", "cylinder", "icosphere"]),
+    );
   });
 
   it("exposes stable location targets and dynamic agent plans for renderer interactions", () => {
@@ -77,6 +80,37 @@ describe("voxel scene plan", () => {
     expect(plan.agents.map((agent) => agent.id)).toContain("agent-1");
     expect(plan.locationAnchors.cafe).toBeDefined();
     expect(plan.agentAnchors["agent-1"]).toBeDefined();
+  });
+
+  it("replaces ready location prefabs with an asset placement and keeps fallback data", () => {
+    const plan = buildVoxelScenePlan(makeSceneWorld());
+
+    expect(plan.assets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          assetId: "cafe.corner",
+          locationId: "cafe",
+          uri: "/world/buildings/cafe-corner.glb",
+        }),
+        expect.objectContaining({
+          assetId: "park.old-oak",
+          locationId: "park",
+          uri: "/world/vegetation/old-oak.glb",
+        }),
+      ]),
+    );
+    expect(plan.assets).toHaveLength(2);
+    expect(plan.assets[0].fallbackBlocks.length).toBeGreaterThan(0);
+    expect(plan.blocks.some((block) => block.id.startsWith("location-cafe-"))).toBe(false);
+    expect(plan.blocks.some((block) => block.id.startsWith("location-park-"))).toBe(false);
+  });
+
+  it("rounds junction paving while preserving straight road sections", () => {
+    const plan = buildVoxelScenePlan(makeSceneWorld());
+    const roadSurfaces = plan.blocks.filter((block) => block.id.startsWith("road-") && block.material === "road");
+
+    expect(roadSurfaces.some((block) => block.geometry === "cylinder")).toBe(true);
+    expect(roadSurfaces.some((block) => block.geometry === "box")).toBe(true);
   });
 
   it("calculates finite bounds that contain every block", () => {

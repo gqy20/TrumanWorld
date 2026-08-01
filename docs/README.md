@@ -25,7 +25,8 @@
 2. 看 [product/FEATURE_AGENT_TRANSIT.md](product/FEATURE_AGENT_TRANSIT.md)
 3. 看 [product/FEATURE_WORLD_2D_SCENE.md](product/FEATURE_WORLD_2D_SCENE.md)
 4. 看 [product/FEATURE_VOXEL_2_5D_WORLD_STAGE.md](product/FEATURE_VOXEL_2_5D_WORLD_STAGE.md)
-5. 如需历史基线，补看 [references/PRD.md](references/PRD.md)
+5. 看 [product/FEATURE_3D_STAGE_V2.md](product/FEATURE_3D_STAGE_V2.md)
+6. 如需历史基线，补看 [references/PRD.md](references/PRD.md)
 
 ### 我想准备比赛或面试介绍
 

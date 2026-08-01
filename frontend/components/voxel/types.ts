@@ -73,11 +73,14 @@ export type VoxelHitTarget = {
   id: string;
 };
 
+export type VoxelGeometryKind = "box" | "cone" | "cylinder" | "icosphere";
+
 export type VoxelBlock = {
   id: string;
   position: VoxelVector3;
   size: VoxelVector3;
   material: VoxelMaterialKey;
+  geometry: VoxelGeometryKind;
   rotationY: number;
   castShadow: boolean;
   receiveShadow: boolean;
@@ -88,6 +91,7 @@ export type VoxelPrefabBlock = {
   position: VoxelVector3;
   size: VoxelVector3;
   material: VoxelMaterialKey;
+  geometry?: VoxelGeometryKind;
   rotationY?: number;
   castShadow?: boolean;
   receiveShadow?: boolean;
@@ -119,6 +123,16 @@ export type VoxelAgentPlan = {
   appearance: VoxelAgentAppearance;
 };
 
+export type VoxelAssetPlacement = {
+  assetId: string;
+  fallbackBlocks: VoxelBlock[];
+  locationId: string;
+  position: VoxelVector3;
+  rotationY: number;
+  scale: VoxelVector3;
+  uri: `/world/${string}.glb`;
+};
+
 export type VoxelRoadConnections = {
   north: boolean;
   east: boolean;
@@ -134,6 +148,7 @@ export type VoxelRoadTile = VoxelPoint & {
 
 export type VoxelScenePlan = {
   blocks: VoxelBlock[];
+  assets: VoxelAssetPlacement[];
   agents: VoxelAgentPlan[];
   bounds: VoxelBounds;
   plots: VoxelPlot[];

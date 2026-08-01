@@ -29,7 +29,7 @@ export function calculateVoxelCameraFrame(
   const projectedWidth = (spanX + spanZ) * 0.72;
   const projectedHeight = (spanX + spanZ) * 0.34 + spanY;
   const viewHeight =
-    Math.max(projectedHeight, projectedWidth / Math.max(0.35, aspect)) * 1.12;
+    Math.max(projectedHeight, projectedWidth / Math.max(0.35, aspect)) * 1.18;
   const distance = Math.max(spanX, spanZ, 10) * 0.9;
 
   return {

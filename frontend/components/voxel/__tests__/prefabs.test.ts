@@ -77,7 +77,16 @@ describe("voxel location prefabs", () => {
       entranceDirection.x * facadeDirection.x + entranceDirection.z * facadeDirection.z;
 
     expect(dot).toBeGreaterThan(0);
-    expect(prefab.blocks.every((block) => block.rotationY === -Math.PI / 2)).toBe(true);
+    expect(door.rotationY).toBe(-Math.PI / 2);
+  });
+
+  it("uses low-poly geometry to break the voxel-box silhouette", () => {
+    const home = buildLocationPrefab(makePlot("home").source, makePlot("home"));
+    const park = buildLocationPrefab(makePlot("green").source, makePlot("green"));
+
+    expect(home.blocks.some((block) => block.geometry === "cone")).toBe(true);
+    expect(park.blocks.some((block) => block.geometry === "cylinder")).toBe(true);
+    expect(park.blocks.some((block) => block.geometry === "icosphere")).toBe(true);
   });
 });
 

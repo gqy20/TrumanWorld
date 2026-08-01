@@ -197,15 +197,19 @@ describe("WorldPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Voxel Library" }));
 
-    expect(await screen.findByText("Location modal library")).toBeInTheDocument();
+    expect(screen.getByTestId("world-inspector")).not.toHaveClass("hidden");
+    expect(screen.getByRole("button", { name: "关闭世界信息" })).toBeInTheDocument();
     expect(screen.getByTestId("voxel-camera-focus")).toHaveTextContent("location:library:1");
-    expect(window.location.search).toBe("?modal=location&loc=library");
+    expect(window.location.search).toBe("?loc=library");
+
+    fireEvent.click(screen.getByTitle("放大查看地点详情"));
+    expect(await screen.findByText("Location modal library")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Voxel Mei" }));
 
     expect(await screen.findByText("Agent modal agent-1")).toBeInTheDocument();
     expect(screen.getByTestId("voxel-camera-focus")).toHaveTextContent("agent:agent-1:2");
-    expect(window.location.search).toBe("?modal=agent&loc=library&agent=agent-1");
+    expect(window.location.search).toBe("?loc=library&modal=agent&agent=agent-1");
   });
 
   it("switches from voxel to SVG renderer and keeps SVG click flows wired", async () => {
@@ -220,38 +224,37 @@ describe("WorldPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "SVG Cafe" }));
 
-    expect(await screen.findByText("Location modal cafe")).toBeInTheDocument();
-    expect(window.location.search).toBe("?modal=location&loc=cafe");
+    expect(screen.getByTestId("world-inspector")).not.toHaveClass("hidden");
+    expect(window.location.search).toBe("?loc=cafe");
   });
 
-  it("toggles the desktop stage focus layout and exits it with Escape", async () => {
+  it("keeps the world full width and toggles its contextual inspector", async () => {
     renderWorldPage({ initialWorld: world });
 
     await screen.findByTestId("voxel-stage-container");
     const layout = screen.getByTestId("world-stage-layout");
     const inspector = screen.getByTestId("world-inspector");
-    const focusButton = screen.getByRole("button", { name: "聚焦舞台" });
+    const inspectorButton = screen.getByRole("button", { name: "打开世界信息" });
 
-    expect(focusButton).toHaveAttribute("aria-pressed", "false");
-    expect(layout).toHaveClass("xl:grid-cols-[minmax(720px,1fr)_340px]");
-    expect(inspector).not.toHaveClass("xl:hidden");
+    expect(inspectorButton).toHaveAttribute("aria-expanded", "false");
+    expect(layout).toHaveClass("grid-cols-1");
+    expect(inspector).toHaveClass("hidden");
 
-    fireEvent.click(focusButton);
+    fireEvent.click(inspectorButton);
 
-    expect(screen.getByRole("button", { name: "显示信息栏" })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("button", { name: "收起世界信息" })).toHaveAttribute(
+      "aria-expanded",
       "true",
     );
-    expect(layout).toHaveClass("xl:grid-cols-1");
-    expect(inspector).toHaveClass("xl:hidden");
+    expect(inspector).not.toHaveClass("hidden");
 
     fireEvent.keyDown(window, { key: "Escape" });
 
-    expect(screen.getByRole("button", { name: "聚焦舞台" })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("button", { name: "打开世界信息" })).toHaveAttribute(
+      "aria-expanded",
       "false",
     );
-    expect(inspector).not.toHaveClass("xl:hidden");
+    expect(inspector).toHaveClass("hidden");
   });
 
   it("shows the world load error when the backend is unavailable", async () => {

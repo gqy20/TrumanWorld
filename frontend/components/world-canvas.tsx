@@ -43,7 +43,7 @@ export function WorldCanvas({ runId }: Props) {
   const { searchParams, replaceSearchParams } = useUiSearchParams();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
   const [mapView, setMapView] = useState<WorldView>("voxel");
-  const [isStageFocused, setIsStageFocused] = useState(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [cameraFocusRequest, setCameraFocusRequest] =
     useState<VoxelCameraFocusRequest | null>(null);
 
@@ -92,13 +92,13 @@ export function WorldCanvas({ runId }: Props) {
   }, [world, selectedLocationIdFromQuery]);
 
   useEffect(() => {
-    if (!isStageFocused) return;
-    const exitFocusMode = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsStageFocused(false);
+    if (!isInspectorOpen) return;
+    const closeInspector = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsInspectorOpen(false);
     };
-    window.addEventListener("keydown", exitFocusMode);
-    return () => window.removeEventListener("keydown", exitFocusMode);
-  }, [isStageFocused]);
+    window.addEventListener("keydown", closeInspector);
+    return () => window.removeEventListener("keydown", closeInspector);
+  }, [isInspectorOpen]);
 
   const { agentNameMap, locationNameMap } = useMemo(() => {
     if (!world) {
@@ -142,9 +142,7 @@ export function WorldCanvas({ runId }: Props) {
     <div className="flex min-h-0 flex-col gap-4 xl:h-full">
       <div
         data-testid="world-stage-layout"
-        className={`grid min-h-0 min-w-0 gap-4 xl:h-full ${
-          isStageFocused ? "xl:grid-cols-1" : "xl:grid-cols-[minmax(720px,1fr)_340px]"
-        }`}
+        className="relative grid min-h-0 min-w-0 grid-cols-1 xl:h-full"
       >
         <div className="min-w-0 sm:min-h-[620px] xl:h-full">
           <div className="flex h-full min-h-0 min-w-0 flex-col sm:min-h-[460px]">
@@ -155,14 +153,15 @@ export function WorldCanvas({ runId }: Props) {
                 </div>
                 <button
                   type="button"
-                  aria-pressed={isStageFocused}
-                  aria-label={isStageFocused ? "显示信息栏" : "聚焦舞台"}
-                  title={isStageFocused ? "显示信息栏（Esc）" : "聚焦舞台"}
-                  onClick={() => setIsStageFocused((current) => !current)}
-                  className="pointer-events-auto hidden h-9 items-center gap-2 rounded-xl bg-white/95 px-3 text-xs font-medium text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.12)] transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 xl:inline-flex"
+                  aria-expanded={isInspectorOpen}
+                  aria-controls="world-inspector"
+                  aria-label={isInspectorOpen ? "收起世界信息" : "打开世界信息"}
+                  title={isInspectorOpen ? "关闭世界信息（Esc）" : "打开世界信息"}
+                  onClick={() => setIsInspectorOpen((current) => !current)}
+                  className="pointer-events-auto inline-flex h-9 items-center gap-2 rounded-xl bg-[#f7f7f3]/95 px-3 text-xs font-medium text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.12)] transition-colors duration-200 hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
                 >
-                  {isStageFocused ? <PanelOpenIcon /> : <FocusIcon />}
-                  <span>{isStageFocused ? "显示信息" : "聚焦舞台"}</span>
+                  <PanelOpenIcon />
+                  <span>{isInspectorOpen ? "收起信息" : "世界信息"}</span>
                 </button>
               </div>
               {mapView === "voxel" && sceneWorld ? (
@@ -173,8 +172,9 @@ export function WorldCanvas({ runId }: Props) {
                   cameraFocusRequest={cameraFocusRequest}
                   onLocationClick={(locationId) => {
                     setHighlightedLocationId(locationId);
+                    setIsInspectorOpen(true);
                     requestCameraFocus("location", locationId);
-                    replaceSearchParams({ modal: "location", loc: locationId });
+                    replaceSearchParams({ loc: locationId, modal: null });
                   }}
                   onAgentClick={(agentId) => {
                     const targetLocationId =
@@ -196,7 +196,8 @@ export function WorldCanvas({ runId }: Props) {
                   highlightedLocationId={highlightedLocationId}
                   onLocationClick={(locationId) => {
                     setHighlightedLocationId(locationId);
-                    replaceSearchParams({ modal: "location", loc: locationId });
+                    setIsInspectorOpen(true);
+                    replaceSearchParams({ loc: locationId, modal: null });
                   }}
                   onAgentClick={(agentId) => {
                     replaceSearchParams({ modal: "agent", agent: agentId });
@@ -210,12 +211,26 @@ export function WorldCanvas({ runId }: Props) {
         {/* 右侧：世界状态、地点详情、故事线 */}
         <ScrollArea
           as="aside"
+          id="world-inspector"
           data-testid="world-inspector"
           aria-label="世界信息"
-          className={`flex min-h-0 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-3 pb-6 ${
-            isStageFocused ? "xl:hidden" : ""
-          }`}
+          aria-hidden={!isInspectorOpen}
+          className={`absolute inset-y-3 right-3 z-30 w-[min(340px,calc(100%-1.5rem))] overflow-y-auto overflow-x-hidden rounded-2xl border border-[#d8d8d0] bg-[#f7f7f3] p-4 shadow-[0_12px_36px_rgba(23,32,51,0.18)] ${isInspectorOpen ? "flex flex-col gap-5" : "hidden"}`}
         >
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Director view</p>
+              <h2 className="mt-1 text-sm font-semibold text-ink">世界信息</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsInspectorOpen(false)}
+              aria-label="关闭世界信息"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors duration-200 hover:border-slate-300 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              <CloseIcon />
+            </button>
+          </div>
           {/* 世界健康度面板 */}
           {healthMetrics && <WorldHealthPanel metrics={healthMetrics} runId={runId} world={world} />}
 
@@ -311,33 +326,30 @@ export function WorldCanvas({ runId }: Props) {
             onExpand={() => replaceSearchParams({ modal: "timeline" })}
           />
 
-          {/* 保留情报流模态框功能 */}
-          {world && (
-            <IntelligenceStreamModal
-              isOpen={isStreamExpanded}
-              onClose={() => replaceSearchParams({ modal: null })}
-              world={world}
-              runId={runId}
-              maxEvents={world.health_metrics_config?.ui_intelligence_stream_max_events}
-              pollIntervalMs={world.health_metrics_config?.ui_intelligence_stream_poll_interval}
-            />
-          )}
-
-          {/* 保留地点详情模态框 */}
-          {world && selectedLocation && (
-            <LocationDetailModal
-              isOpen={isLocationExpanded}
-              onClose={() => replaceSearchParams({ modal: null })}
-              world={world}
-              locationId={selectedLocation.id}
-              onLocationChange={(locId) => {
-                setHighlightedLocationId(locId);
-                replaceSearchParams({ modal: "location", loc: locId });
-              }}
-              runId={runId}
-            />
-          )}
         </ScrollArea>
+
+        <IntelligenceStreamModal
+          isOpen={isStreamExpanded}
+          onClose={() => replaceSearchParams({ modal: null })}
+          world={world}
+          runId={runId}
+          maxEvents={world.health_metrics_config?.ui_intelligence_stream_max_events}
+          pollIntervalMs={world.health_metrics_config?.ui_intelligence_stream_poll_interval}
+        />
+
+        {selectedLocation && (
+          <LocationDetailModal
+            isOpen={isLocationExpanded}
+            onClose={() => replaceSearchParams({ modal: null })}
+            world={world}
+            locationId={selectedLocation.id}
+            onLocationChange={(locId) => {
+              setHighlightedLocationId(locId);
+              replaceSearchParams({ modal: "location", loc: locId });
+            }}
+            runId={runId}
+          />
+        )}
 
         {/* 事件回放弹窗 */}
         <TimelineModal
@@ -361,11 +373,11 @@ export function WorldCanvas({ runId }: Props) {
   );
 }
 
-function FocusIcon() {
+function CloseIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
       <path
-        d="M7 3H3v4M13 3h4v4M7 17H3v-4m10 4h4v-4"
+        d="m6 6 8 8m0-8-8 8"
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"

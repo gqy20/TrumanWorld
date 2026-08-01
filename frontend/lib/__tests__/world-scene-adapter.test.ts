@@ -64,4 +64,14 @@ describe("buildSceneWorld", () => {
       buildSceneWorld({ ...base, run: { ...base.run, status: "paused" } }).isRunning,
     ).toBe(false);
   });
+
+  it("exposes canonical time data for the renderer lighting system", () => {
+    const base = makeWorldSnapshot();
+    const scene = buildSceneWorld({
+      ...base,
+      world_clock: { ...base.world_clock!, hour: 19, time: "19:00" },
+    });
+
+    expect(scene.ambience).toEqual(expect.objectContaining({ hour: 19, timeOfDay: "evening" }));
+  });
 });

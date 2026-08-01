@@ -6,6 +6,7 @@ import {
   calculateLocationHeat,
   getTimeOfDay,
   getTimeOfDayStyle,
+  type TimeOfDay,
 } from "@/lib/world-utils";
 
 export type SceneLocationVisual = {
@@ -90,6 +91,8 @@ export type SceneWorld = {
     label: string;
     overlayColor: string;
     isDark: boolean;
+    hour?: number;
+    timeOfDay?: TimeOfDay;
   };
   stage: {
     theme?: string;
@@ -241,6 +244,8 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
       label: timeStyle.label,
       overlayColor: timeStyle.overlayColor,
       isDark: timeStyle.isDark,
+      hour: world.world_clock?.hour ?? 12,
+      timeOfDay,
     },
     stage: {
       theme: world.ui_config?.stage?.theme ?? undefined,
