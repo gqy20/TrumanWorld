@@ -97,7 +97,7 @@ backend-integration-test:
 	cd $(BACKEND_DIR) && TRUMANWORLD_TEST_POSTGRES_URL="$(DATABASE_URL)" uv run pytest -m integration
 
 backend-migration-check:
-	cd $(BACKEND_DIR) && TRUMANWORLD_DATABASE_URL="$${TRUMANWORLD_DATABASE_URL:-$(DATABASE_URL)}" uv run alembic upgrade head
+	cd $(BACKEND_DIR) && uv run alembic upgrade head
 
 frontend-test:
 	cd $(FRONTEND_DIR) && pnpm test --runInBand --passWithNoTests
