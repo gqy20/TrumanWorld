@@ -1,0 +1,37 @@
+import type { VoxelMaterialKey } from "./types";
+
+export const VOXEL_BACKGROUND_COLOR = 0xeef5e8;
+
+export const VOXEL_MATERIAL_COLORS: Record<VoxelMaterialKey, number> = {
+  agent: 0xf47f42,
+  agentMoving: 0x48a9da,
+  agentResting: 0x9b7fe0,
+  agentTalking: 0xf5a142,
+  agentWorking: 0x4ac878,
+  curb: 0x9f875f,
+  flower: 0xf2d35b,
+  flowerPink: 0xe879a4,
+  glass: 0x74c6d8,
+  grass: 0x8fcf72,
+  grassAlt: 0x9ed682,
+  groundBase: 0x6fa762,
+  hair: 0x2e2a31,
+  highlight: 0xfef08a,
+  leaf: 0x4f9f57,
+  leafLight: 0x73bf62,
+  plot: 0xcfe2b8,
+  road: 0xd8c18d,
+  roadDetail: 0xc9ad78,
+  roofBlue: 0x4b6f9f,
+  roofGreen: 0x4f815b,
+  roofRed: 0xa84d58,
+  shadow: 0x6d7f62,
+  skin: 0xffc69c,
+  trouser: 0x223047,
+  trunk: 0x7b5535,
+  wallCool: 0xaec7db,
+  wallStone: 0xbeb9a8,
+  wallWarm: 0xe8c58e,
+  white: 0xffffff,
+  wood: 0x7d5437,
+};

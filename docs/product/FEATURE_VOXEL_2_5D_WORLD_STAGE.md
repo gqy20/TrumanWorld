@@ -1,12 +1,26 @@
 # Truman World 2.5D Voxel World Stage Plan
 
 - 类型：`feature`
-- 状态：`proposal`
+- 状态：`in_progress`
 - 负责人：`frontend`
-- 最后更新：`2026-05-18`
+- 最后更新：`2026-08-01`
 - 适用范围：`frontend / world page / stage renderer`
 
 ## 1. 背景
+
+### 当前实施状态
+
+截至 2026-08-01，渲染基础已经完成第一轮收口：
+
+- Three.js 保留为底层引擎，并由 React Three Fiber v9 管理 Canvas、相机和事件生命周期
+- voxel Canvas 使用 `next/dynamic` 在客户端按需加载，不进入世界页首屏的同步模块图
+- `SceneWorld -> VoxelScenePlan` 已拆成纯函数，可独立测试
+- 地面、道路、建筑和角色按材质与阴影属性合并为 `InstancedMesh` 批次
+- 选中态独立为 selection layer，不再因选中地点或角色重建 WebGL renderer
+- 生产世界页不再依赖 Phaser 导出的视图切换组件，Phaser 仅作为 legacy 实现保留
+- scenario UI 配置已将 renderer 从 `pixel` 收口为 `voxel`
+
+下一阶段从 Road Graph 开始，随后实现 prefab、相机交互和事件播放。
 
 当前世界页已经从 SVG 地图、Phaser 像素小镇，推进到 Three.js voxel 原型。这个方向能更接近“我的世界式”的 2.5D 展示，但当前原型仍然只是第一步：
 
@@ -913,21 +927,20 @@ function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan;
 
 下一步建议直接做：
 
-> Phase 1: Plot / Parcel System
+> Phase 2: Road Graph
 
 原因：
 
-- 它是道路、角色站位、装饰物、点击区域的共同基础
-- 它能最快解决“场景重叠”和“不是一个真实空间”的问题
-- 它比继续堆建筑细节更能接近 2.5D 小镇展示
+- Plot / Parcel System 已完成，并已由 Scene Plan 消费
+- 当前固定道路无法表达地点入口和场景拓扑
+- Road Graph 是移动路线、相机聚焦和事件轨迹的共同基础
 
 具体第一步：
 
-1. 新建 `frontend/components/voxel/types.ts`。
-2. 新建 `frontend/components/voxel/plot-layout.ts`。
-3. 把 `LOCATION_SLOTS` 和 `FALLBACK_SLOTS` 从 renderer 挪进去。
-4. 输出 `VoxelPlot[]`，包含 `center/size/footprint/entrance/agentAnchors`。
-5. 给 plot layout 写单元测试。
-6. renderer 暂时继续用现有 inline prefab，但从 plot 读取位置和 agent anchors。
+1. 新建 `frontend/components/voxel/road-graph.ts`。
+2. 输入 `VoxelPlot[]`，输出去重后的 `VoxelRoadTile[]`。
+3. 将每个 plot entrance 连接到中心 hub，并避开 building footprint。
+4. Scene Plan 使用 road graph 输出替换固定道路数组。
+5. 为连通性、确定性、对称连接和建筑避让补充单元测试。
 
-这一步完成后，再做 road graph 会自然很多。
+这一步完成后，移动事件可以直接复用道路图生成舞台轨迹。

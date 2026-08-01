@@ -6,7 +6,7 @@ intelligence_stream:
 director_panel:
   max_memories_load: 100
 stage:
-  renderer: pixel
+  renderer: voxel
   theme: campus_night
   ground_preset: lawn
   palette:

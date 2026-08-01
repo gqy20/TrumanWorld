@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { AgentAvatar } from "@/components/agent-avatar";
-import { ViewToggleButton } from "@/components/phaser";
 import { TownMap } from "@/components/town-map";
 import { VoxelWorldRenderer } from "@/components/voxel-world-renderer";
+import { WorldViewToggle, type WorldView } from "@/components/world-view-toggle";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { IntelligenceStreamModal } from "@/components/intelligence-stream-modal";
 import { LocationDetailModal } from "@/components/location-detail-modal";
@@ -40,7 +40,7 @@ export function WorldCanvas({ runId }: Props) {
   const { world } = useWorld();
   const { searchParams, replaceSearchParams } = useUiSearchParams();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
-  const [mapView, setMapView] = useState<"svg" | "phaser">("phaser");
+  const [mapView, setMapView] = useState<WorldView>("voxel");
 
   const modal = searchParams.get("modal");
   const selectedAgentId = searchParams.get("agent");
@@ -128,20 +128,20 @@ export function WorldCanvas({ runId }: Props) {
 
   return (
     <div className="flex min-h-0 flex-col gap-4 xl:h-full">
-      <div className="grid min-h-0 gap-4 xl:h-full xl:grid-cols-[minmax(720px,1fr)_340px]">
-        <div className="min-h-[620px] xl:h-full">
-          <div className="flex h-full min-h-[460px] flex-col gap-3">
+      <div className="grid min-h-0 min-w-0 gap-4 xl:h-full xl:grid-cols-[minmax(720px,1fr)_340px]">
+        <div className="min-h-[500px] min-w-0 sm:min-h-[620px] xl:h-full">
+          <div className="flex h-full min-h-[420px] min-w-0 flex-col gap-3 sm:min-h-[460px]">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
                   Truman Stage
                 </p>
               </div>
-              <ViewToggleButton currentView={mapView} onToggle={setMapView} />
+              <WorldViewToggle currentView={mapView} onToggle={setMapView} />
             </div>
 
-            <div className="min-h-0 flex-1">
-              {mapView === "phaser" && sceneWorld ? (
+            <div className="min-h-0 min-w-0 flex-1">
+              {mapView === "voxel" && sceneWorld ? (
                 <VoxelWorldRenderer
                   sceneWorld={sceneWorld}
                   highlightedLocationId={highlightedLocationId}

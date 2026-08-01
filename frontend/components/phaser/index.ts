@@ -4,7 +4,7 @@
  * 导出所有 Phaser 相关组件
  */
 
-export { PhaserGameWrapper, ViewToggleButton } from './phaser-game-wrapper';
+export { PhaserGameWrapper } from './phaser-game-wrapper';
 export { WorldScene } from './world-scene';
 
 // 类型导出

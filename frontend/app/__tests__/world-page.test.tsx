@@ -49,20 +49,20 @@ jest.mock("@/components/agent-avatar", () => ({
   AgentAvatar: ({ name }: { name: string }) => <span aria-hidden="true">{name.slice(0, 1)}</span>,
 }));
 
-jest.mock("@/components/phaser", () => ({
-  ViewToggleButton: ({
+jest.mock("@/components/world-view-toggle", () => ({
+  WorldViewToggle: ({
     currentView,
     onToggle,
   }: {
-    currentView: "svg" | "phaser";
-    onToggle: (view: "svg" | "phaser") => void;
+    currentView: "svg" | "voxel";
+    onToggle: (view: "svg" | "voxel") => void;
   }) => (
     <div>
       <span>当前视图 {currentView}</span>
       <button type="button" onClick={() => onToggle("svg")}>
         导演地图
       </button>
-      <button type="button" onClick={() => onToggle("phaser")}>
+      <button type="button" onClick={() => onToggle("voxel")}>
         舞台视图
       </button>
     </div>
@@ -77,12 +77,12 @@ jest.mock("@/components/voxel-world-renderer", () => ({
     onAgentClick?: (agentId: string) => void;
     onLocationClick?: (locationId: string) => void;
   }) => (
-    <div data-testid="phaser-game-container">
+    <div data-testid="voxel-stage-container">
       <button type="button" onClick={() => onLocationClick?.("library")}>
-        Phaser Library
+        Voxel Library
       </button>
       <button type="button" onClick={() => onAgentClick?.("agent-1")}>
-        Phaser Mei
+        Voxel Mei
       </button>
     </div>
   ),
@@ -182,26 +182,26 @@ describe("WorldPage", () => {
     expect(screen.getByText("Narrative World")).toBeInTheDocument();
     expect(screen.getByText("第1天 周一 08:00")).toBeInTheDocument();
     expect(screen.getByText("时间步 24")).toBeInTheDocument();
-    expect(screen.getByTestId("phaser-game-container")).toBeInTheDocument();
+    expect(screen.getByTestId("voxel-stage-container")).toBeInTheDocument();
     expect(screen.getAllByText("Cafe").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mei Lin").length).toBeGreaterThan(0);
     await waitFor(() => expect(getWorldPulseResult).toHaveBeenCalledWith("run-1"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Phaser Library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Voxel Library" }));
 
     expect(await screen.findByText("Location modal library")).toBeInTheDocument();
     expect(window.location.search).toBe("?modal=location&loc=library");
 
-    fireEvent.click(screen.getByRole("button", { name: "Phaser Mei" }));
+    fireEvent.click(screen.getByRole("button", { name: "Voxel Mei" }));
 
     expect(await screen.findByText("Agent modal agent-1")).toBeInTheDocument();
     expect(window.location.search).toBe("?modal=agent&loc=library&agent=agent-1");
   });
 
-  it("switches from Phaser to SVG renderer and keeps SVG click flows wired", async () => {
+  it("switches from voxel to SVG renderer and keeps SVG click flows wired", async () => {
     renderWorldPage({ initialWorld: world });
 
-    expect(await screen.findByText("当前视图 phaser")).toBeInTheDocument();
+    expect(await screen.findByText("当前视图 voxel")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "导演地图" }));
 

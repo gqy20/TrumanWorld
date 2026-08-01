@@ -598,7 +598,7 @@ class WorldStageAgentUiResponse(BaseModel):
 
 
 class WorldStageUiResponse(BaseModel):
-    renderer: str | None = Field(None, description="舞台渲染器", examples=["pixel"])
+    renderer: str | None = Field(None, description="舞台渲染器", examples=["voxel"])
     theme: str | None = Field(None, description="舞台主题", examples=["campus_night"])
     ground_preset: str | None = Field(None, description="地面预设", examples=["boardwalk"])
     palette: WorldStagePaletteResponse = Field(

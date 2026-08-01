@@ -33,29 +33,6 @@ export function useWorld() {
   return context;
 }
 
-// Deep equality check for world data to prevent unnecessary re-renders
-function isWorldDataEqual(a: WorldSnapshot | null, b: WorldSnapshot | null): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-
-  // Compare key fields that affect rendering
-  if (a.run.current_tick !== b.run.current_tick) return false;
-  if (a.run.status !== b.run.status) return false;
-  if (a.locations.length !== b.locations.length) return false;
-  if (a.recent_events.length !== b.recent_events.length) return false;
-
-  // Compare location occupant counts (main visual change)
-  for (let i = 0; i < a.locations.length; i++) {
-    const aOccupants = a.locations[i].occupants ?? [];
-    const bOccupants = b.locations[i].occupants ?? [];
-    if (aOccupants.length !== bOccupants.length) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 type Props = {
   runId: string;
   initialData?: WorldSnapshot | null;
@@ -104,19 +81,6 @@ export function WorldProvider({ runId, initialData, children }: Props) {
       revalidateOnMount: true,
       // Keep previous data during revalidation to prevent full-screen flash
       keepPreviousData: true,
-      // Use compare function to prevent re-renders when data hasn't meaningfully changed
-      compare: (a, b) => {
-        if (!a?.data || !b?.data) {
-          return (
-            a?.data === b?.data &&
-            a?.error === b?.error &&
-            a?.errorCode === b?.errorCode &&
-            a?.errorDetail === b?.errorDetail &&
-            a?.status === b?.status
-          );
-        }
-        return isWorldDataEqual(a?.data ?? null, b?.data ?? null);
-      },
     },
   );
 
