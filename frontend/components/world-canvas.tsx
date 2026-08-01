@@ -41,6 +41,7 @@ export function WorldCanvas({ runId }: Props) {
   const { searchParams, replaceSearchParams } = useUiSearchParams();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
   const [mapView, setMapView] = useState<WorldView>("voxel");
+  const [isStageFocused, setIsStageFocused] = useState(false);
 
   const modal = searchParams.get("modal");
   const selectedAgentId = searchParams.get("agent");
@@ -86,6 +87,15 @@ export function WorldCanvas({ runId }: Props) {
     });
   }, [world, selectedLocationIdFromQuery]);
 
+  useEffect(() => {
+    if (!isStageFocused) return;
+    const exitFocusMode = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsStageFocused(false);
+    };
+    window.addEventListener("keydown", exitFocusMode);
+    return () => window.removeEventListener("keydown", exitFocusMode);
+  }, [isStageFocused]);
+
   const { agentNameMap, locationNameMap } = useMemo(() => {
     if (!world) {
       return {
@@ -128,19 +138,31 @@ export function WorldCanvas({ runId }: Props) {
 
   return (
     <div className="flex min-h-0 flex-col gap-4 xl:h-full">
-      <div className="grid min-h-0 min-w-0 gap-4 xl:h-full xl:grid-cols-[minmax(720px,1fr)_340px]">
+      <div
+        data-testid="world-stage-layout"
+        className={`grid min-h-0 min-w-0 gap-4 xl:h-full ${
+          isStageFocused ? "xl:grid-cols-1" : "xl:grid-cols-[minmax(720px,1fr)_340px]"
+        }`}
+      >
         <div className="min-w-0 sm:min-h-[620px] xl:h-full">
-          <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 sm:min-h-[460px]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
-                  Truman Stage
-                </p>
+          <div className="flex h-full min-h-0 min-w-0 flex-col sm:min-h-[460px]">
+            <div className="relative min-h-0 min-w-0 flex-1">
+              <div className="pointer-events-none absolute top-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 lg:left-12">
+                <div className="pointer-events-auto">
+                  <WorldViewToggle currentView={mapView} onToggle={setMapView} />
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={isStageFocused}
+                  aria-label={isStageFocused ? "显示信息栏" : "聚焦舞台"}
+                  title={isStageFocused ? "显示信息栏（Esc）" : "聚焦舞台"}
+                  onClick={() => setIsStageFocused((current) => !current)}
+                  className="pointer-events-auto hidden h-9 items-center gap-2 rounded-xl bg-white/95 px-3 text-xs font-medium text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.12)] transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 xl:inline-flex"
+                >
+                  {isStageFocused ? <PanelOpenIcon /> : <FocusIcon />}
+                  <span>{isStageFocused ? "显示信息" : "聚焦舞台"}</span>
+                </button>
               </div>
-              <WorldViewToggle currentView={mapView} onToggle={setMapView} />
-            </div>
-
-            <div className="min-h-0 min-w-0 flex-1">
               {mapView === "voxel" && sceneWorld ? (
                 <VoxelWorldRenderer
                   sceneWorld={sceneWorld}
@@ -165,6 +187,7 @@ export function WorldCanvas({ runId }: Props) {
                 <TownMap
                   world={world}
                   agentNameMap={agentNameMap}
+                  hasStageControls
                   highlightedLocationId={highlightedLocationId}
                   onLocationClick={(locationId) => {
                     setHighlightedLocationId(locationId);
@@ -180,7 +203,14 @@ export function WorldCanvas({ runId }: Props) {
         </div>
 
         {/* 右侧：世界状态、地点详情、故事线 */}
-        <ScrollArea className="flex min-h-0 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-3 pb-6">
+        <ScrollArea
+          as="aside"
+          data-testid="world-inspector"
+          aria-label="世界信息"
+          className={`flex min-h-0 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-3 pb-6 ${
+            isStageFocused ? "xl:hidden" : ""
+          }`}
+        >
           {/* 世界健康度面板 */}
           {healthMetrics && <WorldHealthPanel metrics={healthMetrics} runId={runId} world={world} />}
 
@@ -323,5 +353,28 @@ export function WorldCanvas({ runId }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+function FocusIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+      <path
+        d="M7 3H3v4M13 3h4v4M7 17H3v-4m10 4h4v-4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PanelOpenIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+      <rect x="2.75" y="3.25" width="14.5" height="13.5" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12.5 3.5v13" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
   );
 }

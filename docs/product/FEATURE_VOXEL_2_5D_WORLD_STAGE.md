@@ -21,6 +21,7 @@
 - 地面、道路、建筑和角色按材质与阴影属性合并为 `InstancedMesh` 批次
 - 选中态独立为 selection layer，不再因选中地点或角色重建 WebGL renderer
 - 正交相机根据 ScenePlan bounds 和 viewport aspect 自动取景，移动端舞台高度已单独收敛
+- 视图切换已移入舞台浮层，桌面端支持一键聚焦舞台并用 Escape 恢复信息栏
 - 生产世界页不再依赖 Phaser 导出的视图切换组件，Phaser 仅作为 legacy 实现保留
 - scenario UI 配置已将 renderer 从 `pixel` 收口为 `voxel`
 
@@ -553,7 +554,9 @@ Prefab 质量标准：
 
 ### Phase 4: Presentation Shell
 
-状态：`next`
+状态：`in_progress`
+
+已完成第一步：舞台工具从 Canvas 外部移入 overlay，桌面端信息栏可折叠，窄屏保留纵向信息流，并针对 3D / SVG 两种视图处理控制层避让。
 
 目标：让世界成为页面主屏。
 

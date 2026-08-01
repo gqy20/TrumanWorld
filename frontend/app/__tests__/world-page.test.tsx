@@ -214,6 +214,36 @@ describe("WorldPage", () => {
     expect(window.location.search).toBe("?modal=location&loc=cafe");
   });
 
+  it("toggles the desktop stage focus layout and exits it with Escape", async () => {
+    renderWorldPage({ initialWorld: world });
+
+    await screen.findByTestId("voxel-stage-container");
+    const layout = screen.getByTestId("world-stage-layout");
+    const inspector = screen.getByTestId("world-inspector");
+    const focusButton = screen.getByRole("button", { name: "聚焦舞台" });
+
+    expect(focusButton).toHaveAttribute("aria-pressed", "false");
+    expect(layout).toHaveClass("xl:grid-cols-[minmax(720px,1fr)_340px]");
+    expect(inspector).not.toHaveClass("xl:hidden");
+
+    fireEvent.click(focusButton);
+
+    expect(screen.getByRole("button", { name: "显示信息栏" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(layout).toHaveClass("xl:grid-cols-1");
+    expect(inspector).toHaveClass("xl:hidden");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.getByRole("button", { name: "聚焦舞台" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(inspector).not.toHaveClass("xl:hidden");
+  });
+
   it("shows the world load error when the backend is unavailable", async () => {
     (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
       .mockResolvedValue(errorResult<WorldSnapshot>("network_error"));

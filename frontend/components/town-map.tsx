@@ -22,6 +22,7 @@ interface TownMapProps {
   onLocationClick?: (locationId: string) => void;
   onAgentClick?: (agentId: string) => void;
   highlightedLocationId?: string | null;
+  hasStageControls?: boolean;
 }
 
 export function TownMap({
@@ -30,6 +31,7 @@ export function TownMap({
   onLocationClick,
   onAgentClick,
   highlightedLocationId,
+  hasStageControls = false,
 }: TownMapProps) {
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
   const [miniMapCollapsed, setMiniMapCollapsed] = useState(false);
@@ -84,23 +86,27 @@ export function TownMap({
           : "border-white/70 bg-white/80"
       }`}
     >
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <div
+        className={`mb-3 flex flex-wrap items-start justify-between gap-3 ${
+          hasStageControls ? "pt-12 sm:pt-0" : ""
+        }`}
+      >
         <div />
         <div className={`flex flex-col items-end gap-1.5 text-xs ${timeStyle.isDark ? "text-slate-400" : "text-slate-500"}`}>
           {/* 热力等级 + 夜晚灯光 + 控制按钮 */}
           <div className="flex items-center gap-1.5">
             {/* 热力等级图例 - 背景色已说明状态，无需小圆点 */}
-            <span className={`rounded-full px-2 py-0.5 ${
+            <span className={`hidden rounded-full px-2 py-0.5 sm:inline ${
               timeStyle.isDark ? "bg-red-900/40 text-red-300" : "bg-red-50 text-red-700"
             }`}>
               非常活跃
             </span>
-            <span className={`rounded-full px-2 py-0.5 ${
+            <span className={`hidden rounded-full px-2 py-0.5 sm:inline ${
               timeStyle.isDark ? "bg-amber-900/40 text-amber-300" : "bg-amber-50 text-amber-700"
             }`}>
               较活跃
             </span>
-            <span className={`rounded-full px-2 py-0.5 ${
+            <span className={`hidden rounded-full px-2 py-0.5 sm:inline ${
               timeStyle.isDark ? "bg-emerald-900/40 text-emerald-300" : "bg-emerald-50 text-emerald-700"
             }`}>
               一般
@@ -112,7 +118,11 @@ export function TownMap({
               </span>
             )}
             {/* 分隔线 */}
-            <span className={`h-3.5 w-px ${timeStyle.isDark ? "bg-slate-600" : "bg-slate-200"}`} />
+            <span
+              className={`hidden h-3.5 w-px sm:block ${
+                timeStyle.isDark ? "bg-slate-600" : "bg-slate-200"
+              }`}
+            />
             {/* 控制按钮 */}
             <button
               type="button"
@@ -151,7 +161,7 @@ export function TownMap({
         </div>
       </div>
       {/* 小地图 - 贴着内层地图容器左上角（外层定位，不受 overflow-hidden 裁切） */}
-      <div className="absolute left-4 top-4 z-30">
+      <div className={`absolute left-4 z-30 ${hasStageControls ? "top-14" : "top-4"}`}>
         <AnimatePresence mode="wait">
           {miniMapCollapsed ? (
             /* 折叠态：只显示一个贴边小图标 */
