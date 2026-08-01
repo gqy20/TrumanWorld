@@ -11,7 +11,15 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
-async_engine = create_async_engine(settings.database_url, echo=False)
+async_engine = create_async_engine(
+    settings.database_url,
+    echo=False,
+    # Managed PostgreSQL providers may retire idle TLS connections. Validate a pooled
+    # connection before checkout and recycle it periodically instead of surfacing a
+    # stale-connection 500 to the first request after an idle period.
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = async_sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
 
 

@@ -3,7 +3,7 @@ import json
 from time import monotonic
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,8 @@ from app.api.presenters.world import (
     build_world_clock,
     build_world_event_response,
 )
+from app.api.errors import api_error
+from app.api.services.world_snapshot_loader import load_world_snapshot_data
 from app.api.routes.runs import build_run_payload, get_required_run
 from app.api.schemas.simulation import (
     COMMON_RESPONSES,
@@ -478,16 +480,23 @@ async def get_world_snapshot(
     session: AsyncSession = Depends(get_db_session),
 ) -> WorldSnapshotResponse:
     logger.debug(f"Getting world snapshot for run {run_id}")
-    run = await get_required_run(session, run_id)
-
-    agent_repo = AgentRepository(session)
-    location_repo = LocationRepository(session)
-    event_repo = EventRepository(session)
-
-    agents = await agent_repo.list_world_rows_for_run(str(run_id))
-    locations = await location_repo.list_world_rows_for_run(str(run_id))
-    events = await event_repo.list_api_rows_for_run(str(run_id), limit=WORLD_RECENT_EVENT_LIMIT)
-    stats = await WorldStatsRepository(session).get_for_run(str(run_id))
+    snapshot_data = await load_world_snapshot_data(
+        session,
+        str(run_id),
+        event_limit=WORLD_RECENT_EVENT_LIMIT,
+    )
+    run = snapshot_data.run
+    if run is None:
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+            code="RUN_NOT_FOUND",
+            context={"run_id": str(run_id)},
+        )
+    agents = snapshot_data.agents
+    locations = snapshot_data.locations
+    events = snapshot_data.events
+    stats = snapshot_data.stats
     director_total = stats.director_total
     director_executed = stats.director_executed
     all_time_event_counts = stats.event_counts
