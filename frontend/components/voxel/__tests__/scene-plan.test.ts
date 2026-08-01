@@ -59,14 +59,11 @@ describe("voxel scene plan", () => {
       .toBe(true);
   });
 
-  it("exposes stable location and agent targets for renderer interactions", () => {
+  it("exposes stable location targets and dynamic agent plans for renderer interactions", () => {
     const plan = buildVoxelScenePlan(makeSceneWorld());
     const locationTargets = plan.blocks
       .map((block) => block.hitTarget)
       .filter((target) => target?.kind === "location");
-    const agentTargets = plan.blocks
-      .map((block) => block.hitTarget)
-      .filter((target) => target?.kind === "agent");
 
     expect(locationTargets).toEqual(
       expect.arrayContaining([
@@ -74,7 +71,8 @@ describe("voxel scene plan", () => {
         { kind: "location", id: "park" },
       ]),
     );
-    expect(agentTargets).toContainEqual({ kind: "agent", id: "agent-1" });
+    expect(plan.blocks.some((block) => block.hitTarget?.kind === "agent")).toBe(false);
+    expect(plan.agents.map((agent) => agent.id)).toContain("agent-1");
     expect(plan.locationAnchors.cafe).toBeDefined();
     expect(plan.agentAnchors["agent-1"]).toBeDefined();
   });
@@ -95,18 +93,15 @@ describe("voxel scene plan", () => {
     }
   });
 
-  it("maps agent status changes to render materials without moving its anchor", () => {
+  it("keeps an agent anchor stable when its dynamic status changes", () => {
     const talkingWorld = makeSceneWorld();
     const movingWorld = makeSceneWorld();
     movingWorld.agents[0] = { ...movingWorld.agents[0], status: "moving" };
 
     const talkingPlan = buildVoxelScenePlan(talkingWorld);
     const movingPlan = buildVoxelScenePlan(movingWorld);
-    const talkingBody = talkingPlan.blocks.find((block) => block.id.startsWith("agent-agent-1"));
-    const movingBody = movingPlan.blocks.find((block) => block.id.startsWith("agent-agent-1"));
-
-    expect(talkingBody?.material).toBe("agentTalking");
-    expect(movingBody?.material).toBe("agentMoving");
+    expect(talkingPlan.agents[0].source.status).toBe("talking");
+    expect(movingPlan.agents[0].source.status).toBe("moving");
     expect(movingPlan.agentAnchors["agent-1"]).toEqual(talkingPlan.agentAnchors["agent-1"]);
   });
 });

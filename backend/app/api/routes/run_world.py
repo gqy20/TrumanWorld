@@ -1,6 +1,10 @@
+import asyncio
+import json
+from time import monotonic
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.presenters.world import (
@@ -48,6 +52,10 @@ logger = get_logger(__name__)
 
 DEFAULT_TIMELINE_LIMIT = 500
 WORLD_RECENT_EVENT_LIMIT = 60
+EVENT_STREAM_BATCH_LIMIT = 100
+EVENT_STREAM_POLL_SECONDS = 1.0
+EVENT_STREAM_HEARTBEAT_SECONDS = 15.0
+EVENT_STREAM_MAX_TRACKED_IDS = 2048
 
 
 def build_name_maps(agents, locations) -> tuple[dict[str, str], dict[str, str]]:
@@ -313,6 +321,97 @@ async def get_run_events(
         total=len(result_events),
         latest_tick=latest_tick,
     )
+
+
+@router.get(
+    "/{run_id}/events/stream",
+    summary="订阅实时世界事件",
+    description="使用 Server-Sent Events 推送公开世界事件；世界快照仍是位置状态的最终依据。",
+    responses={
+        **COMMON_RESPONSES,
+        200: {"description": "text/event-stream 世界事件流"},
+    },
+)
+async def stream_run_events(
+    run_id: UUID,
+    request: Request,
+    since_tick: int = 0,
+    session: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    await get_required_run(session, run_id)
+    agents = await AgentRepository(session).list_names_for_run(str(run_id))
+    locations = await LocationRepository(session).list_names_for_run(str(run_id))
+    agent_name_map, location_name_map = build_name_maps(agents, locations)
+    await session.rollback()
+
+    async def generate_event_stream():
+        cursor_tick = max(0, since_tick)
+        known_event_ids: set[str] = set()
+        last_heartbeat_at = monotonic()
+        event_repo = EventRepository(session)
+
+        yield "retry: 3000\n\n"
+        try:
+            while not await request.is_disconnected():
+                events = list(
+                    await event_repo.list_api_rows_for_run(
+                        str(run_id),
+                        limit=EVENT_STREAM_BATCH_LIMIT,
+                        since_tick=max(-1, cursor_tick - 1),
+                    )
+                )
+                await session.rollback()
+                if events:
+                    cursor_tick = max(cursor_tick, max(event.tick_no for event in events))
+
+                pending_events = sorted(
+                    (
+                        event
+                        for event in events
+                        if event.visibility == "public"
+                        and event.tick_no >= max(0, since_tick)
+                        and event.id not in known_event_ids
+                    ),
+                    key=lambda event: (event.tick_no, event.id),
+                )
+                for event in pending_events:
+                    known_event_ids.add(event.id)
+                    payload = build_world_event_response(
+                        event,
+                        agent_name_map,
+                        location_name_map,
+                    ).model_dump(mode="json")
+                    yield _encode_sse_world_event(event.id, payload)
+
+                if len(known_event_ids) > EVENT_STREAM_MAX_TRACKED_IDS:
+                    known_event_ids.intersection_update(event.id for event in events)
+
+                now = monotonic()
+                if not pending_events and now - last_heartbeat_at >= EVENT_STREAM_HEARTBEAT_SECONDS:
+                    yield ": keep-alive\n\n"
+                    last_heartbeat_at = now
+                elif pending_events:
+                    last_heartbeat_at = now
+
+                await asyncio.sleep(EVENT_STREAM_POLL_SECONDS)
+        finally:
+            if session.in_transaction():
+                await session.rollback()
+
+    return StreamingResponse(
+        generate_event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def _encode_sse_world_event(event_id: str, payload: dict) -> str:
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return f"id: {event_id}\nevent: world_event\ndata: {data}\n\n"
 
 
 @router.get(

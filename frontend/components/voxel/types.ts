@@ -1,4 +1,4 @@
-import type { SceneLocation } from "@/lib/world-scene-adapter";
+import type { SceneAgent, SceneLocation } from "@/lib/world-scene-adapter";
 
 export type VoxelPoint = {
   x: number;
@@ -111,6 +111,12 @@ export type VoxelSelectionAnchor = {
   size: VoxelVector3;
 };
 
+export type VoxelAgentPlan = {
+  id: string;
+  source: SceneAgent;
+  anchor: VoxelSelectionAnchor;
+};
+
 export type VoxelRoadConnections = {
   north: boolean;
   east: boolean;
@@ -125,6 +131,7 @@ export type VoxelRoadTile = VoxelPoint & {
 
 export type VoxelScenePlan = {
   blocks: VoxelBlock[];
+  agents: VoxelAgentPlan[];
   bounds: VoxelBounds;
   plots: VoxelPlot[];
   roads: VoxelRoadTile[];

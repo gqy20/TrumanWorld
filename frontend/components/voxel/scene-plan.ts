@@ -4,6 +4,7 @@ import { buildVoxelPlots, findPlotForLocation } from "./plot-layout";
 import { buildLocationPrefab } from "./prefabs";
 import { buildRoadGraph } from "./road-graph";
 import type {
+  VoxelAgentPlan,
   VoxelBlock,
   VoxelBounds,
   VoxelHitTarget,
@@ -84,9 +85,11 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
     };
   }
 
-  const agentAnchors = buildAgents(addBlock, sceneWorld.agents, plots);
+  const agents = buildAgents(sceneWorld.agents, plots);
+  const agentAnchors = Object.fromEntries(agents.map((agent) => [agent.id, agent.anchor]));
   return {
     blocks,
+    agents,
     bounds: calculateBounds(blocks),
     plots,
     roads,
@@ -141,41 +144,24 @@ function buildRoads(addBlock: BlockWriter, roads: VoxelRoadTile[]): void {
 }
 
 function buildAgents(
-  addBlock: BlockWriter,
   agents: SceneAgent[],
   plots: VoxelPlot[],
-): VoxelScenePlan["agentAnchors"] {
-  const agentAnchors: VoxelScenePlan["agentAnchors"] = {};
+): VoxelAgentPlan[] {
+  const agentPlans: VoxelAgentPlan[] = [];
   for (const agent of agents) {
     const plotItem = findPlotForLocation(plots, agent.locationId);
     if (!plotItem) continue;
     const anchor = plotItem.agentAnchors[agent.slotIndex % plotItem.agentAnchors.length];
-    const target = { kind: "agent", id: agent.id } as const;
-    const prefix = `agent-${agent.id}`;
-    const add = (
-      position: [number, number, number],
-      size: [number, number, number],
-      material: VoxelMaterialKey,
-    ) =>
-      addBlock(
-        prefix,
-        [anchor.x + position[0], position[1], anchor.z + position[2]],
-        size,
-        material,
-        { hitTarget: target },
-      );
-
-    add([0, 0.34, 0], [0.22, 0.5, 0.18], getAgentMaterial(agent.status));
-    add([0, 0.68, 0], [0.2, 0.2, 0.2], "skin");
-    add([0, 0.82, -0.01], [0.22, 0.08, 0.22], "hair");
-    add([-0.07, 0.08, 0], [0.06, 0.16, 0.06], "trouser");
-    add([0.07, 0.08, 0], [0.06, 0.16, 0.06], "trouser");
-    agentAnchors[agent.id] = {
-      position: { x: anchor.x, y: 0.04, z: anchor.z },
-      size: { x: 0.46, y: 0.04, z: 0.46 },
-    };
+    agentPlans.push({
+      id: agent.id,
+      source: agent,
+      anchor: {
+        position: { x: anchor.x, y: 0.04, z: anchor.z },
+        size: { x: 0.46, y: 0.04, z: 0.46 },
+      },
+    });
   }
-  return agentAnchors;
+  return agentPlans;
 }
 
 function calculateBounds(blocks: VoxelBlock[]): VoxelBounds {
@@ -203,19 +189,4 @@ function calculateBounds(blocks: VoxelBlock[]): VoxelBounds {
       maxZ: Number.NEGATIVE_INFINITY,
     },
   );
-}
-
-function getAgentMaterial(status: SceneAgent["status"]): VoxelMaterialKey {
-  switch (status) {
-    case "moving":
-      return "agentMoving";
-    case "talking":
-      return "agentTalking";
-    case "working":
-      return "agentWorking";
-    case "resting":
-      return "agentResting";
-    default:
-      return "agent";
-  }
 }

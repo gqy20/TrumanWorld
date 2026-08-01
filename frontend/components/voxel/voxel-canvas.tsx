@@ -1,9 +1,17 @@
 "use client";
 
 import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 
+import { AgentLayer, type AgentPoseMap } from "./agent-layer";
 import {
   calculateVoxelCameraFrame,
   calculateVoxelCameraZoom,
@@ -62,8 +70,6 @@ type ProjectedBubble = {
   y: number;
 };
 
-const EMPTY_EVENT_PLAN: VoxelEventPlan = { bubbles: [], moveTrails: [] };
-
 export function VoxelCanvas({
   sceneWorld,
   highlightedLocationId,
@@ -87,8 +93,8 @@ export function VoxelCanvas({
   const [cameraResetRevision, setCameraResetRevision] = useState(0);
   const [projectedBubbles, setProjectedBubbles] = useState<ProjectedBubble[]>([]);
   const [showStageEvents, setShowStageEvents] = useState(true);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const stageEventCount = eventPlan.bubbles.length + eventPlan.moveTrails.length;
-  const visibleEventPlan = showStageEvents ? eventPlan : EMPTY_EVENT_PLAN;
 
   return (
     <div
@@ -114,7 +120,9 @@ export function VoxelCanvas({
           highlightedAgentId={highlightedAgentId}
           cameraFocusRequest={cameraFocusRequest}
           cameraResetRevision={cameraResetRevision}
-          eventPlan={visibleEventPlan}
+          eventPlan={eventPlan}
+          showStageEvents={showStageEvents}
+          prefersReducedMotion={prefersReducedMotion}
           onBubbleProjectionChange={setProjectedBubbles}
           onAgentClick={onAgentClick}
           onLocationClick={onLocationClick}
@@ -173,6 +181,8 @@ function StageScene({
   cameraFocusRequest,
   cameraResetRevision,
   eventPlan,
+  showStageEvents,
+  prefersReducedMotion,
   onBubbleProjectionChange,
   onAgentClick,
   onLocationClick,
@@ -183,11 +193,14 @@ function StageScene({
   cameraFocusRequest?: VoxelCameraFocusRequest | null;
   cameraResetRevision: number;
   eventPlan: VoxelEventPlan;
+  showStageEvents: boolean;
+  prefersReducedMotion: boolean;
   onBubbleProjectionChange: (bubbles: ProjectedBubble[]) => void;
   onAgentClick?: (agentId: string) => void;
   onLocationClick?: (locationId: string) => void;
 }) {
   const batches = useMemo(() => buildBlockBatches(plan.blocks), [plan.blocks]);
+  const agentPosesRef = useRef<Map<string, THREE.Vector3>>(new Map());
   const resolvedCameraFocus = useMemo<ResolvedCameraFocus | null>(() => {
     if (!cameraFocusRequest) return null;
     const anchor =
@@ -203,6 +216,7 @@ function StageScene({
         bounds={plan.bounds}
         focusRequest={resolvedCameraFocus}
         resetRevision={cameraResetRevision}
+        agentPosesRef={agentPosesRef}
       />
       <hemisphereLight args={[0xffffff, 0x9fb18d, 2.2]} />
       <directionalLight
@@ -223,9 +237,17 @@ function StageScene({
           onLocationClick={onLocationClick}
         />
       ))}
-      <MoveTrailLayer trails={eventPlan.moveTrails} />
+      <AgentLayer
+        agents={plan.agents}
+        moveTrails={eventPlan.moveTrails}
+        poseMap={agentPosesRef}
+        prefersReducedMotion={prefersReducedMotion}
+        onAgentClick={onAgentClick}
+      />
+      <MoveTrailLayer trails={showStageEvents ? eventPlan.moveTrails : []} />
       <BubbleProjectionBridge
-        bubbles={eventPlan.bubbles}
+        bubbles={showStageEvents ? eventPlan.bubbles : []}
+        agentPosesRef={agentPosesRef}
         onProjectionChange={onBubbleProjectionChange}
       />
       <SelectionLayer
@@ -233,6 +255,8 @@ function StageScene({
           highlightedLocationId ? plan.locationAnchors[highlightedLocationId] : undefined
         }
         agentAnchor={highlightedAgentId ? plan.agentAnchors[highlightedAgentId] : undefined}
+        agentId={highlightedAgentId}
+        agentPosesRef={agentPosesRef}
       />
     </>
   );
@@ -286,9 +310,11 @@ function StageEventOverlay({
 
 function BubbleProjectionBridge({
   bubbles,
+  agentPosesRef,
   onProjectionChange,
 }: {
   bubbles: VoxelEventBubble[];
+  agentPosesRef: AgentPoseMap;
   onProjectionChange: (bubbles: ProjectedBubble[]) => void;
 }) {
   const invalidate = useThree((state) => state.invalidate);
@@ -306,10 +332,13 @@ function BubbleProjectionBridge({
     const horizontalMargin = Math.min(106, size.width * 0.25);
     const minimumBubbleY = size.width < 640 ? 160 : 118;
     const projected = bubbles.map((bubble) => {
+      const liveAgentPosition = bubble.speakerAgentId
+        ? agentPosesRef.current.get(bubble.speakerAgentId)
+        : undefined;
       const point = new THREE.Vector3(
-        bubble.position.x,
+        liveAgentPosition?.x ?? bubble.position.x,
         bubble.position.y,
-        bubble.position.z,
+        liveAgentPosition?.z ?? bubble.position.z,
       ).project(camera);
       const rawX = (point.x * 0.5 + 0.5) * size.width;
       const rawY = (-point.y * 0.5 + 0.5) * size.height;
@@ -354,7 +383,7 @@ function MoveTrailMarkers({ trail }: { trail: VoxelMoveTrail }) {
     markerPoints.forEach((point, index) => {
       const progress = index / progressDenominator;
       const markerSize = 0.14 + progress * 0.14;
-      transform.position.set(point.x, point.y, point.z);
+      transform.position.set(point.x, point.y + 0.19, point.z);
       transform.rotation.set(0, Math.PI / 4, 0);
       transform.scale.set(markerSize, 0.035, markerSize);
       transform.updateMatrix();
@@ -425,10 +454,12 @@ function CameraRig({
   bounds,
   focusRequest,
   resetRevision,
+  agentPosesRef,
 }: {
   bounds: VoxelBounds;
   focusRequest: ResolvedCameraFocus | null;
   resetRevision: number;
+  agentPosesRef: AgentPoseMap;
 }) {
   const getThreeState = useThree((state) => state.get);
   const size = useThree((state) => state.size);
@@ -450,6 +481,7 @@ function CameraRig({
   );
   const focusAnchorX = focusRequest?.anchor.position.x;
   const focusAnchorZ = focusRequest?.anchor.position.z;
+  const focusId = focusRequest?.id;
   const focusKind = focusRequest?.kind;
   const focusRevision = focusRequest?.revision;
 
@@ -520,14 +552,28 @@ function CameraRig({
       return;
     }
     const basePose = basePoseRef.current;
-    const target = new THREE.Vector3(focusAnchorX, basePose.target.y, focusAnchorZ);
+    const liveAgentPose =
+      focusKind === "agent" && focusId ? agentPosesRef.current.get(focusId) : undefined;
+    const target = new THREE.Vector3(
+      liveAgentPose?.x ?? focusAnchorX,
+      basePose.target.y,
+      liveAgentPose?.z ?? focusAnchorZ,
+    );
     const cameraOffset = basePose.position.clone().sub(basePose.target);
     animateTo({
       position: target.clone().add(cameraOffset),
       target,
       zoom: focusKind === "agent" ? 1.72 : 1.38,
     });
-  }, [animateTo, focusAnchorX, focusAnchorZ, focusKind, focusRevision]);
+  }, [
+    agentPosesRef,
+    animateTo,
+    focusAnchorX,
+    focusAnchorZ,
+    focusId,
+    focusKind,
+    focusRevision,
+  ]);
 
   useEffect(() => {
     if (lastResetRevisionRef.current === resetRevision) return;
@@ -735,15 +781,67 @@ function InstancedBlockBatch({
 function SelectionLayer({
   locationAnchor,
   agentAnchor,
+  agentId,
+  agentPosesRef,
 }: {
   locationAnchor?: VoxelSelectionAnchor;
   agentAnchor?: VoxelSelectionAnchor;
+  agentId?: string | null;
+  agentPosesRef: AgentPoseMap;
 }) {
   return (
     <>
       {locationAnchor ? <SelectionMarker anchor={locationAnchor} opacity={0.48} /> : null}
-      {agentAnchor ? <SelectionMarker anchor={agentAnchor} opacity={0.82} /> : null}
+      {agentAnchor && agentId ? (
+        <AgentSelectionMarker
+          agentId={agentId}
+          anchor={agentAnchor}
+          agentPosesRef={agentPosesRef}
+        />
+      ) : null}
     </>
+  );
+}
+
+function AgentSelectionMarker({
+  agentId,
+  anchor,
+  agentPosesRef,
+}: {
+  agentId: string;
+  anchor: VoxelSelectionAnchor;
+  agentPosesRef: AgentPoseMap;
+}) {
+  const markerRef = useRef<THREE.Mesh>(null);
+
+  useLayoutEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+    const pose = agentPosesRef.current.get(agentId);
+    marker.position.set(
+      pose?.x ?? anchor.position.x,
+      (pose?.y ?? 0) + anchor.position.y,
+      pose?.z ?? anchor.position.z,
+    );
+  }, [agentId, agentPosesRef, anchor.position.x, anchor.position.y, anchor.position.z]);
+
+  useFrame(() => {
+    const marker = markerRef.current;
+    const pose = agentPosesRef.current.get(agentId);
+    if (!marker || !pose) return;
+    marker.position.set(pose.x, pose.y + anchor.position.y, pose.z);
+  });
+
+  return (
+    <mesh ref={markerRef} scale={[anchor.size.x, anchor.size.y, anchor.size.z]} receiveShadow>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial
+        color={VOXEL_MATERIAL_COLORS.highlight}
+        transparent
+        opacity={0.82}
+        depthWrite={false}
+      />
+    </mesh>
   );
 }
 

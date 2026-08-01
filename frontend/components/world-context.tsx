@@ -5,14 +5,18 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, getWorldPulseResult, type ApiResult } from "@/lib/api";
-import type { WorldPulse, WorldSnapshot } from "@/lib/types";
+import { EVENT_MOVE } from "@/lib/simulation-protocol";
+import type { WorldEvent, WorldPulse, WorldSnapshot } from "@/lib/types";
 import { useUiSearchParams } from "@/lib/ui-url-state";
+
+import { mergeWorldEvents, useWorldEventStream } from "./use-world-event-stream";
 
 type WorldContextValue = {
   runId: string;
@@ -45,6 +49,8 @@ export function WorldProvider({ runId, initialData, children }: Props) {
   const activeModal = searchParams.get("modal");
   const pausePolling = activeModal !== null;
   const lastKnownRunStatus = useRef(initialData?.run.status ?? null);
+  const [streamedEvents, setStreamedEvents] = useState<WorldEvent[]>([]);
+  const streamRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pollingInterval = useCallback(
     (
@@ -95,13 +101,58 @@ export function WorldProvider({ runId, initialData, children }: Props) {
     },
   );
 
+  const snapshot = result?.data ?? initialData ?? null;
+  const latestKnownTick = Math.max(
+    snapshot?.run.current_tick ?? 0,
+    ...streamedEvents.map((event) => event.tick_no),
+  );
+  const handleStreamEvent = useCallback(
+    (event: WorldEvent) => {
+      setStreamedEvents((current) => mergeWorldEvents([event], current));
+      if (event.event_type !== EVENT_MOVE) return;
+      if (streamRefreshTimerRef.current) clearTimeout(streamRefreshTimerRef.current);
+      streamRefreshTimerRef.current = setTimeout(() => {
+        void mutate();
+        streamRefreshTimerRef.current = null;
+      }, 120);
+    },
+    [mutate],
+  );
+
+  useWorldEventStream({
+    enabled: isClient && !pausePolling && snapshot !== null,
+    latestKnownTick,
+    onEvent: handleStreamEvent,
+    runId,
+  });
+
+  useEffect(() => {
+    setStreamedEvents([]);
+  }, [runId]);
+
+  useEffect(
+    () => () => {
+      if (streamRefreshTimerRef.current) clearTimeout(streamRefreshTimerRef.current);
+    },
+    [],
+  );
+
   const refresh = useCallback(() => {
     void mutate();
     void mutatePulse();
   }, [mutate, mutatePulse]);
 
   const error = result?.error ?? null;
-  const world = result?.data ?? initialData ?? null;
+  const world = useMemo(
+    () =>
+      snapshot
+        ? {
+            ...snapshot,
+            recent_events: mergeWorldEvents(streamedEvents, snapshot.recent_events),
+          }
+        : null,
+    [snapshot, streamedEvents],
+  );
   const pulse = pulseResult?.data ?? null;
 
   return (

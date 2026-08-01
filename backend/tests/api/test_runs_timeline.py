@@ -1,6 +1,10 @@
+import json
+from uuid import UUID
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes.run_world import stream_run_events
 from app.store.models import Agent, Event, Location, SimulationRun
 
 
@@ -474,6 +478,51 @@ async def test_events_incremental_query_empty_since_tick(client, db_session):
 
     assert len(data["events"]) == 0
     assert data["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_event_stream_emits_public_world_events_as_sse(client, db_session):
+    create_response = await client.post(
+        "/api/runs",
+        json={"name": "event-stream", "seed_demo": False},
+    )
+    run_id = create_response.json()["id"]
+    db_session.add(
+        Event(
+            id="stream-event-2",
+            run_id=run_id,
+            tick_no=2,
+            event_type="move",
+            payload={"from_location_id": "library", "to_location_id": "cafe"},
+        )
+    )
+    await db_session.commit()
+
+    class ConnectedRequest:
+        async def is_disconnected(self):
+            return False
+
+    response = await stream_run_events(
+        UUID(run_id),
+        ConnectedRequest(),  # type: ignore[arg-type]
+        since_tick=1,
+        session=db_session,
+    )
+    iterator = response.body_iterator
+
+    assert await anext(iterator) == "retry: 3000\n\n"
+    chunk = await anext(iterator)
+    assert "event: world_event" in chunk
+    assert "id: stream-event-2" in chunk
+    payload = json.loads(
+        next(
+            line.removeprefix("data: ") for line in chunk.splitlines() if line.startswith("data: ")
+        )
+    )
+    assert payload["event_type"] == "move"
+    assert payload["payload"]["to_location_id"] == "cafe"
+
+    await iterator.aclose()  # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio

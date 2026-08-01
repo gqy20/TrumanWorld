@@ -21,7 +21,7 @@ const MAX_ACTIVE_MOVE_TRAILS = 1;
 
 export function useActiveVoxelStageEvents(sceneWorld: SceneWorld): ActiveVoxelStageEvents {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(() => new Set());
-  const seenKeysRef = useRef<Set<string>>(new Set());
+  const seenKeysRef = useRef<Set<string>>(collectEventKeys(sceneWorld));
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const runIdRef = useRef(sceneWorld.runId);
 
@@ -29,10 +29,10 @@ export function useActiveVoxelStageEvents(sceneWorld: SceneWorld): ActiveVoxelSt
     if (runIdRef.current === sceneWorld.runId) return;
     timersRef.current.forEach((timer) => clearTimeout(timer));
     timersRef.current.clear();
-    seenKeysRef.current.clear();
+    seenKeysRef.current = collectEventKeys(sceneWorld);
     runIdRef.current = sceneWorld.runId;
     setActiveKeys(new Set());
-  }, [sceneWorld.runId]);
+  }, [sceneWorld]);
 
   useEffect(() => {
     const visibleCandidates = [
@@ -98,4 +98,11 @@ export function useActiveVoxelStageEvents(sceneWorld: SceneWorld): ActiveVoxelSt
 
 function eventKey(kind: "bubble" | "move", id: string): string {
   return `${kind}:${id}`;
+}
+
+function collectEventKeys(sceneWorld: SceneWorld): Set<string> {
+  return new Set([
+    ...sceneWorld.bubbles.map((bubble) => eventKey("bubble", bubble.id)),
+    ...sceneWorld.moveTrails.map((trail) => eventKey("move", trail.id)),
+  ]);
 }

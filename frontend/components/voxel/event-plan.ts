@@ -72,15 +72,64 @@ export function buildVoxelEventPlan(
         snapRoadPoint(fromPlot.entrance),
         snapRoadPoint(toPlot.entrance),
       );
-      if (roadPath.length < 2) return [];
+      if (roadPath.length === 0) return [];
+      const fromAnchor = resolveAgentPathAnchor(
+        scenePlan,
+        trail.actorId,
+        trail.fromLocationId,
+        fromPlot.agentAnchors,
+      );
+      const toAnchor = resolveAgentPathAnchor(
+        scenePlan,
+        trail.actorId,
+        trail.toLocationId,
+        toPlot.agentAnchors,
+      );
+      const points = [
+        { ...fromAnchor, y: 0 },
+        { ...fromPlot.entrance, y: 0 },
+        ...roadPath.map((point) => ({ ...point, y: 0 })),
+        { ...toPlot.entrance, y: 0 },
+        { ...toAnchor, y: 0 },
+      ].filter((point, index, allPoints) => {
+        const previous = allPoints[index - 1];
+        return !previous || previous.x !== point.x || previous.z !== point.z;
+      });
       return [
         {
           ...trail,
-          points: roadPath.map((point) => ({ ...point, y: 0.19 })),
+          points,
         },
       ];
     }),
   };
+}
+
+function resolveAgentPathAnchor(
+  scenePlan: VoxelScenePlan,
+  agentId: string | undefined,
+  locationId: string,
+  fallbackAnchors: VoxelPoint[],
+): VoxelPoint {
+  if (agentId) {
+    const currentAgent = scenePlan.agents.find((agent) => agent.id === agentId);
+    if (currentAgent?.source.locationId === locationId) {
+      return {
+        x: currentAgent.anchor.position.x,
+        z: currentAgent.anchor.position.z,
+      };
+    }
+
+    const expectedOccupants = scenePlan.agents
+      .filter((agent) => agent.source.locationId === locationId && agent.id !== agentId)
+      .map((agent) => agent.id)
+      .concat(agentId)
+      .sort((left, right) => left.localeCompare(right));
+    const slotIndex = expectedOccupants.indexOf(agentId);
+    const expectedAnchor = fallbackAnchors[slotIndex % fallbackAnchors.length];
+    if (expectedAnchor) return expectedAnchor;
+  }
+  return fallbackAnchors[0];
 }
 
 export function findRoadPath(

@@ -28,10 +28,16 @@ describe("voxel event plan", () => {
     const roadKeys = new Set(scenePlan.roads.map((road) => `${road.x}:${road.z}`));
 
     expect(trail.id).toBe("event-2");
-    expect(trail.points[0]).toMatchObject(snapRoadPoint(fromPlot!.entrance));
-    expect(trail.points.at(-1)).toMatchObject(snapRoadPoint(toPlot!.entrance));
-    expect(trail.points.every((point) => roadKeys.has(`${point.x}:${point.z}`))).toBe(true);
-    expect(trail.points.every((point) => point.y === 0.19)).toBe(true);
+    expect(trail.points[0]).toMatchObject(fromPlot!.agentAnchors[0]);
+    expect(trail.points.at(-1)).toEqual({
+      ...scenePlan.agentAnchors["agent-1"].position,
+      y: 0,
+    });
+    expect(trail.points.slice(2, -2).every((point) => roadKeys.has(`${point.x}:${point.z}`)))
+      .toBe(true);
+    expect(trail.points.every((point) => point.y === 0)).toBe(true);
+    expect(trail.points).toContainEqual({ ...snapRoadPoint(fromPlot!.entrance), y: 0 });
+    expect(trail.points).toContainEqual({ ...snapRoadPoint(toPlot!.entrance), y: 0 });
   });
 
   it("falls back to a location roof anchor when the speaker is not present", () => {
