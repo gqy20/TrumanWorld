@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="zh-CN">
-      <body className="h-screen overflow-hidden">
+      <body className="min-h-screen overflow-x-hidden lg:h-screen lg:overflow-hidden">
         <script
           dangerouslySetInnerHTML={{
             __html: `window.__TRUMANWORLD_CONFIG__ = ${JSON.stringify(runtimeConfig)};`,

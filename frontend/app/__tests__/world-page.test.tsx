@@ -8,6 +8,7 @@ import {
   listScenariosResult,
 } from "@/lib/api";
 import type { DemoAccessStatus, ScenarioSummary, WorldSnapshot } from "@/lib/types";
+import type { VoxelCameraFocusRequest } from "@/components/voxel/camera-controller";
 
 import { makeScenarioSummary, makeWorldSnapshot } from "@/test-utils/app/fixtures";
 import { errorResult, okResult, renderWorldPage } from "@/test-utils/app/render";
@@ -71,13 +72,20 @@ jest.mock("@/components/world-view-toggle", () => ({
 
 jest.mock("@/components/voxel-world-renderer", () => ({
   VoxelWorldRenderer: ({
+    cameraFocusRequest,
     onAgentClick,
     onLocationClick,
   }: {
+    cameraFocusRequest?: VoxelCameraFocusRequest | null;
     onAgentClick?: (agentId: string) => void;
     onLocationClick?: (locationId: string) => void;
   }) => (
     <div data-testid="voxel-stage-container">
+      <span data-testid="voxel-camera-focus">
+        {cameraFocusRequest
+          ? `${cameraFocusRequest.kind}:${cameraFocusRequest.id}:${cameraFocusRequest.revision}`
+          : "none"}
+      </span>
       <button type="button" onClick={() => onLocationClick?.("library")}>
         Voxel Library
       </button>
@@ -190,11 +198,13 @@ describe("WorldPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Voxel Library" }));
 
     expect(await screen.findByText("Location modal library")).toBeInTheDocument();
+    expect(screen.getByTestId("voxel-camera-focus")).toHaveTextContent("location:library:1");
     expect(window.location.search).toBe("?modal=location&loc=library");
 
     fireEvent.click(screen.getByRole("button", { name: "Voxel Mei" }));
 
     expect(await screen.findByText("Agent modal agent-1")).toBeInTheDocument();
+    expect(screen.getByTestId("voxel-camera-focus")).toHaveTextContent("agent:agent-1:2");
     expect(window.location.search).toBe("?modal=agent&loc=library&agent=agent-1");
   });
 

@@ -21,17 +21,21 @@
 - 地面、道路、建筑和角色按材质与阴影属性合并为 `InstancedMesh` 批次
 - 选中态独立为 selection layer，不再因选中地点或角色重建 WebGL renderer
 - 正交相机根据 ScenePlan bounds 和 viewport aspect 自动取景，移动端舞台高度已单独收敛
+- 桌面端已支持滚轮缩放、鼠标拖拽平移、地点/角色点击聚焦和一键重置镜头
+- 聚焦与重置使用 220ms 缓动，并尊重 `prefers-reduced-motion`
+- 拖拽使用移动阈值并抑制松手后的误点击；窄屏普通滚轮保留给页面滚动
 - 视图切换已移入舞台浮层，桌面端支持一键聚焦舞台并用 Escape 恢复信息栏
+- 应用外壳在窄屏恢复页面纵向滚动，舞台下方信息不再被 viewport 裁切
 - 生产世界页不再依赖 Phaser 导出的视图切换组件，Phaser 仅作为 legacy 实现保留
 - scenario UI 配置已将 renderer 从 `pixel` 收口为 `voxel`
 
-Phase 1–3 的空间底座已经完成。下一阶段进入 Presentation Shell：让舞台真正成为页面主屏，并收敛右栏和控制区；随后再做相机交互和事件播放。
+Phase 1–3 的空间底座和 Phase 5 的相机交互已经完成。Phase 4 的展示外壳仍在逐步收敛，下一阶段优先进入事件可视化，让静态世界开始表达正在发生的故事。
 
 当前世界页已经从 SVG 地图、Phaser 像素小镇推进到可扩展的 Three.js voxel 舞台。基础结构已经成立，剩余问题主要位于展示和叙事层：
 
 - 右侧信息栏仍长期占据横向空间
 - 舞台工具条仍在 Canvas 外部占用垂直空间
-- 缺少 hover 信息、镜头聚焦、缩放和平移
+- 缺少 hover 信息和选中目标的轻量 DOM 摘要
 - move、speech、talk 等事件还没有进入舞台表现层
 - 材质仍以统一 Lambert 方块为主，缺少更细的表面与氛围层次
 
@@ -78,7 +82,7 @@ Phase 1–3 的空间底座已经完成。下一阶段进入 Presentation Shell�
 
 - `frontend/components/world-canvas.tsx` 已经开始从三列改为主舞台加右栏，但右栏仍常驻。
 - voxel 舞台已区分移动端和桌面端高度，并根据实际 aspect 计算正交相机 frustum。
-- `WorldViewToggle` 仍作为舞台上方控制区存在，后续可以移到舞台浮层右上角，减少垂直空间占用。
+- `WorldViewToggle` 已移入舞台浮层；下一步应把右栏进一步收敛成按需展开的信息层。
 
 ### 4.2 空间结构问题
 
@@ -584,6 +588,10 @@ Prefab 质量标准：
 
 ### Phase 5: Camera / Interaction
 
+状态：`complete`
+
+当前实现位于 `camera-controller.ts` 和 `voxel-canvas.tsx`：相机数学保持为可测试纯函数，Three.js 生命周期和原生指针事件由 CameraRig 管理。
+
 目标：提高可观看性和可控性。
 
 任务：
@@ -603,8 +611,8 @@ Prefab 质量标准：
 
 详细任务：
 
-1. 新增 `interaction.ts`。
-2. 封装 raycast hit testing。
+1. 新增 `camera-controller.ts`。
+2. 沿用 React Three Fiber 的实例 raycast hit testing。
 3. 新增 camera controller：
    - wheel zoom
    - pointer drag pan
@@ -698,7 +706,7 @@ frontend/components/voxel/
     road-graph.test.ts
     prefabs.test.ts
     scene-plan.test.ts
-  camera.ts
+  camera-controller.ts
   geometry.ts
   interaction.ts
   materials.ts
@@ -720,6 +728,7 @@ type VoxelWorldRendererProps = {
   sceneWorld: SceneWorld;
   highlightedLocationId?: string | null;
   highlightedAgentId?: string | null;
+  cameraFocusRequest?: VoxelCameraFocusRequest | null;
   onLocationClick?: (locationId: string) => void;
   onAgentClick?: (agentId: string) => void;
 };
@@ -792,8 +801,10 @@ function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan;
 3. 点击一个建筑，确认 location modal 打开。
 4. 点击一个角色，确认 agent modal 打开。
 5. 切换到 SVG map，再切回 voxel stage。
-6. 改变窗口宽度，确认 stage 不空、不拉伸。
-7. 检查右侧面板不遮挡主场景。
+6. 在桌面端验证滚轮缩放、拖拽平移和重置镜头，确认拖拽不会误开地点弹窗。
+7. 改变窗口宽度，确认 stage 不空、不拉伸。
+8. 在 390x844 下从舞台区域滚动，确认页面能进入健康面板和地点列表。
+9. 检查右侧面板不遮挡主场景。
 
 ## 10. Risk / Tradeoffs
 

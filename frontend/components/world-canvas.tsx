@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { TownMap } from "@/components/town-map";
 import { VoxelWorldRenderer } from "@/components/voxel-world-renderer";
+import type { VoxelCameraFocusRequest } from "@/components/voxel/camera-controller";
 import { WorldViewToggle, type WorldView } from "@/components/world-view-toggle";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { IntelligenceStreamModal } from "@/components/intelligence-stream-modal";
@@ -42,6 +43,8 @@ export function WorldCanvas({ runId }: Props) {
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
   const [mapView, setMapView] = useState<WorldView>("voxel");
   const [isStageFocused, setIsStageFocused] = useState(false);
+  const [cameraFocusRequest, setCameraFocusRequest] =
+    useState<VoxelCameraFocusRequest | null>(null);
 
   const modal = searchParams.get("modal");
   const selectedAgentId = searchParams.get("agent");
@@ -135,6 +138,9 @@ export function WorldCanvas({ runId }: Props) {
   const selectedLocationHeadlineEvents = selectedLocation
     ? getLocationHeadlineEvents(selectedLocation.id, world.recent_events, 2)
     : [];
+  const requestCameraFocus = (kind: VoxelCameraFocusRequest["kind"], id: string) => {
+    setCameraFocusRequest((current) => ({ kind, id, revision: (current?.revision ?? 0) + 1 }));
+  };
 
   return (
     <div className="flex min-h-0 flex-col gap-4 xl:h-full">
@@ -168,8 +174,10 @@ export function WorldCanvas({ runId }: Props) {
                   sceneWorld={sceneWorld}
                   highlightedLocationId={highlightedLocationId}
                   highlightedAgentId={selectedAgentId}
+                  cameraFocusRequest={cameraFocusRequest}
                   onLocationClick={(locationId) => {
                     setHighlightedLocationId(locationId);
+                    requestCameraFocus("location", locationId);
                     replaceSearchParams({ modal: "location", loc: locationId });
                   }}
                   onAgentClick={(agentId) => {
@@ -180,6 +188,7 @@ export function WorldCanvas({ runId }: Props) {
                     if (targetLocationId) {
                       setHighlightedLocationId(targetLocationId);
                     }
+                    requestCameraFocus("agent", agentId);
                     replaceSearchParams({ modal: "agent", agent: agentId });
                   }}
                 />
