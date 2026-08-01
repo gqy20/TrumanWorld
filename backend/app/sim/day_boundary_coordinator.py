@@ -29,27 +29,26 @@ class DayBoundaryCoordinator:
         world: WorldState,
         engine,
         agent_runtime: AgentRuntime,
-    ) -> bool:
+    ) -> dict[str, dict[str, str]]:
         """在 agent 决策前运行 Planner（如果当前是清晨边界）。
 
-        返回 True 表示 Planner 已执行，调用方的 agent_data 应重新加载以获取新计划。
+        返回本轮已持久化的 agent 计划，供调用方直接更新决策上下文。
         """
         if engine is None or not world.agents or not should_run_planner(world):
-            return False
+            return {}
         try:
-            await run_morning_planning(
+            return await run_morning_planning(
                 run_id=run_id,
                 tick_no=tick_no,
                 world=world,
                 engine=engine,
                 agent_runtime=agent_runtime,
             )
-            return True
         except Exception as exc:
             logger.warning(f"Day boundary planner failed: {exc}")
             if not isinstance(agent_runtime.backend, HeuristicAgentBackend):
                 raise
-            return False
+            return {}
 
     async def run_reflector_if_needed(
         self,

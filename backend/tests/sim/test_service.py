@@ -567,7 +567,9 @@ async def test_simulation_service_resolves_runtime_agent_id_from_profile(db_sess
 
 
 @pytest.mark.asyncio
-async def test_simulation_service_includes_current_plan_in_agent_context(db_session, tmp_path):
+async def test_simulation_service_uses_planner_result_without_reloading_world(
+    db_session, tmp_path, monkeypatch
+):
     agent_dir = tmp_path / "alice"
     agent_dir.mkdir(parents=True)
     (agent_dir / "agent.yml").write_text(
@@ -607,7 +609,7 @@ async def test_simulation_service_includes_current_plan_in_agent_context(db_sess
         personality={},
         profile={"agent_config_id": "alice"},
         status={},
-        current_plan={"morning": "read", "daytime": "work", "evening": "walk"},
+        current_plan={"morning": "old plan"},
     )
     db_session.add_all([run, home, agent])
     await db_session.commit()
@@ -616,13 +618,31 @@ async def test_simulation_service_includes_current_plan_in_agent_context(db_sess
     runtime = SimulationService(db_session, agents_root=tmp_path).agent_runtime
     runtime.backend = HeuristicAgentBackend(provider)
 
-    await SimulationService(
+    service = SimulationService(
         db_session,
         agent_runtime=runtime,
         agents_root=tmp_path,
-    ).run_tick(run.id)
+    )
+    new_plan = {"morning": "read", "daytime": "work", "evening": "walk"}
 
-    assert provider.world_by_agent["alice"]["daily_schedule"] == agent.current_plan
+    async def return_new_plan(**_kwargs):
+        return {agent.id: new_plan}
+
+    load_count = 0
+    original_load_world = service._load_world
+
+    async def count_world_loads(*args, **kwargs):
+        nonlocal load_count
+        load_count += 1
+        return await original_load_world(*args, **kwargs)
+
+    monkeypatch.setattr(service.day_boundary_coordinator, "run_planner_if_needed", return_new_plan)
+    monkeypatch.setattr(service, "_load_world", count_world_loads)
+
+    await service.run_tick(run.id)
+
+    assert provider.world_by_agent["alice"]["daily_schedule"] == new_plan
+    assert load_count == 1
 
 
 @pytest.mark.asyncio

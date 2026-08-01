@@ -378,8 +378,8 @@ async def test_build_director_plan_returns_none_when_auto_intervention_disabled(
 
 
 @pytest.mark.asyncio
-async def test_run_planner_if_needed_returns_false_outside_morning():
-    """非清晨时段调用 run_planner_if_needed 应返回 False，不触发 Planner。"""
+async def test_run_planner_if_needed_returns_empty_plans_outside_morning():
+    """非清晨时段调用 run_planner_if_needed 应返回空计划，不触发 Planner。"""
     from unittest.mock import MagicMock
     from datetime import datetime
     from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
@@ -400,12 +400,12 @@ async def test_run_planner_if_needed_returns_false_outside_morning():
         agent_runtime=mock_runtime,
     )
 
-    assert result is False
+    assert result == {}
 
 
 @pytest.mark.asyncio
-async def test_run_planner_if_needed_returns_false_when_engine_none():
-    """engine 为 None 时应短路返回 False，不触发 Planner。"""
+async def test_run_planner_if_needed_returns_empty_plans_when_engine_none():
+    """engine 为 None 时应短路返回空计划，不触发 Planner。"""
     from datetime import datetime
     from unittest.mock import MagicMock
     from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
@@ -425,12 +425,12 @@ async def test_run_planner_if_needed_returns_false_when_engine_none():
         agent_runtime=MagicMock(),
     )
 
-    assert result is False
+    assert result == {}
 
 
 @pytest.mark.asyncio
 async def test_run_planner_if_needed_calls_planning_at_morning_boundary():
-    """06:00 清晨时段调用 run_planner_if_needed 应调用 run_morning_planning 并返回 True。"""
+    """06:00 清晨时段应返回 Planner 生成的计划映射。"""
     from datetime import datetime
     from unittest.mock import AsyncMock, MagicMock, patch
     from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
@@ -444,7 +444,9 @@ async def test_run_planner_if_needed_calls_planning_at_morning_boundary():
     coordinator = DayBoundaryCoordinator()
 
     with patch(
-        "app.sim.day_boundary_coordinator.run_morning_planning", new_callable=AsyncMock
+        "app.sim.day_boundary_coordinator.run_morning_planning",
+        new_callable=AsyncMock,
+        return_value={"test-agent": {"morning": "work"}},
     ) as mock_planning:
         result = await coordinator.run_planner_if_needed(
             run_id="test-run",
@@ -454,7 +456,7 @@ async def test_run_planner_if_needed_calls_planning_at_morning_boundary():
             agent_runtime=MagicMock(),
         )
 
-    assert result is True
+    assert result == {"test-agent": {"morning": "work"}}
     mock_planning.assert_awaited_once()
 
 

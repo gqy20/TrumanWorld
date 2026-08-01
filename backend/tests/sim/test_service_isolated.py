@@ -174,6 +174,45 @@ async def test_run_tick_isolated_persists_llm_calls(db_session, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_run_tick_isolated_uses_planner_result_in_agent_context(tmp_path, monkeypatch):
+    engine = await create_isolated_sqlite_engine()
+    run_id = "run-isolated-planner-result"
+    agent_id = "agent-isolated-planner-result"
+    config_id = "alice-planner-result"
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        run = make_run(run_id, name="isolated-planner-result", current_tick=1)
+        home = make_location("loc-isolated-planner-result", run_id=run_id, name="Home")
+        agent = make_agent(
+            agent_id,
+            run_id=run_id,
+            location_id=home.id,
+            name="Alice",
+            profile={"agent_config_id": config_id},
+            current_plan={"morning": "old plan"},
+        )
+        session.add_all([run, home, agent])
+        await session.commit()
+
+    write_agent_config(tmp_path, config_id, name="Alice", home="loc-isolated-planner-result")
+    provider = TokenCapturingDecisionProvider()
+    service = build_scheduler_service(tmp_path, HeuristicAgentBackend(provider))
+    new_plan = {"morning": "read", "daytime": "work", "evening": "walk"}
+
+    async def return_new_plan(**_kwargs):
+        return {agent_id: new_plan}
+
+    monkeypatch.setattr(service.day_boundary_coordinator, "run_planner_if_needed", return_new_plan)
+
+    try:
+        result = await service.run_tick_isolated(run_id, engine)
+    finally:
+        await engine.dispose()
+
+    assert result.tick_no == 2
+    assert provider.captured_invocations[0].context["world"]["daily_schedule"] == new_plan
+
+
+@pytest.mark.asyncio
 async def test_run_tick_isolated_advances_when_one_agent_falls_back(tmp_path):
     engine = await create_isolated_sqlite_engine()
     run_id = "run-isolated-fallback-1"

@@ -74,7 +74,7 @@ class IsolatedTickRunner:
 
         # ── 清晨边界：在 agent 决策前先执行 Planner，使当日第一个 tick 即可用新计划 ──
         planner_started_at = perf_counter()
-        planner_ran = await self.day_boundary_coordinator.run_planner_if_needed(
+        planner_plans = await self.day_boundary_coordinator.run_planner_if_needed(
             run_id=run_id,
             tick_no=loaded.run.current_tick,
             world=loaded.world,
@@ -83,35 +83,17 @@ class IsolatedTickRunner:
         )
         logger.debug(
             "tick_phase_completed run_id=%s tick_no=%s phase=planner_boundary duration_ms=%s "
-            "planner_ran=%s",
+            "planner_plan_count=%s",
             run_id,
             loaded.run.current_tick,
             int((perf_counter() - planner_started_at) * 1000),
-            planner_ran,
+            len(planner_plans),
         )
 
-        # 若 Planner 已写入新计划，重新加载 agent_data 使决策使用当日计划
-        if planner_ran:
-            reload_started_at = perf_counter()
-            async with AsyncSession(engine) as reload_session:
-                reload_scenario = create_scenario(loaded.run.scenario_type, reload_session)
-                reload_scenario.configure_runtime(self.agent_runtime)
-                reloaded = await load_tick_data(
-                    session=reload_session,
-                    run_id=run_id,
-                    scenario=reload_scenario,
-                )
-            agent_data = reloaded.agent_data
-            logger.debug(
-                "tick_phase_completed run_id=%s tick_no=%s phase=reload_tick_data duration_ms=%s "
-                "agent_count=%s",
-                run_id,
-                loaded.run.current_tick,
-                int((perf_counter() - reload_started_at) * 1000),
-                len(agent_data),
-            )
-        else:
-            agent_data = loaded.agent_data
+        agent_data = loaded.agent_data
+        for agent_snapshot in agent_data:
+            if agent_snapshot.id in planner_plans:
+                agent_snapshot.current_plan = planner_plans[agent_snapshot.id]
 
         if not intents:
             intents, llm_records = await orchestrator.prepare_intents_from_data(

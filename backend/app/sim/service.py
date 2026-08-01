@@ -201,17 +201,19 @@ class SimulationService:
             self._configure_scenario_for_run(run)
 
             world = await self._load_world(run_id, tick_minutes=run.tick_minutes)
-            planner_ran = await self.day_boundary_coordinator.run_planner_if_needed(
+            planner_plans = await self.day_boundary_coordinator.run_planner_if_needed(
                 run_id=run_id,
                 tick_no=run.current_tick,
                 world=world,
                 engine=self._require_session_bound().bind,
                 agent_runtime=self.agent_runtime,
             )
-            if planner_ran:
-                world = await self._load_world(run_id, tick_minutes=run.tick_minutes)
             if not intents:
-                intents = await self.prepare_tick_intents(run_id, world)
+                intents = await self.prepare_tick_intents(
+                    run_id,
+                    world,
+                    plan_overrides=planner_plans,
+                )
             result = self._build_tick_orchestrator().execute_tick(
                 run_id=run_id,
                 world=world,
@@ -297,7 +299,10 @@ class SimulationService:
         """
         started_at = perf_counter()
         try:
-            result, scenario = await IsolatedTickRunner(agent_runtime=self.agent_runtime).run(
+            result, scenario = await IsolatedTickRunner(
+                agent_runtime=self.agent_runtime,
+                day_boundary_coordinator=self.day_boundary_coordinator,
+            ).run(
                 run_id=run_id,
                 engine=engine,
                 intents=intents,
@@ -324,8 +329,17 @@ class SimulationService:
             scenario=self._scenario,
         )
 
-    async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
-        return await self._build_tick_orchestrator().prepare_tick_intents(run_id, world)
+    async def prepare_tick_intents(
+        self,
+        run_id: str,
+        world: WorldState,
+        plan_overrides: dict[str, dict[str, str]] | None = None,
+    ) -> list[ActionIntent]:
+        return await self._build_tick_orchestrator().prepare_tick_intents(
+            run_id,
+            world,
+            plan_overrides=plan_overrides,
+        )
 
     async def observe_run(self, run_id: str, event_limit: int = 20) -> DirectorAssessment:
         run = await self._require_run_repo().get(run_id)

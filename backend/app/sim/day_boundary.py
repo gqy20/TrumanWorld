@@ -317,8 +317,8 @@ async def run_morning_planning(
     world: WorldState,
     engine: AsyncEngine,
     agent_runtime: AgentRuntime,
-) -> None:
-    """Run the Planner for all agents at morning boundary and persist results."""
+) -> dict[str, dict[str, str]]:
+    """Run morning planning, persist it, and return plans for the current tick."""
     from sqlalchemy.ext.asyncio import AsyncSession
 
     today = world.current_time.date()
@@ -338,7 +338,7 @@ async def run_morning_planning(
         )
 
     if not pending:
-        return
+        return {}
 
     logger.info(f"[day_boundary] Morning planning for {len(pending)} agents (run={run_id})")
     collector = LlmCallCollector()
@@ -387,6 +387,7 @@ async def run_morning_planning(
         agent_repo = AgentRepository(write_session)
         memory_repo = MemoryRepository(write_session)
         memories_to_create: list[Memory] = []
+        plans_by_agent: dict[str, dict[str, str]] = {}
         agents_by_id = (
             {agent.id: agent for agent in await agent_repo.list_for_run(run_id)}
             if any(not isinstance(res, Exception) and res[2] for res in results)
@@ -403,7 +404,7 @@ async def run_morning_planning(
                 continue
 
             # Extract intention text; keep rest of plan as current_plan
-            intention = plan.pop("intention", "")
+            intention = plan.get("intention", "")
             new_plan = {k: v for k, v in plan.items() if k in ("morning", "daytime", "evening")}
 
             # Update agent.current_plan in DB
@@ -411,6 +412,7 @@ async def run_morning_planning(
             if agent_obj is not None:
                 agent_obj.current_plan = new_plan
                 write_session.add(agent_obj)
+                plans_by_agent[agent_id] = new_plan
 
             # Write a long_term memory recording the plan
             content = f"今日计划：早晨={new_plan.get('morning', '?')}，白天={new_plan.get('daytime', '?')}，傍晚={new_plan.get('evening', '?')}。{intention}"
@@ -446,6 +448,7 @@ async def run_morning_planning(
         llm_records=collector.records,
         engine=engine,
     )
+    return plans_by_agent
 
 
 # ── Reflector 执行 ────────────────────────────────────────────────────────────

@@ -156,7 +156,7 @@ async def test_day_boundary_memories_populate_subjective_fields():
             ]
 
     runtime = FakeAgentRuntime()
-    await run_morning_planning(
+    plans = await run_morning_planning(
         run_id="run-day-boundary-memory",
         tick_no=0,
         world=FakeWorld(datetime(2026, 3, 2, 6, 0, tzinfo=UTC), 5),
@@ -181,6 +181,7 @@ async def test_day_boundary_memories_populate_subjective_fields():
 
     await engine.dispose()
 
+    assert plans == {"agent-boundary": {"morning": "commute", "daytime": "work", "evening": "rest"}}
     assert [memory.memory_type for memory in memories] == ["daily_plan", "daily_reflection"]
     for memory in memories:
         assert memory.memory_category == "long_term"

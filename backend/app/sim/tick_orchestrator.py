@@ -60,7 +60,12 @@ class TickOrchestrator:
         self._runtime_role_semantics = build_scenario_runtime_config(scenario_id)
         self._subject_alert_tracking_enabled = self._runtime_role_semantics.subject_alert_tracking
 
-    async def prepare_tick_intents(self, run_id: str, world: WorldState) -> list[ActionIntent]:
+    async def prepare_tick_intents(
+        self,
+        run_id: str,
+        world: WorldState,
+        plan_overrides: dict[str, dict[str, str]] | None = None,
+    ) -> list[ActionIntent]:
         if self.session is None or self.context_builder is None or self.agent_repo is None:
             msg = "TickOrchestrator.prepare_tick_intents requires a bound session context"
             raise RuntimeError(msg)
@@ -107,7 +112,7 @@ class TickOrchestrator:
                     profile=profile,
                     recent_events=agent_recent_events.get(agent.id, []),
                     subject_alert_score=subject_alert_score,
-                    current_plan=agent.current_plan,
+                    current_plan=(plan_overrides or {}).get(agent.id, agent.current_plan),
                     relationship_context=world.relationship_contexts.get(agent.id),
                 )
             )
