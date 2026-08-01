@@ -114,10 +114,9 @@ function normalizeError(response: Response, payload: ErrorPayload | null) {
 }
 
 function resolveApiBaseUrl() {
+  if (typeof window === "undefined") return getInternalApiBaseUrl();
   const runtimeBaseUrl =
-    typeof window !== "undefined"
-      ? window.__TRUMANWORLD_CONFIG__?.apiBaseUrl?.replace(/\/$/, "")
-      : undefined;
+    window.__TRUMANWORLD_CONFIG__?.apiBaseUrl?.replace(/\/$/, "");
   const publicBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 
   return runtimeBaseUrl ?? publicBaseUrl ?? DEFAULT_API_BASE_URL;
@@ -208,12 +207,12 @@ async function requestResultUrl<T>(
   }
 }
 
-async function fetchResultUrl<T>(url: string): Promise<ApiResult<T>> {
-  return requestResultUrl<T>(url);
+async function fetchResultUrl<T>(url: string, options?: RequestOptions): Promise<ApiResult<T>> {
+  return requestResultUrl<T>(url, options);
 }
 
-async function fetchResult<T>(path: string): Promise<ApiResult<T>> {
-  return fetchResultUrl<T>(buildApiUrl(path));
+async function fetchResult<T>(path: string, options?: RequestOptions): Promise<ApiResult<T>> {
+  return fetchResultUrl<T>(buildApiUrl(path), options);
 }
 
 async function postResult<T>(path: string, body: unknown): Promise<ApiResult<T>> {
@@ -267,7 +266,7 @@ export async function getRunEventsResult(
 }
 
 export async function getWorldResult(runId: string): Promise<ApiResult<WorldSnapshot>> {
-  return fetchResult<WorldSnapshot>(`/runs/${runId}/world`);
+  return fetchResult<WorldSnapshot>(`/runs/${runId}/world`, { timeoutMs: 15000 });
 }
 
 export async function getWorldPulseResult(runId: string): Promise<ApiResult<WorldPulse>> {
