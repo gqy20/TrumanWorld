@@ -40,6 +40,7 @@
 5. 如需判断心智模型边界，看 [engineering/world_design/MENTAL_STATE_MODEL.md](engineering/world_design/MENTAL_STATE_MODEL.md)
 6. 看 [references/BUILD_VS_BUY.md](references/BUILD_VS_BUY.md)
 7. 如需回看 MVP 方案，看 [references/MVP_ARCHITECTURE.md](references/MVP_ARCHITECTURE.md)
+8. 如需评估后续游戏引擎路线，看 [engineering/GODOT_3D_CLIENT_SPIKE.md](engineering/GODOT_3D_CLIENT_SPIKE.md)
 
 ### 我想部署和排障
 
