@@ -1,16 +1,10 @@
 "use client";
 
 import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
-import {
-  type MutableRefObject,
-  forwardRef,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { type MutableRefObject, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
+import { buildVoxelAgentInstanceParts, type VoxelAgentInstancePart } from "./agent-instances";
 import {
   advanceVoxelMotionProgress,
   buildVoxelMotionPath,
@@ -19,8 +13,7 @@ import {
   type VoxelMotionPath,
 } from "./agent-motion";
 import type { VoxelMoveTrail } from "./event-plan";
-import { VOXEL_MATERIAL_COLORS } from "./materials";
-import type { VoxelAgentPlan, VoxelMaterialKey } from "./types";
+import type { VoxelAgentPlan } from "./types";
 
 export type AgentPoseMap = MutableRefObject<Map<string, THREE.Vector3>>;
 
@@ -30,6 +23,15 @@ type AgentAnimation = {
   path: VoxelMotionPath;
   progress: number;
   skipNextFrame: boolean;
+};
+
+type AgentRuntime = {
+  animation: AgentAnimation | null;
+  bodyBob: number;
+  completedMotionId: string | null;
+  gaitSwing: number;
+  position: THREE.Vector3;
+  rotationY: number;
 };
 
 export function AgentLayer({
@@ -47,7 +49,12 @@ export function AgentLayer({
   prefersReducedMotion: boolean;
   onAgentClick?: (agentId: string) => void;
 }) {
-  const resources = useMemo(() => buildAgentRenderResources(agents), [agents]);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const runtimesRef = useRef<Map<string, AgentRuntime>>(new Map());
+  const previousPausedRef = useRef(isPaused);
+  const transformRef = useRef({ root: new THREE.Object3D(), part: new THREE.Object3D() });
+  const invalidate = useThree((state) => state.invalidate);
+  const parts = useMemo(() => buildVoxelAgentInstanceParts(agents), [agents]);
   const motionByAgentId = useMemo(() => {
     const motions = new Map<string, VoxelMoveTrail>();
     for (const trail of moveTrails) {
@@ -56,182 +63,117 @@ export function AgentLayer({
     return motions;
   }, [moveTrails]);
 
-  useEffect(
-    () => () => {
-      resources.geometry.dispose();
-      for (const material of resources.materials.values()) material.dispose();
-    },
-    [resources],
-  );
-
-  return (
-    <>
-      {agents.map((agent) => (
-        <VoxelAgent
-          key={agent.id}
-          agent={agent}
-          motion={motionByAgentId.get(agent.id)}
-          geometry={resources.geometry}
-          materials={resources.materials}
-          poseMap={poseMap}
-          isPaused={isPaused}
-          prefersReducedMotion={prefersReducedMotion}
-          onAgentClick={onAgentClick}
-        />
-      ))}
-    </>
-  );
-}
-
-function VoxelAgent({
-  agent,
-  motion,
-  geometry,
-  materials,
-  poseMap,
-  isPaused,
-  prefersReducedMotion,
-  onAgentClick,
-}: {
-  agent: VoxelAgentPlan;
-  motion?: VoxelMoveTrail;
-  geometry: THREE.BoxGeometry;
-  materials: Map<number, THREE.MeshLambertMaterial>;
-  poseMap: AgentPoseMap;
-  isPaused: boolean;
-  prefersReducedMotion: boolean;
-  onAgentClick?: (agentId: string) => void;
-}) {
-  const rootRef = useRef<THREE.Group>(null);
-  const bodyRef = useRef<THREE.Group>(null);
-  const leftLegRef = useRef<THREE.Mesh>(null);
-  const rightLegRef = useRef<THREE.Mesh>(null);
-  const animationRef = useRef<AgentAnimation | null>(null);
-  const completedMotionIdRef = useRef<string | null>(null);
-  const previousPausedRef = useRef(isPaused);
-  const invalidate = useThree((state) => state.invalidate);
-  const statusColor = VOXEL_MATERIAL_COLORS[getAgentMaterial(agent.source.status)];
-  const appearance = agent.appearance;
-  const heightScale = appearance.heightScale;
-
   useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
+    const mesh = meshRef.current;
+    if (!mesh) return;
     const wasPaused = previousPausedRef.current;
     previousPausedRef.current = isPaused;
+    const activeAgentIds = new Set(agents.map((agent) => agent.id));
+    for (const agentId of runtimesRef.current.keys()) {
+      if (activeAgentIds.has(agentId)) continue;
+      runtimesRef.current.delete(agentId);
+      poseMap.current.delete(agentId);
+    }
 
-    if (!motion) {
-      animationRef.current = null;
-      completedMotionIdRef.current = null;
-      resetAgentGait(bodyRef.current, leftLegRef.current, rightLegRef.current);
-      root.position.set(
-        agent.anchor.position.x,
-        Math.max(0, agent.anchor.position.y - 0.04),
-        agent.anchor.position.z,
+    for (const agent of agents) {
+      const motion = motionByAgentId.get(agent.id);
+      const runtime = getOrCreateRuntime(runtimesRef.current, agent);
+      synchronizeAgentRuntime(
+        runtime,
+        agent,
+        motion,
+        isPaused,
+        prefersReducedMotion,
+        wasPaused,
       );
-      publishAgentPose(poseMap, agent.id, root.position);
-      invalidate();
-      return;
+      publishAgentPose(poseMap, agent.id, runtime.position);
     }
 
-    const path = buildVoxelMotionPath(motion.points);
-    const finalPoint = path.points.at(-1);
-    if (prefersReducedMotion || path.totalLength === 0 || path.points.length < 2) {
-      animationRef.current = null;
-      completedMotionIdRef.current = motion.isActive ? null : motion.id;
-      resetAgentGait(bodyRef.current, leftLegRef.current, rightLegRef.current);
-      const staticProgress = motion.isActive
-        ? Math.min(1, Math.max(0, motion.initialProgress ?? 0))
-        : 1;
-      const staticSample = sampleVoxelMotionPath(path, staticProgress);
-      root.position.set(
-        staticSample.position.x,
-        staticSample.position.y,
-        staticSample.position.z,
-      );
-      publishAgentPose(poseMap, agent.id, root.position);
-      invalidate();
-      return;
-    }
-
-    if (completedMotionIdRef.current === motion.id) {
-      resetAgentGait(bodyRef.current, leftLegRef.current, rightLegRef.current);
-      if (finalPoint) root.position.set(finalPoint.x, finalPoint.y, finalPoint.z);
-      publishAgentPose(poseMap, agent.id, root.position);
-      invalidate();
-      return;
-    }
-
-    const activeAnimation = animationRef.current;
-    if (activeAnimation?.eventId === motion.id) {
-      activeAnimation.path = path;
-      activeAnimation.durationMs = calculateVoxelMotionDuration(path.totalLength);
-      const authoritativeProgress = Math.min(1, Math.max(0, motion.initialProgress ?? 0));
-      if (authoritativeProgress > activeAnimation.progress) {
-        activeAnimation.progress = authoritativeProgress;
-        const authoritativeSample = sampleVoxelMotionPath(path, authoritativeProgress);
-        root.position.set(
-          authoritativeSample.position.x,
-          authoritativeSample.position.y,
-          authoritativeSample.position.z,
-        );
-        publishAgentPose(poseMap, agent.id, root.position);
-      }
-      if (wasPaused && !isPaused) activeAnimation.skipNextFrame = true;
-      if (isPaused) {
-        resetAgentGait(bodyRef.current, leftLegRef.current, rightLegRef.current);
-      }
-      invalidate();
-      return;
-    }
-
-    const initialProgress = Math.min(1, Math.max(0, motion.initialProgress ?? 0));
-    const initialSample = sampleVoxelMotionPath(path, initialProgress);
-    root.position.set(
-      initialSample.position.x,
-      initialSample.position.y,
-      initialSample.position.z,
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    parts.forEach((part, index) => mesh.setColorAt(index, new THREE.Color(part.color)));
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    updateAgentInstanceMatrices(
+      mesh,
+      parts,
+      runtimesRef.current,
+      transformRef.current,
     );
-    publishAgentPose(poseMap, agent.id, root.position);
-    animationRef.current = {
-      durationMs: Math.max(1, calculateVoxelMotionDuration(path.totalLength)),
-      eventId: motion.id,
-      path,
-      progress: initialProgress,
-      skipNextFrame: wasPaused && !isPaused,
-    };
     invalidate();
   }, [
-    agent.anchor.position.x,
-    agent.anchor.position.y,
-    agent.anchor.position.z,
-    agent.id,
+    agents,
     invalidate,
     isPaused,
-    motion,
+    motionByAgentId,
+    parts,
     poseMap,
     prefersReducedMotion,
   ]);
 
   useEffect(
     () => () => {
-      poseMap.current.delete(agent.id);
+      for (const agentId of runtimesRef.current.keys()) poseMap.current.delete(agentId);
     },
-    [agent.id, poseMap],
+    [poseMap],
   );
 
   useFrame((_state, delta) => {
-    const root = rootRef.current;
-    const body = bodyRef.current;
-    const animation = animationRef.current;
-    if (!root || !body || !animation) return;
-    if (isPaused) return;
+    const mesh = meshRef.current;
+    if (!mesh || isPaused) return;
+    const { changed, needsNextFrame } = advanceAgentAnimations(
+      runtimesRef.current,
+      poseMap,
+      delta,
+    );
+    if (changed) {
+      updateAgentInstanceMatrices(
+        mesh,
+        parts,
+        runtimesRef.current,
+        transformRef.current,
+      );
+    }
+    if (needsNextFrame) invalidate();
+  });
+
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    const agentId =
+      event.instanceId === undefined ? undefined : parts[event.instanceId]?.agentId;
+    if (!agentId) return;
+    event.stopPropagation();
+    onAgentClick?.(agentId);
+  };
+
+  if (parts.length === 0) return null;
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, parts.length]}
+      castShadow
+      receiveShadow
+      frustumCulled={false}
+      onClick={handleClick}
+    >
+      <boxGeometry args={[1, 1, 1]} />
+      <meshLambertMaterial color={0xffffff} />
+    </instancedMesh>
+  );
+}
+
+function advanceAgentAnimations(
+  runtimes: Map<string, AgentRuntime>,
+  poseMap: AgentPoseMap,
+  delta: number,
+): { changed: boolean; needsNextFrame: boolean } {
+  let changed = false;
+  let needsNextFrame = false;
+  for (const [agentId, runtime] of runtimes) {
+    const animation = runtime.animation;
+    if (!animation) continue;
     if (animation.skipNextFrame) {
       animation.skipNextFrame = false;
-      invalidate();
-      return;
+      needsNextFrame = true;
+      continue;
     }
-
     const progress = advanceVoxelMotionProgress(
       animation.progress,
       animation.durationMs,
@@ -240,163 +182,145 @@ function VoxelAgent({
     );
     animation.progress = progress;
     const sample = sampleVoxelMotionPath(animation.path, progress);
-    root.position.set(sample.position.x, sample.position.y, sample.position.z);
-    root.rotation.y = dampAngle(
-      root.rotation.y,
+    runtime.position.set(sample.position.x, sample.position.y, sample.position.z);
+    runtime.rotationY = dampAngle(
+      runtime.rotationY,
       Math.atan2(sample.tangent.x, sample.tangent.z),
       14,
       delta,
     );
-
     const gaitPhase = progress * animation.path.totalLength * Math.PI * 3.4;
-    body.position.y = Math.abs(Math.sin(gaitPhase)) * 0.025;
-    if (leftLegRef.current) leftLegRef.current.rotation.x = Math.sin(gaitPhase) * 0.24;
-    if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(gaitPhase) * 0.24;
-    publishAgentPose(poseMap, agent.id, root.position);
-
+    runtime.bodyBob = Math.abs(Math.sin(gaitPhase)) * 0.025;
+    runtime.gaitSwing = Math.sin(gaitPhase) * 0.24;
+    publishAgentPose(poseMap, agentId, runtime.position);
+    changed = true;
     if (progress < 1) {
-      invalidate();
-      return;
+      needsNextFrame = true;
+    } else {
+      runtime.completedMotionId = animation.eventId;
+      runtime.animation = null;
+      resetAgentGait(runtime);
     }
-
-    completedMotionIdRef.current = animation.eventId;
-    animationRef.current = null;
-    resetAgentGait(body, leftLegRef.current, rightLegRef.current);
-  });
-
-  const handleClick = (event: ThreeEvent<MouseEvent>) => {
-    event.stopPropagation();
-    onAgentClick?.(agent.id);
-  };
-
-  return (
-    <group ref={rootRef} onClick={handleClick}>
-      <group ref={bodyRef}>
-        <AgentPart
-          position={[0, 0.34 * heightScale, 0]}
-          size={[0.22, 0.5 * heightScale, 0.18]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.torso)}
-        />
-        <AgentPart
-          position={[0, 0.67 * heightScale, 0]}
-          size={[0.2, 0.2, 0.2]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.skin)}
-        />
-        <AgentPart
-          position={[0, 0.81 * heightScale, -0.01]}
-          size={[0.22, 0.08, 0.22]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.hair)}
-        />
-        <AgentPart
-          position={[0, 0.45 * heightScale, 0.1]}
-          size={[0.13, 0.08, 0.025]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, statusColor)}
-        />
-        <AgentPart
-          position={[-0.15, 0.39 * heightScale, 0]}
-          size={[0.055, 0.34, 0.06]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.skin)}
-        />
-        <AgentPart
-          position={[0.15, 0.39 * heightScale, 0]}
-          size={[0.055, 0.34, 0.06]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.skin)}
-        />
-        {appearance.accessory === "backpack" ? (
-          <AgentPart
-            position={[0, 0.4 * heightScale, -0.12]}
-            size={[0.19, 0.3, 0.08]}
-            geometry={geometry}
-            material={getAgentMaterialForColor(materials, appearance.accent)}
-          />
-        ) : null}
-        {appearance.accessory === "satchel" ? (
-          <AgentPart
-            position={[0.15, 0.31 * heightScale, -0.02]}
-            size={[0.09, 0.16, 0.08]}
-            geometry={geometry}
-            material={getAgentMaterialForColor(materials, appearance.accent)}
-          />
-        ) : null}
-        <AgentPart
-          ref={leftLegRef}
-          position={[-0.07, 0.08, 0]}
-          size={[0.06, 0.16, 0.06]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.trousers)}
-        />
-        <AgentPart
-          ref={rightLegRef}
-          position={[0.07, 0.08, 0]}
-          size={[0.06, 0.16, 0.06]}
-          geometry={geometry}
-          material={getAgentMaterialForColor(materials, appearance.trousers)}
-        />
-      </group>
-    </group>
-  );
+  }
+  return { changed, needsNextFrame };
 }
 
-const AgentPart = forwardRef<
-  THREE.Mesh,
-  {
-    position: [number, number, number];
-    size: [number, number, number];
-    geometry: THREE.BoxGeometry;
-    material: THREE.MeshLambertMaterial;
-  }
->(function AgentPart({ position, size, geometry, material }, ref) {
-  return (
-    <mesh
-      ref={ref}
-      position={position}
-      scale={size}
-      geometry={geometry}
-      material={material}
-      castShadow
-      receiveShadow
-      dispose={null}
-    />
-  );
-});
-
-type AgentRenderResources = {
-  geometry: THREE.BoxGeometry;
-  materials: Map<number, THREE.MeshLambertMaterial>;
-};
-
-function buildAgentRenderResources(agents: VoxelAgentPlan[]): AgentRenderResources {
-  const colors = new Set<number>();
-  for (const agent of agents) {
-    const { appearance } = agent;
-    colors.add(appearance.torso);
-    colors.add(appearance.skin);
-    colors.add(appearance.hair);
-    colors.add(appearance.accent);
-    colors.add(appearance.trousers);
-    colors.add(VOXEL_MATERIAL_COLORS[getAgentMaterial(agent.source.status)]);
-  }
-  return {
-    geometry: new THREE.BoxGeometry(1, 1, 1),
-    materials: new Map(
-      Array.from(colors, (color) => [color, new THREE.MeshLambertMaterial({ color })]),
+function getOrCreateRuntime(
+  runtimes: Map<string, AgentRuntime>,
+  agent: VoxelAgentPlan,
+): AgentRuntime {
+  const existing = runtimes.get(agent.id);
+  if (existing) return existing;
+  const runtime: AgentRuntime = {
+    animation: null,
+    bodyBob: 0,
+    completedMotionId: null,
+    gaitSwing: 0,
+    position: new THREE.Vector3(
+      agent.anchor.position.x,
+      Math.max(0, agent.anchor.position.y - 0.04),
+      agent.anchor.position.z,
     ),
+    rotationY: 0,
+  };
+  runtimes.set(agent.id, runtime);
+  return runtime;
+}
+
+function synchronizeAgentRuntime(
+  runtime: AgentRuntime,
+  agent: VoxelAgentPlan,
+  motion: VoxelMoveTrail | undefined,
+  isPaused: boolean,
+  prefersReducedMotion: boolean,
+  wasPaused: boolean,
+): void {
+  if (!motion) {
+    runtime.animation = null;
+    runtime.completedMotionId = null;
+    resetAgentGait(runtime);
+    runtime.position.set(
+      agent.anchor.position.x,
+      Math.max(0, agent.anchor.position.y - 0.04),
+      agent.anchor.position.z,
+    );
+    return;
+  }
+
+  const path = buildVoxelMotionPath(motion.points);
+  const finalPoint = path.points.at(-1);
+  if (prefersReducedMotion || path.totalLength === 0 || path.points.length < 2) {
+    runtime.animation = null;
+    runtime.completedMotionId = motion.isActive ? null : motion.id;
+    resetAgentGait(runtime);
+    const progress = motion.isActive ? clampProgress(motion.initialProgress) : 1;
+    setRuntimePosition(runtime, sampleVoxelMotionPath(path, progress));
+    return;
+  }
+
+  if (runtime.completedMotionId === motion.id) {
+    resetAgentGait(runtime);
+    if (finalPoint) runtime.position.set(finalPoint.x, finalPoint.y, finalPoint.z);
+    return;
+  }
+
+  const activeAnimation = runtime.animation;
+  if (activeAnimation?.eventId === motion.id) {
+    activeAnimation.path = path;
+    activeAnimation.durationMs = Math.max(1, calculateVoxelMotionDuration(path.totalLength));
+    const authoritativeProgress = clampProgress(motion.initialProgress);
+    if (authoritativeProgress > activeAnimation.progress) {
+      activeAnimation.progress = authoritativeProgress;
+      setRuntimePosition(runtime, sampleVoxelMotionPath(path, authoritativeProgress));
+    }
+    if (wasPaused && !isPaused) activeAnimation.skipNextFrame = true;
+    if (isPaused) resetAgentGait(runtime);
+    return;
+  }
+
+  const initialProgress = clampProgress(motion.initialProgress);
+  setRuntimePosition(runtime, sampleVoxelMotionPath(path, initialProgress));
+  runtime.animation = {
+    durationMs: Math.max(1, calculateVoxelMotionDuration(path.totalLength)),
+    eventId: motion.id,
+    path,
+    progress: initialProgress,
+    skipNextFrame: wasPaused && !isPaused,
   };
 }
 
-function getAgentMaterialForColor(
-  materials: Map<number, THREE.MeshLambertMaterial>,
-  color: number,
-): THREE.MeshLambertMaterial {
-  const material = materials.get(color);
-  if (!material) throw new Error(`Missing shared agent material for color ${color}`);
-  return material;
+function updateAgentInstanceMatrices(
+  mesh: THREE.InstancedMesh,
+  parts: VoxelAgentInstancePart[],
+  runtimes: Map<string, AgentRuntime>,
+  transforms: { root: THREE.Object3D; part: THREE.Object3D },
+): void {
+  parts.forEach((part, index) => {
+    const runtime = runtimes.get(part.agentId);
+    if (!runtime) return;
+    transforms.root.position.copy(runtime.position);
+    transforms.root.rotation.set(0, runtime.rotationY, 0);
+    transforms.root.scale.set(1, 1, 1);
+    transforms.root.updateMatrix();
+    transforms.part.position.set(
+      part.position.x,
+      part.position.y + runtime.bodyBob,
+      part.position.z,
+    );
+    transforms.part.rotation.set(runtime.gaitSwing * part.gaitDirection, 0, 0);
+    transforms.part.scale.set(part.size.x, part.size.y, part.size.z);
+    transforms.part.updateMatrix();
+    transforms.part.matrix.premultiply(transforms.root.matrix);
+    mesh.setMatrixAt(index, transforms.part.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+}
+
+function setRuntimePosition(
+  runtime: AgentRuntime,
+  sample: ReturnType<typeof sampleVoxelMotionPath>,
+): void {
+  runtime.position.set(sample.position.x, sample.position.y, sample.position.z);
 }
 
 function publishAgentPose(poseMap: AgentPoseMap, agentId: string, position: THREE.Vector3): void {
@@ -405,14 +329,9 @@ function publishAgentPose(poseMap: AgentPoseMap, agentId: string, position: THRE
   else poseMap.current.set(agentId, position.clone());
 }
 
-function resetAgentGait(
-  body: THREE.Group | null,
-  leftLeg: THREE.Mesh | null,
-  rightLeg: THREE.Mesh | null,
-): void {
-  if (body) body.position.y = 0;
-  if (leftLeg) leftLeg.rotation.x = 0;
-  if (rightLeg) rightLeg.rotation.x = 0;
+function resetAgentGait(runtime: AgentRuntime): void {
+  runtime.bodyBob = 0;
+  runtime.gaitSwing = 0;
 }
 
 function dampAngle(current: number, target: number, smoothing: number, delta: number): number {
@@ -420,17 +339,6 @@ function dampAngle(current: number, target: number, smoothing: number, delta: nu
   return current + difference * (1 - Math.exp(-smoothing * delta));
 }
 
-function getAgentMaterial(status: VoxelAgentPlan["source"]["status"]): VoxelMaterialKey {
-  switch (status) {
-    case "moving":
-      return "agentMoving";
-    case "talking":
-      return "agentTalking";
-    case "working":
-      return "agentWorking";
-    case "resting":
-      return "agentResting";
-    default:
-      return "agent";
-  }
+function clampProgress(progress: number | undefined): number {
+  return Math.min(1, Math.max(0, progress ?? 0));
 }

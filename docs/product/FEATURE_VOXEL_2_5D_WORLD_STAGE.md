@@ -19,8 +19,9 @@
 - 类型化 Prefab 已覆盖 home、cafe、office、library、hospital、plaza、green 与 generic，并按入口方向旋转立面
 - plaza 已从“通用房屋”改为铺装、喷泉、纪念物和长椅组成的公共空间
 - 地面、道路和建筑按材质与阴影属性合并为 `InstancedMesh` 批次
-- 角色各部位保留独立变换以支持步态，但已在同一舞台内共享 box geometry 和同色材质，避免按部位重复分配 GPU 资源
+- 所有角色部位合并为单个带 instanceColor 的动态 `InstancedMesh`；每个部位仍保留独立矩阵，因此路径移动、转向、步态和点击交互不受影响
 - 舞台容器通过 `data-voxel-*` 属性暴露 FPS、draw calls、三角形、geometry 和 texture 数量，便于无侵入浏览器回归与性能基线采集
+- 当前 6 角色基准场景从 74 draw calls 降至 22，三角形数量保持 6348，视觉输出保持一致
 - 选中态独立为 selection layer，不再因选中地点或角色重建 WebGL renderer
 - 正交相机根据 ScenePlan bounds 和 viewport aspect 自动取景，移动端舞台高度已单独收敛
 - 桌面端已支持滚轮缩放、鼠标拖拽平移、地点/角色点击聚焦和一键重置镜头
