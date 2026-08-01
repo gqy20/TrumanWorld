@@ -10,7 +10,7 @@ import {
   EVENT_REST,
 } from "@/lib/simulation-protocol";
 import { getEventExplanations, type EventExplanation } from "@/lib/event-utils";
-import { isAgentSociallyEngaged } from "@/lib/world-utils";
+import { getWorldAgents, isAgentSociallyEngaged } from "@/lib/world-utils";
 
 // ============================================================================
 // 类型定义
@@ -83,7 +83,7 @@ export function calculateWorldHealthMetrics(
   directorMemories?: Array<{ was_executed: boolean }>,
 ): WorldHealthMetrics {
   const events = world.recent_events;
-  const agents = world.locations.flatMap((l) => l.occupants);
+  const agents = getWorldAgents(world);
 
   // 1. 剧情连贯性：基于累计拒绝率（使用 daily_stats 全量数据）
   // 有 daily_stats 就用全量，否则退回 recent_events
@@ -252,7 +252,9 @@ function calculateActivitySummary(
       currentTick,
     );
 
-    if (goal === "work") {
+    if (agent.movement) {
+      commuting++;
+    } else if (goal === "work") {
       if (isWorkContext) {
         working++;
       } else {

@@ -12,7 +12,7 @@ import {
 } from "react";
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, getWorldPulseResult, type ApiResult } from "@/lib/api";
-import { EVENT_MOVE } from "@/lib/simulation-protocol";
+import { EVENT_MOVE, EVENT_MOVE_ARRIVED } from "@/lib/simulation-protocol";
 import type { WorldEvent, WorldPulse, WorldSnapshot } from "@/lib/types";
 import { useUiSearchParams } from "@/lib/ui-url-state";
 
@@ -109,7 +109,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
   const handleStreamEvent = useCallback(
     (event: WorldEvent) => {
       setStreamedEvents((current) => mergeWorldEvents([event], current));
-      if (event.event_type !== EVENT_MOVE) return;
+      if (event.event_type !== EVENT_MOVE && event.event_type !== EVENT_MOVE_ARRIVED) return;
       if (streamRefreshTimerRef.current) clearTimeout(streamRefreshTimerRef.current);
       streamRefreshTimerRef.current = setTimeout(() => {
         void mutate();

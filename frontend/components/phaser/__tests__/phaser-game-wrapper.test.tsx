@@ -32,8 +32,10 @@ jest.mock("phaser", () => ({
 describe("PhaserGameWrapper", () => {
   const sceneWorld: SceneWorld = {
     runId: "run-1",
+    isRunning: true,
     locations: [],
     agents: [],
+    activeMovements: [],
     moveTrails: [],
     bubbles: [],
     ambience: {

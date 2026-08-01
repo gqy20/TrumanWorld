@@ -7,6 +7,7 @@ from app.scenario.bundle_registry import resolve_sleep_config_for_scenario
 from app.sim.agent_snapshot_builder import build_agent_relationship_contexts, build_agent_snapshots
 from app.sim.context import get_run_world_effects, get_run_world_time, load_active_conversations
 from app.sim.location_utils import resolve_agent_location_id
+from app.sim.movement import AgentMovementState
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import AgentState, LocationState, WorldState
 from app.store.repositories import (
@@ -71,6 +72,7 @@ async def load_tick_data(
         profile = agent.profile or {}
         workplace_id = profile.get("workplace_location_id")
 
+        movement = AgentMovementState.from_dict(agent.movement)
         agent_states[agent.id] = AgentState(
             id=agent.id,
             name=agent.name,
@@ -78,8 +80,9 @@ async def load_tick_data(
             status=agent.status or {},
             occupation=agent.occupation,
             workplace_id=workplace_id if isinstance(workplace_id, str) else None,
+            movement=movement,
         )
-        if location_id in location_states:
+        if movement is None and location_id in location_states:
             location_states[location_id].occupants.add(agent.id)
 
     agent_data, director_plan = await build_agent_snapshots(

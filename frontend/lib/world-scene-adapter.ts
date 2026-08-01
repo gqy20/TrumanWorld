@@ -1,6 +1,6 @@
 import { inferAgentStatus, type AgentStatus } from "@/lib/agent-utils";
 import { EVENT_MOVE, EVENT_SPEECH, EVENT_TALK } from "@/lib/simulation-protocol";
-import type { WorldSnapshot } from "@/lib/types";
+import type { AgentSummary, WorldSnapshot } from "@/lib/types";
 import {
   buildWorldNameMaps,
   calculateLocationHeat,
@@ -47,6 +47,7 @@ export type SceneAgent = {
   status: AgentStatus;
   slotIndex: number;
   visual?: SceneAgentVisual;
+  movementId?: string;
 };
 
 export type SceneMoveTrail = {
@@ -56,6 +57,8 @@ export type SceneMoveTrail = {
   fromLocationId: string;
   toLocationId: string;
   recencyIndex: number;
+  initialProgress?: number;
+  isActive?: boolean;
 };
 
 export type SceneBubble = {
@@ -69,8 +72,10 @@ export type SceneBubble = {
 
 export type SceneWorld = {
   runId: string;
+  isRunning: boolean;
   locations: SceneLocation[];
   agents: SceneAgent[];
+  activeMovements: SceneMoveTrail[];
   moveTrails: SceneMoveTrail[];
   bubbles: SceneBubble[];
   ambience: {
@@ -91,22 +96,35 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
   const locationIds = new Set(world.locations.map((location) => location.id));
   const timeOfDay = getTimeOfDay(world.world_clock?.hour ?? 12);
   const timeStyle = getTimeOfDayStyle(timeOfDay);
+  const worldAgents = resolveWorldAgents(world);
+  const agentsByAnchorLocation = new Map<string, AgentSummary[]>();
 
-  for (const location of world.locations) {
-    location.occupants
-      .slice()
+  for (const agent of worldAgents) {
+    const anchorLocationId = agent.movement?.from_location_id ?? agent.current_location_id;
+    if (!anchorLocationId || !locationIds.has(anchorLocationId)) continue;
+    const locationAgents = agentsByAnchorLocation.get(anchorLocationId) ?? [];
+    locationAgents.push(agent);
+    agentsByAnchorLocation.set(anchorLocationId, locationAgents);
+  }
+
+  for (const [locationId, locationAgents] of agentsByAnchorLocation) {
+    locationAgents
       .sort((left, right) => left.id.localeCompare(right.id))
       .forEach((agent, index) => {
+        const status = agent.movement
+          ? "moving"
+          : inferAgentStatus(agent.id, world.recent_events);
         const agentVisualConfig = world.ui_config?.stage?.agents?.statuses?.[
-          inferAgentStatus(agent.id, world.recent_events)
+          status
         ];
         agents.push({
           id: agent.id,
           name: agent.name,
           occupation: agent.occupation,
-          locationId: location.id,
-          status: inferAgentStatus(agent.id, world.recent_events),
+          locationId,
+          status,
           slotIndex: index,
+          movementId: agent.movement?.id,
           visual: {
             visualPreset: agentVisualConfig?.visual_preset ?? undefined,
             marker: agentVisualConfig?.marker ?? undefined,
@@ -115,8 +133,38 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
       });
   }
 
+  const activeMovements = worldAgents.flatMap((agent, index) => {
+    const movement = agent.movement;
+    if (
+      !movement ||
+      !locationIds.has(movement.from_location_id) ||
+      !locationIds.has(movement.to_location_id)
+    ) {
+      return [];
+    }
+    const durationTicks = Math.max(1, movement.arrival_tick - movement.started_tick);
+    const currentTick = world.run.current_tick ?? movement.started_tick;
+    return [
+      {
+        id: movement.id,
+        actorId: agent.id,
+        actorName: agent.name,
+        fromLocationId: movement.from_location_id,
+        toLocationId: movement.to_location_id,
+        recencyIndex: index,
+        initialProgress: Math.min(
+          1,
+          Math.max(0, (currentTick - movement.started_tick) / durationTicks),
+        ),
+        isActive: true,
+      },
+    ];
+  });
+  const activeMovementIds = new Set(activeMovements.map((movement) => movement.id));
+
   return {
     runId: world.run.id,
+    isRunning: world.run.status === "running",
     locations: world.locations.map((location) => {
       const visualConfig = world.ui_config?.stage?.location_types?.[location.location_type];
       return {
@@ -135,6 +183,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
       };
     }),
     agents,
+    activeMovements,
     moveTrails: world.recent_events
       .filter((event) => event.event_type === EVENT_MOVE)
       .slice(0, 4)
@@ -142,7 +191,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
         const fromLocationId = String(event.payload.from_location_id ?? "");
         const toLocationId = String(event.payload.to_location_id ?? event.location_id ?? "");
         return {
-          id: event.id,
+          id: String(event.payload.movement_id ?? event.id),
           actorId: event.actor_agent_id,
           actorName:
             agentNameMap[event.actor_agent_id ?? ""] ?? event.actor_name ?? event.actor_agent_id ?? "某人",
@@ -153,7 +202,8 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
       })
       .filter(
         (trail) => locationIds.has(trail.fromLocationId) && locationIds.has(trail.toLocationId)
-      ),
+      )
+      .filter((trail) => !activeMovementIds.has(trail.id)),
     bubbles: world.recent_events
       .filter((event) => event.event_type === EVENT_SPEECH || event.event_type === EVENT_TALK)
       .slice(0, 2)
@@ -189,4 +239,12 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
       },
     },
   };
+}
+
+function resolveWorldAgents(world: WorldSnapshot): AgentSummary[] {
+  if (world.agents) return world.agents;
+  const agents = world.locations.flatMap((location) => location.occupants);
+  return agents.filter(
+    (agent, index) => agents.findIndex((candidate) => candidate.id === agent.id) === index,
+  );
 }

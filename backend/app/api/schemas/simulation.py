@@ -276,12 +276,22 @@ class DirectorObservationResponse(BaseModel):
     notes: list[str] = Field(default_factory=list, description="观察笔记")
 
 
+class AgentMovementResponse(BaseModel):
+    id: str = Field(..., description="移动 ID")
+    state: Literal["in_transit"] = Field("in_transit", description="移动状态")
+    from_location_id: str = Field(..., description="出发地点 ID")
+    to_location_id: str = Field(..., description="目标地点 ID")
+    started_tick: int = Field(..., description="开始 Tick", ge=0)
+    arrival_tick: int = Field(..., description="预计到达 Tick", ge=1)
+
+
 class AgentSummaryResponse(BaseModel):
     id: str = Field(..., description="Agent ID", examples=["agent_alice"])
     name: str = Field(..., description="Agent 名称", examples=["Alice"])
     occupation: str | None = Field(None, description="职业", examples=["咖啡师"])
     current_goal: str | None = Field(None, description="当前目标", examples=["完成早班工作"])
     current_location_id: str | None = Field(None, description="当前位置 ID", examples=["loc_cafe"])
+    movement: AgentMovementResponse | None = Field(None, description="当前在途状态")
     status: dict = Field(default_factory=dict, description="状态信息")
     profile: dict = Field(default_factory=dict, description="档案信息")
     config_id: str | None = Field(None, description="配置 ID", examples=["alice"])
@@ -697,6 +707,7 @@ class WorldSnapshotResponse(BaseModel):
     run: WorldSnapshotRunResponse = Field(..., description="运行信息")
     world_clock: WorldClockResponse = Field(..., description="世界时钟")
     subject_agent_id: str | None = Field(None, description="当前场景主体 agent ID")
+    agents: list[AgentSummaryResponse] = Field(default_factory=list, description="完整 Agent 列表")
     locations: list[WorldLocationResponse] = Field(default_factory=list, description="地点列表")
     recent_events: list[WorldEventResponse] = Field(default_factory=list, description="最近事件")
     director_stats: WorldDirectorStatsResponse = Field(

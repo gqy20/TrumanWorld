@@ -12,6 +12,7 @@ import {
 import * as THREE from "three";
 
 import {
+  advanceVoxelMotionProgress,
   buildVoxelMotionPath,
   calculateVoxelMotionDuration,
   sampleVoxelMotionPath,
@@ -27,19 +28,22 @@ type AgentAnimation = {
   durationMs: number;
   eventId: string;
   path: VoxelMotionPath;
-  startedAt: number;
+  progress: number;
+  skipNextFrame: boolean;
 };
 
 export function AgentLayer({
   agents,
   moveTrails,
   poseMap,
+  isPaused,
   prefersReducedMotion,
   onAgentClick,
 }: {
   agents: VoxelAgentPlan[];
   moveTrails: VoxelMoveTrail[];
   poseMap: AgentPoseMap;
+  isPaused: boolean;
   prefersReducedMotion: boolean;
   onAgentClick?: (agentId: string) => void;
 }) {
@@ -59,6 +63,7 @@ export function AgentLayer({
           agent={agent}
           motion={motionByAgentId.get(agent.id)}
           poseMap={poseMap}
+          isPaused={isPaused}
           prefersReducedMotion={prefersReducedMotion}
           onAgentClick={onAgentClick}
         />
@@ -71,12 +76,14 @@ function VoxelAgent({
   agent,
   motion,
   poseMap,
+  isPaused,
   prefersReducedMotion,
   onAgentClick,
 }: {
   agent: VoxelAgentPlan;
   motion?: VoxelMoveTrail;
   poseMap: AgentPoseMap;
+  isPaused: boolean;
   prefersReducedMotion: boolean;
   onAgentClick?: (agentId: string) => void;
 }) {
@@ -86,12 +93,15 @@ function VoxelAgent({
   const rightLegRef = useRef<THREE.Mesh>(null);
   const animationRef = useRef<AgentAnimation | null>(null);
   const completedMotionIdRef = useRef<string | null>(null);
+  const previousPausedRef = useRef(isPaused);
   const invalidate = useThree((state) => state.invalidate);
   const bodyMaterial = getAgentMaterial(agent.source.status);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    const wasPaused = previousPausedRef.current;
+    previousPausedRef.current = isPaused;
 
     if (!motion) {
       animationRef.current = null;
@@ -111,9 +121,17 @@ function VoxelAgent({
     const finalPoint = path.points.at(-1);
     if (prefersReducedMotion || path.totalLength === 0 || path.points.length < 2) {
       animationRef.current = null;
-      completedMotionIdRef.current = motion.id;
+      completedMotionIdRef.current = motion.isActive ? null : motion.id;
       resetAgentGait(bodyRef.current, leftLegRef.current, rightLegRef.current);
-      if (finalPoint) root.position.set(finalPoint.x, finalPoint.y, finalPoint.z);
+      const staticProgress = motion.isActive
+        ? Math.min(1, Math.max(0, motion.initialProgress ?? 0))
+        : 1;
+      const staticSample = sampleVoxelMotionPath(path, staticProgress);
+      root.position.set(
+        staticSample.position.x,
+        staticSample.position.y,
+        staticSample.position.z,
+      );
       publishAgentPose(poseMap, agent.id, root.position);
       invalidate();
       return;
@@ -131,17 +149,39 @@ function VoxelAgent({
     if (activeAnimation?.eventId === motion.id) {
       activeAnimation.path = path;
       activeAnimation.durationMs = calculateVoxelMotionDuration(path.totalLength);
+      const authoritativeProgress = Math.min(1, Math.max(0, motion.initialProgress ?? 0));
+      if (authoritativeProgress > activeAnimation.progress) {
+        activeAnimation.progress = authoritativeProgress;
+        const authoritativeSample = sampleVoxelMotionPath(path, authoritativeProgress);
+        root.position.set(
+          authoritativeSample.position.x,
+          authoritativeSample.position.y,
+          authoritativeSample.position.z,
+        );
+        publishAgentPose(poseMap, agent.id, root.position);
+      }
+      if (wasPaused && !isPaused) activeAnimation.skipNextFrame = true;
+      if (isPaused) {
+        resetAgentGait(bodyRef.current, leftLegRef.current, rightLegRef.current);
+      }
+      invalidate();
       return;
     }
 
-    const firstPoint = path.points[0];
-    root.position.set(firstPoint.x, firstPoint.y, firstPoint.z);
+    const initialProgress = Math.min(1, Math.max(0, motion.initialProgress ?? 0));
+    const initialSample = sampleVoxelMotionPath(path, initialProgress);
+    root.position.set(
+      initialSample.position.x,
+      initialSample.position.y,
+      initialSample.position.z,
+    );
     publishAgentPose(poseMap, agent.id, root.position);
     animationRef.current = {
-      durationMs: calculateVoxelMotionDuration(path.totalLength),
+      durationMs: Math.max(1, calculateVoxelMotionDuration(path.totalLength)),
       eventId: motion.id,
       path,
-      startedAt: performance.now(),
+      progress: initialProgress,
+      skipNextFrame: wasPaused && !isPaused,
     };
     invalidate();
   }, [
@@ -150,6 +190,7 @@ function VoxelAgent({
     agent.anchor.position.z,
     agent.id,
     invalidate,
+    isPaused,
     motion,
     poseMap,
     prefersReducedMotion,
@@ -167,11 +208,20 @@ function VoxelAgent({
     const body = bodyRef.current;
     const animation = animationRef.current;
     if (!root || !body || !animation) return;
+    if (isPaused) return;
+    if (animation.skipNextFrame) {
+      animation.skipNextFrame = false;
+      invalidate();
+      return;
+    }
 
-    const progress = Math.min(
-      1,
-      (performance.now() - animation.startedAt) / Math.max(1, animation.durationMs),
+    const progress = advanceVoxelMotionProgress(
+      animation.progress,
+      animation.durationMs,
+      delta,
+      false,
     );
+    animation.progress = progress;
     const sample = sampleVoxelMotionPath(animation.path, progress);
     root.position.set(sample.position.x, sample.position.y, sample.position.z);
     root.rotation.y = dampAngle(

@@ -1,4 +1,5 @@
 import {
+  advanceVoxelMotionProgress,
   buildVoxelMotionPath,
   calculateVoxelMotionDuration,
   sampleVoxelMotionPath,
@@ -35,5 +36,11 @@ describe("voxel agent motion", () => {
     expect(calculateVoxelMotionDuration(0.1)).toBe(900);
     expect(calculateVoxelMotionDuration(100)).toBe(4800);
     expect(calculateVoxelMotionDuration(4.4)).toBe(2000);
+  });
+
+  it("freezes progress while paused and resumes from the same pixel", () => {
+    expect(advanceVoxelMotionProgress(0.35, 2000, 0.5, true)).toBe(0.35);
+    expect(advanceVoxelMotionProgress(0.35, 2000, 0.5, false)).toBe(0.6);
+    expect(advanceVoxelMotionProgress(0.9, 1000, 0.5, false)).toBe(1);
   });
 });

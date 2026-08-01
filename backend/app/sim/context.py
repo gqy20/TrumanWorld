@@ -13,6 +13,7 @@ from app.scenario.bundle_registry import resolve_sleep_config_for_scenario
 from app.scenario.runtime_config import ScenarioRuntimeConfig
 from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.event_utils import format_event_for_context
+from app.sim.movement import AgentMovementState
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
@@ -93,6 +94,7 @@ class ContextBuilder:
             profile = agent.profile or {}
             workplace_id = profile.get("workplace_location_id")
 
+            movement = AgentMovementState.from_dict(agent.movement)
             agent_states[agent.id] = AgentState(
                 id=agent.id,
                 name=agent.name,
@@ -100,8 +102,9 @@ class ContextBuilder:
                 status=agent.status or {},
                 occupation=agent.occupation,
                 workplace_id=workplace_id,
+                movement=movement,
             )
-            if location_id in location_states:
+            if movement is None and location_id in location_states:
                 location_states[location_id].occupants.add(agent.id)
 
         return WorldState(

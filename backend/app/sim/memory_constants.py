@@ -27,6 +27,7 @@ EVENT_IMPORTANCE_DEFAULTS: dict[str, float] = {
     "move_rejected": 0.18,
     "work": 0.20,
     "move": 0.08,
+    "move_arrived": 0.02,
     "rest": 0.03,
 }
 

@@ -70,6 +70,19 @@ class SimulationRunner:
         accepted.extend(self._build_listen_results(sessions, assignments))
 
         advanced = self.world.advance_tick()
+        accepted.extend(
+            ActionResult(
+                accepted=True,
+                action_type="move_arrived",
+                reason="arrived",
+                event_payload={
+                    **movement.to_event_payload(),
+                    "state": "arrived",
+                    "location_id": movement.to_location_id,
+                },
+            )
+            for movement in advanced.completed_movements
+        )
         self._store_active_conversations(
             sessions,
             accepted=accepted,

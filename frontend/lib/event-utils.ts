@@ -8,6 +8,7 @@ import {
   DIRECTOR_EVENT_WEATHER_CHANGE,
   EVENT_LISTEN,
   EVENT_MOVE,
+  EVENT_MOVE_ARRIVED,
   EVENT_PLAN,
   EVENT_REFLECT,
   EVENT_REST,
@@ -106,6 +107,12 @@ export const EVENT_META: Partial<Record<EventType, EventMeta>> = {
     chip: "bg-emerald-50 text-emerald-700 border border-emerald-100",
     color: "#10b981",
   },
+  [EVENT_MOVE_ARRIVED]: {
+    icon: "📍",
+    label: "抵达",
+    chip: "bg-teal-50 text-teal-700 border border-teal-100",
+    color: "#0f766e",
+  },
   [EVENT_WORK]: {
     icon: "⚒️",
     label: "工作",
@@ -179,7 +186,9 @@ export function describeWorldEvent(
 
   switch (event.event_type) {
     case EVENT_MOVE:
-      return `${actor} 前往了 ${toPlace}`;
+      return `${actor} 启程前往 ${toPlace}`;
+    case EVENT_MOVE_ARRIVED:
+      return `${actor} 抵达了 ${toPlace}`;
     case EVENT_SPEECH:
     case EVENT_TALK:
       return `${actor} 对 ${target} 发言`;
@@ -249,7 +258,12 @@ export function describeTimelineEvent(event: Pick<TimelineEvent, "event_type" | 
   if (event.event_type === EVENT_MOVE) {
     const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
     const to = String(payload.to_location_name ?? payload.to_location_id ?? "某地");
-    return `${actor} 前往了 ${to}`;
+    return `${actor} 启程前往 ${to}`;
+  }
+  if (event.event_type === EVENT_MOVE_ARRIVED) {
+    const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
+    const to = String(payload.to_location_name ?? payload.to_location_id ?? "某地");
+    return `${actor} 抵达了 ${to}`;
   }
   if (event.event_type === EVENT_WORK) {
     const actor = String(payload.actor_name ?? payload.actor_agent_id ?? "某人");
@@ -289,6 +303,9 @@ export function describeAgentEvent(event: AgentDetails["recent_events"][number])
   }
   if (event.event_type === EVENT_MOVE && event.location_name) {
     return `前往 ${event.location_name}`;
+  }
+  if (event.event_type === EVENT_MOVE_ARRIVED && event.location_name) {
+    return `抵达 ${event.location_name}`;
   }
   if (event.event_type === EVENT_WORK && event.location_name) {
     return `在 ${event.location_name} 工作`;

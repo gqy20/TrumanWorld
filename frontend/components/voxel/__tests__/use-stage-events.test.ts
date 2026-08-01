@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 
 import { makeWorldSnapshot } from "@/test-utils/app/fixtures";
-import { buildSceneWorld } from "@/lib/world-scene-adapter";
+import { buildSceneWorld, type SceneWorld } from "@/lib/world-scene-adapter";
 
 import {
   VOXEL_BUBBLE_TTL_MS,
@@ -73,5 +73,43 @@ describe("useActiveVoxelStageEvents", () => {
 
     unmount();
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("does not replay an event that temporarily leaves the recent window", () => {
+    const world = buildSceneWorld(makeWorldSnapshot());
+    const { result, rerender } = renderHook(
+      ({ sceneWorld }) => useActiveVoxelStageEvents(sceneWorld),
+      { initialProps: { sceneWorld: world } },
+    );
+    const nextTrail = { ...world.moveTrails[0], id: "movement-3" };
+
+    rerender({ sceneWorld: { ...world, moveTrails: [nextTrail, ...world.moveTrails] } });
+    expect(result.current.moveTrails.map((trail) => trail.id)).toEqual(["movement-3"]);
+
+    act(() => jest.advanceTimersByTime(VOXEL_MOVE_TRAIL_TTL_MS));
+    rerender({ sceneWorld: { ...world, moveTrails: [] } });
+    rerender({ sceneWorld: { ...world, moveTrails: [nextTrail] } });
+
+    expect(result.current.moveTrails).toEqual([]);
+  });
+
+  it("does not replay an authoritative movement after the agent arrives", () => {
+    const world = buildSceneWorld(makeWorldSnapshot());
+    const movement = { ...world.moveTrails[0], id: "movement-arriving", isActive: true };
+    const activeWorld: SceneWorld = {
+      ...world,
+      activeMovements: [movement],
+      moveTrails: [],
+    };
+    const { result, rerender } = renderHook(
+      ({ sceneWorld }) => useActiveVoxelStageEvents(sceneWorld),
+      { initialProps: { sceneWorld: activeWorld } },
+    );
+
+    rerender({
+      sceneWorld: { ...world, activeMovements: [], moveTrails: [movement] },
+    });
+
+    expect(result.current.moveTrails).toEqual([]);
   });
 });

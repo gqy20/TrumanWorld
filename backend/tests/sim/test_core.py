@@ -42,7 +42,28 @@ def test_action_resolver_accepts_valid_move():
 
     assert result.accepted is True
     assert result.event_payload["to_location_id"] == "park"
-    assert world.agents["alice"].location_id == "park"
+    assert result.event_payload["state"] == "in_transit"
+    assert result.event_payload["started_tick"] == 1
+    assert result.event_payload["arrival_tick"] == 3
+    assert world.agents["alice"].location_id == "home"
+    assert world.agents["alice"].movement is not None
+    assert "alice" not in world.locations["home"].occupants
+    assert "alice" not in world.locations["park"].occupants
+
+
+def test_action_resolver_rejects_actions_while_agent_is_in_transit():
+    world = build_world()
+    resolver = ActionResolver()
+    resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="move", target_location_id="park"),
+    )
+
+    result = resolver.resolve(world, ActionIntent(agent_id="alice", action_type="rest"))
+
+    assert result.accepted is False
+    assert result.reason == "agent_in_transit"
+    assert result.event_payload["movement_id"] == world.agents["alice"].movement.id
 
 
 def test_action_resolver_rejects_move_to_full_location():
@@ -58,6 +79,26 @@ def test_action_resolver_rejects_move_to_full_location():
     assert result.accepted is False
     assert result.reason == "location_full"
     assert world.agents["alice"].location_id == "home"
+
+
+def test_action_resolver_reserves_destination_capacity_for_inbound_agent():
+    world = build_world()
+    resolver = ActionResolver()
+    first_move = resolver.resolve(
+        world,
+        ActionIntent(agent_id="alice", action_type="move", target_location_id="park"),
+    )
+
+    second_move = resolver.resolve(
+        world,
+        ActionIntent(agent_id="bob", action_type="move", target_location_id="park"),
+    )
+
+    assert first_move.accepted is True
+    assert second_move.accepted is False
+    assert second_move.reason == "location_full"
+    assert world.agents["bob"].movement is None
+    assert world.agents["bob"].location_id == "cafe"
 
 
 def test_action_resolver_rejects_talk_if_agents_are_apart():
@@ -715,6 +756,37 @@ def test_simulation_runner_advances_tick_and_collects_results():
     assert len(result.rejected) == 0
     assert result.tick_delta == 1
     assert world.current_time.isoformat() == "2026-03-07T08:05:00"
+
+
+def test_simulation_runner_arrives_only_when_movement_reaches_arrival_tick():
+    world = build_world()
+    runner = SimulationRunner(world)
+
+    started = runner.tick(
+        [ActionIntent(agent_id="alice", action_type="move", target_location_id="park")]
+    )
+
+    assert started.tick_no == 1
+    assert world.agents["alice"].location_id == "home"
+    assert world.agents["alice"].movement is not None
+    assert "alice" not in world.locations["park"].occupants
+
+    travelling = runner.tick([])
+
+    assert travelling.tick_no == 2
+    assert travelling.accepted == []
+    assert world.agents["alice"].location_id == "home"
+    assert world.agents["alice"].movement is not None
+
+    arrived = runner.tick([])
+
+    assert arrived.tick_no == 3
+    assert [item.action_type for item in arrived.accepted] == ["move_arrived"]
+    assert arrived.accepted[0].event_payload["from_location_id"] == "home"
+    assert arrived.accepted[0].event_payload["to_location_id"] == "park"
+    assert world.agents["alice"].location_id == "park"
+    assert world.agents["alice"].movement is None
+    assert "alice" in world.locations["park"].occupants
 
 
 def test_simulation_runner_skips_sleep_hours_in_single_tick():

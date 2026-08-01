@@ -18,6 +18,7 @@ export const VOXEL_MOVE_TRAIL_TTL_MS = 7000;
 
 const MAX_ACTIVE_BUBBLES = 2;
 const MAX_ACTIVE_MOVE_TRAILS = 1;
+const MAX_SEEN_EVENT_KEYS = 2048;
 
 export function useActiveVoxelStageEvents(sceneWorld: SceneWorld): ActiveVoxelStageEvents {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(() => new Set());
@@ -49,10 +50,7 @@ export function useActiveVoxelStageEvents(sceneWorld: SceneWorld): ActiveVoxelSt
       (candidate) => !seenKeysRef.current.has(candidate.key),
     );
 
-    seenKeysRef.current = new Set([
-      ...sceneWorld.bubbles.map((bubble) => eventKey("bubble", bubble.id)),
-      ...sceneWorld.moveTrails.map((trail) => eventKey("move", trail.id)),
-    ]);
+    rememberEventKeys(seenKeysRef.current, collectEventKeys(sceneWorld));
     if (unseenCandidates.length === 0) return;
 
     setActiveKeys((current) => {
@@ -73,7 +71,7 @@ export function useActiveVoxelStageEvents(sceneWorld: SceneWorld): ActiveVoxelSt
       }, candidate.ttlMs);
       timersRef.current.set(candidate.key, timer);
     });
-  }, [sceneWorld.bubbles, sceneWorld.moveTrails, sceneWorld.runId]);
+  }, [sceneWorld]);
 
   useEffect(
     () => () => {
@@ -103,6 +101,16 @@ function eventKey(kind: "bubble" | "move", id: string): string {
 function collectEventKeys(sceneWorld: SceneWorld): Set<string> {
   return new Set([
     ...sceneWorld.bubbles.map((bubble) => eventKey("bubble", bubble.id)),
+    ...sceneWorld.activeMovements.map((trail) => eventKey("move", trail.id)),
     ...sceneWorld.moveTrails.map((trail) => eventKey("move", trail.id)),
   ]);
+}
+
+function rememberEventKeys(seenKeys: Set<string>, currentKeys: Set<string>): void {
+  currentKeys.forEach((key) => seenKeys.add(key));
+  while (seenKeys.size > MAX_SEEN_EVENT_KEYS) {
+    const oldestKey = seenKeys.values().next().value;
+    if (typeof oldestKey !== "string") return;
+    seenKeys.delete(oldestKey);
+  }
 }

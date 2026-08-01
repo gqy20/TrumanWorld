@@ -33,6 +33,7 @@ class AgentRepository:
                 Agent.current_location_id,
                 Agent.status,
                 Agent.profile,
+                Agent.movement,
             )
             .where(Agent.run_id == run_id)
             .order_by(Agent.name.asc())
@@ -47,6 +48,7 @@ class AgentRepository:
                 current_location_id=row.current_location_id,
                 status=row.status or {},
                 profile=row.profile or {},
+                movement=row.movement or {},
             )
             for row in result.all()
         ]

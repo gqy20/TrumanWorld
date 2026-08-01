@@ -8,6 +8,7 @@ export const ACTION_CONVERSATION_JOINED = "conversation_joined";
 export const EVENT_SPEECH = "speech";
 
 export const EVENT_MOVE = ACTION_MOVE;
+export const EVENT_MOVE_ARRIVED = "move_arrived";
 export const EVENT_TALK = ACTION_TALK;
 export const EVENT_WORK = ACTION_WORK;
 export const EVENT_REST = ACTION_REST;
@@ -30,6 +31,7 @@ export const DIRECTOR_SCENE_KEEP_NATURAL = "keep_scene_natural";
 
 export type ActionType =
   | typeof ACTION_MOVE
+  | typeof EVENT_MOVE_ARRIVED
   | typeof ACTION_TALK
   | typeof ACTION_WORK
   | typeof ACTION_REST
@@ -48,6 +50,7 @@ export type ActionType =
 
 export type RejectedActionEventType =
   | `${typeof ACTION_MOVE}_rejected`
+  | `${typeof EVENT_MOVE_ARRIVED}_rejected`
   | `${typeof ACTION_TALK}_rejected`
   | `${typeof ACTION_WORK}_rejected`
   | `${typeof ACTION_REST}_rejected`

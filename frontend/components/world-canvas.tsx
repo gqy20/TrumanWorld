@@ -25,6 +25,7 @@ import {
   beatBadge,
   buildWorldNameMaps,
   formatGoal,
+  getWorldAgents,
   getLocationHeadlineEvents,
   locationBeat,
   locationTone,
@@ -114,12 +115,7 @@ export function WorldCanvas({ runId }: Props) {
     };
   }, [world]);
   const worldAgents = useMemo(
-    () =>
-      world
-        ? world.locations.flatMap((location) => location.occupants).filter((agent, index, array) => {
-            return array.findIndex((candidate) => candidate.id === agent.id) === index;
-          })
-        : [],
+    () => (world ? getWorldAgents(world) : []),
     [world],
   );
   const sceneWorld = useMemo(() => (world ? buildSceneWorld(world) : null), [world]);

@@ -39,6 +39,7 @@ from app.scenario.bundle_registry import load_ui_config_for_scenario, load_world
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_agent_config_id
 from app.sim.context import get_run_world_time
+from app.sim.movement import AgentMovementState
 from app.sim.world_time import resolve_tick_bound, resolve_world_start
 from app.store.repositories import (
     AgentRepository,
@@ -68,7 +69,7 @@ def build_name_maps(agents, locations) -> tuple[dict[str, str], dict[str, str]]:
 def build_occupants_by_location(agents) -> dict[str, list]:
     occupants_by_location: dict[str, list] = {}
     for agent in agents:
-        if not agent.current_location_id:
+        if not agent.current_location_id or AgentMovementState.from_dict(agent.movement):
             continue
         occupants_by_location.setdefault(agent.current_location_id, []).append(agent)
     return occupants_by_location
@@ -301,7 +302,7 @@ async def get_run_events(
                 "conversation_joined",
             }
         elif event_type == "movement":
-            filter_types = {"move"}
+            filter_types = {"move", "move_arrived"}
         elif event_type == "activity":
             filter_types = {"work", "rest"}
         else:
@@ -490,19 +491,20 @@ async def get_world_snapshot(
     all_time_event_counts = stats.event_counts
     token_totals = stats.token_totals
 
-    agent_summaries = {
-        agent.id: AgentSummaryResponse(
+    agent_summaries = {}
+    for agent in agents:
+        movement = AgentMovementState.from_dict(agent.movement)
+        agent_summaries[agent.id] = AgentSummaryResponse(
             id=agent.id,
             name=agent.name,
             occupation=agent.occupation,
             current_goal=agent.current_goal,
-            current_location_id=agent.current_location_id,
+            current_location_id=None if movement else agent.current_location_id,
+            movement=movement.to_dict() if movement else None,
             status=agent.status or {},
             profile=agent.profile or {},
             config_id=get_agent_config_id(agent.profile),
         )
-        for agent in agents
-    }
     occupants_by_location = build_occupants_by_location(agents)
     locations_payload = [
         WorldLocationResponse(
@@ -535,6 +537,7 @@ async def get_world_snapshot(
         run=build_run_snapshot(run),
         world_clock=build_world_clock(world_time),
         subject_agent_id=resolve_subject_agent_id(agents, run.scenario_type),
+        agents=list(agent_summaries.values()),
         locations=locations_payload,
         recent_events=[
             build_world_event_response(event, agent_name_map, location_name_map)

@@ -5,6 +5,7 @@ import { buildVoxelScenePlan } from "../scene-plan";
 function makeSceneWorld(): SceneWorld {
   return {
     runId: "run-1",
+    isRunning: true,
     locations: [
       {
         id: "cafe",
@@ -38,6 +39,7 @@ function makeSceneWorld(): SceneWorld {
         slotIndex: 0,
       },
     ],
+    activeMovements: [],
     moveTrails: [],
     bubbles: [],
     ambience: { label: "早晨", overlayColor: "#ffffff", isDark: false },

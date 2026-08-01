@@ -80,14 +80,22 @@ export function VoxelCanvas({
 }: VoxelWorldRendererProps) {
   const plan = useMemo(() => buildVoxelScenePlan(sceneWorld), [sceneWorld]);
   const activeStageEvents = useActiveVoxelStageEvents(sceneWorld);
+  const movementTrails = useMemo(() => {
+    const seen = new Set<string>();
+    return [...sceneWorld.activeMovements, ...activeStageEvents.moveTrails].filter((trail) => {
+      if (seen.has(trail.id)) return false;
+      seen.add(trail.id);
+      return true;
+    });
+  }, [activeStageEvents.moveTrails, sceneWorld.activeMovements]);
   const eventPlan = useMemo(
     () =>
       buildVoxelEventPlan(
         activeStageEvents.bubbles,
-        activeStageEvents.moveTrails,
+        movementTrails,
         plan,
       ),
-    [activeStageEvents.bubbles, activeStageEvents.moveTrails, plan],
+    [activeStageEvents.bubbles, movementTrails, plan],
   );
   const backgroundColor = sceneWorld.stage.palette?.backgroundColor ?? "#eef5e8";
   const [cameraResetRevision, setCameraResetRevision] = useState(0);
@@ -122,6 +130,7 @@ export function VoxelCanvas({
           cameraResetRevision={cameraResetRevision}
           eventPlan={eventPlan}
           showStageEvents={showStageEvents}
+          isSimulationPaused={!sceneWorld.isRunning}
           prefersReducedMotion={prefersReducedMotion}
           onBubbleProjectionChange={setProjectedBubbles}
           onAgentClick={onAgentClick}
@@ -182,6 +191,7 @@ function StageScene({
   cameraResetRevision,
   eventPlan,
   showStageEvents,
+  isSimulationPaused,
   prefersReducedMotion,
   onBubbleProjectionChange,
   onAgentClick,
@@ -194,6 +204,7 @@ function StageScene({
   cameraResetRevision: number;
   eventPlan: VoxelEventPlan;
   showStageEvents: boolean;
+  isSimulationPaused: boolean;
   prefersReducedMotion: boolean;
   onBubbleProjectionChange: (bubbles: ProjectedBubble[]) => void;
   onAgentClick?: (agentId: string) => void;
@@ -241,6 +252,7 @@ function StageScene({
         agents={plan.agents}
         moveTrails={eventPlan.moveTrails}
         poseMap={agentPosesRef}
+        isPaused={isSimulationPaused}
         prefersReducedMotion={prefersReducedMotion}
         onAgentClick={onAgentClick}
       />

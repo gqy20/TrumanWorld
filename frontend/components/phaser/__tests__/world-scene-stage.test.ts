@@ -55,8 +55,10 @@ function stageNodes(): StageNodes {
 function sceneWorld(overrides: Partial<SceneWorld> = {}): SceneWorld {
   return {
     runId: "run-1",
+    isRunning: true,
     locations: [],
     agents: [],
+    activeMovements: [],
     moveTrails: [],
     bubbles: [],
     ambience: {

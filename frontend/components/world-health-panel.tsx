@@ -14,7 +14,7 @@ import { getScoreBgColor, getScoreColor, getTrendColor, getTrendIcon } from "@/l
 import type { Trend, WorldHealthMetrics } from "@/lib/world-insights";
 import { getSystemMetrics, getSystemOverview } from "@/lib/api";
 import type { SystemMetrics, SystemOverview, WorldSnapshot } from "@/lib/types";
-import { isAgentSociallyEngaged } from "@/lib/world-utils";
+import { getWorldAgents, isAgentSociallyEngaged } from "@/lib/world-utils";
 
 interface WorldHealthPanelProps {
   metrics: WorldHealthMetrics;
@@ -60,7 +60,7 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
     () =>
       world
         ? Object.fromEntries(
-            world.locations.flatMap((loc) => loc.occupants).map((agent) => [agent.id, agent.name])
+            getWorldAgents(world).map((agent) => [agent.id, agent.name])
           )
         : {},
     [world]
@@ -73,55 +73,57 @@ export function WorldHealthPanel({ metrics, runId, world }: WorldHealthPanelProp
     const agents: { id: string; name: string; location?: string }[] = [];
     const locationTypeMap = new Map(world.locations.map((location) => [location.id, location.location_type]));
 
-    for (const location of world.locations) {
-      for (const agent of location.occupants) {
-        const goal = agent.current_goal?.toLowerCase() ?? "";
-        const locationType = agent.current_location_id
-          ? locationTypeMap.get(agent.current_location_id)
-          : undefined;
-        const isWorkContext =
-          locationType != null && locationType !== "home" && locationType !== "plaza";
+    for (const agent of getWorldAgents(world)) {
+      const location = world.locations.find(
+        (candidate) => candidate.id === agent.current_location_id,
+      );
+      const goal = agent.current_goal?.toLowerCase() ?? "";
+      const locationType = agent.current_location_id
+        ? locationTypeMap.get(agent.current_location_id)
+        : undefined;
+      const isWorkContext =
+        locationType != null && locationType !== "home" && locationType !== "plaza";
 
-        let match = false;
-        switch (type) {
-          case "working":
-            match = goal === "work" && isWorkContext;
-            break;
-          case "socializing":
-            match = isAgentSociallyEngaged(
-              agent.id,
-              agent.current_goal,
-              world.recent_events,
-              world.run.current_tick
-            );
-            break;
-          case "resting":
-            match =
-              goal === "rest" ||
-              goal === "wander" ||
-              (goal !== "work" &&
-                !isAgentSociallyEngaged(
-                  agent.id,
-                  agent.current_goal,
-                  world.recent_events,
-                  world.run.current_tick
-                ) &&
-                goal !== "commute" &&
-                goal !== "go_home" &&
-                !goal.startsWith("move:"));
-            break;
-          case "commuting":
-            match =
-              goal === "commute" ||
-              goal === "go_home" ||
-              goal.startsWith("move:") ||
-              (goal === "work" && !isWorkContext);
-            break;
-        }
+      let match = false;
+      switch (type) {
+        case "working":
+          match = goal === "work" && isWorkContext;
+          break;
+        case "socializing":
+          match = isAgentSociallyEngaged(
+            agent.id,
+            agent.current_goal,
+            world.recent_events,
+            world.run.current_tick
+          );
+          break;
+        case "resting":
+          match =
+            goal === "rest" ||
+            goal === "wander" ||
+            (goal !== "work" &&
+              !isAgentSociallyEngaged(
+                agent.id,
+                agent.current_goal,
+                world.recent_events,
+                world.run.current_tick
+              ) &&
+              goal !== "commute" &&
+              goal !== "go_home" &&
+              !goal.startsWith("move:"));
+          break;
+        case "commuting":
+          match =
+            Boolean(agent.movement) ||
+            goal === "commute" ||
+            goal === "go_home" ||
+            goal.startsWith("move:") ||
+            (goal === "work" && !isWorkContext);
+          break;
+      }
 
-        if (match) {
-          agents.push({ id: agent.id, name: agent.name, location: location.name });
-        }
+      if (match) {
+        agents.push({ id: agent.id, name: agent.name, location: location?.name });
       }
     }
 

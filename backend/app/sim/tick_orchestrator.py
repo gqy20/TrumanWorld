@@ -95,7 +95,7 @@ class TickOrchestrator:
 
         for agent in agents:
             state = get_agent(world, agent.id)
-            if state is None:
+            if state is None or getattr(state, "movement", None) is not None:
                 continue
 
             runtime_agent_id = self.resolve_runtime_agent_id(agent)
@@ -160,7 +160,7 @@ class TickOrchestrator:
         ) -> ActionIntent | None:
             agent_id = agent_snapshot.id
             state = get_agent(world, agent_id)
-            if state is None:
+            if state is None or getattr(state, "movement", None) is not None:
                 return None
 
             profile = agent_snapshot.profile

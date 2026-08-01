@@ -90,12 +90,22 @@ export type WorldClock = {
   time_period_cn: string;
 };
 
+export type AgentMovement = {
+  id: string;
+  state: "in_transit";
+  from_location_id: string;
+  to_location_id: string;
+  started_tick: number;
+  arrival_tick: number;
+};
+
 export type AgentSummary = {
   id: string;
   name: string;
   occupation?: string;
   current_goal?: string;
-  current_location_id?: string;
+  current_location_id?: string | null;
+  movement?: AgentMovement | null;
   status?: Record<string, unknown>;
   profile?: Record<string, unknown>;
   config_id?: string; // agent 配置 ID，用于加载自定义 logo
@@ -161,6 +171,7 @@ export type WorldSnapshot = {
   run: RunSummary;
   world_clock?: WorldClock;
   subject_agent_id?: string | null;
+  agents?: AgentSummary[];
   locations: WorldLocation[];
   recent_events: WorldEvent[];
   director_stats?: {

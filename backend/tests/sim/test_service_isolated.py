@@ -7,6 +7,7 @@ from app.cognition.claude.decision_utils import RuntimeDecision
 from app.cognition.heuristic.agent_backend import HeuristicAgentBackend
 from app.sim.action_resolver import ActionIntent
 from app.sim.context import get_run_world_time
+from app.store.models import Agent
 from app.store.repositories import EventRepository, LlmCallRepository, RunRepository
 from tests.factories import make_agent, make_location, make_run, write_agent_config
 
@@ -83,6 +84,72 @@ async def test_run_tick_isolated_with_separate_sessions(db_session, tmp_path):
         updated_run = await RunRepository(session).get(run_id)
         assert updated_run is not None
         assert updated_run.current_tick == 1
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_run_tick_isolated_persists_movement_until_arrival_tick(tmp_path):
+    engine = await create_isolated_sqlite_engine()
+    run_id = "run-isolated-transit"
+    alice_id = "alice-isolated-transit"
+    bob_id = "bob-isolated-transit"
+    home_id = "loc-home-isolated-transit"
+    park_id = "loc-park-isolated-transit"
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        run = make_run(run_id, name="isolated-transit")
+        home = make_location(home_id, run_id=run_id, name="Home", location_type="home")
+        home.capacity = 4
+        park = make_location(park_id, run_id=run_id, name="Park", location_type="park")
+        alice = make_agent(alice_id, run_id=run_id, location_id=home_id, name="Alice")
+        bob = make_agent(bob_id, run_id=run_id, location_id=home_id, name="Bob")
+        session.add_all([run, home, park, alice, bob])
+        await session.commit()
+
+    service = build_scheduler_service(tmp_path)
+    started = await service.run_tick_isolated(
+        run_id,
+        engine,
+        [ActionIntent(agent_id=alice_id, action_type="move", target_location_id=park_id)],
+    )
+
+    assert started.tick_no == 1
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        alice = await session.get(Agent, alice_id)
+        assert alice is not None
+        assert alice.current_location_id == home_id
+        assert alice.movement["state"] == "in_transit"
+
+    travelling = await service.run_tick_isolated(
+        run_id,
+        engine,
+        [ActionIntent(agent_id=bob_id, action_type="rest")],
+    )
+
+    assert travelling.tick_no == 2
+    assert [item.action_type for item in travelling.accepted] == ["rest"]
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        alice = await session.get(Agent, alice_id)
+        assert alice is not None
+        assert alice.current_location_id == home_id
+        assert alice.movement["state"] == "in_transit"
+
+    arrived = await service.run_tick_isolated(
+        run_id,
+        engine,
+        [ActionIntent(agent_id=bob_id, action_type="rest")],
+    )
+
+    assert arrived.tick_no == 3
+    assert [item.action_type for item in arrived.accepted] == ["rest", "move_arrived"]
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        alice = await session.get(Agent, alice_id)
+        events = await EventRepository(session).list_for_run(run_id)
+        assert alice is not None
+        assert alice.current_location_id == park_id
+        assert alice.movement == {}
+        assert events[0].event_type == "move"
+        assert {event.event_type for event in events[1:]} == {"rest", "move_arrived"}
 
     await engine.dispose()
 

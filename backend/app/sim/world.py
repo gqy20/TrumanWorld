@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 from typing import Any
 
+from app.sim.movement import AgentMovementState, create_agent_movement
+
 
 @dataclass
 class LocationState:
@@ -23,12 +25,14 @@ class AgentState:
     status: dict[str, Any] = field(default_factory=dict)
     occupation: str | None = None
     workplace_id: str | None = None
+    movement: AgentMovementState | None = None
 
 
 @dataclass(frozen=True)
 class TickAdvance:
     current_time: datetime
     tick_delta: int
+    completed_movements: tuple[AgentMovementState, ...] = ()
 
 
 @dataclass
@@ -160,6 +164,7 @@ class WorldState:
                     "status": deepcopy(agent.status),
                     "occupation": agent.occupation,
                     "workplace_id": agent.workplace_id,
+                    "movement": agent.movement.to_dict() if agent.movement else None,
                 }
                 for agent_id, agent in self.agents.items()
             },
@@ -194,7 +199,12 @@ class WorldState:
             self.current_time = next_time
 
         self.current_tick += tick_delta
-        return TickAdvance(current_time=self.current_time, tick_delta=tick_delta)
+        completed_movements = tuple(self.complete_arrived_movements())
+        return TickAdvance(
+            current_time=self.current_time,
+            tick_delta=tick_delta,
+            completed_movements=completed_movements,
+        )
 
     def get_agent(self, agent_id: str) -> AgentState | None:
         return self.agents.get(agent_id)
@@ -239,6 +249,50 @@ class WorldState:
         origin.occupants.discard(agent_id)
         destination.occupants.add(agent_id)
         agent.location_id = destination_id
+
+    def start_agent_movement(
+        self,
+        agent_id: str,
+        destination_id: str,
+    ) -> AgentMovementState:
+        agent = self.agents[agent_id]
+        origin_id = agent.location_id
+        movement = create_agent_movement(
+            agent_id=agent_id,
+            from_location_id=origin_id,
+            to_location_id=destination_id,
+            # Intents are committed by the tick that advance_tick() is about to publish.
+            # Aligning the movement interval with that public tick keeps a fresh snapshot
+            # at progress 0 instead of making the client skip the first half of the route.
+            started_tick=self.current_tick + 1,
+        )
+        self.locations[origin_id].occupants.discard(agent_id)
+        agent.movement = movement
+        return movement
+
+    def complete_arrived_movements(self) -> list[AgentMovementState]:
+        completed: list[AgentMovementState] = []
+        for agent in self.agents.values():
+            movement = agent.movement
+            if movement is None or movement.arrival_tick > self.current_tick:
+                continue
+            destination = self.locations.get(movement.to_location_id)
+            if destination is None:
+                continue
+            agent.location_id = destination.id
+            agent.movement = None
+            destination.occupants.add(agent.id)
+            completed.append(movement)
+        return completed
+
+    def destination_occupancy(self, location_id: str) -> int:
+        location = self.locations[location_id]
+        reservations = sum(
+            1
+            for agent in self.agents.values()
+            if agent.movement is not None and agent.movement.to_location_id == location_id
+        )
+        return len(location.occupants) + reservations
 
     def _day_index(self) -> int:
         return self.current_time.toordinal()

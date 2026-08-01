@@ -23,6 +23,7 @@ from app.api.schemas.simulation import (
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
 from app.scenario.types import get_agent_config_id
+from app.sim.movement import AgentMovementState
 from app.sim.context import ContextBuilder as SimulationContextBuilder
 from app.store.repositories import (
     AgentRepository,
@@ -71,7 +72,12 @@ async def list_agents(
                 name=agent.name,
                 occupation=agent.occupation,
                 current_goal=agent.current_goal,
-                current_location_id=agent.current_location_id,
+                current_location_id=(
+                    None
+                    if AgentMovementState.from_dict(agent.movement)
+                    else agent.current_location_id
+                ),
+                movement=agent.movement or None,
                 config_id=get_agent_config_id(agent.profile),
             )
             for agent in agents

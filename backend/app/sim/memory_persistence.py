@@ -204,6 +204,9 @@ class MemoryPersistence:
                 + rule_feedback_records
             )
 
+        if event.event_type == "move_arrived":
+            return []
+
         if event.event_type in {"conversation_started", "conversation_joined"}:
             return []
 

@@ -11,6 +11,7 @@ ACTION_WORK = "work"
 ACTION_REST = "rest"
 
 EVENT_MOVE = ACTION_MOVE
+EVENT_MOVE_ARRIVED = "move_arrived"
 EVENT_TALK = ACTION_TALK
 EVENT_SPEECH = "speech"
 EVENT_LISTEN = ACTION_LISTEN
@@ -46,6 +47,7 @@ DIRECTOR_SCENE_POWER_OUTAGE = "power_outage"  # 停电场景
 
 ActionType: TypeAlias = Literal[
     "move",
+    "move_arrived",
     "talk",
     "listen",
     "conversation_started",
@@ -63,6 +65,7 @@ ActionType: TypeAlias = Literal[
 ]
 RejectedActionEventType: TypeAlias = Literal[
     "move_rejected",
+    "move_arrived_rejected",
     "talk_rejected",
     "listen_rejected",
     "conversation_started_rejected",

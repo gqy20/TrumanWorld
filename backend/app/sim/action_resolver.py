@@ -135,6 +135,22 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
+        if agent.movement is not None:
+            return self._build_result(
+                accepted=False,
+                action_type=intent.action_type,
+                reason="agent_in_transit",
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": None,
+                    "movement_id": agent.movement.id,
+                    "from_location_id": agent.movement.from_location_id,
+                    "to_location_id": agent.movement.to_location_id,
+                },
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+
         if governance_execution is not None and governance_execution.decision == "block":
             return self._build_rule_rejection(
                 agent.location_id,
@@ -319,7 +335,7 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        if len(destination.occupants) >= destination.capacity:
+        if world.destination_occupancy(destination.id) >= destination.capacity:
             return self._build_result(
                 False,
                 "move",
@@ -333,16 +349,14 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        origin_id = agent.location_id
-        world.move_agent(intent.agent_id, intent.target_location_id)
+        movement = world.start_agent_movement(intent.agent_id, intent.target_location_id)
         return self._build_result(
             accepted=True,
             action_type="move",
             reason="accepted",
             event_payload={
                 "agent_id": intent.agent_id,
-                "from_location_id": origin_id,
-                "to_location_id": intent.target_location_id,
+                **movement.to_event_payload(),
             },
             rule_evaluation=rule_evaluation,
             governance_execution=governance_execution,

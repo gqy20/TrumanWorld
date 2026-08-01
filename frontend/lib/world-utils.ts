@@ -8,6 +8,7 @@ import {
   DIRECTOR_EVENT_WEATHER_CHANGE,
   EVENT_LISTEN,
   EVENT_MOVE,
+  EVENT_MOVE_ARRIVED,
   EVENT_PLAN,
   EVENT_REFLECT,
   EVENT_REST,
@@ -15,7 +16,7 @@ import {
   EVENT_TALK,
   EVENT_WORK,
 } from "@/lib/simulation-protocol";
-import type { WorldEvent, WorldSnapshot } from "@/lib/types";
+import type { AgentSummary, WorldEvent, WorldSnapshot } from "@/lib/types";
 export type LocationBeat = "conversation" | "arrival" | "working" | "resting" | "quiet";
 export type EventFilter = "all" | "social" | "activity" | "movement";
 
@@ -46,12 +47,20 @@ export function buildWorldNameMaps(world: WorldSnapshot) {
 
   for (const location of world.locations) {
     locationNameMap[location.id] = location.name;
-    for (const agent of location.occupants) {
-      agentNameMap[agent.id] = agent.name;
-    }
+  }
+  for (const agent of getWorldAgents(world)) {
+    agentNameMap[agent.id] = agent.name;
   }
 
   return { agentNameMap, locationNameMap };
+}
+
+export function getWorldAgents(world: WorldSnapshot): AgentSummary[] {
+  if (world.agents) return world.agents;
+  const agents = world.locations.flatMap((location) => location.occupants);
+  return agents.filter(
+    (agent, index) => agents.findIndex((candidate) => candidate.id === agent.id) === index,
+  );
 }
 
 export function filterWorldEvents(
@@ -228,7 +237,9 @@ export function eventMatchesFilter(event: WorldEvent, filter: EventFilter) {
   if (filter === "social") {
     return isSocialEvent(event);
   }
-  if (filter === "movement") return event.event_type === EVENT_MOVE;
+  if (filter === "movement") {
+    return event.event_type === EVENT_MOVE || event.event_type === EVENT_MOVE_ARRIVED;
+  }
   return event.event_type === EVENT_WORK || event.event_type === EVENT_REST;
 }
 
@@ -256,7 +267,9 @@ export function locationBeat(
   ) {
     return "conversation";
   }
-  if (latest.event_type === EVENT_MOVE) return "arrival";
+  if (latest.event_type === EVENT_MOVE || latest.event_type === EVENT_MOVE_ARRIVED) {
+    return "arrival";
+  }
   if (latest.event_type === EVENT_WORK) return "working";
   if (latest.event_type === EVENT_REST) return "resting";
   return "quiet";
@@ -402,6 +415,7 @@ export function calculateLocationHeat(
     [EVENT_TALK]: 1.5,
     [EVENT_WORK]: 1.0,
     [EVENT_MOVE]: 0.6,
+    [EVENT_MOVE_ARRIVED]: 0.5,
     [EVENT_REST]: 0.4,
     [DIRECTOR_EVENT_INJECT]: 2.0,
     [DIRECTOR_EVENT_BROADCAST]: 2.0,

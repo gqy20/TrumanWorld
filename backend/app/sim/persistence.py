@@ -98,6 +98,7 @@ class PersistenceManager:
             state = world.get_agent(agent.id)
             if state is not None:
                 agent.current_location_id = state.location_id
+                agent.movement = state.movement.to_dict() if state.movement else {}
                 scheduled_goal = _compute_goal_for_schedule(world, agent)
                 if scheduled_goal is not None and agent.current_goal != scheduled_goal:
                     agent.current_goal = scheduled_goal
@@ -205,6 +206,7 @@ class PersistenceManager:
             state = world.get_agent(agent.id)
             if state is not None:
                 agent.current_location_id = state.location_id
+                agent.movement = state.movement.to_dict() if state.movement else {}
         await self.session.flush()
 
 

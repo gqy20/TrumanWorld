@@ -77,6 +77,17 @@ export function calculateVoxelMotionDuration(
   return clamp((pathLength / speedUnitsPerSecond) * 1000, MIN_DURATION_MS, MAX_DURATION_MS);
 }
 
+export function advanceVoxelMotionProgress(
+  progress: number,
+  durationMs: number,
+  deltaSeconds: number,
+  isPaused: boolean,
+): number {
+  const current = clamp(progress, 0, 1);
+  if (isPaused || durationMs <= 0 || deltaSeconds <= 0) return current;
+  return clamp(current + (deltaSeconds * 1000) / durationMs, 0, 1);
+}
+
 function findSegmentIndex(cumulativeLengths: number[], distance: number): number {
   for (let index = 0; index < cumulativeLengths.length - 1; index += 1) {
     if (distance <= cumulativeLengths[index + 1]) return index;

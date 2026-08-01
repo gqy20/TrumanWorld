@@ -42,6 +42,7 @@ class AgentWorldRow:
     current_location_id: str | None
     status: dict
     profile: dict
+    movement: dict
 
 
 @dataclass(slots=True)

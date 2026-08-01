@@ -165,7 +165,9 @@ async def test_simulation_service_persists_tick_and_events(db_session):
 
     run_repo = RunRepository(db_session)
     event_repo = EventRepository(db_session)
+    agent_repo = AgentRepository(db_session)
     updated_run = await run_repo.get("run-service-1")
+    updated_agent = await agent_repo.get("alice")
     events = await event_repo.list_for_run("run-service-1")
     memories = await AgentRepository(db_session).list_recent_memories("alice")
 
@@ -176,10 +178,31 @@ async def test_simulation_service_persists_tick_and_events(db_session):
     assert events[0].event_type == "move"
     assert events[0].actor_agent_id == "alice"
     assert events[0].payload["to_location_id"] == "loc-park"
+    assert updated_agent is not None
+    assert updated_agent.current_location_id == "loc-home"
+    assert updated_agent.movement["state"] == "in_transit"
     assert result.world_time == "2026-03-02T06:05:00+00:00"
     assert len(memories) == 1
     assert memories[0].summary == "Moved to Park"
     assert memories[0].source_event_id == events[0].id
+
+    travelling = await service.run_tick("run-service-1", [])
+    await db_session.refresh(updated_agent)
+
+    assert travelling.tick_no == 2
+    assert all(item.action_type != "move_arrived" for item in travelling.accepted)
+    assert updated_agent.current_location_id == "loc-home"
+    assert updated_agent.movement["state"] == "in_transit"
+
+    arrived = await service.run_tick("run-service-1", [])
+    await db_session.refresh(updated_agent)
+    arrival_events = await event_repo.list_for_run("run-service-1")
+
+    assert arrived.tick_no == 3
+    assert any(item.action_type == "move_arrived" for item in arrived.accepted)
+    assert updated_agent.current_location_id == "loc-park"
+    assert updated_agent.movement == {}
+    assert [event.event_type for event in arrival_events] == ["move", "move_arrived"]
 
 
 @pytest.mark.asyncio
@@ -732,6 +755,8 @@ async def test_simulation_service_runs_tick_with_langgraph_backend(
         assert len(events) == 1
         assert events[0].event_type == "move"
         assert updated_agent is not None
-        assert updated_agent.current_location_id == "loc-square-langgraph"
+        assert updated_agent.current_location_id == "loc-home-langgraph"
+        assert updated_agent.movement["state"] == "in_transit"
+        assert updated_agent.movement["to_location_id"] == "loc-square-langgraph"
     finally:
         get_settings.cache_clear()

@@ -123,6 +123,7 @@ jest.mock("phaser", () => ({
 describe("WorldScene", () => {
   const sceneWorld: SceneWorld = {
     runId: "run-1",
+    isRunning: true,
     locations: [
       {
         id: "loc-1",
@@ -148,6 +149,7 @@ describe("WorldScene", () => {
         slotIndex: 0,
       },
     ],
+    activeMovements: [],
     moveTrails: [
       {
         id: "move-1",

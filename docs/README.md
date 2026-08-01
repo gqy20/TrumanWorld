@@ -22,9 +22,10 @@
 ### 我想了解产品方向
 
 1. 看 [product/BACKLOG.md](product/BACKLOG.md)
-2. 看 [product/FEATURE_WORLD_2D_SCENE.md](product/FEATURE_WORLD_2D_SCENE.md)
-3. 看 [product/FEATURE_VOXEL_2_5D_WORLD_STAGE.md](product/FEATURE_VOXEL_2_5D_WORLD_STAGE.md)
-4. 如需历史基线，补看 [references/PRD.md](references/PRD.md)
+2. 看 [product/FEATURE_AGENT_TRANSIT.md](product/FEATURE_AGENT_TRANSIT.md)
+3. 看 [product/FEATURE_WORLD_2D_SCENE.md](product/FEATURE_WORLD_2D_SCENE.md)
+4. 看 [product/FEATURE_VOXEL_2_5D_WORLD_STAGE.md](product/FEATURE_VOXEL_2_5D_WORLD_STAGE.md)
+5. 如需历史基线，补看 [references/PRD.md](references/PRD.md)
 
 ### 我想准备比赛或面试介绍
 

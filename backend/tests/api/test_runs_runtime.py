@@ -53,6 +53,82 @@ async def test_get_world_snapshot_returns_locations_agents_and_public_events(cli
 
 
 @pytest.mark.asyncio
+async def test_get_world_snapshot_keeps_in_transit_agent_outside_location_occupants(
+    client,
+    db_session,
+):
+    run_id = "00000000-0000-0000-0000-000000000208"
+    home_id = "transit-home"
+    cafe_id = "transit-cafe"
+    agent_id = "transit-alice"
+    db_session.add_all(
+        [
+            SimulationRun(
+                id=run_id,
+                name="world-transit",
+                status="running",
+                current_tick=3,
+            ),
+            Location(
+                id=home_id,
+                run_id=run_id,
+                name="Home",
+                location_type="home",
+                capacity=4,
+            ),
+            Location(
+                id=cafe_id,
+                run_id=run_id,
+                name="Cafe",
+                location_type="cafe",
+                capacity=4,
+            ),
+            Agent(
+                id=agent_id,
+                run_id=run_id,
+                name="Alice",
+                occupation="resident",
+                home_location_id=home_id,
+                current_location_id=home_id,
+                personality={},
+                profile={},
+                status={},
+                current_plan={},
+                movement={
+                    "id": "movement-alice-cafe",
+                    "state": "in_transit",
+                    "from_location_id": home_id,
+                    "to_location_id": cafe_id,
+                    "started_tick": 2,
+                    "arrival_tick": 4,
+                },
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await client.get(f"/api/runs/{run_id}/world")
+
+    assert response.status_code == 200
+    body = response.json()
+    alice = next(agent for agent in body["agents"] if agent["id"] == agent_id)
+    assert alice["current_location_id"] is None
+    assert alice["movement"] == {
+        "id": "movement-alice-cafe",
+        "state": "in_transit",
+        "from_location_id": home_id,
+        "to_location_id": cafe_id,
+        "started_tick": 2,
+        "arrival_tick": 4,
+    }
+    assert all(
+        occupant["id"] != agent_id
+        for location in body["locations"]
+        for occupant in location["occupants"]
+    )
+
+
+@pytest.mark.asyncio
 async def test_get_world_snapshot_includes_director_stats(client):
     create_response = await client.post("/api/runs", json={"name": "world-director-stats"})
     run_id = create_response.json()["id"]

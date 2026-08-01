@@ -156,6 +156,7 @@ function syncContext(scene: ReturnType<typeof mockScene>) {
 function world(overrides: Partial<SceneWorld> = {}): SceneWorld {
   return {
     runId: "run-1",
+    isRunning: true,
     locations: [
       location(),
       location({ id: "loc-2", name: "Library", locationType: "library", x: 30, y: 40 }),
@@ -163,6 +164,7 @@ function world(overrides: Partial<SceneWorld> = {}): SceneWorld {
     agents: [
       agent({ visual: { visualPreset: "student", marker: "M" } }),
     ],
+    activeMovements: [],
     moveTrails: [],
     bubbles: [],
     ambience: {
