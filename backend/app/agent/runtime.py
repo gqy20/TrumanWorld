@@ -205,6 +205,11 @@ class AgentRuntime:
         invocation: RuntimeInvocation,
         runtime_ctx: RuntimeContext | None = None,
     ) -> ActionIntent:
+        world_context = invocation.context.get("world")
+        nested_directives = (
+            world_context.get("director_directives") if isinstance(world_context, dict) else None
+        )
+        directives = invocation.context.get("director_directives") or nested_directives or []
         backend_invocation = AgentActionInvocation(
             agent_id=invocation.agent_id,
             prompt=invocation.prompt,
@@ -212,6 +217,7 @@ class AgentRuntime:
             max_turns=invocation.max_turns,
             max_budget_usd=invocation.max_budget_usd,
             allowed_actions=list(invocation.allowed_actions),
+            directives=list(directives),
         )
         backend_runtime_ctx = (
             BackendExecutionContext(
@@ -230,6 +236,17 @@ class AgentRuntime:
         payload = dict(decision.payload)
         if decision.message:
             payload["message"] = decision.message
+        valid_directive_ids = {directive.get("id") for directive in backend_invocation.directives}
+        directive_id = (
+            decision.directive_id if decision.directive_id in valid_directive_ids else None
+        )
+        if directive_id is None and backend_invocation.directives:
+            directive_id = backend_invocation.directives[0].get("id")
+        if directive_id:
+            payload["director_directive_id"] = directive_id
+            payload["director_disposition"] = decision.directive_disposition or "accepted"
+            if decision.directive_reason:
+                payload["director_disposition_reason"] = decision.directive_reason
         # No default message injection — the model must provide message content
         # for talk actions, which are later persisted as speech events.
 

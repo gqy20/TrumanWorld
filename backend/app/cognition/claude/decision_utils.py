@@ -24,6 +24,12 @@ DECISION_OUTPUT_SCHEMA = {
             "type": ["object", "null"],
             "description": "动作参数；没有额外参数时使用空对象。",
         },
+        "directive_id": {"type": ["string", "null"]},
+        "directive_disposition": {
+            "type": ["string", "null"],
+            "enum": ["accepted", "deferred", "rejected", "completed", None],
+        },
+        "directive_reason": {"type": ["string", "null"]},
     },
     "required": ["action_type"],
     "additionalProperties": False,
@@ -36,6 +42,9 @@ class RuntimeDecision(BaseModel):
     target_agent_id: str | None = None
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+    directive_id: str | None = None
+    directive_disposition: str | None = None
+    directive_reason: str | None = None
 
     @model_validator(mode="before")
     @classmethod

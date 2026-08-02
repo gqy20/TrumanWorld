@@ -47,6 +47,9 @@ class _StructuredDecision(BaseModel):
     target_agent_id: str | None = None
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+    directive_id: str | None = None
+    directive_disposition: str | None = None
+    directive_reason: str | None = None
 
 
 class _DecisionState(TypedDict):
@@ -727,6 +730,9 @@ class LangGraphAgentBackend:
             target_agent_id=data.get("target_agent_id"),
             message=data.get("message"),
             payload=dict(data.get("payload") or {}),
+            directive_id=data.get("directive_id"),
+            directive_disposition=data.get("directive_disposition"),
+            directive_reason=data.get("directive_reason"),
         )
 
     def _extract_text_content(self, response: Any) -> str:

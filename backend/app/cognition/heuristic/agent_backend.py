@@ -46,6 +46,9 @@ class HeuristicAgentBackend:
             target_agent_id=decision.target_agent_id,
             message=decision.message,
             payload=dict(decision.payload),
+            directive_id=decision.directive_id,
+            directive_disposition=decision.directive_disposition,
+            directive_reason=decision.directive_reason,
         )
 
     async def plan_day(

@@ -4,6 +4,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from app.cognition.types import BackendExecutionContext
+from app.director.directives import DirectorDirective, compile_directives
 from app.director.observer import DirectorAssessment, DirectorObserver, DirectorObserverSemantics
 from app.director.planner import DirectorPlanner, DirectorPlannerSemantics
 from app.director.types import DirectorPlan
@@ -16,8 +17,10 @@ from app.sim.llm_call_collector import LlmCallCollector
 from app.sim.llm_call_writer import LlmCallWriter
 from app.store.repositories import (
     AgentRepository,
+    DirectorDirectiveRepository,
     DirectorMemoryRepository,
     EventRepository,
+    LocationRepository,
     RunRepository,
 )
 
@@ -44,6 +47,10 @@ class BundleWorldCoordinator:
         self.director_memory_repo = (
             DirectorMemoryRepository(session) if session is not None else None
         )
+        self.director_directive_repo = (
+            DirectorDirectiveRepository(session) if session is not None else None
+        )
+        self.location_repo = LocationRepository(session) if session is not None else None
         self._runtime_role_semantics = build_scenario_runtime_config(scenario_id)
         self.observer = DirectorObserver(
             DirectorObserverSemantics(
@@ -99,6 +106,8 @@ class BundleWorldCoordinator:
         if run is None:
             return None
 
+        active_directives = await self._load_active_directives(run_id, run.current_tick)
+
         if self.director_memory_repo is not None:
             pending_manual = await self.director_memory_repo.get_pending_manual_interventions(
                 run_id=run_id,
@@ -107,11 +116,74 @@ class BundleWorldCoordinator:
             )
             if pending_manual:
                 memory = pending_manual[0]
-                return self._convert_memory_to_plan(memory)
+                return await self._attach_directives(
+                    self._convert_memory_to_plan(memory), run_id, run.current_tick, agents
+                )
 
         if not self.settings.director_auto_intervention_enabled:
+            return self._plan_from_active(active_directives)
+        plan = await self._build_auto_plan(run_id, agents)
+        if plan is None:
+            return self._plan_from_active(active_directives)
+        return await self._attach_directives(plan, run_id, run.current_tick, agents)
+
+    async def _attach_directives(
+        self,
+        plan: DirectorPlan,
+        run_id: str,
+        tick_no: int,
+        agents: list[Agent],
+    ) -> DirectorPlan:
+        locations = await self.location_repo.list_for_run(run_id) if self.location_repo else []
+        plan.directives = compile_directives(
+            plan,
+            run_id=run_id,
+            issued_tick=tick_no,
+            valid_agent_ids={agent.id for agent in agents},
+            valid_location_ids={location.id for location in locations},
+        )
+        return plan
+
+    async def _load_active_directives(self, run_id: str, tick_no: int) -> list[DirectorDirective]:
+        if self.director_directive_repo is None:
+            return []
+        rows = await self.director_directive_repo.list_active(run_id, tick_no)
+        return [
+            DirectorDirective(
+                id=row.id,
+                run_id=row.run_id,
+                target_agent_id=row.target_agent_id,
+                subject_agent_id=row.subject_agent_id,
+                objective=row.objective,
+                mode=row.mode,
+                priority=row.priority,
+                issued_tick=row.issued_tick,
+                expires_at_tick=row.expires_at_tick,
+                location_id=row.location_id,
+                message_hint=row.message_hint,
+                constraints=dict(row.constraints_json or {}),
+                completion_criteria=dict(row.completion_criteria_json or {}),
+                source=row.source,
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def _plan_from_active(directives: list[DirectorDirective]) -> DirectorPlan | None:
+        if not directives:
             return None
-        return await self._build_auto_plan(run_id, agents)
+        primary = directives[0]
+        return DirectorPlan(
+            scene_goal=primary.objective,
+            target_agent_ids=[directive.target_agent_id for directive in directives],
+            priority=primary.priority,
+            urgency="immediate" if primary.mode == "priority" else "advisory",
+            message_hint=primary.message_hint,
+            location_hint=primary.location_id,
+            target_agent_id=primary.subject_agent_id,
+            source_type="active",
+            directives=directives,
+        )
 
     async def _build_auto_plan(self, run_id: str, agents: list[Agent]) -> DirectorPlan | None:
         run = await self.run_repo.get(run_id)
@@ -229,6 +301,9 @@ class BundleWorldCoordinator:
                 engine=self.session.bind if self.session is not None else None,
             )
 
+        if plan is not None:
+            plan.trigger_subject_alert_score = assessment.subject_alert_score
+            plan.trigger_continuity_risk = assessment.continuity_risk
         return plan
 
     async def persist_director_plan(
@@ -241,6 +316,10 @@ class BundleWorldCoordinator:
             return
         run = await self.run_repo.get(run_id) if self.run_repo is not None else None
         tick_no = run.current_tick if run is not None else 0
+        if plan.source_type == "active":
+            return
+        if self.director_directive_repo is not None:
+            await self.director_directive_repo.add_many(plan.directives)
         if plan.source_type == "manual" and plan.source_memory_id:
             await self.director_memory_repo.mark_executed(plan.source_memory_id)
             return
@@ -254,8 +333,12 @@ class BundleWorldCoordinator:
             message_hint=plan.message_hint,
             target_agent_id=plan.target_agent_id,
             reason=plan.reason,
-            trigger_subject_alert_score=assessment.subject_alert_score if assessment else 0.0,
-            trigger_continuity_risk=assessment.continuity_risk if assessment else "stable",
+            trigger_subject_alert_score=(
+                assessment.subject_alert_score if assessment else plan.trigger_subject_alert_score
+            ),
+            trigger_continuity_risk=(
+                assessment.continuity_risk if assessment else plan.trigger_continuity_risk
+            ),
             cooldown_ticks=plan.cooldown_ticks,
         )
         if plan.is_intelligent_decision:

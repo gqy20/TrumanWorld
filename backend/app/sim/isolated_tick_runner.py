@@ -10,6 +10,7 @@ from app.scenario.factory import create_scenario
 from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
 from app.sim.llm_call_writer import LlmCallWriter
 from app.sim.persistence import PersistenceManager
+from app.store.repositories import DirectorDirectiveRepository
 from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.world_loader import load_tick_data
 from app.store.models import SimulationRun
@@ -126,6 +127,15 @@ class IsolatedTickRunner:
             await write_scenario.update_state_from_events(run_id, persisted_events)
             if loaded.director_plan is not None:
                 await write_scenario.persist_director_plan(run_id, loaded.director_plan)
+            directive_results = result.accepted + result.rejected
+            has_directive_result = any(
+                item.event_payload.get("director_directive_id") for item in directive_results
+            )
+            if loaded.director_plan is not None or has_directive_result:
+                directive_repo = DirectorDirectiveRepository(write_session)
+                await directive_repo.expire_stale(run_id, result.tick_no)
+                await directive_repo.apply_results(run_id, result.tick_no, directive_results)
+                await write_session.commit()
         logger.debug(
             "tick_phase_completed run_id=%s tick_no=%s phase=persist_tick duration_ms=%s "
             "persisted_event_count=%s llm_call_count=%s",

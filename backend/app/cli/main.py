@@ -133,6 +133,18 @@ def _resolve_location_id(runtime: Runtime, run_id: str, reference: str | None) -
     return _one_match("location", reference, matches)
 
 
+def _resolve_directive_id(runtime: Runtime, run_id: str, reference: str) -> str:
+    payload = runtime.client.get(f"runs/{run_id}/director/directives", params={"limit": 200})
+    directives = payload.get("directives") or []
+    matches = [
+        directive
+        for directive in directives
+        if str(directive.get("id") or "") == reference
+        or str(directive.get("id") or "").startswith(reference)
+    ]
+    return _one_match("director directive", reference, matches)
+
+
 class DirectorEventType(StrEnum):
     activity = "activity"
     shutdown = "shutdown"
@@ -204,6 +216,7 @@ PLAY_HELP = """Commands:
   inspect <resident>    open a resident dossier
   step [count]          advance an exact number of ticks
   broadcast <message>   inject a town-wide broadcast
+  directives            show director commands and execution status
   start | pause         control real-time simulation
   cost                  show token and cost telemetry
   help                  show this guide
@@ -324,6 +337,8 @@ def _execute_play_command(
                 importance=0.5,
                 payload=None,
             )
+    elif parts[0] in {"directives", "d"}:
+        director_directives(ctx, run_id, status=None, agent_id=None, limit=20)
     elif parts[0] == "start":
         _run_action(ctx, run_id, "start")
     elif parts[0] == "pause":
@@ -880,6 +895,48 @@ def director_memories(ctx: typer.Context, run_id: str, limit: int = 100) -> None
     runtime.renderer.data(
         runtime.client.get(f"runs/{run_id}/director/memories", params={"limit": limit})
     )
+
+
+@director_app.command("directives")
+def director_directives(
+    ctx: typer.Context,
+    run_id: str,
+    status: str | None = typer.Option(None, "--status"),
+    agent_id: str | None = typer.Option(None, "--agent"),
+    limit: int = typer.Option(100, "--limit", min=1, max=200),
+) -> None:
+    runtime = rt(ctx)
+    run_id = _resolve_run_id(runtime, run_id)
+    if agent_id is not None:
+        agent_id = _resolve_agent_id(runtime, run_id, agent_id)
+    params = {
+        key: value
+        for key, value in {"status": status, "agent_id": agent_id, "limit": limit}.items()
+        if value is not None
+    }
+    payload = runtime.client.get(f"runs/{run_id}/director/directives", params=params)
+    runtime.renderer.rows(
+        payload.get("directives") or [],
+        (
+            ("id", "Directive"),
+            ("issued_tick", "Tick"),
+            ("target_agent_name", "Actor"),
+            ("objective", "Objective"),
+            ("mode", "Mode"),
+            ("status", "Status"),
+            ("disposition", "Receipt"),
+            ("failure_reason", "Reason"),
+        ),
+        title="Director directives",
+    )
+
+
+@director_app.command("directive")
+def director_directive(ctx: typer.Context, run_id: str, directive_id: str) -> None:
+    runtime = rt(ctx)
+    run_id = _resolve_run_id(runtime, run_id)
+    directive_id = _resolve_directive_id(runtime, run_id, directive_id)
+    runtime.renderer.data(runtime.client.get(f"runs/{run_id}/director/directives/{directive_id}"))
 
 
 @director_app.command("cases")

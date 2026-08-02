@@ -70,7 +70,7 @@ class DirectorAgent:
         self.settings = settings or get_settings()
         self._config = load_director_config()
         self._enabled = self._config.enabled and self.settings.director_backend == "claude_sdk"
-        self._decision_interval = self._config.decision_interval
+        self._decision_interval = max(1, self.settings.director_decision_interval)
         self._model = (
             self._config.llm.model or self.settings.director_agent_model or self.settings.llm_model
         )
@@ -86,7 +86,7 @@ class DirectorAgent:
     def reload_config(self) -> None:
         self._config = load_director_config(force_reload=True)
         self._enabled = self._config.enabled and self.settings.director_backend == "claude_sdk"
-        self._decision_interval = self._config.decision_interval
+        self._decision_interval = max(1, self.settings.director_decision_interval)
         self._model = (
             self._config.llm.model or self.settings.director_agent_model or self.settings.llm_model
         )
@@ -281,6 +281,8 @@ class DirectorAgent:
                 target_agent_id=context.assessment.subject_agent_id,
                 reason=data.get("reasoning", "LLM-based intervention decision"),
                 cooldown_ticks=data.get("cooldown_ticks", 3),
+                is_intelligent_decision=True,
+                strategy=data.get("strategy"),
             )
 
         except json.JSONDecodeError as exc:

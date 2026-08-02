@@ -133,6 +133,65 @@ def test_director_inject_help_lists_supported_event_types():
     assert "power_outage" in result.stdout
 
 
+def test_director_directives_filters_and_renders_rows(monkeypatch):
+    requested = []
+
+    def fake_get(_self, path, **kwargs):
+        requested.append((path, kwargs.get("params")))
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        return {
+            "directives": [
+                {
+                    "id": "directive-1",
+                    "issued_tick": 5,
+                    "target_agent_name": "Meryl",
+                    "objective": "soft_check_in",
+                    "mode": "priority",
+                    "status": "active",
+                    "disposition": "accepted",
+                    "failure_reason": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(
+        app,
+        ["--output", "json", "director", "directives", "Town", "--status", "active"],
+    )
+
+    assert result.exit_code == 0
+    assert requested[-1] == (
+        f"runs/{RUN_ID}/director/directives",
+        {"status": "active", "limit": 100},
+    )
+    assert '"objective": "soft_check_in"' in result.stdout
+
+
+def test_director_directive_resolves_short_id(monkeypatch):
+    requested = []
+
+    def fake_get(_self, path, **kwargs):
+        requested.append(path)
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        if path == f"runs/{RUN_ID}/director/directives":
+            return {"directives": [{"id": "directive-full-id"}]}
+        return {"id": "directive-full-id", "status": "active"}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(
+        app,
+        ["--output", "json", "director", "directive", "Town", "directive-full"],
+    )
+
+    assert result.exit_code == 0
+    assert requested[-1] == f"runs/{RUN_ID}/director/directives/directive-full-id"
+
+
 def test_run_step_advances_an_inactive_world_exactly(monkeypatch):
     posts: list[str] = []
     next_tick = iter((4, 5))

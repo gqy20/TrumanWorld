@@ -23,7 +23,14 @@ from app.cognition.registry import get_cognition_registry
 from app.director.service import DirectorEventService
 from app.infra.settings import get_settings
 from app.sim.world_loader import load_tick_data
-from app.store.models import Agent, Base, DirectorMemory, Location, SimulationRun
+from app.store.models import (
+    Agent,
+    Base,
+    DirectorDirective,
+    DirectorMemory,
+    Location,
+    SimulationRun,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -237,11 +244,19 @@ async def test_run_tick_isolated_persists_director_plan_after_tick(db_session):
                     select(func.count(DirectorMemory.id)).where(DirectorMemory.run_id == run_id)
                 )
             ).scalar_one()
+            directive_count = (
+                await verify_session.execute(
+                    select(func.count(DirectorDirective.id)).where(
+                        DirectorDirective.run_id == run_id
+                    )
+                )
+            ).scalar_one()
 
         assert count >= 1, (
             "run_tick_isolated 完成后，触发的 director plan 应被持久化到 director_memories 表。"
             f"当前记录数：{count}，预期 >= 1。"
         )
+        assert directive_count >= 1
     finally:
         await engine.dispose()
         shutil.rmtree(tmp_path)

@@ -66,6 +66,35 @@ class StubDecisionBackend:
         return None
 
 
+@pytest.mark.asyncio
+async def test_runtime_propagates_valid_director_directive_to_intent(runtime: AgentRuntime):
+    runtime.backend = StubDecisionBackend()
+    invocation = RuntimeInvocation(
+        agent_id="demo_agent",
+        task="reactor",
+        prompt="Choose an action",
+        context={
+            "world": {
+                "director_directives": [
+                    {
+                        "id": "directive-1",
+                        "objective": "soft_check_in",
+                        "mode": "priority",
+                    }
+                ]
+            }
+        },
+        max_turns=2,
+        max_budget_usd=0.1,
+        allowed_actions=["talk", "rest"],
+    )
+
+    intent = await runtime.decide_intent(invocation)
+
+    assert intent.payload["director_directive_id"] == "directive-1"
+    assert intent.payload["director_disposition"] == "accepted"
+
+
 def test_runtime_prepare_planner(runtime: AgentRuntime):
     invocation = runtime.prepare_planner(
         "demo_agent",

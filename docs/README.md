@@ -41,9 +41,10 @@
 3. 看 [engineering/world_design/README.md](engineering/world_design/README.md)
 4. 看 [engineering/world_design/IMPLEMENTATION_ROADMAP.md](engineering/world_design/IMPLEMENTATION_ROADMAP.md)
 5. 如需判断心智模型边界，看 [engineering/world_design/MENTAL_STATE_MODEL.md](engineering/world_design/MENTAL_STATE_MODEL.md)
-6. 看 [references/BUILD_VS_BUY.md](references/BUILD_VS_BUY.md)
-7. 如需回看 MVP 方案，看 [references/MVP_ARCHITECTURE.md](references/MVP_ARCHITECTURE.md)
-8. 如需评估后续游戏引擎路线，看 [engineering/GODOT_3D_CLIENT_SPIKE.md](engineering/GODOT_3D_CLIENT_SPIKE.md)
+6. 导演智能体控制链路看 [engineering/DIRECTOR_CONTROL_PLANE.md](engineering/DIRECTOR_CONTROL_PLANE.md)
+7. 看 [references/BUILD_VS_BUY.md](references/BUILD_VS_BUY.md)
+8. 如需回看 MVP 方案，看 [references/MVP_ARCHITECTURE.md](references/MVP_ARCHITECTURE.md)
+9. 如需评估后续游戏引擎路线，看 [engineering/GODOT_3D_CLIENT_SPIKE.md](engineering/GODOT_3D_CLIENT_SPIKE.md)
 
 ### 我想部署和排障
 

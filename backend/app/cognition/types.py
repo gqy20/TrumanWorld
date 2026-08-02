@@ -23,6 +23,7 @@ class AgentActionInvocation:
     max_turns: int
     max_budget_usd: float
     allowed_actions: list[str] = field(default_factory=list)
+    directives: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -57,3 +58,6 @@ class AgentDecisionResult:
     message: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     plan_update: dict[str, Any] | None = None  # Optional plan update
+    directive_id: str | None = None
+    directive_disposition: str | None = None
+    directive_reason: str | None = None

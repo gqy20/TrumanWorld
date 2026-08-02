@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 from time import perf_counter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 from uuid import uuid4
 
 from langchain_core.runnables import Runnable
+from langgraph.graph import END, START, StateGraph
 
 from app.cognition.claude.director_agent import DirectorAgent
 from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
 from app.cognition.langgraph.model_factory import build_langgraph_chat_model
-from app.cognition.langgraph.observability import LangGraphTrace, notify_llm_call
+from app.cognition.langgraph.observability import (
+    LangGraphLoggingCallback,
+    LangGraphTrace,
+    notify_llm_call,
+)
 from app.cognition.protocols import ChatModelProtocol, DirectorIntervention
 from app.cognition.types import DirectorDecisionInvocation
 from app.infra.logging import get_logger
@@ -19,6 +24,12 @@ if TYPE_CHECKING:
     from langchain_core.language_models.chat_models import BaseChatModel
 
 logger = get_logger(__name__)
+
+
+class _DirectorState(TypedDict):
+    invocation: DirectorDecisionInvocation
+    trace: LangGraphTrace
+    result: DirectorIntervention | None
 
 
 class LangGraphDirectorBackend:
@@ -39,10 +50,15 @@ class LangGraphDirectorBackend:
         self._enabled = (
             self._agent._config.enabled and self._settings.director_backend == "langgraph"
         )
-        self._decision_interval = self._agent._config.decision_interval
+        self._decision_interval = max(1, self._settings.director_decision_interval)
         self._text_model: BaseChatModel | ChatModelProtocol | None = (
             text_model or self._build_default_model()
         )
+        graph = StateGraph(_DirectorState)
+        graph.add_node("model_propose", self._propose_node)
+        graph.add_edge(START, "model_propose")
+        graph.add_edge("model_propose", END)
+        self._graph = graph.compile()
 
     def is_enabled(self) -> bool:
         return self._enabled
@@ -62,6 +78,35 @@ class LangGraphDirectorBackend:
             raise UpstreamApiUnavailableError(msg)
 
         context = invocation.context
+        runtime_ctx = invocation.runtime_ctx
+        graph_run_id = uuid4()
+        trace = LangGraphTrace(
+            trace_id=str(graph_run_id),
+            graph_run_id=graph_run_id,
+            graph_name="director_control",
+            simulation_run_id=runtime_ctx.run_id if runtime_ctx is not None else context.run_id,
+            tick_no=runtime_ctx.tick_no if runtime_ctx is not None else context.current_tick,
+            agent_id=None,
+            task_type="director",
+            provider=self._settings.llm_provider,
+            model=self._settings.director_agent_model or self._settings.llm_model,
+        )
+        state = await self._graph.ainvoke(
+            {"invocation": invocation, "trace": trace, "result": None},
+            config=trace.runnable_config(LangGraphLoggingCallback(trace)),
+        )
+        return state["result"]
+
+    async def _propose_node(self, state: _DirectorState) -> dict[str, Any]:
+        result = await self._propose_once(state["invocation"], state["trace"])
+        return {"result": result}
+
+    async def _propose_once(
+        self,
+        invocation: DirectorDecisionInvocation,
+        trace: LangGraphTrace,
+    ) -> DirectorIntervention | None:
+        context = invocation.context
         support_agents = self._agent._select_support_agents(context)
         if not support_agents or context.assessment.subject_agent_id is None:
             return None
@@ -70,19 +115,6 @@ class LangGraphDirectorBackend:
             context, support_agents, invocation.recent_goals
         )
         full_prompt = f"{prompt}\n\n重要：你必须只返回一个有效的 JSON 对象，不要有其他任何文本。"
-        runtime_ctx = invocation.runtime_ctx
-        graph_run_id = uuid4()
-        trace = LangGraphTrace(
-            trace_id=str(graph_run_id),
-            graph_run_id=graph_run_id,
-            graph_name="director_decision",
-            simulation_run_id=runtime_ctx.run_id if runtime_ctx is not None else context.run_id,
-            tick_no=runtime_ctx.tick_no if runtime_ctx is not None else context.current_tick,
-            agent_id=None,
-            task_type="director",
-            provider=self._settings.llm_provider,
-            model=self._settings.director_agent_model or self._settings.llm_model,
-        )
         started_at = perf_counter()
         logger.debug(
             "LangGraph director decision started",

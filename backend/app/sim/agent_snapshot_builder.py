@@ -317,6 +317,11 @@ async def build_agent_snapshots(
             location_states=location_states,
         )
         profile = scenario_with_session.merge_agent_profile(agent, plan)
+        directives = [
+            directive.as_context()
+            for directive in (plan.directives if plan is not None else [])
+            if directive.target_agent_id == agent.id
+        ]
         agent_data.append(
             AgentDecisionSnapshot(
                 id=agent.id,
@@ -328,6 +333,7 @@ async def build_agent_snapshots(
                 memory_cache=agent_memory_cache.get(agent.id),
                 current_plan=agent.current_plan or None,
                 relationship_context=agent_relationship_context.get(agent.id),
+                director_directives=directives,
             )
         )
 

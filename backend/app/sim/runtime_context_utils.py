@@ -52,6 +52,7 @@ def build_agent_world_context(
     subject_alert_score: float | None = 0.0,
     world_role: str | None = None,
     director_guidance: ScenarioGuidance | None = None,
+    director_directives: list[dict] | None = None,
     workplace_location_id: str | None = None,
     current_plan: dict | None = None,
     relationship_context: dict[str, dict[str, object]] | None = None,
@@ -145,6 +146,8 @@ def build_agent_world_context(
     )
     if director_guidance:
         context.update(_normalize_director_guidance(director_guidance))
+    if director_directives:
+        context["director_directives"] = list(director_directives)
 
     return context
 

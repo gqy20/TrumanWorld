@@ -33,6 +33,7 @@ from app.sim.world import WorldState
 from app.store.models import SimulationRun
 from app.store.repositories import (
     AgentRepository,
+    DirectorDirectiveRepository,
     RunRepository,
 )
 
@@ -208,13 +209,14 @@ class SimulationService:
                 engine=self._require_session_bound().bind,
                 agent_runtime=self.agent_runtime,
             )
+            orchestrator = self._build_tick_orchestrator()
             if not intents:
-                intents = await self.prepare_tick_intents(
+                intents = await orchestrator.prepare_tick_intents(
                     run_id,
                     world,
                     plan_overrides=planner_plans,
                 )
-            result = self._build_tick_orchestrator().execute_tick(
+            result = orchestrator.execute_tick(
                 run_id=run_id,
                 world=world,
                 current_tick=run.current_tick,
@@ -226,6 +228,12 @@ class SimulationService:
                 run=run,
                 result=result,
                 world=world,
+            )
+            await self._persist_director_control(
+                run_id=run_id,
+                tick_no=result.tick_no,
+                result=result,
+                plan=orchestrator.director_plan,
             )
             await self.day_boundary_coordinator.run(
                 run_id=run_id,
@@ -251,6 +259,21 @@ class SimulationService:
         reset_log_context(run_context_token)
         reset_log_context(context_token)
         return result
+
+    async def _persist_director_control(self, *, run_id, tick_no, result, plan) -> None:
+        results = result.accepted + result.rejected
+        has_directive_result = any(
+            item.event_payload.get("director_directive_id") for item in results
+        )
+        if plan is None and not has_directive_result:
+            return
+        if plan is not None:
+            await self._scenario.persist_director_plan(run_id, plan)
+        session = self._require_session_bound()
+        repo = DirectorDirectiveRepository(session)
+        await repo.expire_stale(run_id, tick_no)
+        await repo.apply_results(run_id, tick_no, results)
+        await session.commit()
 
     async def _persist_tick_writes(
         self,

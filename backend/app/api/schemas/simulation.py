@@ -731,6 +731,37 @@ class DirectorMemoriesResponse(BaseModel):
     total: int = Field(0, description="总数", ge=0)
 
 
+class DirectorDirectiveResponse(BaseModel):
+    id: str = Field(..., description="指令 ID")
+    target_agent_id: str = Field(..., description="执行角色 ID")
+    target_agent_name: str | None = Field(None, description="执行角色名称")
+    subject_agent_id: str | None = Field(None, description="交互目标角色 ID")
+    subject_agent_name: str | None = Field(None, description="交互目标角色名称")
+    objective: str = Field(..., description="导演目标")
+    mode: str = Field(..., description="控制模式")
+    priority: str = Field(..., description="优先级")
+    status: str = Field(..., description="生命周期状态")
+    issued_tick: int = Field(..., description="下发 tick")
+    expires_at_tick: int = Field(..., description="过期 tick")
+    completed_tick: int | None = Field(None, description="完成 tick")
+    location_id: str | None = Field(None, description="目标地点 ID")
+    location_name: str | None = Field(None, description="目标地点名称")
+    message_hint: str | None = Field(None, description="导演提示")
+    constraints: dict = Field(default_factory=dict, description="执行约束")
+    completion_criteria: dict = Field(default_factory=dict, description="完成条件")
+    source: str = Field(..., description="指令来源")
+    disposition: str | None = Field(None, description="Actor 回执")
+    failure_reason: str | None = Field(None, description="失败或取消原因")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
+
+
+class DirectorDirectivesResponse(BaseModel):
+    run_id: str = Field(..., description="运行 ID")
+    directives: list[DirectorDirectiveResponse] = Field(default_factory=list)
+    total: int = Field(0, ge=0)
+
+
 class WorldSnapshotResponse(BaseModel):
     run: WorldSnapshotRunResponse = Field(..., description="运行信息")
     world_clock: WorldClockResponse = Field(..., description="世界时钟")

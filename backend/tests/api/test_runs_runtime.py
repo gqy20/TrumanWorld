@@ -6,6 +6,7 @@ import app.api.routes.runs as runs_route
 from app.store.models import (
     Agent,
     AgentEconomicState,
+    DirectorDirective,
     DirectorMemory,
     EconomicEffectLog,
     Event,
@@ -262,6 +263,82 @@ async def test_get_director_memories_marks_consumed_and_expired_entries(client, 
     assert "trigger_suspicion_score" not in memories["director-memory-consumed"]
     assert memories["director-memory-consumed"]["location_name"] == "Plaza"
     assert memories["director-memory-expired"]["delivery_status"] == "expired"
+
+
+@pytest.mark.asyncio
+async def test_get_director_directives_supports_status_and_detail(client, db_session):
+    run_id = "00000000-0000-0000-0000-000000000211"
+    db_session.add_all(
+        [
+            SimulationRun(id=run_id, name="directive-api", status="running", current_tick=4),
+            Agent(
+                id="directive-cast",
+                run_id=run_id,
+                name="Meryl",
+                personality={},
+                profile={},
+                status={},
+                current_plan={},
+            ),
+            Agent(
+                id="directive-subject",
+                run_id=run_id,
+                name="Truman",
+                personality={},
+                profile={},
+                status={},
+                current_plan={},
+            ),
+            Location(
+                id="directive-plaza",
+                run_id=run_id,
+                name="Plaza",
+                location_type="plaza",
+            ),
+            DirectorDirective(
+                id="directive-active-1",
+                run_id=run_id,
+                target_agent_id="directive-cast",
+                subject_agent_id="directive-subject",
+                objective="soft_check_in",
+                mode="priority",
+                priority="high",
+                status="active",
+                issued_tick=3,
+                expires_at_tick=7,
+                location_id="directive-plaza",
+                constraints_json={"target_agent_id": "directive-subject"},
+                completion_criteria_json={"action_type": "talk"},
+                source="auto",
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    list_response = await client.get(
+        f"/api/runs/{run_id}/director/directives", params={"status": "active"}
+    )
+    detail_response = await client.get(f"/api/runs/{run_id}/director/directives/directive-active-1")
+
+    assert list_response.status_code == 200
+    assert list_response.json()["total"] == 1
+    item = list_response.json()["directives"][0]
+    assert item["target_agent_name"] == "Meryl"
+    assert item["subject_agent_name"] == "Truman"
+    assert item["location_name"] == "Plaza"
+    assert detail_response.status_code == 200
+    assert detail_response.json()["completion_criteria"] == {"action_type": "talk"}
+
+
+@pytest.mark.asyncio
+async def test_get_director_directive_returns_404_for_another_run(client):
+    create_response = await client.post("/api/runs", json={"name": "directive-not-found"})
+    run_id = create_response.json()["id"]
+
+    response = await client.get(f"/api/runs/{run_id}/director/directives/missing")
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "DIRECTOR_DIRECTIVE_NOT_FOUND"
 
 
 @pytest.mark.asyncio

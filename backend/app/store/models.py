@@ -357,3 +357,42 @@ class DirectorMemory(Base):
     # 元数据
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DirectorDirective(Base):
+    """导演向角色智能体下发的可跟踪控制指令。"""
+
+    __tablename__ = "director_directives"
+    __table_args__ = (
+        Index("ix_director_directives_run_status", "run_id", "status"),
+        Index("ix_director_directives_run_agent", "run_id", "target_agent_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("simulation_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    target_agent_id: Mapped[str] = mapped_column(
+        ForeignKey("agents.id", ondelete="CASCADE"), nullable=False
+    )
+    subject_agent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agents.id", ondelete="SET NULL"), nullable=True
+    )
+    objective: Mapped[str] = mapped_column(String(100), nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    issued_tick: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at_tick: Mapped[int] = mapped_column(Integer, nullable=False)
+    completed_tick: Mapped[int | None] = mapped_column(Integer)
+    location_id: Mapped[str | None] = mapped_column(String(64))
+    message_hint: Mapped[str | None] = mapped_column(Text)
+    constraints_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    completion_criteria_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    source: Mapped[str] = mapped_column(String(20), default="auto")
+    disposition: Mapped[str | None] = mapped_column(String(20))
+    failure_reason: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

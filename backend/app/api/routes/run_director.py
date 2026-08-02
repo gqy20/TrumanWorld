@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -13,6 +14,8 @@ from app.api.schemas.simulation import (
     DirectorGovernanceRecordResponse,
     DirectorGovernanceRecordsResponse,
     DirectorEventRequest,
+    DirectorDirectiveResponse,
+    DirectorDirectivesResponse,
     DirectorMemoriesResponse,
     DirectorMemoryResponse,
     DirectorObservationResponse,
@@ -28,6 +31,7 @@ from app.sim.service import SimulationService
 from app.store.repositories import (
     AgentRepository,
     DirectorMemoryRepository,
+    DirectorDirectiveRepository,
     GovernanceCaseRepository,
     GovernanceRecordRepository,
     GovernanceRestrictionRepository,
@@ -80,6 +84,38 @@ def serialize_director_memory(
         cooldown_ticks=memory.cooldown_ticks,
         cooldown_until_tick=memory.cooldown_until_tick,
         created_at=memory.created_at,
+    )
+
+
+def serialize_director_directive(
+    directive,
+    *,
+    agent_name_map: dict[str, str],
+    location_name_map: dict[str, str],
+) -> DirectorDirectiveResponse:
+    return DirectorDirectiveResponse(
+        id=directive.id,
+        target_agent_id=directive.target_agent_id,
+        target_agent_name=agent_name_map.get(directive.target_agent_id),
+        subject_agent_id=directive.subject_agent_id,
+        subject_agent_name=agent_name_map.get(directive.subject_agent_id),
+        objective=directive.objective,
+        mode=directive.mode,
+        priority=directive.priority,
+        status=directive.status,
+        issued_tick=directive.issued_tick,
+        expires_at_tick=directive.expires_at_tick,
+        completed_tick=directive.completed_tick,
+        location_id=directive.location_id,
+        location_name=location_name_map.get(directive.location_id),
+        message_hint=directive.message_hint,
+        constraints=directive.constraints_json or {},
+        completion_criteria=directive.completion_criteria_json or {},
+        source=directive.source,
+        disposition=directive.disposition,
+        failure_reason=directive.failure_reason,
+        created_at=directive.created_at,
+        updated_at=directive.updated_at,
     )
 
 
@@ -220,6 +256,83 @@ async def get_director_memories(
             for memory in memories
         ],
         total=len(memories),
+    )
+
+
+@router.get(
+    "/{run_id}/director/directives",
+    response_model=DirectorDirectivesResponse,
+    summary="获取导演控制指令",
+    description="查看 Director 下发给 Actor 的指令、回执及生命周期状态。",
+    responses={
+        **COMMON_RESPONSES,
+        200: {"description": "导演控制指令", "model": DirectorDirectivesResponse},
+    },
+)
+async def get_director_directives(
+    run_id: UUID,
+    directive_status: Literal["pending", "active", "succeeded", "failed", "expired", "cancelled"]
+    | None = Query(None, alias="status"),
+    agent_id: str | None = Query(None, description="按执行角色过滤"),
+    limit: int = Query(100, ge=1, le=200),
+    session: AsyncSession = Depends(get_db_session),
+) -> DirectorDirectivesResponse:
+    await get_required_run(session, run_id)
+    run_id_text = str(run_id)
+    directives = await DirectorDirectiveRepository(session).list_for_run(
+        run_id_text,
+        status=directive_status,
+        agent_id=agent_id,
+        limit=limit,
+    )
+    agents = await AgentRepository(session).list_names_for_run(run_id_text)
+    locations = await LocationRepository(session).list_names_for_run(run_id_text)
+    agent_name_map = {agent.id: agent.name for agent in agents}
+    location_name_map = {location.id: location.name for location in locations}
+    return DirectorDirectivesResponse(
+        run_id=run_id_text,
+        directives=[
+            serialize_director_directive(
+                directive,
+                agent_name_map=agent_name_map,
+                location_name_map=location_name_map,
+            )
+            for directive in directives
+        ],
+        total=len(directives),
+    )
+
+
+@router.get(
+    "/{run_id}/director/directives/{directive_id}",
+    response_model=DirectorDirectiveResponse,
+    summary="获取导演控制指令详情",
+    responses={
+        **COMMON_RESPONSES,
+        200: {"description": "导演控制指令", "model": DirectorDirectiveResponse},
+    },
+)
+async def get_director_directive(
+    run_id: UUID,
+    directive_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> DirectorDirectiveResponse:
+    await get_required_run(session, run_id)
+    run_id_text = str(run_id)
+    directive = await DirectorDirectiveRepository(session).get_for_run(run_id_text, directive_id)
+    if directive is None:
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Director directive not found",
+            code="DIRECTOR_DIRECTIVE_NOT_FOUND",
+            context={"run_id": run_id_text, "directive_id": directive_id},
+        )
+    agents = await AgentRepository(session).list_names_for_run(run_id_text)
+    locations = await LocationRepository(session).list_names_for_run(run_id_text)
+    return serialize_director_directive(
+        directive,
+        agent_name_map={agent.id: agent.name for agent in agents},
+        location_name_map={location.id: location.name for location in locations},
     )
 
 

@@ -59,6 +59,7 @@ class TickOrchestrator:
         scenario_id = getattr(scenario, "scenario_id", None) or resolve_default_scenario_id()
         self._runtime_role_semantics = build_scenario_runtime_config(scenario_id)
         self._subject_alert_tracking_enabled = self._runtime_role_semantics.subject_alert_tracking
+        self.director_plan = None
 
     async def prepare_tick_intents(
         self,
@@ -85,6 +86,7 @@ class TickOrchestrator:
             else None
         )
         plan = await self.scenario.build_director_plan(run_id, agents)
+        self.director_plan = plan
         agent_recent_events = await build_agent_recent_events(
             session=self.session,
             run_id=run_id,
@@ -100,6 +102,11 @@ class TickOrchestrator:
 
             runtime_agent_id = self.resolve_runtime_agent_id(agent)
             profile = self.scenario.merge_agent_profile(agent, plan)
+            directives = [
+                directive.as_context()
+                for directive in (plan.directives if plan is not None else [])
+                if directive.target_agent_id == agent.id
+            ]
             intents.append(
                 await self.decide_intent_for_agent(
                     agent_id=agent.id,
@@ -114,6 +121,7 @@ class TickOrchestrator:
                     subject_alert_score=subject_alert_score,
                     current_plan=(plan_overrides or {}).get(agent.id, agent.current_plan),
                     relationship_context=world.relationship_contexts.get(agent.id),
+                    director_directives=directives,
                 )
             )
 
@@ -236,6 +244,7 @@ class TickOrchestrator:
                     workplace_location_id=workplace_location_id,
                     current_plan=agent_snapshot.current_plan,
                     relationship_context=agent_snapshot.relationship_context,
+                    director_directives=agent_snapshot.director_directives,
                 )
             except UpstreamApiUnavailableError:
                 raise
@@ -370,6 +379,7 @@ class TickOrchestrator:
         workplace_location_id: str | None = None,
         current_plan: dict | None = None,
         relationship_context: dict[str, dict[str, object]] | None = None,
+        director_directives: list[dict] | None = None,
     ) -> ActionIntent:
         nearby_agent_id = (
             find_recent_conversation_partner(
@@ -394,6 +404,7 @@ class TickOrchestrator:
             subject_alert_score=subject_alert_score,
             world_role=get_world_role(profile),
             director_guidance=director_guidance,
+            director_directives=director_directives,
             workplace_location_id=workplace_location_id,
             current_plan=current_plan,
             relationship_context=relationship_context,

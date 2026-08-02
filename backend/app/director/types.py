@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.director.directives import DirectorDirective
 
 
 @dataclass(init=False)
@@ -24,6 +28,9 @@ class DirectorPlan:
     strategy: str | None = None  # 干预策略描述
     source_type: str = "auto"  # "auto" | "manual"
     source_memory_id: str | None = None
+    directives: list[DirectorDirective]
+    trigger_subject_alert_score: float = 0.0
+    trigger_continuity_risk: str = "stable"
 
     def __init__(
         self,
@@ -41,6 +48,9 @@ class DirectorPlan:
         strategy: str | None = None,
         source_type: str = "auto",
         source_memory_id: str | None = None,
+        directives: list[DirectorDirective] | None = None,
+        trigger_subject_alert_score: float = 0.0,
+        trigger_continuity_risk: str = "stable",
     ) -> None:
         self.scene_goal = scene_goal
         self.target_agent_ids = list(target_agent_ids or [])
@@ -55,3 +65,6 @@ class DirectorPlan:
         self.strategy = strategy
         self.source_type = source_type
         self.source_memory_id = source_memory_id
+        self.directives = list(directives or [])
+        self.trigger_subject_alert_score = trigger_subject_alert_score
+        self.trigger_continuity_risk = trigger_continuity_risk

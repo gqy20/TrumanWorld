@@ -19,6 +19,7 @@ class AgentDecisionSnapshot:
     # Agent 的日程计划，用于传递给 LLM 做上下文感知决策
     current_plan: dict[str, Any] | None = None
     relationship_context: dict[str, dict[str, Any]] | None = None
+    director_directives: list[dict[str, Any]] | None = None
 
 
 class NearbyAgentContext(TypedDict):
@@ -47,3 +48,4 @@ class RuntimeWorldContext(ScenarioGuidance, total=False):
     conversation_state: dict[str, Any]
     conversation_diagnostics: dict[str, Any]
     interaction_edge: dict[str, Any]
+    director_directives: list[dict[str, Any]]

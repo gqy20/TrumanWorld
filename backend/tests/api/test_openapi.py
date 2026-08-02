@@ -60,6 +60,18 @@ async def test_openapi_documents_core_response_models(client):
     assert _response_ref(document, "/api/runs/{run_id}/director/memories", "get", "200") == (
         "#/components/schemas/DirectorMemoriesResponse"
     )
+    assert _response_ref(document, "/api/runs/{run_id}/director/directives", "get", "200") == (
+        "#/components/schemas/DirectorDirectivesResponse"
+    )
+    assert (
+        _response_ref(
+            document,
+            "/api/runs/{run_id}/director/directives/{directive_id}",
+            "get",
+            "200",
+        )
+        == "#/components/schemas/DirectorDirectiveResponse"
+    )
     assert (
         _response_ref(document, "/api/runs/{run_id}/director/governance-records", "get", "200")
         == "#/components/schemas/DirectorGovernanceRecordsResponse"
