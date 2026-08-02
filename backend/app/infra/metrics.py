@@ -103,19 +103,56 @@ CLAUDE_REACTOR_POOL_ACTIVE.set_function(
 LLM_CALL_TOTAL = Counter(
     "trumanworld_llm_call_total",
     "Total persisted LLM calls.",
+    labelnames=("backend", "provider", "task_type", "status"),
     registry=REGISTRY,
 )
 
 LLM_TOKENS_TOTAL = Counter(
     "trumanworld_llm_tokens_total",
     "Total persisted LLM tokens by type.",
-    labelnames=("token_type",),
+    labelnames=("backend", "provider", "task_type", "token_type"),
     registry=REGISTRY,
 )
 
 LLM_COST_USD_TOTAL = Counter(
     "trumanworld_llm_cost_usd_total",
     "Total persisted LLM cost in USD.",
+    labelnames=("backend", "provider", "task_type"),
+    registry=REGISTRY,
+)
+
+LLM_CALL_DURATION_SECONDS = Histogram(
+    "trumanworld_llm_call_duration_seconds",
+    "LLM call duration in seconds.",
+    labelnames=("backend", "provider", "task_type", "status"),
+    registry=REGISTRY,
+)
+
+LANGGRAPH_RUN_TOTAL = Counter(
+    "trumanworld_langgraph_run_total",
+    "Total LangGraph runs by graph and status.",
+    labelnames=("graph", "status"),
+    registry=REGISTRY,
+)
+
+LANGGRAPH_NODE_DURATION_SECONDS = Histogram(
+    "trumanworld_langgraph_node_duration_seconds",
+    "LangGraph node duration in seconds.",
+    labelnames=("graph", "node", "status"),
+    registry=REGISTRY,
+)
+
+LANGGRAPH_RETRY_TOTAL = Counter(
+    "trumanworld_langgraph_retry_total",
+    "Total LangGraph node retries.",
+    labelnames=("graph", "node", "exception_type"),
+    registry=REGISTRY,
+)
+
+LANGGRAPH_FALLBACK_TOTAL = Counter(
+    "trumanworld_langgraph_fallback_total",
+    "Total LangGraph model-path fallbacks.",
+    labelnames=("task_type", "from_path", "to_path", "reason"),
     registry=REGISTRY,
 )
 
@@ -149,13 +186,55 @@ def observe_http_request(
 
 def observe_llm_records(llm_records: list) -> None:
     for record in llm_records:
-        LLM_CALL_TOTAL.inc()
-        LLM_TOKENS_TOTAL.labels(token_type="input").inc(record.input_tokens or 0)
-        LLM_TOKENS_TOTAL.labels(token_type="output").inc(record.output_tokens or 0)
-        LLM_TOKENS_TOTAL.labels(token_type="cache_read").inc(record.cache_read_tokens or 0)
-        LLM_TOKENS_TOTAL.labels(token_type="cache_creation").inc(record.cache_creation_tokens or 0)
+        labels = {
+            "backend": record.backend or "unknown",
+            "provider": record.provider or "unknown",
+            "task_type": record.task_type,
+        }
+        status = record.status or "success"
+        LLM_CALL_TOTAL.labels(**labels, status=status).inc()
+        LLM_CALL_DURATION_SECONDS.labels(**labels, status=status).observe(
+            (record.duration_ms or 0) / 1000
+        )
+        LLM_TOKENS_TOTAL.labels(**labels, token_type="input").inc(record.input_tokens or 0)
+        LLM_TOKENS_TOTAL.labels(**labels, token_type="output").inc(record.output_tokens or 0)
+        LLM_TOKENS_TOTAL.labels(**labels, token_type="cache_read").inc(
+            record.cache_read_tokens or 0
+        )
+        LLM_TOKENS_TOTAL.labels(**labels, token_type="cache_creation").inc(
+            record.cache_creation_tokens or 0
+        )
         if record.total_cost_usd:
-            LLM_COST_USD_TOTAL.inc(record.total_cost_usd)
+            LLM_COST_USD_TOTAL.labels(**labels).inc(record.total_cost_usd)
+
+
+def observe_langgraph_run(*, graph: str, status: str) -> None:
+    LANGGRAPH_RUN_TOTAL.labels(graph=graph, status=status).inc()
+
+
+def observe_langgraph_node(*, graph: str, node: str, status: str, duration_seconds: float) -> None:
+    LANGGRAPH_NODE_DURATION_SECONDS.labels(graph=graph, node=node, status=status).observe(
+        duration_seconds
+    )
+
+
+def observe_langgraph_retry(*, graph: str, node: str, exception_type: str) -> None:
+    LANGGRAPH_RETRY_TOTAL.labels(
+        graph=graph,
+        node=node,
+        exception_type=exception_type,
+    ).inc()
+
+
+def observe_langgraph_fallback(
+    *, task_type: str, from_path: str, to_path: str, reason: str
+) -> None:
+    LANGGRAPH_FALLBACK_TOTAL.labels(
+        task_type=task_type,
+        from_path=from_path,
+        to_path=to_path,
+        reason=reason,
+    ).inc()
 
 
 def render_metrics() -> tuple[bytes, str]:

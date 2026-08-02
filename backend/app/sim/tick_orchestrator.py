@@ -190,6 +190,7 @@ class TickOrchestrator:
                 runtime_ctx = RuntimeContext(
                     db_engine=engine,
                     run_id=run_id,
+                    tick_no=tick_no,
                     enable_memory_tools=True,
                     on_llm_call=collector.build_callback(
                         run_id=run_id,
@@ -197,6 +198,7 @@ class TickOrchestrator:
                         tick_no=tick_no,
                         provider=settings.llm_provider,
                         model=settings.llm_model,
+                        backend=settings.agent_backend,
                     ),
                     memory_cache=memory_cache,
                 )

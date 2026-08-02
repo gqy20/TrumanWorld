@@ -47,10 +47,11 @@ class LlmCallCollector:
         self,
         *,
         run_id: str,
-        db_agent_id: str,
+        db_agent_id: str | None,
         tick_no: int,
         provider: str | None = None,
         model: str | None = None,
+        backend: str | None = None,
     ) -> Callable[..., None]:
         def on_llm_call(
             agent_id: str,
@@ -58,6 +59,13 @@ class LlmCallCollector:
             usage: dict | None,
             total_cost_usd: float | None,
             duration_ms: int,
+            status: str = "success",
+            trace_id: str | None = None,
+            node_name: str | None = None,
+            attempt_no: int = 1,
+            exception_type: str | None = None,
+            failure_reason: str | None = None,
+            fallback_from: str | None = None,
         ) -> None:
             cache_read_tokens, cache_creation_tokens = self._extract_cache_tokens(usage)
             reasoning_tokens = self._extract_reasoning_tokens(usage)
@@ -67,8 +75,16 @@ class LlmCallCollector:
                     run_id=run_id,
                     agent_id=db_agent_id,
                     task_type=task_type,
+                    backend=backend,
                     provider=provider,
                     model=model,
+                    status=status,
+                    trace_id=trace_id,
+                    node_name=node_name,
+                    attempt_no=attempt_no,
+                    exception_type=exception_type,
+                    failure_reason=failure_reason,
+                    fallback_from=fallback_from,
                     tick_no=tick_no,
                     input_tokens=int((usage or {}).get("input_tokens", 0)),
                     output_tokens=int((usage or {}).get("output_tokens", 0)),

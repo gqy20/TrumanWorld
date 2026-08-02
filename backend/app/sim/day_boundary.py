@@ -365,6 +365,7 @@ async def run_morning_planning(
             runtime_ctx=RuntimeContext(
                 db_engine=engine,
                 run_id=run_id,
+                tick_no=tick_no,
                 enable_memory_tools=True,
                 on_llm_call=collector.build_callback(
                     run_id=run_id,
@@ -372,6 +373,7 @@ async def run_morning_planning(
                     tick_no=tick_no,
                     provider=settings.llm_provider,
                     model=settings.llm_model,
+                    backend=settings.agent_backend,
                 ),
             ),
         )
@@ -499,6 +501,7 @@ async def run_evening_reflection(
             runtime_ctx=RuntimeContext(
                 db_engine=engine,
                 run_id=run_id,
+                tick_no=tick_no,
                 enable_memory_tools=True,
                 on_llm_call=collector.build_callback(
                     run_id=run_id,
@@ -506,6 +509,7 @@ async def run_evening_reflection(
                     tick_no=tick_no,
                     provider=settings.llm_provider,
                     model=settings.llm_model,
+                    backend=settings.agent_backend,
                 ),
             ),
         )

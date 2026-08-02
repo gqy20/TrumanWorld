@@ -111,3 +111,43 @@ def test_llm_call_collector_reads_dashscope_cache_token_fields() -> None:
     assert len(collector.records) == 1
     assert collector.records[0].cache_read_tokens == 33
     assert collector.records[0].cache_creation_tokens == 11
+
+
+def test_llm_call_collector_records_failure_and_trace_without_usage() -> None:
+    collector = LlmCallCollector()
+    callback = collector.build_callback(
+        run_id="run-1",
+        db_agent_id=None,
+        tick_no=12,
+        backend="langgraph",
+        provider="openai",
+        model="qwen-test",
+    )
+
+    callback(
+        agent_id="director",
+        task_type="director",
+        usage=None,
+        total_cost_usd=None,
+        duration_ms=42,
+        status="error",
+        trace_id="trace-1",
+        node_name="director_decide",
+        attempt_no=2,
+        exception_type="TimeoutError",
+        failure_reason="model_error",
+        fallback_from="structured",
+    )
+
+    record = collector.records[0]
+    assert record.agent_id is None
+    assert record.backend == "langgraph"
+    assert record.status == "error"
+    assert record.trace_id == "trace-1"
+    assert record.node_name == "director_decide"
+    assert record.attempt_no == 2
+    assert record.exception_type == "TimeoutError"
+    assert record.failure_reason == "model_error"
+    assert record.fallback_from == "structured"
+    assert record.input_tokens == 0
+    assert record.output_tokens == 0

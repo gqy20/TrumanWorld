@@ -9,6 +9,7 @@ from app.cognition.protocols import LLMCallCallback, MemoryCacheProtocol
 @dataclass
 class BackendExecutionContext:
     run_id: str | None = None
+    tick_no: int | None = None
     enable_memory_tools: bool = True
     on_llm_call: LLMCallCallback = None
     memory_cache: MemoryCacheProtocol | None = None
@@ -45,6 +46,7 @@ class DirectorDecisionInvocation:
     prompt: str
     context: dict[str, Any]  # World state context for director
     recent_goals: set[str]
+    runtime_ctx: BackendExecutionContext | None = None
 
 
 @dataclass

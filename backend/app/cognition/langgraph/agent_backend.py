@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, TypedDict
+from uuid import uuid4
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import Runnable
 from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel, Field
 
@@ -15,6 +18,11 @@ from app.cognition.errors import (
     is_upstream_api_unavailable_error,
 )
 from app.cognition.langgraph.model_factory import build_langgraph_chat_model
+from app.cognition.langgraph.observability import (
+    LangGraphLoggingCallback,
+    LangGraphTrace,
+    notify_llm_call,
+)
 from app.cognition.protocols import ChatModelProtocol, StructuredModelProtocol
 from app.cognition.types import (
     AgentActionInvocation,
@@ -24,6 +32,7 @@ from app.cognition.types import (
     ReflectionInvocation,
 )
 from app.infra.logging import get_logger
+from app.infra.metrics import observe_langgraph_fallback, observe_langgraph_retry
 from app.infra.settings import Settings, get_settings
 
 if TYPE_CHECKING:
@@ -47,19 +56,7 @@ class _DecisionState(TypedDict):
 
 class _DecisionContext(TypedDict):
     runtime_ctx: BackendExecutionContext | None
-
-
-class _RuntimeContextWrapper:
-    """Minimal wrapper for LangGraph runtime context.
-
-    LangGraph passes a runtime object with a `.context` attribute
-    containing our configured context schema.
-    """
-
-    context: _DecisionContext
-
-    def __init__(self, context: _DecisionContext) -> None:
-        self.context = context
+    trace: LangGraphTrace
 
 
 class LangGraphAgentBackend:
@@ -105,29 +102,38 @@ class LangGraphAgentBackend:
             raise UpstreamApiUnavailableError(msg)
 
         started_at = perf_counter()
+        trace = self._build_trace(
+            graph_name="agent_reactor",
+            agent_id=invocation.agent_id,
+            task_type="reactor",
+            runtime_ctx=runtime_ctx,
+        )
+        callback = LangGraphLoggingCallback(trace)
         try:
             state = await self._graph.ainvoke(
                 {
                     "invocation": invocation,
                     "result": None,
                 },
-                context={"runtime_ctx": runtime_ctx},
+                config=trace.runnable_config(callback),
+                context={"runtime_ctx": runtime_ctx, "trace": trace},
             )
         except UpstreamApiUnavailableError:
             raise
-        except Exception as exc:
-            logger.warning(f"LangGraph reactor decision failed for {invocation.agent_id}: {exc}")
+        except Exception:
             raise
         result = state["result"] or AgentDecisionResult(action_type="rest")
         logger.debug(
-            "langgraph_reactor_completed run_id=%s agent_id=%s duration_ms=%s action_type=%s "
-            "target_agent_id=%s target_location_id=%s",
-            runtime_ctx.run_id if runtime_ctx is not None else None,
-            invocation.agent_id,
-            int((perf_counter() - started_at) * 1000),
-            result.action_type,
-            result.target_agent_id,
-            result.target_location_id,
+            "LangGraph reactor decision completed",
+            extra={
+                "event": "langgraph_reactor_completed",
+                **trace.fields(),
+                "status": "success",
+                "duration_ms": int((perf_counter() - started_at) * 1000),
+                "action_type": result.action_type,
+                "target_agent_id": result.target_agent_id,
+                "target_location_id": result.target_location_id,
+            },
         )
         return result
 
@@ -158,21 +164,57 @@ class LangGraphAgentBackend:
     async def _model_decide_node(
         self,
         state: _DecisionState,
-        runtime: _RuntimeContextWrapper,
-    ) -> _DecisionState:
+        runtime: Runtime[_DecisionContext],
+    ) -> dict[str, AgentDecisionResult]:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
-        if self._settings.langgraph_reactor_structured_enabled:
-            result = await self._run_structured_reactor_decision(invocation, runtime_ctx)
+        trace = runtime.context["trace"]
+        attempt_no = runtime.execution_info.node_attempt if runtime.execution_info else 1
+        try:
+            fallback_from = None
+            if self._settings.langgraph_reactor_structured_enabled:
+                result = await self._run_structured_reactor_decision(
+                    invocation,
+                    runtime_ctx,
+                    trace=trace,
+                    attempt_no=attempt_no,
+                )
+                if result is not None:
+                    return {"result": result}
+                fallback_from = "structured"
+                self._log_fallback(trace, reason="unusable_output")
+
+            result = await self._run_text_reactor_decision(
+                invocation,
+                runtime_ctx,
+                trace=trace,
+                attempt_no=attempt_no,
+                fallback_from=fallback_from,
+            )
             if result is not None:
-                return {"invocation": invocation, "result": result}
+                return {"result": result}
 
-        result = await self._run_text_reactor_decision(invocation, runtime_ctx)
-        if result is not None:
-            return {"invocation": invocation, "result": result}
-
-        msg = f"LangGraph reactor returned no usable decision for {invocation.agent_id}"
-        raise RuntimeError(msg)
+            msg = f"LangGraph reactor returned no usable decision for {invocation.agent_id}"
+            raise RuntimeError(msg)
+        except Exception as exc:
+            if isinstance(exc, RuntimeError) and attempt_no < 2:
+                observe_langgraph_retry(
+                    graph=trace.graph_name,
+                    node="model_decide",
+                    exception_type=type(exc).__name__,
+                )
+                logger.warning(
+                    "LangGraph node retry scheduled",
+                    extra={
+                        "event": "langgraph_node_retry_scheduled",
+                        **trace.fields(),
+                        "graph_node": "model_decide",
+                        "node_attempt": attempt_no,
+                        "next_attempt": attempt_no + 1,
+                        "exception_type": type(exc).__name__,
+                    },
+                )
+            raise
 
     def _build_default_model(self) -> BaseChatModel | None:
         return build_langgraph_chat_model(self._settings)
@@ -193,71 +235,103 @@ class LangGraphAgentBackend:
             msg = f"LangGraph {task} model is not configured or unavailable"
             raise UpstreamApiUnavailableError(msg)
         started_at = perf_counter()
+        trace = self._build_trace(
+            graph_name=f"agent_{task}",
+            agent_id=agent_id,
+            task_type=task,
+            runtime_ctx=runtime_ctx,
+        )
         try:
-            response = await self._text_model.ainvoke(
-                f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。"
+            response = await self._invoke_model(
+                self._text_model,
+                f"{prompt}\n\n重要：只返回 JSON，不要有任何其他文字。",
+                config=trace.runnable_config(),
             )
             duration_ms = int((perf_counter() - started_at) * 1000)
         except Exception as exc:
             duration_ms = int((perf_counter() - started_at) * 1000)
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=agent_id,
+                task_type=task,
+                response=None,
+                duration_ms=duration_ms,
+                status="error",
+                trace=trace,
+                exception_type=type(exc).__name__,
+                failure_reason="model_error",
+            )
             self._raise_on_upstream_unavailable(exc)
-            logger.warning(f"LangGraph {task} failed for {agent_id}: {exc}")
-            logger.debug(
-                "langgraph_text_task_failed run_id=%s agent_id=%s task=%s duration_ms=%s "
-                "exception_type=%s",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                agent_id,
-                task,
-                duration_ms,
-                type(exc).__name__,
+            logger.warning(
+                "LangGraph text task failed",
+                extra={
+                    "event": "langgraph_text_task_failed",
+                    **trace.fields(),
+                    "status": "error",
+                    "duration_ms": duration_ms,
+                    "exception_type": type(exc).__name__,
+                },
             )
             raise
 
-        self._maybe_record_usage(runtime_ctx, agent_id, task, response, duration_ms)
         content = self._extract_text_content(response)
         if not content:
-            logger.debug(
-                "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
-                "success=false reason=empty_content",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                agent_id,
-                task,
-                duration_ms,
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=agent_id,
+                task_type=task,
+                response=response,
+                duration_ms=duration_ms,
+                status="invalid_output",
+                trace=trace,
+                failure_reason="empty_content",
             )
             msg = f"LangGraph {task} returned empty response for {agent_id}"
             raise RuntimeError(msg)
         parsed = PromptLoader.extract_json_from_text(content)
         if parsed is None:
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=agent_id,
+                task_type=task,
+                response=response,
+                duration_ms=duration_ms,
+                status="invalid_output",
+                trace=trace,
+                failure_reason="non_json",
+            )
             logger.warning(
                 "LangGraph response was not valid JSON",
                 extra={
                     "event": "llm_response_invalid",
-                    "run_id": runtime_ctx.run_id if runtime_ctx is not None else None,
-                    "agent_id": agent_id,
-                    "task": task,
+                    **trace.fields(),
+                    "status": "invalid_output",
+                    "failure_reason": "non_json",
+                    "duration_ms": duration_ms,
                     "response_length": len(content),
                 },
             )
-            logger.debug(
-                "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
-                "success=false reason=non_json",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                agent_id,
-                task,
-                duration_ms,
-            )
             msg = f"LangGraph {task} returned non-JSON for {agent_id}"
             raise ValueError(msg)
-        else:
-            logger.debug(
-                "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
-                "success=true response_keys=%s",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                agent_id,
-                task,
-                duration_ms,
-                sorted(parsed.keys()) if isinstance(parsed, dict) else None,
-            )
+        self._record_llm_call(
+            runtime_ctx,
+            agent_id=agent_id,
+            task_type=task,
+            response=response,
+            duration_ms=duration_ms,
+            status="success",
+            trace=trace,
+        )
+        logger.debug(
+            "LangGraph text task completed",
+            extra={
+                "event": "langgraph_text_task_completed",
+                **trace.fields(),
+                "status": "success",
+                "duration_ms": duration_ms,
+                "response_keys": sorted(parsed.keys()) if isinstance(parsed, dict) else None,
+            },
+        )
         return parsed
 
     def _build_model_retry_policy(self) -> RetryPolicy:
@@ -313,12 +387,16 @@ class LangGraphAgentBackend:
         if dynamic_suffix:
             content.append({"type": "text", "text": dynamic_suffix})
         logger.debug(
-            "langgraph_reactor_input_mode agent_id=%s mode=message_blocks cache_enabled=%s "
-            "stable_chars=%s dynamic_chars=%s",
-            invocation.agent_id,
-            self._settings.langgraph_reactor_prompt_cache_enabled,
-            len(stable_prefix),
-            len(dynamic_suffix),
+            "LangGraph reactor input prepared",
+            extra={
+                "event": "langgraph_reactor_input_prepared",
+                "backend": "langgraph",
+                "agent_id": invocation.agent_id,
+                "input_mode": "message_blocks",
+                "cache_enabled": self._settings.langgraph_reactor_prompt_cache_enabled,
+                "stable_chars": len(stable_prefix),
+                "dynamic_chars": len(dynamic_suffix),
+            },
         )
         return [
             HumanMessage(
@@ -330,54 +408,104 @@ class LangGraphAgentBackend:
         self,
         invocation: AgentActionInvocation,
         runtime_ctx: BackendExecutionContext | None,
+        *,
+        trace: LangGraphTrace,
+        attempt_no: int,
     ) -> AgentDecisionResult | None:
-        structured_model = self._build_structured_decision_model()
         started_at = perf_counter()
         try:
-            response = await structured_model.ainvoke(self._build_reactor_messages(invocation))
-        except RuntimeError:
-            raise
+            structured_model = self._build_structured_decision_model()
+            response = await self._invoke_model(
+                structured_model,
+                self._build_reactor_messages(invocation),
+            )
         except Exception as exc:
-            self._raise_on_upstream_unavailable(exc)
             duration_ms = int((perf_counter() - started_at) * 1000)
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=invocation.agent_id,
+                task_type="reactor",
+                response=None,
+                duration_ms=duration_ms,
+                status="error",
+                trace=trace,
+                node_name="model_decide",
+                attempt_no=attempt_no,
+                exception_type=type(exc).__name__,
+                failure_reason="model_error",
+            )
+            self._raise_on_upstream_unavailable(exc)
             logger.warning(
-                f"LangGraph structured reactor decision failed for {invocation.agent_id}: {exc}"
+                "LangGraph structured reactor path failed",
+                extra={
+                    "event": "langgraph_reactor_path_failed",
+                    **trace.fields(),
+                    "path": "structured",
+                    "status": "error",
+                    "duration_ms": duration_ms,
+                    "node_attempt": attempt_no,
+                    "exception_type": type(exc).__name__,
+                },
             )
-            logger.debug(
-                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=structured "
-                "duration_ms=%s success=false exception_type=%s",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                invocation.agent_id,
-                duration_ms,
-                type(exc).__name__,
-            )
+            if isinstance(exc, RuntimeError):
+                raise
             return None
 
         duration_ms = int((perf_counter() - started_at) * 1000)
         raw_response = response.get("raw") if self._is_structured_wrapper(response) else response
-        self._maybe_record_usage(
-            runtime_ctx, invocation.agent_id, "reactor", raw_response, duration_ms
-        )
-
         parsed = self._extract_structured_response(response)
         if parsed is None:
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=invocation.agent_id,
+                task_type="reactor",
+                response=raw_response,
+                duration_ms=duration_ms,
+                status="invalid_output",
+                trace=trace,
+                node_name="model_decide",
+                attempt_no=attempt_no,
+                failure_reason="structured_parse_error",
+            )
             logger.debug(
-                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=structured "
-                "duration_ms=%s success=false reason=unparsed",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                invocation.agent_id,
-                duration_ms,
+                "LangGraph structured reactor path returned invalid output",
+                extra={
+                    "event": "langgraph_reactor_path_completed",
+                    **trace.fields(),
+                    "path": "structured",
+                    "status": "invalid_output",
+                    "duration_ms": duration_ms,
+                    "node_attempt": attempt_no,
+                    "failure_reason": "structured_parse_error",
+                },
             )
             return None
         result = self._coerce_model_result(parsed, invocation.allowed_actions)
+        status = "success" if result is not None else "invalid_output"
+        self._record_llm_call(
+            runtime_ctx,
+            agent_id=invocation.agent_id,
+            task_type="reactor",
+            response=raw_response,
+            duration_ms=duration_ms,
+            status=status,
+            trace=trace,
+            node_name="model_decide",
+            attempt_no=attempt_no,
+            failure_reason=None if result is not None else "invalid_decision",
+        )
         logger.debug(
-            "langgraph_reactor_path_completed run_id=%s agent_id=%s path=structured "
-            "duration_ms=%s success=%s action_type=%s",
-            runtime_ctx.run_id if runtime_ctx is not None else None,
-            invocation.agent_id,
-            duration_ms,
-            result is not None,
-            result.action_type if result is not None else None,
+            "LangGraph structured reactor path completed",
+            extra={
+                "event": "langgraph_reactor_path_completed",
+                **trace.fields(),
+                "path": "structured",
+                "status": status,
+                "duration_ms": duration_ms,
+                "node_attempt": attempt_no,
+                "action_type": result.action_type if result is not None else None,
+                "failure_reason": None if result is not None else "invalid_decision",
+            },
         )
         return result
 
@@ -385,56 +513,136 @@ class LangGraphAgentBackend:
         self,
         invocation: AgentActionInvocation,
         runtime_ctx: BackendExecutionContext | None,
+        *,
+        trace: LangGraphTrace,
+        attempt_no: int,
+        fallback_from: str | None,
     ) -> AgentDecisionResult | None:
         started_at = perf_counter()
         try:
-            response = await self._decision_model.ainvoke(self._build_reactor_messages(invocation))
+            response = await self._invoke_model(
+                self._decision_model,
+                self._build_reactor_messages(invocation),
+            )
         except Exception as exc:
+            duration_ms = int((perf_counter() - started_at) * 1000)
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=invocation.agent_id,
+                task_type="reactor",
+                response=None,
+                duration_ms=duration_ms,
+                status="error",
+                trace=trace,
+                node_name="model_decide",
+                attempt_no=attempt_no,
+                exception_type=type(exc).__name__,
+                failure_reason="model_error",
+                fallback_from=fallback_from,
+            )
             self._raise_on_upstream_unavailable(exc)
             logger.warning(
-                f"LangGraph text reactor decision failed for {invocation.agent_id}: {exc}"
-            )
-            logger.debug(
-                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
-                "duration_ms=%s success=false exception_type=%s",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                invocation.agent_id,
-                int((perf_counter() - started_at) * 1000),
-                type(exc).__name__,
+                "LangGraph text reactor path failed",
+                extra={
+                    "event": "langgraph_reactor_path_failed",
+                    **trace.fields(),
+                    "path": "text",
+                    "status": "error",
+                    "duration_ms": duration_ms,
+                    "node_attempt": attempt_no,
+                    "exception_type": type(exc).__name__,
+                    "fallback_from": fallback_from,
+                },
             )
             raise
 
         duration_ms = int((perf_counter() - started_at) * 1000)
-        self._maybe_record_usage(runtime_ctx, invocation.agent_id, "reactor", response, duration_ms)
         content = self._extract_text_content(response)
         if not content:
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=invocation.agent_id,
+                task_type="reactor",
+                response=response,
+                duration_ms=duration_ms,
+                status="invalid_output",
+                trace=trace,
+                node_name="model_decide",
+                attempt_no=attempt_no,
+                failure_reason="empty_content",
+                fallback_from=fallback_from,
+            )
             logger.debug(
-                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
-                "duration_ms=%s success=false reason=empty_content",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                invocation.agent_id,
-                duration_ms,
+                "LangGraph text reactor path returned empty output",
+                extra={
+                    "event": "langgraph_reactor_path_completed",
+                    **trace.fields(),
+                    "path": "text",
+                    "status": "invalid_output",
+                    "duration_ms": duration_ms,
+                    "node_attempt": attempt_no,
+                    "failure_reason": "empty_content",
+                    "fallback_from": fallback_from,
+                },
             )
             return None
         parsed = PromptLoader.extract_json_from_text(content)
         if not isinstance(parsed, dict):
+            self._record_llm_call(
+                runtime_ctx,
+                agent_id=invocation.agent_id,
+                task_type="reactor",
+                response=response,
+                duration_ms=duration_ms,
+                status="invalid_output",
+                trace=trace,
+                node_name="model_decide",
+                attempt_no=attempt_no,
+                failure_reason="non_json",
+                fallback_from=fallback_from,
+            )
             logger.debug(
-                "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text "
-                "duration_ms=%s success=false reason=non_json",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                invocation.agent_id,
-                duration_ms,
+                "LangGraph text reactor path returned non-JSON output",
+                extra={
+                    "event": "langgraph_reactor_path_completed",
+                    **trace.fields(),
+                    "path": "text",
+                    "status": "invalid_output",
+                    "duration_ms": duration_ms,
+                    "node_attempt": attempt_no,
+                    "failure_reason": "non_json",
+                    "fallback_from": fallback_from,
+                },
             )
             return None
         result = self._coerce_model_result(parsed, invocation.allowed_actions)
+        status = "success" if result is not None else "invalid_output"
+        self._record_llm_call(
+            runtime_ctx,
+            agent_id=invocation.agent_id,
+            task_type="reactor",
+            response=response,
+            duration_ms=duration_ms,
+            status=status,
+            trace=trace,
+            node_name="model_decide",
+            attempt_no=attempt_no,
+            failure_reason=None if result is not None else "invalid_decision",
+            fallback_from=fallback_from,
+        )
         logger.debug(
-            "langgraph_reactor_path_completed run_id=%s agent_id=%s path=text duration_ms=%s "
-            "success=%s action_type=%s",
-            runtime_ctx.run_id if runtime_ctx is not None else None,
-            invocation.agent_id,
-            duration_ms,
-            result is not None,
-            result.action_type if result is not None else None,
+            "LangGraph text reactor path completed",
+            extra={
+                "event": "langgraph_reactor_path_completed",
+                **trace.fields(),
+                "path": "text",
+                "status": status,
+                "duration_ms": duration_ms,
+                "node_attempt": attempt_no,
+                "action_type": result.action_type if result is not None else None,
+                "failure_reason": None if result is not None else "invalid_decision",
+                "fallback_from": fallback_from,
+            },
         )
         return result
 
@@ -546,31 +754,27 @@ class LangGraphAgentBackend:
             return
         raise UpstreamApiUnavailableError(str(exc)) from exc
 
-    def _maybe_record_usage(
+    def _record_llm_call(
         self,
         runtime_ctx: BackendExecutionContext | None,
+        *,
         agent_id: str,
         task_type: str,
         response: Any,
         duration_ms: int,
+        status: str,
+        trace: LangGraphTrace,
+        node_name: str | None = None,
+        attempt_no: int = 1,
+        exception_type: str | None = None,
+        failure_reason: str | None = None,
+        fallback_from: str | None = None,
     ) -> None:
         if runtime_ctx is None or runtime_ctx.on_llm_call is None:
-            return
-        if response is None:
             return
         usage = getattr(response, "usage_metadata", None)
         if usage is None and isinstance(response, dict):
             usage = response.get("usage_metadata")
-        if usage is None:
-            logger.debug(
-                "langgraph_usage_metadata run_id=%s agent_id=%s task=%s response_type=%s "
-                "usage_present=false",
-                runtime_ctx.run_id if runtime_ctx is not None else None,
-                agent_id,
-                task_type,
-                type(response).__name__,
-            )
-            return
         input_token_details = usage.get("input_token_details") if isinstance(usage, dict) else None
         cache_read = (
             input_token_details.get("cache_read") if isinstance(input_token_details, dict) else None
@@ -581,24 +785,90 @@ class LangGraphAgentBackend:
             else None
         )
         logger.debug(
-            "langgraph_usage_metadata run_id=%s agent_id=%s task=%s response_type=%s "
-            "input_tokens=%s output_tokens=%s cache_read=%s cache_creation=%s usage=%s",
-            runtime_ctx.run_id if runtime_ctx is not None else None,
-            agent_id,
-            task_type,
-            type(response).__name__,
-            usage.get("input_tokens") if isinstance(usage, dict) else None,
-            usage.get("output_tokens") if isinstance(usage, dict) else None,
-            cache_read,
-            cache_creation,
-            usage,
+            "LangGraph LLM call observed",
+            extra={
+                "event": "llm_call_observed",
+                **trace.fields(),
+                "status": status,
+                "response_type": type(response).__name__ if response is not None else None,
+                "usage_present": usage is not None,
+                "input_tokens": usage.get("input_tokens") if isinstance(usage, dict) else None,
+                "output_tokens": usage.get("output_tokens") if isinstance(usage, dict) else None,
+                "cache_read_tokens": cache_read,
+                "cache_creation_tokens": cache_creation,
+                "duration_ms": duration_ms,
+                "graph_node": node_name,
+                "node_attempt": attempt_no,
+                "exception_type": exception_type,
+                "failure_reason": failure_reason,
+                "fallback_from": fallback_from,
+            },
         )
-        runtime_ctx.on_llm_call(
+        notify_llm_call(
+            runtime_ctx.on_llm_call,
             agent_id=agent_id,
             task_type=task_type,
             usage=usage,
             total_cost_usd=self._extract_total_cost_usd(response, usage),
             duration_ms=duration_ms,
+            status=status,
+            trace_id=trace.trace_id,
+            node_name=node_name,
+            attempt_no=attempt_no,
+            exception_type=exception_type,
+            failure_reason=failure_reason,
+            fallback_from=fallback_from,
+        )
+
+    def _build_trace(
+        self,
+        *,
+        graph_name: str,
+        agent_id: str | None,
+        task_type: str,
+        runtime_ctx: BackendExecutionContext | None,
+    ) -> LangGraphTrace:
+        graph_run_id = uuid4()
+        return LangGraphTrace(
+            trace_id=str(graph_run_id),
+            graph_run_id=graph_run_id,
+            graph_name=graph_name,
+            simulation_run_id=runtime_ctx.run_id if runtime_ctx is not None else None,
+            tick_no=runtime_ctx.tick_no if runtime_ctx is not None else None,
+            agent_id=agent_id,
+            task_type=task_type,
+            provider=self._settings.llm_provider,
+            model=self._settings.llm_model,
+        )
+
+    async def _invoke_model(
+        self,
+        model: Any,
+        model_input: Any,
+        *,
+        config: dict[str, Any] | None = None,
+    ) -> Any:
+        if config is not None and isinstance(model, Runnable):
+            return await model.ainvoke(model_input, config=config)
+        return await model.ainvoke(model_input)
+
+    @staticmethod
+    def _log_fallback(trace: LangGraphTrace, *, reason: str) -> None:
+        observe_langgraph_fallback(
+            task_type=trace.task_type,
+            from_path="structured",
+            to_path="text",
+            reason=reason,
+        )
+        logger.info(
+            "LangGraph model path fallback selected",
+            extra={
+                "event": "langgraph_model_fallback",
+                **trace.fields(),
+                "from_path": "structured",
+                "to_path": "text",
+                "reason": reason,
+            },
         )
 
     @staticmethod

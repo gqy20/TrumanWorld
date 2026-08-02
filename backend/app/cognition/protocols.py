@@ -6,7 +6,7 @@ in the cognition layer, improving type checking and IDE support.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
@@ -24,9 +24,9 @@ class LLMCallRecord(BaseModel):
     error: str | None = None
 
 
-# Type alias for LLM call callback
-# Receives the call record and can be used for logging, metrics, or caching
-LLMCallCallback = Callable[[LLMCallRecord], Awaitable[None]] | None
+# LLM telemetry hooks are synchronous collectors. Implementations may accept the
+# legacy five fields or the extended status/trace fields via keyword arguments.
+LLMCallCallback = Callable[..., None] | None
 
 
 @runtime_checkable

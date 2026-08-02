@@ -195,7 +195,7 @@ class SimulationService:
                 msg = f"Run not found: {run_id}"
                 raise ValueError(msg)
             run_context_token = bind_log_context(
-                tick=run.current_tick,
+                tick_no=run.current_tick,
                 scenario_id=run.scenario_type,
             )
             self._configure_scenario_for_run(run)

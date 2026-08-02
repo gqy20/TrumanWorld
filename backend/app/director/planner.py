@@ -6,7 +6,7 @@ from app.cognition.claude.director_agent import DirectorContext
 from app.cognition.heuristic.director_backend import HeuristicDirectorBackend
 from app.cognition.interfaces import DirectorCognitionBackend
 from app.cognition.registry import get_cognition_registry
-from app.cognition.types import DirectorDecisionInvocation
+from app.cognition.types import BackendExecutionContext, DirectorDecisionInvocation
 from app.director.observer import DirectorAssessment
 from app.director.strategy_engine import StrategyExecutor
 from app.director.types import DirectorPlan
@@ -65,6 +65,7 @@ class DirectorPlanner:
         recent_interventions: list[dict[str, Any]] | None = None,
         world_time: str = "",
         run_id: str = "",
+        runtime_ctx: BackendExecutionContext | None = None,
     ) -> DirectorPlan | None:
         """构建导演干预计划
 
@@ -120,6 +121,7 @@ class DirectorPlanner:
                     prompt="",
                     context=context,
                     recent_goals=recent_goals,
+                    runtime_ctx=runtime_ctx,
                 )
             )
             if plan is not None:

@@ -26,4 +26,12 @@ class LlmCallWriter:
                 await llm_session.commit()
             observe_llm_records(llm_records)
         except Exception as exc:
-            logger.warning(f"Failed to persist llm_calls for run {run_id}: {exc}")
+            logger.warning(
+                "Failed to persist LLM call records",
+                extra={
+                    "event": "llm_calls_persist_failed",
+                    "simulation_run_id": run_id,
+                    "record_count": len(llm_records),
+                    "exception_type": type(exc).__name__,
+                },
+            )

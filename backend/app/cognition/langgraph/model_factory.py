@@ -80,8 +80,16 @@ def build_langgraph_chat_model(
 
         return ChatAnthropic(**model_kwargs)
     except ModuleNotFoundError:
+        package = "langchain_openai" if provider == "openai" else "langchain_anthropic"
         logger.warning(
-            "%s is unavailable; LangGraph model construction failed",
-            ("langchain_openai" if provider == "openai" else "langchain_anthropic"),
+            "LangGraph model package is unavailable",
+            extra={
+                "event": "langgraph_model_construction_failed",
+                "backend": "langgraph",
+                "provider": provider,
+                "model": resolved_model_name,
+                "package": package,
+                "exception_type": "ModuleNotFoundError",
+            },
         )
         return None

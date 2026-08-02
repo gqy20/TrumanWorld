@@ -58,6 +58,7 @@ class RuntimeContext:
 
     db_engine: AsyncEngine | None = None
     run_id: str | None = None
+    tick_no: int | None = None
     enable_memory_tools: bool = True
     # LLM 调用回调：(agent_id, task_type, usage, total_cost_usd, duration_ms) -> None
     on_llm_call: Callable[..., None] | None = field(default=None)
@@ -215,6 +216,7 @@ class AgentRuntime:
         backend_runtime_ctx = (
             BackendExecutionContext(
                 run_id=runtime_ctx.run_id,
+                tick_no=runtime_ctx.tick_no,
                 enable_memory_tools=runtime_ctx.enable_memory_tools,
                 on_llm_call=runtime_ctx.on_llm_call,
                 memory_cache=runtime_ctx.memory_cache,
@@ -290,6 +292,7 @@ class AgentRuntime:
         backend_runtime_ctx = (
             BackendExecutionContext(
                 run_id=runtime_ctx.run_id,
+                tick_no=runtime_ctx.tick_no,
                 enable_memory_tools=runtime_ctx.enable_memory_tools,
                 on_llm_call=runtime_ctx.on_llm_call,
                 memory_cache=runtime_ctx.memory_cache,
@@ -328,6 +331,7 @@ class AgentRuntime:
         backend_runtime_ctx = (
             BackendExecutionContext(
                 run_id=runtime_ctx.run_id,
+                tick_no=runtime_ctx.tick_no,
                 enable_memory_tools=runtime_ctx.enable_memory_tools,
                 on_llm_call=runtime_ctx.on_llm_call,
                 memory_cache=runtime_ctx.memory_cache,

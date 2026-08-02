@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+from app.cognition.types import BackendExecutionContext
 from app.director.observer import DirectorAssessment, DirectorObserver, DirectorObserverSemantics
 from app.director.planner import DirectorPlanner, DirectorPlannerSemantics
 from app.director.types import DirectorPlan
@@ -11,6 +12,8 @@ from app.infra.settings import get_settings
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_world_role
 from app.sim.context import get_run_world_time
+from app.sim.llm_call_collector import LlmCallCollector
+from app.sim.llm_call_writer import LlmCallWriter
 from app.store.repositories import (
     AgentRepository,
     DirectorMemoryRepository,
@@ -171,6 +174,20 @@ class BundleWorldCoordinator:
         ]
 
         world_time = get_run_world_time(run).isoformat()
+        llm_collector = LlmCallCollector()
+        director_model = self.settings.director_agent_model or self.settings.llm_model
+        runtime_ctx = BackendExecutionContext(
+            run_id=run_id,
+            tick_no=run.current_tick,
+            on_llm_call=llm_collector.build_callback(
+                run_id=run_id,
+                db_agent_id=None,
+                tick_no=run.current_tick,
+                provider=self.settings.llm_provider,
+                model=director_model,
+                backend=self.settings.director_backend,
+            ),
+        )
 
         try:
             plan = await self.planner.build_plan(
@@ -182,9 +199,20 @@ class BundleWorldCoordinator:
                 recent_interventions=recent_interventions,
                 world_time=world_time,
                 run_id=run_id,
+                runtime_ctx=runtime_ctx,
             )
         except Exception as exc:
-            logger.warning(f"Director planner failed: {exc}, falling back to rule-based")
+            logger.warning(
+                "Director planner failed; falling back to rule-based planning",
+                extra={
+                    "event": "director_planner_fallback",
+                    "simulation_run_id": run_id,
+                    "tick_no": run.current_tick,
+                    "backend": self.settings.director_backend,
+                    "exception_type": type(exc).__name__,
+                    "fallback_to": "rule_based",
+                },
+            )
             plan = self.planner._build_config_based_plan(
                 assessment=assessment,
                 support_agents=[
@@ -193,6 +221,12 @@ class BundleWorldCoordinator:
                     if get_world_role(a.profile) in set(self.observer._semantics.support_roles)
                 ],
                 recent_goals=set(recent_goals),
+            )
+        finally:
+            await LlmCallWriter().persist(
+                run_id=run_id,
+                llm_records=llm_collector.records,
+                engine=self.session.bind if self.session is not None else None,
             )
 
         return plan

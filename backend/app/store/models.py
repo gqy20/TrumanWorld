@@ -290,6 +290,7 @@ class LlmCall(Base):
     __table_args__ = (
         Index("ix_llm_calls_run_id", "run_id"),
         Index("ix_llm_calls_run_id_agent_id", "run_id", "agent_id"),
+        Index("ix_llm_calls_run_id_trace_id", "run_id", "trace_id"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -300,8 +301,16 @@ class LlmCall(Base):
         ForeignKey("agents.id", ondelete="SET NULL"), nullable=True
     )
     task_type: Mapped[str] = mapped_column(String(30), nullable=False)  # planner/reactor/reflector
+    backend: Mapped[str | None] = mapped_column(String(30), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(30), nullable=True)
     model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="success")
+    trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    node_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    attempt_no: Mapped[int] = mapped_column(Integer, default=1)
+    exception_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    fallback_from: Mapped[str | None] = mapped_column(String(50), nullable=True)
     tick_no: Mapped[int] = mapped_column(Integer, default=0)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)

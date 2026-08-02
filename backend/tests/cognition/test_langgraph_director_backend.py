@@ -3,9 +3,10 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 from app.cognition.registry import CognitionRegistry
-from app.cognition.types import DirectorDecisionInvocation
+from app.cognition.types import BackendExecutionContext, DirectorDecisionInvocation
 from app.director.observer import DirectorAssessment
 from app.infra.settings import Settings
+from app.sim.llm_call_collector import LlmCallCollector
 
 
 def test_registry_builds_langgraph_director_backend() -> None:
@@ -23,6 +24,7 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
     class FakeTextResponse:
         def __init__(self, content: str) -> None:
             self.content = content
+            self.usage_metadata = {"input_tokens": 17, "output_tokens": 9}
 
     class FakeTextModel:
         def __init__(self) -> None:
@@ -53,6 +55,7 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
         llm_api_key="langgraph-key",
     )
     backend = LangGraphDirectorBackend(settings=settings, text_model=FakeTextModel())
+    collector = LlmCallCollector()
     invocation = DirectorDecisionInvocation(
         prompt="",
         context=DirectorContext(
@@ -88,6 +91,18 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
             world_time="2026-03-02T08:00:00+00:00",
         ),
         recent_goals=set(),
+        runtime_ctx=BackendExecutionContext(
+            run_id="run-1",
+            tick_no=5,
+            on_llm_call=collector.build_callback(
+                run_id="run-1",
+                db_agent_id=None,
+                tick_no=5,
+                backend="langgraph",
+                provider="anthropic",
+                model="claude-test",
+            ),
+        ),
     )
 
     result = await backend.propose_intervention(invocation)
@@ -99,6 +114,11 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
     assert result.urgency == "immediate"
     assert result.target_agent_id == "truman-1"
     assert result.cooldown_ticks == 4
+    assert len(collector.records) == 1
+    assert collector.records[0].task_type == "director"
+    assert collector.records[0].status == "success"
+    assert collector.records[0].trace_id is not None
+    assert collector.records[0].input_tokens == 17
 
 
 def test_director_agent_parse_response_prefers_target_agent_names() -> None:
