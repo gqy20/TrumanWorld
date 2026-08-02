@@ -19,6 +19,7 @@ import {
   easeOutQuint,
   type VoxelCameraFocusRequest,
 } from "./camera-controller";
+import { buildVoxelMotionPath } from "./agent-motion";
 import {
   buildVoxelEventPlan,
   type VoxelEventBubble,
@@ -88,7 +89,7 @@ type ProjectedBubble = {
 const SHARED_BLOCK_GEOMETRIES: Record<VoxelGeometryKind, THREE.BufferGeometry> = {
   box: new THREE.BoxGeometry(1, 1, 1),
   cone: new THREE.ConeGeometry(0.5, 1, 4),
-  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 8),
+  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 12),
   icosphere: new THREE.IcosahedronGeometry(0.5, 1),
 };
 
@@ -315,10 +316,17 @@ function StageScene({
         shadow-mapSize-height={2048}
         shadow-camera-near={0.1}
         shadow-camera-far={40}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
         shadow-bias={-0.00015}
+        shadow-normalBias={0.015}
+        shadow-radius={2.25}
       />
       <WorldAssetLayer
         placements={plan.assets}
+        windowEmissiveIntensity={lightingProfile.windowEmissiveIntensity}
         onLocationClick={onLocationClick}
       />
       {batches.map((batch) => (
@@ -357,9 +365,11 @@ function StageScene({
 
 function WorldAssetLayer({
   placements,
+  windowEmissiveIntensity,
   onLocationClick,
 }: {
   placements: VoxelAssetPlacement[];
+  windowEmissiveIntensity: number;
   onLocationClick?: (locationId: string) => void;
 }) {
   const batches = useMemo(() => {
@@ -377,6 +387,7 @@ function WorldAssetLayer({
         <WorldAssetBatch
           key={assetId}
           placements={assetPlacements}
+          windowEmissiveIntensity={windowEmissiveIntensity}
           onLocationClick={onLocationClick}
         />
       ))}
@@ -393,9 +404,11 @@ type LoadedAssetMesh = {
 
 function WorldAssetBatch({
   placements,
+  windowEmissiveIntensity,
   onLocationClick,
 }: {
   placements: VoxelAssetPlacement[];
+  windowEmissiveIntensity: number;
   onLocationClick?: (locationId: string) => void;
 }) {
   const [assetMeshes, setAssetMeshes] = useState<LoadedAssetMesh[] | null>(null);
@@ -437,6 +450,7 @@ function WorldAssetBatch({
           key={assetMesh.name}
           assetMesh={assetMesh}
           placements={placements}
+          windowEmissiveIntensity={windowEmissiveIntensity}
           onLocationClick={onLocationClick}
         />
       ))}
@@ -447,14 +461,39 @@ function WorldAssetBatch({
 function WorldAssetMeshBatch({
   assetMesh,
   placements,
+  windowEmissiveIntensity,
   onLocationClick,
 }: {
   assetMesh: LoadedAssetMesh;
   placements: VoxelAssetPlacement[];
+  windowEmissiveIntensity: number;
   onLocationClick?: (locationId: string) => void;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const invalidate = useThree((state) => state.invalidate);
+  const isWindowGlow = assetMesh.name.endsWith("WindowGlow");
+  const renderedMaterial = useMemo(() => {
+    if (!isWindowGlow) return assetMesh.material;
+    const withLighting = (material: THREE.Material) => {
+      const localMaterial = material.clone();
+      if (localMaterial instanceof THREE.MeshStandardMaterial) {
+        localMaterial.emissiveIntensity = windowEmissiveIntensity;
+      }
+      return localMaterial;
+    };
+    return Array.isArray(assetMesh.material)
+      ? assetMesh.material.map(withLighting)
+      : withLighting(assetMesh.material);
+  }, [assetMesh.material, isWindowGlow, windowEmissiveIntensity]);
+
+  useEffect(() => {
+    invalidate();
+    return () => {
+      if (!isWindowGlow) return;
+      const materials = Array.isArray(renderedMaterial) ? renderedMaterial : [renderedMaterial];
+      for (const material of materials) material.dispose();
+    };
+  }, [invalidate, isWindowGlow, renderedMaterial]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -476,9 +515,9 @@ function WorldAssetMeshBatch({
   return (
     <instancedMesh
       ref={meshRef}
-      args={[assetMesh.geometry, assetMesh.material, placements.length]}
-      castShadow
-      receiveShadow
+      args={[assetMesh.geometry, renderedMaterial, placements.length]}
+      castShadow={!isWindowGlow}
+      receiveShadow={!isWindowGlow}
       onClick={(event: ThreeEvent<MouseEvent>) => {
         const placement =
           event.instanceId === undefined ? undefined : placements[event.instanceId];
@@ -668,7 +707,10 @@ function MoveTrailLayer({ trails }: { trails: VoxelMoveTrail[] }) {
 function MoveTrailMarkers({ trail }: { trail: VoxelMoveTrail }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const invalidate = useThree((state) => state.invalidate);
-  const markerPoints = useMemo(() => interpolateTrailPoints(trail.points), [trail.points]);
+  const markerPoints = useMemo(
+    () => interpolateTrailPoints(buildVoxelMotionPath(trail.points).points),
+    [trail.points],
+  );
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;

@@ -7,6 +7,7 @@ import type {
   VoxelPrefabBlock,
   VoxelVector3,
 } from "./types";
+import { VOXEL_SCENE_SCALE } from "./scene-scale";
 
 type PrefabWriter = (
   position: [number, number, number],
@@ -111,7 +112,7 @@ function buildOfficePrefab(add: PrefabWriter, plotItem: VoxelPlot): void {
   addBuildingBase(add, plotItem, height, "wallCool");
   add([0, height + 0.12, 0], [plotItem.footprint.width + 0.08, 0.24, plotItem.footprint.depth + 0.08], "roofBlue");
   add([0, height + 0.3, 0], [0.76, 0.16, 0.76], "roofBlue");
-  add([0, 0.46, front + 0.04], [0.34, 0.68, 0.06], "wood");
+  add([0, 0.43, front + 0.04], [0.34, VOXEL_SCENE_SCALE.doorHeight, 0.06], "wood");
   for (const y of [0.78, 1.16, 1.52]) {
     add([-0.34, y, front + 0.035], [0.26, 0.2, 0.05], "glass");
     add([0.34, y, front + 0.035], [0.26, 0.2, 0.05], "glass");
@@ -137,7 +138,7 @@ function buildHospitalPrefab(add: PrefabWriter, plotItem: VoxelPlot): void {
   add([0, height + 0.1, 0], [plotItem.footprint.width + 0.12, 0.2, plotItem.footprint.depth + 0.12], "white");
   add([0, height + 0.23, 0], [0.54, 0.06, 0.14], "roofRed");
   add([0, height + 0.23, 0], [0.14, 0.06, 0.54], "roofRed");
-  add([0, 0.48, front + 0.04], [0.34, 0.72, 0.06], "glass");
+  add([0, 0.43, front + 0.04], [0.34, VOXEL_SCENE_SCALE.doorHeight, 0.06], "glass");
   add([0, 1.06, front + 0.08], [0.48, 0.12, 0.06], "roofRed");
   add([0, 1.06, front + 0.08], [0.12, 0.48, 0.06], "roofRed");
   for (const x of [-0.42, 0.42]) {
@@ -197,7 +198,15 @@ function addBuildingBase(
   height: number,
   material: VoxelMaterialKey,
 ): void {
-  add([0, 0.08, 0], [plotItem.footprint.width + 0.08, 0.16, plotItem.footprint.depth + 0.08], "shadow");
+  add(
+    [0, VOXEL_SCENE_SCALE.buildingPlinthHeight / 2, 0],
+    [
+      plotItem.footprint.width + 0.08,
+      VOXEL_SCENE_SCALE.buildingPlinthHeight,
+      plotItem.footprint.depth + 0.08,
+    ],
+    "shadow",
+  );
   add([0, height / 2, 0], [plotItem.footprint.width, height, plotItem.footprint.depth], material);
 }
 
@@ -218,7 +227,7 @@ function addHippedRoof(
 
 function addFrontDoorAndWindows(add: PrefabWriter, plotItem: VoxelPlot, height: number): void {
   const front = plotItem.footprint.depth / 2;
-  add([0, 0.4, front + 0.035], [0.3, 0.56, 0.06], "wood");
+  add([0, 0.43, front + 0.035], [0.3, VOXEL_SCENE_SCALE.doorHeight, 0.06], "wood");
   add([-0.38, height * 0.62, front + 0.035], [0.24, 0.2, 0.05], "glass");
   add([0.38, height * 0.62, front + 0.035], [0.24, 0.2, 0.05], "glass");
 }

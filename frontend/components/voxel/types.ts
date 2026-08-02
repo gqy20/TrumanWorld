@@ -29,6 +29,11 @@ export type VoxelPlot = {
   footprint: VoxelSize;
   entrance: VoxelPoint;
   agentAnchors: VoxelPoint[];
+  activityAnchors: {
+    talking: VoxelPoint[];
+    working: VoxelPoint[];
+    resting: VoxelPoint[];
+  };
   decorationAnchors: Array<VoxelPoint & { kind: string }>;
   source: SceneLocation;
 };
@@ -121,6 +126,7 @@ export type VoxelAgentPlan = {
   source: SceneAgent;
   anchor: VoxelSelectionAnchor;
   appearance: VoxelAgentAppearance;
+  rotationY: number;
 };
 
 export type VoxelAssetPlacement = {

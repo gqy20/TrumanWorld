@@ -35,6 +35,15 @@ describe("voxel plot layout", () => {
     );
     expect(plots[0].entrance.z).toBeGreaterThan(plots[0].center.z);
     expect(plots[0].agentAnchors).toHaveLength(6);
+    expect(new Set(plots[0].agentAnchors.map((anchor) => anchor.z)).size).toBeGreaterThan(2);
+    expect(plots[0].agentAnchors.some((anchor) => anchor.x < plots[0].entrance.x)).toBe(true);
+    expect(plots[0].agentAnchors.some((anchor) => anchor.x > plots[0].entrance.x)).toBe(true);
+    expect(plots[0].activityAnchors.talking).toHaveLength(5);
+    expect(plots[0].activityAnchors.working).toHaveLength(3);
+    expect(plots[0].activityAnchors.resting).toHaveLength(4);
+    expect(plots[0].activityAnchors.working.every(
+      (anchor) => anchor.z < plots[0].entrance.z,
+    )).toBe(true);
   });
 
   it("spreads duplicate location types away from the base plot", () => {

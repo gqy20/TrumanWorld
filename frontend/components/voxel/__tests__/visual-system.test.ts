@@ -22,7 +22,18 @@ describe("3D V2 visual system", () => {
 
     expect(day.exposure).toBeGreaterThan(night.exposure);
     expect(day.sunIntensity).toBeGreaterThan(night.sunIntensity);
+    expect(night.windowEmissiveIntensity).toBeGreaterThan(day.windowEmissiveIntensity);
     expect(night.background).toBe(WORLD_V2_PALETTE.night);
+  });
+
+  it("keeps windows subdued by day and gently lit at the edges of the day", () => {
+    const dawn = resolveWorldLightingProfile("dawn");
+    const noon = resolveWorldLightingProfile("noon");
+    const evening = resolveWorldLightingProfile("evening");
+
+    expect(dawn.windowEmissiveIntensity).toBeGreaterThan(noon.windowEmissiveIntensity);
+    expect(evening.windowEmissiveIntensity).toBeGreaterThan(dawn.windowEmissiveIntensity);
+    expect(evening.windowEmissiveIntensity).toBeLessThan(1);
   });
 
   it("defaults safely when old scene data has no time period", () => {

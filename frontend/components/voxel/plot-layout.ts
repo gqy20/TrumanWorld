@@ -1,6 +1,12 @@
 import type { SceneLocation, SceneNavigation } from "@/lib/world-scene-adapter";
 
 import type { VoxelPlot, VoxelPoint, VoxelSize } from "./types";
+import {
+  VOXEL_AGENT_FORMATION_OFFSETS,
+  VOXEL_CONVERSATION_OFFSETS,
+  VOXEL_REST_OFFSETS,
+  VOXEL_WORK_OFFSETS,
+} from "./scene-scale";
 import { resolveVoxelLocationSpec } from "./voxel-kit";
 
 export function buildVoxelPlots(
@@ -35,7 +41,12 @@ export function buildVoxelPlots(
         size: spec.size,
         footprint: spec.footprint,
         entrance,
-        agentAnchors: buildAgentAnchors(entrance),
+        agentAnchors: buildAgentAnchors(center, entrance, VOXEL_AGENT_FORMATION_OFFSETS),
+        activityAnchors: {
+          talking: buildAgentAnchors(center, entrance, VOXEL_CONVERSATION_OFFSETS),
+          working: buildAgentAnchors(center, entrance, VOXEL_WORK_OFFSETS),
+          resting: buildAgentAnchors(center, entrance, VOXEL_REST_OFFSETS),
+        },
         decorationAnchors: buildDecorationAnchors(center, spec.size),
         source: location,
       };
@@ -60,10 +71,19 @@ function resolveFallbackCenter(location: SceneLocation, occupied: Set<string>): 
   return origin;
 }
 
-function buildAgentAnchors(entrance: VoxelPoint): VoxelPoint[] {
-  return [-0.42, -0.14, 0.14, 0.42, -0.28, 0.28].map((offset, index) => ({
-    x: entrance.x + offset,
-    z: entrance.z + (index >= 4 ? 0.28 : 0),
+function buildAgentAnchors(
+  center: VoxelPoint,
+  entrance: VoxelPoint,
+  offsets: ReadonlyArray<VoxelPoint>,
+): VoxelPoint[] {
+  const deltaX = entrance.x - center.x;
+  const deltaZ = entrance.z - center.z;
+  const distance = Math.hypot(deltaX, deltaZ) || 1;
+  const forward = { x: deltaX / distance, z: deltaZ / distance };
+  const right = { x: forward.z, z: -forward.x };
+  return offsets.map((offset) => ({
+    x: entrance.x + right.x * offset.x + forward.x * offset.z,
+    z: entrance.z + right.z * offset.x + forward.z * offset.z,
   }));
 }
 

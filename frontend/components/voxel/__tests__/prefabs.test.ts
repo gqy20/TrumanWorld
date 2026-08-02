@@ -1,6 +1,7 @@
 import type { SceneLocation } from "@/lib/world-scene-adapter";
 
 import { buildLocationPrefab, resolvePrefabKind } from "../prefabs";
+import { VOXEL_SCENE_SCALE } from "../scene-scale";
 import type { VoxelPlot, VoxelPrefab } from "../types";
 
 describe("voxel location prefabs", () => {
@@ -64,7 +65,8 @@ describe("voxel location prefabs", () => {
     const plot = makePlot("office", "west");
     const prefab = buildLocationPrefab(plot.source, plot);
     const door = prefab.blocks.find(
-      (block) => block.material === "wood" && block.size.y === 0.68,
+      (block) =>
+        block.material === "wood" && block.size.y === VOXEL_SCENE_SCALE.doorHeight,
     );
     if (!door) throw new Error("Expected office prefab to expose a front door");
 
@@ -124,6 +126,11 @@ function makePlot(
     footprint: { width: 1.5, depth: 1.4 },
     entrance: entranceBySide[entranceSide],
     agentAnchors: [],
+    activityAnchors: {
+      talking: [],
+      working: [],
+      resting: [],
+    },
     decorationAnchors: [],
     source,
   };

@@ -20,6 +20,8 @@ describe("golden-slice asset registry", () => {
     expect(getReadyWorldAsset("cafe.corner")?.status).toBe("ready");
     expect(resolveReadyWorldAsset("cafe")?.id).toBe("cafe.corner");
     expect(resolveReadyWorldAsset("home")?.id).toBe("home.row");
+    expect(resolveReadyWorldAsset("office")?.id).toBe("office.midrise");
+    expect(resolveReadyWorldAsset("hospital")?.id).toBe("clinic.corner");
     expect(resolveReadyWorldAsset("park")?.id).toBe("park.old-oak");
     expect(resolveReadyWorldAsset("unknown")).toBeNull();
     expect(getReadyWorldAsset("civic.clock")).toBeNull();

@@ -30,7 +30,7 @@ export const VOXEL_MATERIAL_SPECS: Record<VoxelMaterialKey, VoxelMaterialSpec> =
   highlight: { color: 0xf2b45b, roughness: 0.74, emissive: 0xd86f45, emissiveIntensity: 0.08 },
   leaf: { color: 0x667c5b, roughness: 0.98 },
   leafLight: { color: 0x7f9a68, roughness: 0.98 },
-  plot: { color: 0xb9c4a8, roughness: 1 },
+  plot: { color: 0x8b9b76, roughness: 1 },
   paving: { color: 0xb9b4aa, roughness: 0.96 },
   road: { color: 0xa8a39a, roughness: 1 },
   roadDetail: { color: 0xc6c0b5, roughness: 0.96 },

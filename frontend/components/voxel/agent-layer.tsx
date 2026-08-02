@@ -13,7 +13,9 @@ import {
 import {
   advanceVoxelMotionProgress,
   buildVoxelMotionPath,
+  calculateVoxelGaitStrength,
   calculateVoxelMotionDuration,
+  easeVoxelMotionProgress,
   sampleVoxelMotionPath,
   type VoxelMotionPath,
 } from "./agent-motion";
@@ -231,7 +233,8 @@ function advanceAgentAnimations(
       false,
     );
     animation.progress = progress;
-    const sample = sampleVoxelMotionPath(animation.path, progress);
+    const easedProgress = easeVoxelMotionProgress(progress);
+    const sample = sampleVoxelMotionPath(animation.path, easedProgress);
     runtime.position.set(sample.position.x, sample.position.y, sample.position.z);
     runtime.rotationY = dampAngle(
       runtime.rotationY,
@@ -239,9 +242,10 @@ function advanceAgentAnimations(
       14,
       delta,
     );
-    const gaitPhase = progress * animation.path.totalLength * Math.PI * 3.4;
-    runtime.bodyBob = Math.abs(Math.sin(gaitPhase)) * 0.025;
-    runtime.gaitSwing = Math.sin(gaitPhase) * 0.24;
+    const gaitPhase = easedProgress * animation.path.totalLength * Math.PI * 3.4;
+    const gaitStrength = calculateVoxelGaitStrength(progress);
+    runtime.bodyBob = Math.abs(Math.sin(gaitPhase)) * 0.025 * gaitStrength;
+    runtime.gaitSwing = Math.sin(gaitPhase) * 0.24 * gaitStrength;
     publishAgentPose(poseMap, agentId, runtime.position);
     changed = true;
     if (progress < 1) {
@@ -268,10 +272,10 @@ function getOrCreateRuntime(
     gaitSwing: 0,
     position: new THREE.Vector3(
       agent.anchor.position.x,
-      Math.max(0, agent.anchor.position.y - 0.04),
+      agent.anchor.position.y,
       agent.anchor.position.z,
     ),
-    rotationY: 0,
+    rotationY: agent.rotationY,
   };
   runtimes.set(agent.id, runtime);
   return runtime;
@@ -291,9 +295,10 @@ function synchronizeAgentRuntime(
     resetAgentGait(runtime);
     runtime.position.set(
       agent.anchor.position.x,
-      Math.max(0, agent.anchor.position.y - 0.04),
+      agent.anchor.position.y,
       agent.anchor.position.z,
     );
+    runtime.rotationY = agent.rotationY;
     return;
   }
 
@@ -321,7 +326,10 @@ function synchronizeAgentRuntime(
     const authoritativeProgress = clampProgress(motion.initialProgress);
     if (authoritativeProgress > activeAnimation.progress) {
       activeAnimation.progress = authoritativeProgress;
-      setRuntimePosition(runtime, sampleVoxelMotionPath(path, authoritativeProgress));
+      setRuntimePosition(
+        runtime,
+        sampleVoxelMotionPath(path, easeVoxelMotionProgress(authoritativeProgress)),
+      );
     }
     if (wasPaused && !isPaused) activeAnimation.skipNextFrame = true;
     if (isPaused) resetAgentGait(runtime);
@@ -329,7 +337,10 @@ function synchronizeAgentRuntime(
   }
 
   const initialProgress = clampProgress(motion.initialProgress);
-  setRuntimePosition(runtime, sampleVoxelMotionPath(path, initialProgress));
+  setRuntimePosition(
+    runtime,
+    sampleVoxelMotionPath(path, easeVoxelMotionProgress(initialProgress)),
+  );
   runtime.animation = {
     durationMs: Math.max(1, calculateVoxelMotionDuration(path.totalLength)),
     eventId: motion.id,

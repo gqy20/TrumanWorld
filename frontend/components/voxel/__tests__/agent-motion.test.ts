@@ -1,7 +1,9 @@
 import {
   advanceVoxelMotionProgress,
   buildVoxelMotionPath,
+  calculateVoxelGaitStrength,
   calculateVoxelMotionDuration,
+  easeVoxelMotionProgress,
   sampleVoxelMotionPath,
 } from "../agent-motion";
 
@@ -13,11 +15,35 @@ describe("voxel agent motion", () => {
       { x: 1, y: 0, z: 3 },
     ]);
 
-    expect(path.totalLength).toBe(4);
-    expect(sampleVoxelMotionPath(path, 0.5)).toEqual({
-      position: { x: 1, y: 0, z: 1 },
-      tangent: { x: 0, y: 0, z: 1 },
-    });
+    const midpoint = sampleVoxelMotionPath(path, 0.5);
+    expect(path.totalLength).toBeCloseTo(3.94, 1);
+    expect(midpoint.position.x).toBeCloseTo(1, 2);
+    expect(midpoint.position.z).toBeCloseTo(1, 1);
+    expect(midpoint.tangent.z).toBeGreaterThan(0.99);
+  });
+
+  it("rounds right-angle corners without leaving the road corridor", () => {
+    const path = buildVoxelMotionPath([
+      { x: 0, y: 0, z: 0 },
+      { x: 1, y: 0, z: 0 },
+      { x: 1, y: 0, z: 1 },
+    ]);
+
+    expect(path.points.length).toBeGreaterThan(3);
+    expect(path.points).not.toContainEqual({ x: 1, y: 0, z: 0 });
+    expect(path.points.every((point) => point.x >= 0 && point.x <= 1)).toBe(true);
+    expect(path.points.every((point) => point.z >= 0 && point.z <= 1)).toBe(true);
+  });
+
+  it("accelerates gently and settles the gait at both endpoints", () => {
+    expect(easeVoxelMotionProgress(0)).toBe(0);
+    expect(easeVoxelMotionProgress(0.25)).toBeLessThan(0.25);
+    expect(easeVoxelMotionProgress(0.5)).toBeCloseTo(0.5);
+    expect(easeVoxelMotionProgress(0.75)).toBeGreaterThan(0.75);
+    expect(easeVoxelMotionProgress(1)).toBe(1);
+    expect(calculateVoxelGaitStrength(0)).toBe(0);
+    expect(calculateVoxelGaitStrength(0.5)).toBe(1);
+    expect(calculateVoxelGaitStrength(1)).toBeCloseTo(0);
   });
 
   it("deduplicates adjacent points and clamps samples to the path endpoints", () => {

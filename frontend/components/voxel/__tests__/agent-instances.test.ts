@@ -27,6 +27,7 @@ function makeAgent(
       heightScale: 1,
       accessory,
     },
+    rotationY: 0,
   };
 }
 
