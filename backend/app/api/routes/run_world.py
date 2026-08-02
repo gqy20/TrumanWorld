@@ -39,11 +39,13 @@ from app.api.schemas.simulation import (
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
 from app.scenario.bundle_registry import load_ui_config_for_scenario, load_world_config_for_scenario
+from app.scenario.spatial_manifest import load_world_map_manifest_for_scenario
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_agent_config_id
 from app.sim.context import get_run_world_time
 from app.sim.movement import AgentMovementState
-from app.sim.world_map import build_world_map
+from app.sim.activity import ActivityInstance
+from app.sim.world_map import build_authoritative_world_map, resolve_movement_position
 from app.sim.world_time import resolve_tick_bound, resolve_world_start
 from app.store.repositories import (
     AgentRepository,
@@ -77,6 +79,13 @@ def build_occupants_by_location(agents) -> dict[str, list]:
             continue
         occupants_by_location.setdefault(agent.current_location_id, []).append(agent)
     return occupants_by_location
+
+
+def _canonical_location_id(location_id: str | None, run_id: str) -> str | None:
+    if location_id is None:
+        return None
+    prefix = f"{run_id}-"
+    return location_id[len(prefix) :] if location_id.startswith(prefix) else location_id
 
 
 def resolve_subject_agent_id(agents, scenario_type: str | None) -> str | None:
@@ -503,16 +512,52 @@ async def get_world_snapshot(
     all_time_event_counts = stats.event_counts
     token_totals = stats.token_totals
 
+    world_time = get_run_world_time(run)
+    spatial_manifest = load_world_map_manifest_for_scenario(run.scenario_type)
+    topology = build_authoritative_world_map(
+        locations,
+        scenario_id=run.scenario_type,
+        run_id=str(run.id),
+    )
+    locations_by_id = {location.id: location for location in locations}
+    semantic_locations = {
+        location.id: location
+        for location in (spatial_manifest.locations if spatial_manifest else [])
+    }
+    semantic_zone_by_location = {
+        zone.location_id: zone.id for zone in (spatial_manifest.zones if spatial_manifest else [])
+    }
     agent_summaries = {}
     for agent in agents:
         movement = AgentMovementState.from_dict(agent.movement)
+        activity = ActivityInstance.from_dict(agent.activity)
+        movement_payload = (
+            movement.to_dict(world_time=world_time, tick_no=run.current_tick) if movement else None
+        )
+        position_meters = None
+        if movement is not None:
+            position_meters = resolve_movement_position(
+                movement,
+                topology,
+                movement.progress_at(world_time, run.current_tick),
+            )
+        canonical_location_id = _canonical_location_id(agent.current_location_id, str(run.id))
+        semantic_location = semantic_locations.get(canonical_location_id)
+        if position_meters is None and semantic_location is not None:
+            position_meters = semantic_location.position
+        elif position_meters is None and agent.current_location_id in locations_by_id:
+            location = locations_by_id[agent.current_location_id]
+            position_meters = (float(location.x), 0.0, float(location.y))
         agent_summaries[agent.id] = AgentSummaryResponse(
             id=agent.id,
             name=agent.name,
             occupation=agent.occupation,
             current_goal=agent.current_goal,
             current_location_id=None if movement else agent.current_location_id,
-            movement=movement.to_dict() if movement else None,
+            movement=movement_payload,
+            activity=activity.to_dict(world_time=world_time) if activity else None,
+            position_meters=position_meters,
+            zone_id=semantic_zone_by_location.get(canonical_location_id),
             status=agent.status or {},
             profile=agent.profile or {},
             config_id=get_agent_config_id(agent.profile),
@@ -533,25 +578,31 @@ async def get_world_snapshot(
         for location in locations
     ]
 
-    world_time = get_run_world_time(run)
     agent_name_map, location_name_map = build_name_maps(agents, locations)
 
     social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get(
         "talk", 0
     )
-
     logger.debug(
         f"World snapshot retrieved for run {run_id}: "
         f"agents={len(agents)}, locations={len(locations)}, events={len(events)}, "
         f"director_stats={director_executed}/{director_total}"
     )
+    clock = build_world_clock(world_time)
+    run_payload = build_run_snapshot(run)
     return WorldSnapshotResponse(
-        run=build_run_snapshot(run),
-        world_clock=build_world_clock(world_time),
+        run=run_payload,
+        world_clock=clock,
+        tick=run.current_tick,
+        world_time=clock.iso,
+        run_status=run.status,
+        simulation_speed=run_payload.simulation_speed,
         subject_agent_id=resolve_subject_agent_id(agents, run.scenario_type),
         agents=list(agent_summaries.values()),
         locations=locations_payload,
-        navigation=WorldMapTopologyResponse(**build_world_map(locations).to_dict()),
+        map_id=spatial_manifest.map_id if spatial_manifest else None,
+        map_content_hash=spatial_manifest.content_hash if spatial_manifest else None,
+        navigation=WorldMapTopologyResponse(**topology.to_dict()),
         recent_events=[
             build_world_event_response(event, agent_name_map, location_name_map)
             for event in events

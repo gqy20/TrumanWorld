@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from math import ceil
 from typing import Any
 from uuid import uuid4
@@ -21,9 +22,15 @@ class AgentMovementState:
     route_node_ids: tuple[str, ...] = ()
     distance: float = 0.0
     speed: float = DEFAULT_MOVEMENT_SPEED
+    started_at_world_time: datetime | None = None
+    expected_arrival_world_time: datetime | None = None
+    duration_seconds: float | None = None
+    activity_id: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
+    def to_dict(
+        self, *, world_time: datetime | None = None, tick_no: int | None = None
+    ) -> dict[str, Any]:
+        result = {
             "id": self.id,
             "state": self.state,
             "from_location_id": self.from_location_id,
@@ -32,21 +39,22 @@ class AgentMovementState:
             "arrival_tick": self.arrival_tick,
             "route_node_ids": list(self.route_node_ids),
             "distance": self.distance,
+            # `speed` remains during the protocol transition; its unit is now meters/second.
             "speed": self.speed,
+            "speed_mps": self.speed,
+            "started_at_world_time": _format_datetime(self.started_at_world_time),
+            "expected_arrival_world_time": _format_datetime(self.expected_arrival_world_time),
+            "duration_seconds": self.duration_seconds,
+            "activity_id": self.activity_id,
         }
+        if world_time is not None and tick_no is not None:
+            result["progress"] = self.progress_at(world_time, tick_no)
+        return result
 
     def to_event_payload(self) -> dict[str, Any]:
-        return {
-            "movement_id": self.id,
-            "state": self.state,
-            "from_location_id": self.from_location_id,
-            "to_location_id": self.to_location_id,
-            "started_tick": self.started_tick,
-            "arrival_tick": self.arrival_tick,
-            "route_node_ids": list(self.route_node_ids),
-            "distance": self.distance,
-            "speed": self.speed,
-        }
+        payload = self.to_dict()
+        payload["movement_id"] = payload.pop("id")
+        return payload
 
     @classmethod
     def from_dict(cls, value: dict[str, Any] | None) -> AgentMovementState | None:
@@ -67,11 +75,11 @@ class AgentMovementState:
             )
         ):
             return None
-        if arrival_tick <= started_tick:
+        if arrival_tick < started_tick:
             return None
         route_node_ids = value.get("route_node_ids", [])
         distance = value.get("distance", 0.0)
-        speed = value.get("speed", DEFAULT_MOVEMENT_SPEED)
+        speed = value.get("speed_mps", value.get("speed", DEFAULT_MOVEMENT_SPEED))
         if not isinstance(route_node_ids, list) or not all(
             isinstance(node_id, str) for node_id in route_node_ids
         ):
@@ -80,6 +88,8 @@ class AgentMovementState:
             distance = 0.0
         if not isinstance(speed, int | float) or speed <= 0:
             speed = DEFAULT_MOVEMENT_SPEED
+        duration_seconds = value.get("duration_seconds")
+        activity_id = value.get("activity_id")
         return cls(
             id=movement_id,
             state=MOVEMENT_STATE_IN_TRANSIT,
@@ -90,7 +100,29 @@ class AgentMovementState:
             route_node_ids=tuple(route_node_ids),
             distance=float(distance),
             speed=float(speed),
+            started_at_world_time=_parse_datetime(value.get("started_at_world_time")),
+            expected_arrival_world_time=_parse_datetime(value.get("expected_arrival_world_time")),
+            duration_seconds=(
+                float(duration_seconds) if isinstance(duration_seconds, int | float) else None
+            ),
+            activity_id=activity_id if isinstance(activity_id, str) else None,
         )
+
+    def arrives_by(self, world_time: datetime, tick_no: int) -> bool:
+        if self.expected_arrival_world_time is not None:
+            return self.expected_arrival_world_time <= world_time
+        return self.arrival_tick <= tick_no
+
+    def progress_at(self, world_time: datetime, tick_no: int) -> float:
+        if self.started_at_world_time is not None and self.expected_arrival_world_time is not None:
+            total = max(
+                0.001,
+                (self.expected_arrival_world_time - self.started_at_world_time).total_seconds(),
+            )
+            elapsed = max(0.0, (world_time - self.started_at_world_time).total_seconds())
+            return round(min(1.0, elapsed / total), 4)
+        tick_duration = max(1, self.arrival_tick - self.started_tick)
+        return round(min(1.0, max(0, tick_no - self.started_tick) / tick_duration), 4)
 
 
 def create_agent_movement(
@@ -103,16 +135,45 @@ def create_agent_movement(
     route_node_ids: tuple[str, ...] = (),
     distance: float = 0.0,
     speed: float = DEFAULT_MOVEMENT_SPEED,
+    started_at_world_time: datetime | None = None,
+    tick_seconds: float = 300.0,
+    activity_id: str | None = None,
 ) -> AgentMovementState:
     safe_speed = speed if speed > 0 else DEFAULT_MOVEMENT_SPEED
-    safe_duration = max(1, ceil(distance / safe_speed)) if distance > 0 else max(1, duration_ticks)
+    duration_seconds = (
+        max(0.001, distance / safe_speed)
+        if distance > 0
+        else max(1.0, duration_ticks * tick_seconds)
+    )
+    duration_in_ticks = max(1, ceil(duration_seconds / max(1.0, tick_seconds)))
     return AgentMovementState(
         id=f"move-{agent_id}-{started_tick}-{uuid4().hex[:12]}",
         from_location_id=from_location_id,
         to_location_id=to_location_id,
         started_tick=started_tick,
-        arrival_tick=started_tick + safe_duration,
+        arrival_tick=started_tick + duration_in_ticks,
         route_node_ids=route_node_ids,
         distance=distance,
         speed=safe_speed,
+        started_at_world_time=started_at_world_time,
+        expected_arrival_world_time=(
+            started_at_world_time + timedelta(seconds=duration_seconds)
+            if started_at_world_time is not None
+            else None
+        ),
+        duration_seconds=round(duration_seconds, 4),
+        activity_id=activity_id,
     )
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _format_datetime(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None

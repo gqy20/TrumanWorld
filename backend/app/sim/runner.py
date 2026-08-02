@@ -80,9 +80,29 @@ class SimulationRunner:
                     **movement.to_event_payload(),
                     "state": "arrived",
                     "location_id": movement.to_location_id,
+                    "occurred_at_world_time": (
+                        movement.expected_arrival_world_time or advanced.current_time
+                    ).isoformat(),
                 },
             )
             for movement in advanced.completed_movements
+        )
+        accepted.extend(
+            ActionResult(
+                accepted=True,
+                action_type=transition.event_type,
+                reason="completed" if transition.event_type == "activity_completed" else "advanced",
+                event_payload={
+                    "agent_id": transition.activity.agent_id,
+                    "activity_id": transition.activity.id,
+                    "activity_type": transition.activity.activity_type,
+                    "activity_status": transition.activity_status,
+                    "step_index": transition.step_index,
+                    "target_entity_id": transition.activity.target_entity_id,
+                    "occurred_at_world_time": transition.occurred_at_world_time.isoformat(),
+                },
+            )
+            for transition in advanced.activity_transitions
         )
         self._store_active_conversations(
             sessions,

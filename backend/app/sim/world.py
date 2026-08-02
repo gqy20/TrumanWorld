@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 from typing import Any
 
+from app.sim.activity import ActivityInstance, create_activity
 from app.sim.movement import AgentMovementState, create_agent_movement
-from app.sim.world_map import build_world_map
+from app.sim.world_map import WorldMapTopology, build_world_map
 
 
 @dataclass
@@ -29,6 +30,16 @@ class AgentState:
     occupation: str | None = None
     workplace_id: str | None = None
     movement: AgentMovementState | None = None
+    activity: ActivityInstance | None = None
+
+
+@dataclass(frozen=True)
+class ActivityTransition:
+    event_type: str
+    activity: ActivityInstance
+    occurred_at_world_time: datetime
+    activity_status: str
+    step_index: int
 
 
 @dataclass(frozen=True)
@@ -36,6 +47,7 @@ class TickAdvance:
     current_time: datetime
     tick_delta: int
     completed_movements: tuple[AgentMovementState, ...] = ()
+    activity_transitions: tuple[ActivityTransition, ...] = ()
 
 
 @dataclass
@@ -101,6 +113,7 @@ class WorldState:
         active_restrictions: dict[str, list[RestrictionState]] | None = None,
         sleep_start_hour: int = 23,
         sleep_end_hour: int = 6,
+        topology: WorldMapTopology | None = None,
     ) -> None:
         self.current_time = current_time
         self.current_tick = current_tick
@@ -114,6 +127,7 @@ class WorldState:
         self.active_restrictions = active_restrictions or {}
         self.sleep_start_hour = sleep_start_hour
         self.sleep_end_hour = sleep_end_hour
+        self.topology = topology
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -176,6 +190,11 @@ class WorldState:
                     "occupation": agent.occupation,
                     "workplace_id": agent.workplace_id,
                     "movement": agent.movement.to_dict() if agent.movement else None,
+                    "activity": (
+                        agent.activity.to_dict(world_time=self.current_time)
+                        if agent.activity
+                        else None
+                    ),
                 }
                 for agent_id, agent in self.agents.items()
             },
@@ -210,11 +229,12 @@ class WorldState:
             self.current_time = next_time
 
         self.current_tick += tick_delta
-        completed_movements = tuple(self.complete_arrived_movements())
+        completed_movements, activity_transitions = self.complete_due_intervals()
         return TickAdvance(
             current_time=self.current_time,
             tick_delta=tick_delta,
-            completed_movements=completed_movements,
+            completed_movements=tuple(completed_movements),
+            activity_transitions=tuple(activity_transitions),
         )
 
     def get_agent(self, agent_id: str) -> AgentState | None:
@@ -265,10 +285,12 @@ class WorldState:
         self,
         agent_id: str,
         destination_id: str,
+        *,
+        activity_id: str | None = None,
     ) -> AgentMovementState:
         agent = self.agents[agent_id]
         origin_id = agent.location_id
-        topology = build_world_map(self.locations.values())
+        topology = self.topology or build_world_map(self.locations.values())
         route = (
             topology.route_between_locations(origin_id, destination_id)
             if origin_id in topology.location_entrances
@@ -285,16 +307,72 @@ class WorldState:
             started_tick=self.current_tick + 1,
             route_node_ids=route.node_ids if route else (),
             distance=route.distance if route else 0.0,
+            # Intents are committed at the upcoming public cognition boundary.
+            started_at_world_time=self.current_time + timedelta(minutes=self.tick_minutes),
+            tick_seconds=self.tick_minutes * 60,
+            activity_id=activity_id,
         )
         self.locations[origin_id].occupants.discard(agent_id)
         agent.movement = movement
         return movement
 
-    def complete_arrived_movements(self) -> list[AgentMovementState]:
+    def start_agent_activity(
+        self,
+        agent_id: str,
+        activity_type: str,
+        *,
+        duration_seconds: float,
+        target_location_id: str | None = None,
+        parent_intent_id: str | None = None,
+    ) -> ActivityInstance:
+        agent = self.agents[agent_id]
+        requires_navigation = bool(target_location_id and target_location_id != agent.location_id)
+        activity = create_activity(
+            agent_id=agent_id,
+            activity_type=activity_type,
+            started_at_world_time=self.current_time + timedelta(minutes=self.tick_minutes),
+            duration_seconds=duration_seconds,
+            target_entity_id=target_location_id,
+            requires_navigation=requires_navigation,
+            parent_intent_id=parent_intent_id,
+        )
+        agent.activity = activity
+        if requires_navigation and target_location_id is not None:
+            self.start_agent_movement(
+                agent_id,
+                target_location_id,
+                activity_id=activity.id,
+            )
+        return activity
+
+    def interrupt_agent_activity(self, agent_id: str, reason: str) -> ActivityInstance | None:
+        agent = self.agents[agent_id]
+        activity = agent.activity
+        if activity is None or not activity.is_active:
+            return None
+        activity.interrupt(reason)
+        agent.movement = None
+        if agent.location_id in self.locations:
+            self.locations[agent.location_id].occupants.add(agent_id)
+        return activity
+
+    def complete_due_intervals(
+        self,
+    ) -> tuple[list[AgentMovementState], list[ActivityTransition]]:
         completed: list[AgentMovementState] = []
-        for agent in self.agents.values():
+        transitions: list[ActivityTransition] = []
+        ordered_agents = sorted(
+            self.agents.values(),
+            key=lambda item: (
+                item.movement.expected_arrival_world_time
+                if item.movement and item.movement.expected_arrival_world_time
+                else self.current_time,
+                item.id,
+            ),
+        )
+        for agent in ordered_agents:
             movement = agent.movement
-            if movement is None or movement.arrival_tick > self.current_tick:
+            if movement is None or not movement.arrives_by(self.current_time, self.current_tick):
                 continue
             destination = self.locations.get(movement.to_location_id)
             if destination is None:
@@ -303,6 +381,63 @@ class WorldState:
             agent.movement = None
             destination.occupants.add(agent.id)
             completed.append(movement)
+            activity = agent.activity
+            if (
+                activity is not None
+                and activity.id == movement.activity_id
+                and activity.status == "navigating"
+            ):
+                arrival_time = movement.expected_arrival_world_time or self.current_time
+                transitions.append(
+                    ActivityTransition(
+                        "activity_step_completed",
+                        activity,
+                        arrival_time,
+                        activity.status,
+                        activity.step_index,
+                    )
+                )
+                activity.start_performing(arrival_time)
+                transitions.append(
+                    ActivityTransition(
+                        "activity_step_started",
+                        activity,
+                        arrival_time,
+                        activity.status,
+                        activity.step_index,
+                    )
+                )
+
+        performing = sorted(
+            (
+                agent.activity
+                for agent in self.agents.values()
+                if agent.activity is not None
+                and agent.activity.status == "performing"
+                and agent.activity.expected_end_world_time is not None
+                and agent.activity.expected_end_world_time <= self.current_time
+            ),
+            key=lambda item: (item.expected_end_world_time, item.id),
+        )
+        for activity in performing:
+            completed_at = activity.expected_end_world_time or self.current_time
+            activity.complete()
+            transitions.append(
+                ActivityTransition(
+                    "activity_completed",
+                    activity,
+                    completed_at,
+                    activity.status,
+                    activity.step_index,
+                )
+            )
+        # Python's stable sort preserves the causal append order for transitions sharing
+        # an exact timestamp (step completed -> step started -> activity completed).
+        transitions.sort(key=lambda item: item.occurred_at_world_time)
+        return completed, transitions
+
+    def complete_arrived_movements(self) -> list[AgentMovementState]:
+        completed, _transitions = self.complete_due_intervals()
         return completed
 
     def destination_occupancy(self, location_id: str) -> int:

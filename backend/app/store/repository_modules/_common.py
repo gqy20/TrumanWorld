@@ -82,6 +82,7 @@ class AgentWorldRow:
     status: dict[str, Any]
     profile: dict[str, Any]
     movement: dict[str, Any]
+    activity: dict[str, Any]
 
 
 @dataclass(slots=True)

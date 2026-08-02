@@ -1,6 +1,9 @@
 # Godot 3D 客户端技术验证计划
 
-状态：已规划，暂缓实施。
+状态：基础 Web/Bridge、地图内容管线与权威时间/活动垂直切片已执行，20～50 Agent 性能验证尚未执行。
+
+后继正式实施规格见 [GODOT_WORLD_IMPLEMENTATION.md](GODOT_WORLD_IMPLEMENTATION.md)。本文只保留
+隔离技术验证范围和决策门槛，不作为完整迁移方案。
 
 本文记录 Truman World 在现有 voxel 舞台稳定后，对 Godot Web 3D 客户端进行隔离验证的范围和决策标准。它不是当前前端迁移计划，也不改变 FastAPI 作为权威模拟状态来源的边界。
 
@@ -98,16 +101,16 @@ Godot 到 React：
 
 ## 5. Web 约束
 
-- Godot 4.5 Web 使用 WebGL 2.0 Compatibility renderer，不使用 Forward+、Mobile 或 WebGPU。
+- Godot 4.7.1 Web 使用 WebGL 2.0 Compatibility renderer，不使用 Forward+、Mobile 或 WebGPU。
 - 优先使用单线程 Web 导出，避免为 `SharedArrayBuffer` 引入 COOP/COEP，并影响第三方页面集成。
-- Godot 4.5 的 C# 项目不能导出到 Web，验证代码使用 GDScript。
+- Godot 4.x 的 C# 项目不能导出到 Web，验证代码使用 GDScript。
 - 多线程或 GDExtension 仅在单线程性能无法达标后评估。
 - WebSocket Web 导出不能依赖自定义握手 Header。认证优先使用同站 Cookie、短期连接令牌或经过审查的子协议。
 - 移动端必须单独测试 WebAssembly 启动时间、WebGL 兼容性和后台标签页恢复行为。
 
 参考：
 
-- [Godot 4.5 Web export](https://docs.godotengine.org/en/4.5/tutorials/export/exporting_for_web.html)
+- [Godot Web export](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html)
 - [JavaScriptBridge](https://docs.godotengine.org/en/4.4/tutorials/platform/web/javascript_bridge.html)
 - [WebSocketPeer](https://docs.godotengine.org/en/stable/classes/class_websocketpeer.html)
 - [NavigationAgent3D](https://docs.godotengine.org/en/stable/classes/class_navigationagent3d.html)

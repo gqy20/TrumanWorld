@@ -1,0 +1,41 @@
+; Engine configuration file.
+; Edit through the Godot editor when possible.
+
+config_version=5
+
+[application]
+
+config/name="Truman World Godot Lab"
+run/main_scene="res://scenes/app/world_client.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/world_map_exporter/plugin.cfg")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.055, 0.075, 0.105, 1)
+
+[input]
+
+select={
+"deadzone": 0.5,
+"events": [Object(InputEventMouseButton,"button_index":1,"pressed":true)]
+}
+
+[world_map_export]
+
+map_id="campus-world-v2"
+output_path="res://../../scenarios/campus_world/map/world-map.json"
+meters_per_unit=1.0

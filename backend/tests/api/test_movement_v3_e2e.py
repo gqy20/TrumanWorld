@@ -83,7 +83,12 @@ async def test_movement_v3_survives_refresh_pause_resume_and_arrival(client, db_
     )
     assert movement["distance"] == 6.0
     assert movement["speed"] == 1.5
-    assert movement["arrival_tick"] == 5
+    assert movement["arrival_tick"] == 2
+    assert movement["duration_seconds"] == 4.0
+    assert movement["speed_mps"] == 1.5
+    assert movement["progress"] == 0.0
+    assert movement["started_at_world_time"] == "2026-03-02T06:05:00Z"
+    assert movement["expected_arrival_world_time"] == "2026-03-02T06:05:04Z"
 
     run.status = "paused"
     await db_session.commit()
@@ -95,13 +100,8 @@ async def test_movement_v3_survives_refresh_pause_resume_and_arrival(client, db_
 
     run.status = "running"
     await db_session.commit()
-    for expected_tick in (2, 3, 4):
-        travelling = await service.run_tick(run_id, [])
-        assert travelling.tick_no == expected_tick
-        assert all(result.action_type != "move_arrived" for result in travelling.accepted)
-
     arrived = await service.run_tick(run_id, [])
-    assert arrived.tick_no == 5
+    assert arrived.tick_no == 2
     assert any(result.action_type == "move_arrived" for result in arrived.accepted)
 
     final_snapshot = (await client.get(f"/api/runs/{run_id}/world")).json()

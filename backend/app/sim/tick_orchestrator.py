@@ -100,7 +100,7 @@ class TickOrchestrator:
 
         for agent in agents:
             state = get_agent(world, agent.id)
-            if state is None or getattr(state, "movement", None) is not None:
+            if state is None or self._agent_has_continuous_work(state):
                 continue
 
             runtime_agent_id = self.resolve_runtime_agent_id(agent)
@@ -188,7 +188,7 @@ class TickOrchestrator:
         ) -> ActionIntent | None:
             agent_id = agent_snapshot.id
             state = get_agent(world, agent_id)
-            if state is None or getattr(state, "movement", None) is not None:
+            if state is None or self._agent_has_continuous_work(state):
                 return None
 
             profile = agent_snapshot.profile
@@ -610,6 +610,13 @@ class TickOrchestrator:
             return 0.0
         overlap = left_windows & right_windows
         return len(overlap) / min(len(left_windows), len(right_windows))
+
+    @staticmethod
+    def _agent_has_continuous_work(state) -> bool:
+        if getattr(state, "movement", None) is not None:
+            return True
+        activity = getattr(state, "activity", None)
+        return bool(activity is not None and activity.is_active)
 
     @staticmethod
     def resolve_runtime_agent_id(agent: Agent) -> str:

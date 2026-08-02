@@ -10,6 +10,13 @@ ACTION_CONVERSATION_JOINED = "conversation_joined"
 ACTION_CONVERSATION_CLOSED = "conversation_closed"
 ACTION_WORK = "work"
 ACTION_REST = "rest"
+ACTION_START_ACTIVITY = "start_activity"
+ACTION_INTERRUPT_ACTIVITY = "interrupt_activity"
+EVENT_ACTIVITY_STARTED = "activity_started"
+EVENT_ACTIVITY_STEP_STARTED = "activity_step_started"
+EVENT_ACTIVITY_STEP_COMPLETED = "activity_step_completed"
+EVENT_ACTIVITY_COMPLETED = "activity_completed"
+EVENT_ACTIVITY_INTERRUPTED = "activity_interrupted"
 
 EVENT_MOVE = ACTION_MOVE
 EVENT_MOVE_ARRIVED = "move_arrived"
@@ -57,6 +64,13 @@ ActionType: TypeAlias = Literal[
     "conversation_closed",
     "work",
     "rest",
+    "start_activity",
+    "interrupt_activity",
+    "activity_started",
+    "activity_step_started",
+    "activity_step_completed",
+    "activity_completed",
+    "activity_interrupted",
     "plan",
     "reflect",
     "director_inject",
@@ -76,6 +90,13 @@ RejectedActionEventType: TypeAlias = Literal[
     "conversation_closed_rejected",
     "work_rejected",
     "rest_rejected",
+    "start_activity_rejected",
+    "interrupt_activity_rejected",
+    "activity_started_rejected",
+    "activity_step_started_rejected",
+    "activity_step_completed_rejected",
+    "activity_completed_rejected",
+    "activity_interrupted_rejected",
     "plan_rejected",
     "reflect_rejected",
     "director_inject_rejected",

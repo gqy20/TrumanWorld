@@ -96,7 +96,7 @@ class IsolatedTickRunner:
             if agent_snapshot.id in planner_plans:
                 agent_snapshot.current_plan = planner_plans[agent_snapshot.id]
 
-        if not intents:
+        if intents is None:
             intents, llm_records = await orchestrator.prepare_intents_from_data(
                 loaded.world,
                 agent_data,

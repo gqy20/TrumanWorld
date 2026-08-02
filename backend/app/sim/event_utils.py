@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from uuid import uuid4
+from datetime import datetime
 
 from app.protocol.simulation import ActionType, build_rejected_event_type
 from app.sim.memory_constants import calculate_event_importance
@@ -28,6 +29,12 @@ def build_event(
             payload=payload,
         )
 
+    occurred_at = payload.get("occurred_at_world_time") or world_time
+    try:
+        parsed_world_time = datetime.fromisoformat(occurred_at)
+    except (TypeError, ValueError):
+        parsed_world_time = None
+
     return Event(
         id=str(uuid4()),
         run_id=run_id,
@@ -39,6 +46,7 @@ def build_event(
         visibility=visibility,
         payload=payload,
         importance=importance,
+        world_time=parsed_world_time,
     )
 
 

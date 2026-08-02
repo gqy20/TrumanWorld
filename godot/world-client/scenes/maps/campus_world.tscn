@@ -1,0 +1,226 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/map/world_district_3d.gd" id="1_district"]
+[ext_resource type="Script" path="res://scripts/map/world_location_3d.gd" id="2_location"]
+[ext_resource type="Script" path="res://scripts/map/world_zone_3d.gd" id="3_zone"]
+[ext_resource type="Script" path="res://scripts/map/world_portal_3d.gd" id="4_portal"]
+[ext_resource type="Script" path="res://scripts/map/route_node_3d.gd" id="5_route_node"]
+[ext_resource type="Script" path="res://scripts/map/route_edge_3d.gd" id="6_route_edge"]
+[ext_resource type="Script" path="res://scripts/map/interactable_3d.gd" id="7_object"]
+[ext_resource type="Script" path="res://scripts/map/interaction_slot_3d.gd" id="8_slot"]
+[ext_resource type="Script" path="res://scripts/map/spawn_anchor_3d.gd" id="9_spawn"]
+[ext_resource type="Script" path="res://scripts/map/camera_anchor_3d.gd" id="10_camera"]
+
+[node name="CampusWorldMap" type="Node3D"]
+
+[node name="CampusCenter" type="Node3D" parent="."]
+script = ExtResource("1_district")
+stable_id = "district:campus-center"
+display_name = "Campus Center"
+size_meters = Vector3(24, 4, 16)
+
+[node name="CentralQuad" type="Node3D" parent="CampusCenter"]
+position = Vector3(-3, 0, 0)
+script = ExtResource("2_location")
+stable_id = "quad"
+display_name = "Central Quad"
+location_type = "quad"
+capacity = 20
+entrance_node_id = "route:quad:entrance"
+
+[node name="MainZone" type="Node3D" parent="CampusCenter/CentralQuad"]
+script = ExtResource("3_zone")
+stable_id = "quad.main"
+location_id = "quad"
+zone_type = "social"
+size_meters = Vector3(5, 2.5, 5)
+capacity = 20
+
+[node name="DefaultSpawn" type="Marker3D" parent="CampusCenter/CentralQuad/MainZone"]
+position = Vector3(0, 0, 1)
+script = ExtResource("9_spawn")
+stable_id = "spawn:quad:default"
+zone_id = "quad.main"
+
+[node name="StudioCafe" type="Node3D" parent="CampusCenter"]
+position = Vector3(5, 0, 0)
+script = ExtResource("2_location")
+stable_id = "cafe"
+display_name = "Studio Cafe"
+location_type = "cafe"
+capacity = 12
+entrance_node_id = "route:cafe:entrance"
+
+[node name="EntranceZone" type="Node3D" parent="CampusCenter/StudioCafe"]
+position = Vector3(-1, 0, 0)
+script = ExtResource("3_zone")
+stable_id = "cafe.entrance"
+location_id = "cafe"
+zone_type = "threshold"
+size_meters = Vector3(2, 2.5, 2)
+capacity = 4
+
+[node name="SeatingZone" type="Node3D" parent="CampusCenter/StudioCafe"]
+position = Vector3(1, 0, 0)
+script = ExtResource("3_zone")
+stable_id = "cafe.seating"
+location_id = "cafe"
+zone_type = "social"
+size_meters = Vector3(4, 2.5, 4)
+capacity = 8
+
+[node name="CounterZone" type="Node3D" parent="CampusCenter/StudioCafe"]
+position = Vector3(0, 0, -2)
+script = ExtResource("3_zone")
+stable_id = "cafe.counter"
+location_id = "cafe"
+zone_type = "service"
+size_meters = Vector3(3, 2.5, 1.5)
+capacity = 5
+
+[node name="EntranceToSeating" type="Marker3D" parent="CampusCenter/StudioCafe"]
+script = ExtResource("4_portal")
+stable_id = "portal:cafe:entrance-seating"
+from_zone_id = "cafe.entrance"
+to_zone_id = "cafe.seating"
+
+[node name="WindowChair" type="Node3D" parent="CampusCenter/StudioCafe/SeatingZone"]
+position = Vector3(1, 0, -1)
+rotation = Vector3(0, 3.14159, 0)
+script = ExtResource("7_object")
+stable_id = "cafe.window-chair-1"
+object_type = "cafe_chair"
+location_id = "cafe"
+zone_id = "cafe.seating"
+
+[node name="SitSlot" type="Marker3D" parent="CampusCenter/StudioCafe/SeatingZone/WindowChair"]
+position = Vector3(0, 0, 0.55)
+script = ExtResource("8_slot")
+stable_id = "slot:cafe:window-chair-1:sit"
+object_id = "cafe.window-chair-1"
+slot_kind = "sit"
+
+[node name="MapleDorm" type="Node3D" parent="CampusCenter"]
+position = Vector3(-7, 0, -3)
+script = ExtResource("2_location")
+stable_id = "dorm"
+display_name = "Maple Dorm"
+location_type = "dorm"
+capacity = 6
+public_access = false
+entrance_node_id = "route:dorm:entrance"
+
+[node name="MainZone" type="Node3D" parent="CampusCenter/MapleDorm"]
+script = ExtResource("3_zone")
+stable_id = "dorm.main"
+location_id = "dorm"
+zone_type = "residential"
+size_meters = Vector3(4, 3, 4)
+capacity = 6
+
+[node name="NorthLectureHall" type="Node3D" parent="CampusCenter"]
+position = Vector3(-2, 0, -3)
+script = ExtResource("2_location")
+stable_id = "lecture-hall"
+display_name = "North Lecture Hall"
+location_type = "lecture_hall"
+capacity = 18
+entrance_node_id = "route:lecture-hall:entrance"
+
+[node name="MainZone" type="Node3D" parent="CampusCenter/NorthLectureHall"]
+script = ExtResource("3_zone")
+stable_id = "lecture-hall.main"
+location_id = "lecture-hall"
+zone_type = "study"
+size_meters = Vector3(5, 3, 4)
+capacity = 18
+
+[node name="GlassLibrary" type="Node3D" parent="CampusCenter"]
+position = Vector3(3, 0, -3)
+script = ExtResource("2_location")
+stable_id = "library"
+display_name = "Glass Library"
+location_type = "library"
+capacity = 16
+entrance_node_id = "route:library:entrance"
+
+[node name="MainZone" type="Node3D" parent="CampusCenter/GlassLibrary"]
+script = ExtResource("3_zone")
+stable_id = "library.main"
+location_id = "library"
+zone_type = "study"
+size_meters = Vector3(5, 3, 4)
+capacity = 16
+
+[node name="Routes" type="Node3D" parent="."]
+
+[node name="QuadEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(-2, 0, 0)
+script = ExtResource("5_route_node")
+stable_id = "route:quad:entrance"
+node_kind = "entrance"
+
+[node name="CenterJunction" type="Marker3D" parent="Routes"]
+script = ExtResource("5_route_node")
+stable_id = "route:campus:center"
+node_kind = "junction"
+
+[node name="CafeEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(4, 0, 0)
+script = ExtResource("5_route_node")
+stable_id = "route:cafe:entrance"
+node_kind = "entrance"
+
+[node name="DormEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(-7, 0, -2)
+script = ExtResource("5_route_node")
+stable_id = "route:dorm:entrance"
+node_kind = "entrance"
+
+[node name="LectureHallEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(-2, 0, -2)
+script = ExtResource("5_route_node")
+stable_id = "route:lecture-hall:entrance"
+node_kind = "entrance"
+
+[node name="LibraryEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(3, 0, -2)
+script = ExtResource("5_route_node")
+stable_id = "route:library:entrance"
+node_kind = "entrance"
+
+[node name="QuadToCenter" type="Node" parent="Routes"]
+script = ExtResource("6_route_edge")
+stable_id = "edge:quad:center"
+from_node_id = "route:quad:entrance"
+to_node_id = "route:campus:center"
+
+[node name="CenterToCafe" type="Node" parent="Routes"]
+script = ExtResource("6_route_edge")
+stable_id = "edge:center:cafe"
+from_node_id = "route:campus:center"
+to_node_id = "route:cafe:entrance"
+
+[node name="DormToLecture" type="Node" parent="Routes"]
+script = ExtResource("6_route_edge")
+stable_id = "edge:dorm:lecture-hall"
+from_node_id = "route:dorm:entrance"
+to_node_id = "route:lecture-hall:entrance"
+
+[node name="LectureToLibrary" type="Node" parent="Routes"]
+script = ExtResource("6_route_edge")
+stable_id = "edge:lecture-hall:library"
+from_node_id = "route:lecture-hall:entrance"
+to_node_id = "route:library:entrance"
+
+[node name="LectureToQuad" type="Node" parent="Routes"]
+script = ExtResource("6_route_edge")
+stable_id = "edge:lecture-hall:quad"
+from_node_id = "route:lecture-hall:entrance"
+to_node_id = "route:quad:entrance"
+
+[node name="OverviewCamera" type="Marker3D" parent="."]
+position = Vector3(7, 9, 11)
+script = ExtResource("10_camera")
+stable_id = "camera:campus:overview"
+target_id = "district:campus-center"

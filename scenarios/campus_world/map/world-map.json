@@ -1,0 +1,369 @@
+{
+  "camera_anchors": [
+    {
+      "id": "camera:campus:overview",
+      "look_at_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "position": [
+        7.0,
+        9.0,
+        11.0
+      ],
+      "target_id": "district:campus-center"
+    }
+  ],
+  "content_hash": "sha256:5a42cca0743a0bfb398913d66d0ca0112d3156c2441d7baac1ba5e049fbca9a6",
+  "districts": [
+    {
+      "id": "district:campus-center",
+      "name": "Campus Center",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "size_meters": [
+        24.0,
+        4.0,
+        16.0
+      ]
+    }
+  ],
+  "interactables": [
+    {
+      "id": "cafe.window-chair-1",
+      "location_id": "cafe",
+      "position": [
+        7.0,
+        0.0,
+        -1.0
+      ],
+      "rotation_y_degrees": 180.0,
+      "slot_ids": [
+        "slot:cafe:window-chair-1:sit"
+      ],
+      "type": "cafe_chair",
+      "zone_id": "cafe.seating"
+    }
+  ],
+  "interaction_slots": [
+    {
+      "capacity": 1,
+      "id": "slot:cafe:window-chair-1:sit",
+      "kind": "sit",
+      "object_id": "cafe.window-chair-1",
+      "position": [
+        7.0,
+        0.0,
+        -1.55
+      ],
+      "rotation_y_degrees": 180.0
+    }
+  ],
+  "locations": [
+    {
+      "capacity": 12,
+      "entrance_node_id": "route:cafe:entrance",
+      "id": "cafe",
+      "name": "Studio Cafe",
+      "position": [
+        5.0,
+        0.0,
+        0.0
+      ],
+      "public_access": true,
+      "type": "cafe"
+    },
+    {
+      "capacity": 6,
+      "entrance_node_id": "route:dorm:entrance",
+      "id": "dorm",
+      "name": "Maple Dorm",
+      "position": [
+        -7.0,
+        0.0,
+        -3.0
+      ],
+      "public_access": false,
+      "type": "dorm"
+    },
+    {
+      "capacity": 18,
+      "entrance_node_id": "route:lecture-hall:entrance",
+      "id": "lecture-hall",
+      "name": "North Lecture Hall",
+      "position": [
+        -2.0,
+        0.0,
+        -3.0
+      ],
+      "public_access": true,
+      "type": "lecture_hall"
+    },
+    {
+      "capacity": 16,
+      "entrance_node_id": "route:library:entrance",
+      "id": "library",
+      "name": "Glass Library",
+      "position": [
+        3.0,
+        0.0,
+        -3.0
+      ],
+      "public_access": true,
+      "type": "library"
+    },
+    {
+      "capacity": 20,
+      "entrance_node_id": "route:quad:entrance",
+      "id": "quad",
+      "name": "Central Quad",
+      "position": [
+        -3.0,
+        0.0,
+        0.0
+      ],
+      "public_access": true,
+      "type": "quad"
+    }
+  ],
+  "map_id": "campus-world-v2",
+  "meters_per_unit": 1.0,
+  "portals": [
+    {
+      "from_zone_id": "cafe.entrance",
+      "id": "portal:cafe:entrance-seating",
+      "is_open": true,
+      "position": [
+        5.0,
+        0.0,
+        0.0
+      ],
+      "to_zone_id": "cafe.seating"
+    }
+  ],
+  "route_edges": [
+    {
+      "bidirectional": true,
+      "distance_meters": 4.0,
+      "from_node_id": "route:campus:center",
+      "id": "edge:center:cafe",
+      "to_node_id": "route:cafe:entrance"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 5.0,
+      "from_node_id": "route:dorm:entrance",
+      "id": "edge:dorm:lecture-hall",
+      "to_node_id": "route:lecture-hall:entrance"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 5.0,
+      "from_node_id": "route:lecture-hall:entrance",
+      "id": "edge:lecture-hall:library",
+      "to_node_id": "route:library:entrance"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 2.0,
+      "from_node_id": "route:lecture-hall:entrance",
+      "id": "edge:lecture-hall:quad",
+      "to_node_id": "route:quad:entrance"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 2.0,
+      "from_node_id": "route:quad:entrance",
+      "id": "edge:quad:center",
+      "to_node_id": "route:campus:center"
+    }
+  ],
+  "route_nodes": [
+    {
+      "id": "route:cafe:entrance",
+      "kind": "entrance",
+      "position": [
+        4.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "route:campus:center",
+      "kind": "junction",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "route:dorm:entrance",
+      "kind": "entrance",
+      "position": [
+        -7.0,
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "id": "route:lecture-hall:entrance",
+      "kind": "entrance",
+      "position": [
+        -2.0,
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "id": "route:library:entrance",
+      "kind": "entrance",
+      "position": [
+        3.0,
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "id": "route:quad:entrance",
+      "kind": "entrance",
+      "position": [
+        -2.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "spawn_anchors": [
+    {
+      "id": "spawn:quad:default",
+      "kind": "default",
+      "position": [
+        -3.0,
+        0.0,
+        1.0
+      ],
+      "rotation_y_degrees": 0.0,
+      "zone_id": "quad.main"
+    }
+  ],
+  "zones": [
+    {
+      "capacity": 5,
+      "id": "cafe.counter",
+      "location_id": "cafe",
+      "position": [
+        5.0,
+        0.0,
+        -2.0
+      ],
+      "size_meters": [
+        3.0,
+        2.5,
+        1.5
+      ],
+      "type": "service"
+    },
+    {
+      "capacity": 4,
+      "id": "cafe.entrance",
+      "location_id": "cafe",
+      "position": [
+        4.0,
+        0.0,
+        0.0
+      ],
+      "size_meters": [
+        2.0,
+        2.5,
+        2.0
+      ],
+      "type": "threshold"
+    },
+    {
+      "capacity": 8,
+      "id": "cafe.seating",
+      "location_id": "cafe",
+      "position": [
+        6.0,
+        0.0,
+        0.0
+      ],
+      "size_meters": [
+        4.0,
+        2.5,
+        4.0
+      ],
+      "type": "social"
+    },
+    {
+      "capacity": 6,
+      "id": "dorm.main",
+      "location_id": "dorm",
+      "position": [
+        -7.0,
+        0.0,
+        -3.0
+      ],
+      "size_meters": [
+        4.0,
+        3.0,
+        4.0
+      ],
+      "type": "residential"
+    },
+    {
+      "capacity": 18,
+      "id": "lecture-hall.main",
+      "location_id": "lecture-hall",
+      "position": [
+        -2.0,
+        0.0,
+        -3.0
+      ],
+      "size_meters": [
+        5.0,
+        3.0,
+        4.0
+      ],
+      "type": "study"
+    },
+    {
+      "capacity": 16,
+      "id": "library.main",
+      "location_id": "library",
+      "position": [
+        3.0,
+        0.0,
+        -3.0
+      ],
+      "size_meters": [
+        5.0,
+        3.0,
+        4.0
+      ],
+      "type": "study"
+    },
+    {
+      "capacity": 20,
+      "id": "quad.main",
+      "location_id": "quad",
+      "position": [
+        -3.0,
+        0.0,
+        0.0
+      ],
+      "size_meters": [
+        5.0,
+        2.5,
+        5.0
+      ],
+      "type": "social"
+    }
+  ]
+}

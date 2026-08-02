@@ -14,11 +14,13 @@ from app.scenario.runtime_config import ScenarioRuntimeConfig
 from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.event_utils import format_event_for_context
 from app.sim.movement import AgentMovementState
+from app.sim.activity import ActivityInstance
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
     extract_subject_alert_from_agent_data,
 )
 from app.sim.world import ActiveConversationState, AgentState, LocationState, WorldState
+from app.sim.world_map import build_authoritative_world_map
 from app.sim.world_queries import find_nearby_agent, get_agent
 from app.store.repositories import AgentRepository, EventRepository, LocationRepository
 
@@ -97,6 +99,7 @@ class ContextBuilder:
             workplace_id = profile.get("workplace_location_id")
 
             movement = AgentMovementState.from_dict(agent.movement)
+            activity = ActivityInstance.from_dict(agent.activity)
             agent_states[agent.id] = AgentState(
                 id=agent.id,
                 name=agent.name,
@@ -105,6 +108,7 @@ class ContextBuilder:
                 occupation=agent.occupation,
                 workplace_id=workplace_id,
                 movement=movement,
+                activity=activity,
             )
             if movement is None and location_id in location_states:
                 location_states[location_id].occupants.add(agent.id)
@@ -118,6 +122,11 @@ class ContextBuilder:
             world_effects=get_run_world_effects(run),
             relationship_contexts=relationship_contexts,
             active_conversations=active_conversations,
+            topology=build_authoritative_world_map(
+                locations,
+                scenario_id=run.scenario_type,
+                run_id=run_id,
+            ),
             **resolve_sleep_config_for_scenario(run.scenario_type),
         )
 

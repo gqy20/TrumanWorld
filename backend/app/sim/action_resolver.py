@@ -12,7 +12,9 @@ from app.scenario.runtime.world_design_models import (
 )
 from app.sim.world import WorldState
 
-SUPPORTED_ACTIONS = frozenset({"move", "talk", "work", "rest"})
+SUPPORTED_ACTIONS = frozenset(
+    {"move", "talk", "work", "rest", "start_activity", "interrupt_activity"}
+)
 
 
 @dataclass
@@ -120,6 +122,14 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
+        if intent.action_type == "interrupt_activity":
+            return self._resolve_interrupt_activity(
+                world,
+                intent,
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+
         if intent.action_type not in self.STANDARD_ACTIONS:
             return self._build_result(
                 accepted=False,
@@ -146,6 +156,21 @@ class ActionResolver:
                     "movement_id": agent.movement.id,
                     "from_location_id": agent.movement.from_location_id,
                     "to_location_id": agent.movement.to_location_id,
+                },
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+
+        if agent.activity is not None and agent.activity.is_active:
+            return self._build_result(
+                accepted=False,
+                action_type=intent.action_type,
+                reason="agent_busy",
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
+                    "activity_id": agent.activity.id,
+                    "activity_type": agent.activity.activity_type,
                 },
                 rule_evaluation=rule_evaluation,
                 governance_execution=governance_execution,
@@ -256,6 +281,13 @@ class ActionResolver:
                 rule_evaluation=rule_evaluation,
                 governance_execution=governance_execution,
             )
+        if intent.action_type == "start_activity":
+            return self._resolve_start_activity(
+                world,
+                intent,
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
 
         # rest and other standard actions
         return self._build_result(
@@ -358,6 +390,114 @@ class ActionResolver:
                 **intent.payload,
                 "agent_id": intent.agent_id,
                 **movement.to_event_payload(),
+            },
+            rule_evaluation=rule_evaluation,
+            governance_execution=governance_execution,
+        )
+
+    def _resolve_start_activity(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+        governance_execution: GovernanceExecutionResult | None,
+    ) -> ActionResult:
+        agent = world.get_agent(intent.agent_id)
+        activity_type = intent.payload.get("activity_type")
+        duration_seconds = intent.payload.get("duration_seconds")
+        if agent is None:
+            reason = "agent_not_found"
+        elif not isinstance(activity_type, str) or not activity_type:
+            reason = "missing_activity_type"
+        elif not isinstance(duration_seconds, int | float) or duration_seconds < 0:
+            reason = "invalid_activity_duration"
+        elif (
+            intent.target_location_id is not None
+            and world.get_location(intent.target_location_id) is None
+        ):
+            reason = "location_not_found"
+        else:
+            activity = world.start_agent_activity(
+                intent.agent_id,
+                activity_type,
+                duration_seconds=float(duration_seconds),
+                target_location_id=intent.target_location_id,
+                parent_intent_id=(
+                    intent.payload.get("intent_id")
+                    if isinstance(intent.payload.get("intent_id"), str)
+                    else None
+                ),
+            )
+            return self._build_result(
+                True,
+                "activity_started",
+                "accepted",
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "location_id": agent.location_id,
+                    "activity_id": activity.id,
+                    "activity_type": activity.activity_type,
+                    "activity_status": activity.status,
+                    "step_index": activity.step_index,
+                    "target_entity_id": activity.target_entity_id,
+                    "started_at_world_time": activity.started_at_world_time.isoformat(),
+                    "expected_end_world_time": (
+                        activity.expected_end_world_time.isoformat()
+                        if activity.expected_end_world_time is not None
+                        else None
+                    ),
+                    "duration_seconds": activity.duration_seconds,
+                },
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+
+        return self._build_result(
+            False,
+            "start_activity",
+            reason,
+            event_payload={
+                "agent_id": intent.agent_id,
+                "location_id": agent.location_id if agent else None,
+                "activity_type": activity_type,
+            },
+            rule_evaluation=rule_evaluation,
+            governance_execution=governance_execution,
+        )
+
+    def _resolve_interrupt_activity(
+        self,
+        world: WorldState,
+        intent: ActionIntent,
+        *,
+        rule_evaluation: RuleEvaluationResult | None,
+        governance_execution: GovernanceExecutionResult | None,
+    ) -> ActionResult:
+        reason = intent.payload.get("reason", "interrupted_by_intent")
+        if not isinstance(reason, str) or not reason:
+            reason = "interrupted_by_intent"
+        activity = world.interrupt_agent_activity(intent.agent_id, reason)
+        if activity is None:
+            return self._build_result(
+                False,
+                "interrupt_activity",
+                "no_active_activity",
+                event_payload={"agent_id": intent.agent_id},
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
+        return self._build_result(
+            True,
+            "activity_interrupted",
+            reason,
+            event_payload={
+                "agent_id": intent.agent_id,
+                "activity_id": activity.id,
+                "activity_type": activity.activity_type,
+                "activity_status": activity.status,
+                "interruption_reason": activity.interruption_reason,
+                "occurred_at_world_time": world.current_time.isoformat(),
             },
             rule_evaluation=rule_evaluation,
             governance_execution=governance_execution,

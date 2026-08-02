@@ -19,6 +19,7 @@ RUN_COMMON_FIELDS = {
     "scenario_type",
     "current_tick",
     "tick_minutes",
+    "simulation_speed",
     "was_running_before_restart",
     "started_at",
     "elapsed_seconds",
@@ -410,6 +411,40 @@ async def test_pause_accumulates_elapsed_time_across_resume(
     assert resume.json()["started_at"] is not None
     second_pause = await client.post(f"/api/runs/{run_id}/pause")
     assert second_pause.json()["elapsed_seconds"] >= first_elapsed
+
+
+@pytest.mark.asyncio
+async def test_simulation_speed_is_persisted_and_exposed(client):
+    created = await client.post(
+        "/api/runs",
+        json={"name": "speed-run", "auto_start": False, "seed_demo": False},
+    )
+    run_id = created.json()["id"]
+
+    updated = await client.post(
+        f"/api/runs/{run_id}/simulation-speed",
+        json={"multiplier": 2.5},
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["simulation_speed"] == 2.5
+    detail = await client.get(f"/api/runs/{run_id}")
+    assert detail.json()["simulation_speed"] == 2.5
+
+
+@pytest.mark.asyncio
+async def test_simulation_speed_rejects_unsupported_multiplier(client):
+    created = await client.post(
+        "/api/runs",
+        json={"name": "invalid-speed-run", "auto_start": False, "seed_demo": False},
+    )
+
+    response = await client.post(
+        f"/api/runs/{created.json()['id']}/simulation-speed",
+        json={"multiplier": 20},
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

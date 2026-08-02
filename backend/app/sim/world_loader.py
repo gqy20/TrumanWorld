@@ -8,8 +8,10 @@ from app.sim.agent_snapshot_builder import build_agent_relationship_contexts, bu
 from app.sim.context import get_run_world_effects, get_run_world_time, load_active_conversations
 from app.sim.location_utils import resolve_agent_location_id
 from app.sim.movement import AgentMovementState
+from app.sim.activity import ActivityInstance
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import AgentState, LocationState, WorldState
+from app.sim.world_map import build_authoritative_world_map
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
@@ -75,6 +77,7 @@ async def load_tick_data(
         workplace_id = profile.get("workplace_location_id")
 
         movement = AgentMovementState.from_dict(agent.movement)
+        activity = ActivityInstance.from_dict(agent.activity)
         agent_states[agent.id] = AgentState(
             id=agent.id,
             name=agent.name,
@@ -83,6 +86,7 @@ async def load_tick_data(
             occupation=agent.occupation,
             workplace_id=workplace_id if isinstance(workplace_id, str) else None,
             movement=movement,
+            activity=activity,
         )
         if movement is None and location_id in location_states:
             location_states[location_id].occupants.add(agent.id)
@@ -116,6 +120,11 @@ async def load_tick_data(
         world_effects=get_run_world_effects(run),
         relationship_contexts=relationship_contexts,
         active_conversations=active_conversations,
+        topology=build_authoritative_world_map(
+            locations,
+            scenario_id=run.scenario_type,
+            run_id=run_id,
+        ),
         **resolve_sleep_config_for_scenario(run.scenario_type),
     )
 

@@ -36,5 +36,10 @@ export default defineConfig([
       globals: jestGlobals,
     },
   },
-  globalIgnores([".next/**", "coverage/**", "next-env.d.ts"]),
+  globalIgnores([
+    ".next/**",
+    "coverage/**",
+    "public/godot-world/**",
+    "next-env.d.ts",
+  ]),
 ]);

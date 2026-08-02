@@ -120,27 +120,13 @@ async def test_run_tick_isolated_persists_movement_until_arrival_tick(tmp_path):
         assert alice.current_location_id == home_id
         assert alice.movement["state"] == "in_transit"
 
-    travelling = await service.run_tick_isolated(
-        run_id,
-        engine,
-        [ActionIntent(agent_id=bob_id, action_type="rest")],
-    )
-
-    assert travelling.tick_no == 2
-    assert [item.action_type for item in travelling.accepted] == ["rest"]
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        alice = await session.get(Agent, alice_id)
-        assert alice is not None
-        assert alice.current_location_id == home_id
-        assert alice.movement["state"] == "in_transit"
-
     arrived = await service.run_tick_isolated(
         run_id,
         engine,
         [ActionIntent(agent_id=bob_id, action_type="rest")],
     )
 
-    assert arrived.tick_no == 3
+    assert arrived.tick_no == 2
     assert [item.action_type for item in arrived.accepted] == ["rest", "move_arrived"]
     async with AsyncSession(engine, expire_on_commit=False) as session:
         alice = await session.get(Agent, alice_id)

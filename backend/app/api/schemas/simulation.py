@@ -136,6 +136,15 @@ class RunCreateRequest(BaseModel):
     )
 
 
+class SimulationSpeedRequest(BaseModel):
+    multiplier: float = Field(
+        ...,
+        ge=0.25,
+        le=8.0,
+        description="模拟速度倍率；只改变世界时间映射，不改变事件顺序",
+    )
+
+
 class RunBaseResponse(BaseModel):
     id: str = Field(..., description="运行 ID", examples=["550e8400-e29b-41d4-a716-446655440000"])
     name: str = Field(..., description="运行名称", examples=["Truman Town"])
@@ -143,6 +152,7 @@ class RunBaseResponse(BaseModel):
     scenario_type: str = Field(..., description="场景类型", examples=["hero_world", "open_world"])
     current_tick: int = Field(..., description="当前 tick", examples=[42])
     tick_minutes: int = Field(..., description="每 tick 分钟数", examples=[5])
+    simulation_speed: float = Field(1.0, description="当前模拟速度倍率", ge=0.25, le=8.0)
     was_running_before_restart: bool = Field(False, description="服务重启前是否在运行中")
     started_at: datetime | None = Field(None, description="最近一次启动时间（UTC ISO8601）")
     elapsed_seconds: int = Field(0, description="累计运行秒数", ge=0)
@@ -290,7 +300,38 @@ class AgentMovementResponse(BaseModel):
     arrival_tick: int = Field(..., description="预计到达 Tick", ge=1)
     route_node_ids: list[str] = Field(default_factory=list, description="服务端规划的道路节点")
     distance: float = Field(0.0, description="路线距离", ge=0)
-    speed: float = Field(1.5, description="每 Tick 移动距离", gt=0)
+    speed: float = Field(1.5, description="兼容字段：移动速度（米/秒）", gt=0)
+    speed_mps: float = Field(1.5, description="移动速度（米/秒）", gt=0)
+    started_at_world_time: datetime | None = Field(None, description="移动开始世界时间")
+    expected_arrival_world_time: datetime | None = Field(None, description="预计到达世界时间")
+    duration_seconds: float | None = Field(None, description="预计移动秒数", gt=0)
+    progress: float | None = Field(None, description="当前路线进度", ge=0, le=1)
+    activity_id: str | None = Field(None, description="所属活动 ID")
+
+
+class AgentActivityResponse(BaseModel):
+    id: str = Field(..., description="活动实例 ID")
+    agent_id: str = Field(..., description="Agent ID")
+    activity_type: str = Field(..., description="活动类型")
+    status: Literal[
+        "planned",
+        "navigating",
+        "waiting_for_resource",
+        "performing",
+        "completed",
+        "interrupted",
+        "failed",
+        "cancelled",
+    ]
+    step_index: int = Field(..., ge=0)
+    started_at_world_time: datetime
+    expected_end_world_time: datetime | None = None
+    duration_seconds: float = Field(..., ge=0)
+    target_entity_id: str | None = None
+    claimed_resource_ids: list[str] = Field(default_factory=list)
+    parent_intent_id: str | None = None
+    interruption_reason: str | None = None
+    progress: float | None = Field(None, ge=0, le=1)
 
 
 class AgentSummaryResponse(BaseModel):
@@ -300,6 +341,10 @@ class AgentSummaryResponse(BaseModel):
     current_goal: str | None = Field(None, description="当前目标", examples=["完成早班工作"])
     current_location_id: str | None = Field(None, description="当前位置 ID", examples=["loc_cafe"])
     movement: AgentMovementResponse | None = Field(None, description="当前在途状态")
+    activity: AgentActivityResponse | None = Field(None, description="当前或最近完成的持续活动")
+    position_meters: tuple[float, float, float] | None = Field(None, description="权威世界坐标")
+    facing_radians: float = Field(0.0, description="权威朝向")
+    zone_id: str | None = Field(None, description="当前地图 Zone")
     status: dict = Field(default_factory=dict, description="状态信息")
     profile: dict = Field(default_factory=dict, description="档案信息")
     config_id: str | None = Field(None, description="配置 ID", examples=["alice"])
@@ -574,14 +619,15 @@ class WorldLocationResponse(BaseModel):
 
 class WorldMapNodeResponse(BaseModel):
     id: str = Field(..., description="道路节点 ID")
-    x: int = Field(..., description="地图 X 坐标")
-    y: int = Field(..., description="地图 Y 坐标")
+    x: float = Field(..., description="地图 X 坐标（米）")
+    y: float = Field(..., description="地图 Z 坐标（米）")
 
 
 class WorldMapEdgeResponse(BaseModel):
     from_node_id: str = Field(..., description="起始道路节点")
     to_node_id: str = Field(..., description="结束道路节点")
     distance: float = Field(..., description="边长度", gt=0)
+    bidirectional: bool = Field(True, description="是否双向通行")
 
 
 class WorldMapTopologyResponse(BaseModel):
@@ -777,6 +823,17 @@ class DirectorDirectivesResponse(BaseModel):
 class WorldSnapshotResponse(BaseModel):
     run: WorldSnapshotRunResponse = Field(..., description="运行信息")
     world_clock: WorldClockResponse = Field(..., description="世界时钟")
+    tick: int = Field(..., description="Godot 客户端使用的当前权威 tick", ge=0)
+    world_time: str = Field(..., description="Godot 客户端使用的权威 ISO 世界时间")
+    run_status: str = Field(..., description="Godot 客户端使用的运行状态")
+    simulation_speed: float = Field(
+        1.0,
+        description="Godot 客户端使用的世界时间倍率",
+        ge=0.25,
+        le=8.0,
+    )
+    map_id: str | None = Field(None, description="Godot 地图稳定 ID")
+    map_content_hash: str | None = Field(None, description="地图内容哈希")
     subject_agent_id: str | None = Field(None, description="当前场景主体 agent ID")
     agents: list[AgentSummaryResponse] = Field(default_factory=list, description="完整 Agent 列表")
     locations: list[WorldLocationResponse] = Field(default_factory=list, description="地点列表")

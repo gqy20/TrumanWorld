@@ -34,6 +34,7 @@ class AgentRepository:
                 Agent.status,
                 Agent.profile,
                 Agent.movement,
+                Agent.activity,
             )
             .where(Agent.run_id == run_id)
             .order_by(Agent.name.asc())
@@ -49,6 +50,7 @@ class AgentRepository:
                 status=row.status or {},
                 profile=row.profile or {},
                 movement=row.movement or {},
+                activity=row.activity or {},
             )
             for row in result.all()
         ]

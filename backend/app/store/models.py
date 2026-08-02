@@ -50,6 +50,7 @@ class Agent(Base):
     profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     status: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     movement: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    activity: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     current_plan: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -1,6 +1,12 @@
 PYTHON ?= python3.13
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
+GODOT ?= godot
+GODOT_PROJECT_DIR := godot/world-client
+GODOT_WEB_OUTPUT := $(CURDIR)/$(FRONTEND_DIR)/public/godot-world/index.html
+GODOT_MAP_SCENE ?= res://scenes/maps/campus_world.tscn
+GODOT_MAP_ID ?= campus-world-v2
+GODOT_MAP_OUTPUT ?= $(CURDIR)/scenarios/campus_world/map/world-map.json
 LOGS_DIR := logs
 BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py app/store
 BACKEND_TEST_ENV := TRUMANWORLD_ANTHROPIC_API_KEY=test-key
@@ -9,7 +15,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
 
 LOG_RETENTION_DAYS ?= 7
 
@@ -108,6 +114,38 @@ backend-migration-check:
 
 frontend-test:
 	cd $(FRONTEND_DIR) && pnpm test --runInBand --passWithNoTests
+
+godot-import:
+	$(GODOT) --headless --editor --path $(GODOT_PROJECT_DIR) --quit
+
+godot-test: godot-import
+	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) --script res://tests/run_tests.gd
+
+godot-export-map: godot-import
+	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) \
+		--script res://scripts/editor/export_world_map.gd -- \
+		--source $(GODOT_MAP_SCENE) \
+		--output $(GODOT_MAP_OUTPUT) \
+		--map-id $(GODOT_MAP_ID)
+
+godot-map-check: godot-import
+	@GODOT_MAP_CHECK_OUTPUT=$$(mktemp); \
+	trap 'rm -f "$$GODOT_MAP_CHECK_OUTPUT"' EXIT; \
+	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) \
+		--script res://scripts/editor/export_world_map.gd -- \
+		--source $(GODOT_MAP_SCENE) \
+		--output "$$GODOT_MAP_CHECK_OUTPUT" \
+		--map-id $(GODOT_MAP_ID); \
+	cmp --silent "$$GODOT_MAP_CHECK_OUTPUT" "$(GODOT_MAP_OUTPUT)" || { \
+		echo "world-map.json is stale; run make godot-export-map"; \
+		exit 1; \
+	}
+
+godot-export-web: godot-import
+	@mkdir -p $(dir $(GODOT_WEB_OUTPUT))
+	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) --export-release Web $(GODOT_WEB_OUTPUT)
+
+godot-check: godot-test godot-map-check godot-export-web
 
 lint:
 	$(MAKE) backend-lint

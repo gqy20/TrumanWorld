@@ -13,6 +13,7 @@ from app.api.schemas.simulation import (
     RunCreateRequest,
     RunDetailResponse,
     RunResponse,
+    SimulationSpeedRequest,
     StatusResponse,
     TickResponse,
 )
@@ -32,7 +33,8 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-def build_run_payload(run: SimulationRun) -> dict[str, str | int | bool | datetime | None]:
+def build_run_payload(run: SimulationRun) -> dict[str, str | int | float | bool | datetime | None]:
+    metadata = run.metadata_json or {}
     return {
         "id": run.id,
         "name": run.name,
@@ -40,6 +42,7 @@ def build_run_payload(run: SimulationRun) -> dict[str, str | int | bool | dateti
         "scenario_type": run.scenario_type,
         "current_tick": run.current_tick,
         "tick_minutes": run.tick_minutes,
+        "simulation_speed": float(metadata.get("simulation_speed", 1.0)),
         "was_running_before_restart": run.was_running_before_restart,
         "started_at": run.started_at,
         "elapsed_seconds": run.elapsed_seconds or 0,
@@ -270,6 +273,32 @@ async def resume_run(
 ) -> RunResponse:
     run = await get_required_run(session, run_id)
     return await start_run_and_refresh(session, run)
+
+
+@router.post(
+    "/{run_id}/simulation-speed",
+    response_model=RunResponse,
+    summary="设置模拟速度",
+    description="更新模拟速度倍率；运行中的调度器会原子重启，世界事件顺序保持不变",
+)
+async def set_simulation_speed(
+    run_id: UUID,
+    payload: SimulationSpeedRequest,
+    _: None = Depends(require_demo_admin_access),
+    session: AsyncSession = Depends(get_db_session),
+) -> RunResponse:
+    run = await get_required_run(session, run_id)
+    metadata = dict(run.metadata_json or {})
+    metadata["simulation_speed"] = payload.multiplier
+    run.metadata_json = metadata
+    await session.commit()
+    await session.refresh(run)
+
+    scheduler = get_scheduler()
+    if scheduler.is_running(str(run_id)):
+        await scheduler.stop_run(str(run_id))
+        run = await ensure_run_started(session, run)
+    return build_run_response(run)
 
 
 @router.post(

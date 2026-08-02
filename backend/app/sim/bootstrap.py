@@ -60,7 +60,10 @@ class RunExecutionBootstrapper:
                     logger.info(f"Run {run_id} auto-paused after consecutive errors")
 
         return RunExecutionPlan(
-            interval_seconds=settings.scheduler_interval_seconds,
+            interval_seconds=(
+                settings.scheduler_interval_seconds
+                / max(0.25, float((run.metadata_json or {}).get("simulation_speed", 1.0)))
+            ),
             tick_callback=tick_callback,
             on_max_errors=on_max_errors,
         )

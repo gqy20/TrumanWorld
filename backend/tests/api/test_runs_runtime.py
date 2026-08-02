@@ -130,22 +130,57 @@ async def test_get_world_snapshot_keeps_in_transit_agent_outside_location_occupa
     body = response.json()
     alice = next(agent for agent in body["agents"] if agent["id"] == agent_id)
     assert alice["current_location_id"] is None
-    assert alice["movement"] == {
-        "id": "movement-alice-cafe",
-        "state": "in_transit",
-        "from_location_id": home_id,
-        "to_location_id": cafe_id,
-        "started_tick": 2,
-        "arrival_tick": 4,
-        "route_node_ids": [],
-        "distance": 0.0,
-        "speed": 1.5,
-    }
+    assert alice["movement"]["id"] == "movement-alice-cafe"
+    assert alice["movement"]["state"] == "in_transit"
+    assert alice["movement"]["from_location_id"] == home_id
+    assert alice["movement"]["to_location_id"] == cafe_id
+    assert alice["movement"]["started_tick"] == 2
+    assert alice["movement"]["arrival_tick"] == 4
+    assert alice["movement"]["speed_mps"] == 1.5
+    assert alice["movement"]["progress"] == 0.5
     assert all(
         occupant["id"] != agent_id
         for location in body["locations"]
         for occupant in location["occupants"]
     )
+
+
+@pytest.mark.asyncio
+async def test_campus_snapshot_uses_godot_map_identity_and_meter_topology(client):
+    created = await client.post(
+        "/api/runs",
+        json={"name": "campus-spatial", "scenario_type": "campus_world", "auto_start": False},
+    )
+    run_id = created.json()["id"]
+
+    response = await client.get(f"/api/runs/{run_id}/world")
+
+    assert response.status_code == 200
+    snapshot = response.json()
+    assert snapshot["map_id"] == "campus-world-v2"
+    assert snapshot["map_content_hash"] == (
+        "sha256:5a42cca0743a0bfb398913d66d0ca0112d3156c2441d7baac1ba5e049fbca9a6"
+    )
+    assert set(snapshot["navigation"]["location_entrances"]) == {
+        f"{run_id}-dorm",
+        f"{run_id}-lecture-hall",
+        f"{run_id}-library",
+        f"{run_id}-quad",
+        f"{run_id}-cafe",
+    }
+    assert {node["id"] for node in snapshot["navigation"]["nodes"]} == {
+        "route:dorm:entrance",
+        "route:lecture-hall:entrance",
+        "route:library:entrance",
+        "route:quad:entrance",
+        "route:campus:center",
+        "route:cafe:entrance",
+    }
+    assert all(agent["position_meters"] is not None for agent in snapshot["agents"])
+    assert snapshot["tick"] == snapshot["run"]["current_tick"]
+    assert snapshot["world_time"] == snapshot["world_clock"]["iso"]
+    assert snapshot["run_status"] == snapshot["run"]["status"]
+    assert snapshot["simulation_speed"] == snapshot["run"]["simulation_speed"]
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,78 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/app/world_client.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world/world_presenter.gd" id="2_world"]
+[ext_resource type="PackedScene" path="res://scenes/maps/campus_world.tscn" id="3_map"]
+
+[sub_resource type="StandardMaterial3D" id="GroundMaterial"]
+albedo_color = Color(0.18, 0.24, 0.22, 1)
+roughness = 0.95
+
+[sub_resource type="PlaneMesh" id="GroundMesh"]
+material = SubResource("GroundMaterial")
+size = Vector2(22, 14)
+
+[sub_resource type="Environment" id="WorldEnvironment"]
+background_mode = 1
+background_color = Color(0.055, 0.075, 0.105, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.68, 0.76, 0.72, 1)
+ambient_light_energy = 0.55
+tonemap_mode = 2
+
+[sub_resource type="StyleBoxFlat" id="StatusPanelStyle"]
+bg_color = Color(0.04, 0.06, 0.09, 0.82)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.58, 0.53, 0.45)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="WorldClient" type="Node"]
+script = ExtResource("1_main")
+
+[node name="WorldRoot" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="WorldRoot"]
+environment = SubResource("WorldEnvironment")
+
+[node name="Sun" type="DirectionalLight3D" parent="WorldRoot"]
+rotation_degrees = Vector3(-52, -28, 0)
+light_color = Color(1, 0.91, 0.76, 1)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="Ground" type="MeshInstance3D" parent="WorldRoot"]
+mesh = SubResource("GroundMesh")
+
+[node name="Map" parent="WorldRoot" instance=ExtResource("3_map")]
+
+[node name="Agents" type="Node3D" parent="WorldRoot"]
+script = ExtResource("2_world")
+
+[node name="CameraRig" type="Node3D" parent="WorldRoot"]
+
+[node name="Camera3D" type="Camera3D" parent="WorldRoot/CameraRig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.8, 9.2, 11.5)
+current = true
+fov = 42.0
+
+[node name="Overlay" type="CanvasLayer" parent="."]
+
+[node name="StatusPanel" type="PanelContainer" parent="Overlay"]
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 330.0
+offset_bottom = 58.0
+theme_override_styles/panel = SubResource("StatusPanelStyle")
+
+[node name="StatusLabel" type="Label" parent="Overlay/StatusPanel"]
+theme_override_colors/font_color = Color(0.88, 0.95, 0.92, 1)
+theme_override_font_sizes/font_size = 14
+text = "GODOT LAB · 正在初始化"
+horizontal_alignment = 1
+vertical_alignment = 1

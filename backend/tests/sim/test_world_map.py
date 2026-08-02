@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from app.sim.world import AgentState, LocationState, WorldState
-from app.sim.world_map import build_world_map
+from app.sim.world_map import build_authoritative_world_map, build_world_map
 
 
 def test_world_map_builds_connected_roads_around_location_plots():
@@ -52,5 +52,33 @@ def test_world_movement_duration_and_payload_follow_the_planned_route():
     assert movement.route_node_ids[-1] == "road:8:5"
     assert movement.distance == 6.0
     assert movement.speed == 1.5
-    assert movement.arrival_tick - movement.started_tick == 4
+    assert movement.duration_seconds == 4.0
+    assert movement.arrival_tick - movement.started_tick == 1
+    assert (
+        movement.expected_arrival_world_time - movement.started_at_world_time
+    ).total_seconds() == 4.0
     assert movement.to_dict()["route_node_ids"] == list(movement.route_node_ids)
+
+
+def test_campus_world_uses_exported_weighted_route_graph():
+    run_id = "run-campus"
+    locations = [
+        LocationState(id=f"{run_id}-{suffix}", name=suffix)
+        for suffix in ("dorm", "lecture-hall", "library", "quad", "cafe")
+    ]
+
+    topology = build_authoritative_world_map(
+        locations,
+        scenario_id="campus_world",
+        run_id=run_id,
+    )
+    route = topology.route_between_locations(f"{run_id}-dorm", f"{run_id}-cafe")
+
+    assert route.node_ids == (
+        "route:dorm:entrance",
+        "route:lecture-hall:entrance",
+        "route:quad:entrance",
+        "route:campus:center",
+        "route:cafe:entrance",
+    )
+    assert route.distance == 13.0

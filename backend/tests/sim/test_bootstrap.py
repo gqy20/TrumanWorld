@@ -101,6 +101,7 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
         name="demo",
         status="running",
         scenario_type="narrative_world",
+        metadata_json={"simulation_speed": 2.5},
     )
     db_session.add_all(
         [
@@ -183,7 +184,7 @@ async def test_bootstrapper_warms_pool_and_builds_tick_callback(db_session, tmp_
     finally:
         monkeypatch.undo()
 
-    assert plan.interval_seconds == 7.5
+    assert plan.interval_seconds == 3.0
     assert created_registry_paths == [tmp_path / "agents"]
     assert len(created_runtimes) == 1
     assert created_runtimes[0][1] is cognition_registry

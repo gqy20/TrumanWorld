@@ -214,7 +214,7 @@ class SimulationService:
                 agent_runtime=self.agent_runtime,
             )
             orchestrator = self._build_tick_orchestrator()
-            if not intents:
+            if intents is None:
                 intents = await orchestrator.prepare_tick_intents(
                     run_id,
                     world,

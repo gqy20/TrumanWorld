@@ -64,11 +64,17 @@ out/
 coverage/
 *.tsbuildinfo
 
+# Godot editor and generated Web export
+godot/**/.godot/
+frontend/public/godot-world/*
+!frontend/public/godot-world/.gitkeep
+
 # Deployment / containers
 .docker/
 
 # Misc caches
 .cache/
+.playwright-cli/
 
 # Local Claude runtime state
 .claude/

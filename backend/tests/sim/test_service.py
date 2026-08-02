@@ -200,19 +200,11 @@ async def test_simulation_service_persists_tick_and_events(db_session):
     assert memories[0].summary == "Moved to Park"
     assert memories[0].source_event_id == events[0].id
 
-    travelling = await service.run_tick("run-service-1", [])
-    await db_session.refresh(updated_agent)
-
-    assert travelling.tick_no == 2
-    assert all(item.action_type != "move_arrived" for item in travelling.accepted)
-    assert updated_agent.current_location_id == "loc-home"
-    assert updated_agent.movement["state"] == "in_transit"
-
     arrived = await service.run_tick("run-service-1", [])
     await db_session.refresh(updated_agent)
     arrival_events = await event_repo.list_for_run("run-service-1")
 
-    assert arrived.tick_no == 3
+    assert arrived.tick_no == 2
     assert any(item.action_type == "move_arrived" for item in arrived.accepted)
     assert updated_agent.current_location_id == "loc-park"
     assert updated_agent.movement == {}

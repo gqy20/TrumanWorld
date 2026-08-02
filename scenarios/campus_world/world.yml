@@ -1,5 +1,8 @@
 world_start_time: 2026-03-02T06:00:00+00:00
 
+spatial:
+  map_manifest: map/manifest.yml
+
 daily_rhythm:
   lunch_time: 11:30-13:00
   social_time: 17:30-21:30
