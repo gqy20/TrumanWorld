@@ -4,6 +4,7 @@ from __future__ import annotations
 from app.store.repository_modules._common import *
 
 from app.director.directives import DirectorDirective as DirectiveDTO
+from app.infra.metrics import observe_director_directive
 from app.store.models import DirectorDirective
 
 
@@ -32,6 +33,10 @@ class DirectorDirectiveRepository:
                     constraints_json=directive.constraints,
                     completion_criteria_json=directive.completion_criteria,
                     source=directive.source,
+                    source_memory_id=directive.source_memory_id,
+                    attempt_count=directive.attempt_count,
+                    last_attempt_tick=directive.last_attempt_tick,
+                    last_progress_tick=directive.last_progress_tick,
                 )
             )
 
@@ -85,6 +90,8 @@ class DirectorDirectiveRepository:
         for directive in directives:
             directive.status = "expired"
             directive.failure_reason = "deadline_exceeded"
+            await self._update_memory(directive, effectiveness_score=0.0)
+            observe_director_directive(outcome="expired", mode=directive.mode)
 
     async def apply_results(self, run_id: str, tick_no: int, results: list) -> None:
         by_id = {
@@ -101,13 +108,82 @@ class DirectorDirectiveRepository:
         directives = (await self.session.execute(stmt)).scalars().all()
         for directive in directives:
             result = by_id[directive.id]
+            first_response = directive.attempt_count == 0
+            directive.attempt_count += 1
+            directive.last_attempt_tick = tick_no
+            directive.last_result_action_type = result.action_type
+            directive.last_result_target_agent_id = result.event_payload.get("target_agent_id")
             directive.disposition = result.event_payload.get("director_disposition")
             if result.accepted and _matches_completion(directive, result):
                 directive.status = "succeeded"
                 directive.completed_tick = tick_no
+                directive.last_progress_tick = tick_no
+                directive.failure_reason = None
+                await self._update_memory(directive, effectiveness_score=1.0)
+                observe_director_directive(outcome="succeeded", mode=directive.mode)
+            elif result.accepted:
+                await self._update_memory(directive)
+                if directive.attempt_count == 2 and directive.mode == "advisory":
+                    directive.mode = "priority"
+                    directive.priority = "high"
+                    directive.constraints_json = {
+                        **(directive.constraints_json or {}),
+                        "mode": "priority",
+                    }
+                    directive.failure_reason = "progress_stalled_escalated"
+                    observe_director_directive(outcome="escalated", mode="priority")
+                elif directive.attempt_count >= 3:
+                    directive.status = "failed"
+                    directive.failure_reason = "target_drift"
+                    observe_director_directive(outcome="target_drift", mode=directive.mode)
             elif not result.accepted:
                 directive.status = "failed"
                 directive.failure_reason = result.reason
+                await self._update_memory(directive, effectiveness_score=0.0)
+                observe_director_directive(outcome="rejected", mode=directive.mode)
+            if first_response:
+                observe_director_directive(
+                    outcome="acknowledged",
+                    mode=directive.mode,
+                    response_ticks=tick_no - directive.issued_tick,
+                )
+
+    async def list_needing_replan(self, run_id: str) -> Sequence[DirectorDirective]:
+        stmt = select(DirectorDirective).where(
+            DirectorDirective.run_id == run_id,
+            DirectorDirective.status == "failed",
+            DirectorDirective.failure_reason == "target_drift",
+            DirectorDirective.replaced_by_directive_id.is_(None),
+        )
+        result = await self.session.execute(
+            stmt.order_by(DirectorDirective.last_attempt_tick.desc()).limit(10)
+        )
+        return result.scalars().all()
+
+    async def mark_replanned(self, directive_ids: list[str], replacement_directive_id: str) -> None:
+        if not directive_ids:
+            return
+        stmt = select(DirectorDirective).where(DirectorDirective.id.in_(directive_ids))
+        directives = (await self.session.execute(stmt)).scalars().all()
+        for directive in directives:
+            directive.replaced_by_directive_id = replacement_directive_id
+            directive.failure_reason = "replanned"
+            observe_director_directive(outcome="replanned", mode=directive.mode)
+
+    async def _update_memory(
+        self,
+        directive: DirectorDirective,
+        *,
+        effectiveness_score: float | None = None,
+    ) -> None:
+        if not directive.source_memory_id:
+            return
+        memory = await self.session.get(DirectorMemory, directive.source_memory_id)
+        if memory is None:
+            return
+        memory.was_executed = True
+        if effectiveness_score is not None:
+            memory.effectiveness_score = effectiveness_score
 
     async def _cancel_superseded(self, directives: list[DirectiveDTO]) -> None:
         run_id = directives[0].run_id

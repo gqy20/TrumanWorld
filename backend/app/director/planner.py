@@ -8,8 +8,8 @@ from app.cognition.interfaces import DirectorCognitionBackend
 from app.cognition.registry import get_cognition_registry
 from app.cognition.types import BackendExecutionContext, DirectorDecisionInvocation
 from app.director.observer import DirectorAssessment
+from app.director.types import DirectorActorCandidate, DirectorPlan
 from app.director.strategy_engine import StrategyExecutor
-from app.director.types import DirectorPlan
 from app.infra.logging import get_logger
 from app.scenario.bundle_registry import resolve_default_scenario_id
 from app.scenario.runtime.director_config import load_director_config
@@ -66,6 +66,8 @@ class DirectorPlanner:
         world_time: str = "",
         run_id: str = "",
         runtime_ctx: BackendExecutionContext | None = None,
+        actor_candidates: dict[str, DirectorActorCandidate] | None = None,
+        force_decision: bool = False,
     ) -> DirectorPlan | None:
         """构建导演干预计划
 
@@ -96,14 +98,25 @@ class DirectorPlanner:
         # 检查最近已执行的干预，避免重复
         recent_goals = set(recent_intervention_goals or [])
 
-        if self._backend.is_enabled() and self._backend.should_decide(current_tick):
+        if self._backend.is_enabled() and (
+            force_decision or self._backend.should_decide(current_tick)
+        ):
             agent_snapshots: list[dict[str, Any]] = [
-                {
-                    "id": agent.id,
-                    "name": agent.name,
-                    "profile": dict(agent.profile or {}),
-                    "current_location_id": agent.current_location_id,
-                }
+                (
+                    actor_candidates[agent.id].as_prompt_context()
+                    if actor_candidates and agent.id in actor_candidates
+                    else {
+                        "id": agent.id,
+                        "name": agent.name,
+                        "profile": dict(agent.profile or {}),
+                        "current_location_id": agent.current_location_id,
+                        "current_goal": agent.current_goal,
+                        "availability": "available",
+                        "eligible": True,
+                        "conversation_participant_ids": [],
+                        "same_location_as_subject": False,
+                    }
+                )
                 for agent in agents
             ]
             context = DirectorContext(

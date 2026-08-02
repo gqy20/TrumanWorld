@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.director.directives import DirectorDirective
@@ -28,6 +28,7 @@ class DirectorPlan:
     strategy: str | None = None  # 干预策略描述
     source_type: str = "auto"  # "auto" | "manual"
     source_memory_id: str | None = None
+    replaces_directive_ids: list[str]
     directives: list[DirectorDirective]
     trigger_subject_alert_score: float = 0.0
     trigger_continuity_risk: str = "stable"
@@ -48,6 +49,7 @@ class DirectorPlan:
         strategy: str | None = None,
         source_type: str = "auto",
         source_memory_id: str | None = None,
+        replaces_directive_ids: list[str] | None = None,
         directives: list[DirectorDirective] | None = None,
         trigger_subject_alert_score: float = 0.0,
         trigger_continuity_risk: str = "stable",
@@ -65,6 +67,35 @@ class DirectorPlan:
         self.strategy = strategy
         self.source_type = source_type
         self.source_memory_id = source_memory_id
+        self.replaces_directive_ids = list(replaces_directive_ids or [])
         self.directives = list(directives or [])
         self.trigger_subject_alert_score = trigger_subject_alert_score
         self.trigger_continuity_risk = trigger_continuity_risk
+
+
+@dataclass(frozen=True)
+class DirectorActorCandidate:
+    """A bounded, serializable view of whether an actor can execute a directive."""
+
+    agent_id: str
+    name: str
+    profile: dict[str, Any]
+    current_location_id: str | None
+    current_goal: str | None
+    availability: str
+    eligible: bool
+    conversation_participant_ids: tuple[str, ...] = ()
+    same_location_as_subject: bool = False
+
+    def as_prompt_context(self) -> dict[str, Any]:
+        return {
+            "id": self.agent_id,
+            "name": self.name,
+            "profile": dict(self.profile),
+            "current_location_id": self.current_location_id,
+            "current_goal": self.current_goal,
+            "availability": self.availability,
+            "eligible": self.eligible,
+            "conversation_participant_ids": list(self.conversation_participant_ids),
+            "same_location_as_subject": self.same_location_as_subject,
+        }

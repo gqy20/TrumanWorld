@@ -6,7 +6,9 @@ import asyncio
 import json
 import shutil
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.cognition.claude.decision_utils import clean_response_text
 from app.cognition.claude.free_text_utils import run_text_query
@@ -49,6 +51,27 @@ DIRECTOR_DECISION_SCHEMA = {
     "required": ["should_intervene", "scene_goal"],
     "additionalProperties": False,
 }
+
+
+class DirectorDecisionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    should_intervene: bool
+    scene_goal: Literal[
+        "soft_check_in",
+        "preemptive_comfort",
+        "keep_scene_natural",
+        "break_isolation",
+        "rejection_recovery",
+        "none",
+    ]
+    target_agent_names: list[str] = Field(default_factory=list)
+    priority: Literal["low", "normal", "high", "critical"] = "normal"
+    urgency: Literal["advisory", "immediate", "emergency"] = "advisory"
+    reasoning: str = "LLM-based intervention decision"
+    message_hint: str | None = None
+    strategy: str | None = None
+    cooldown_ticks: int = Field(3, ge=1, le=10)
 
 
 @dataclass
@@ -106,15 +129,26 @@ class DirectorAgent:
 
         prompt = self._build_decision_prompt(context, support_agents, recent_goals)
         response = await self._call_llm(prompt)
-        return self._parse_response(response, context, support_agents)
+        plan = self._parse_response(response, context, support_agents)
+        if plan is not None and not plan.target_agent_ids:
+            plan.target_agent_ids = [support_agents[0]["id"]]
+        return plan
 
     def _select_support_agents(self, context: DirectorContext) -> list[dict[str, Any]]:
         support_roles = set(context.support_roles or ["cast"])
-        return [
+        candidates = [
             agent
             for agent in context.agents
-            if get_world_role(agent.get("profile")) in support_roles
+            if get_world_role(agent.get("profile")) in support_roles and agent.get("eligible", True)
         ]
+        return sorted(
+            candidates,
+            key=lambda agent: (
+                not bool(agent.get("same_location_as_subject")),
+                agent.get("availability") != "engaged_with_subject",
+                agent.get("name", ""),
+            ),
+        )
 
     def _build_decision_prompt(
         self,
@@ -125,15 +159,25 @@ class DirectorAgent:
         cast_info = []
         for agent in sorted(cast_agents, key=lambda a: a.get("name", "")):
             config_id = get_agent_config_id(agent.get("profile")) or "unknown"
+            participants = ", ".join(agent.get("conversation_participant_ids") or []) or "none"
             cast_info.append(
-                f"- {agent.get('name')} (role: {config_id}, location: {agent.get('current_location_id')})"
+                f"- {agent.get('name')} (role: {config_id}, "
+                f"location: {agent.get('current_location_id')}, "
+                f"goal: {agent.get('current_goal') or 'none'}, "
+                f"availability: {agent.get('availability', 'available')}, "
+                f"conversation_participants: {participants})"
             )
 
         recent_events_limit = self._config.prompt.recent_events_limit
         events_summary = []
         for event in context.recent_events[-recent_events_limit:]:
+            actor = event.get("actor_name") or event.get("actor_agent_id") or "unknown"
+            target = event.get("target_name") or event.get("target_agent_id") or "none"
+            location = event.get("location_name") or event.get("location_id") or "unknown"
+            summary = event.get("summary") or event.get("description") or "N/A"
             events_summary.append(
-                f"  - tick {event.get('tick_no')}: {event.get('event_type')} - {event.get('description', 'N/A')}"
+                f"  - tick {event.get('tick_no')}: {actor} -> {target}, "
+                f"{event.get('event_type')} at {location}: {summary}"
             )
 
         recent_interventions_limit = self._config.prompt.recent_interventions_limit
@@ -252,16 +296,16 @@ class DirectorAgent:
             elif "```" in response:
                 json_str = response.split("```")[1].split("```")[0].strip()
 
-            data = json.loads(json_str)
+            data = DirectorDecisionPayload.model_validate_json(json_str)
 
-            if not data.get("should_intervene", False):
+            if not data.should_intervene:
                 return None
 
-            scene_goal = data.get("scene_goal", "none")
+            scene_goal = data.scene_goal
             if scene_goal == "none":
                 return None
 
-            target_names = data.get("target_agent_names", [])
+            target_names = data.target_agent_names
             target_agent_ids = []
             for name in target_names:
                 for agent in cast_agents:
@@ -269,23 +313,20 @@ class DirectorAgent:
                         target_agent_ids.append(agent.get("id", ""))
                         break
 
-            if not target_agent_ids and cast_agents:
-                target_agent_ids = [cast_agents[0].get("id", "")]
-
             return DirectorPlan(
                 scene_goal=scene_goal,
                 target_agent_ids=target_agent_ids,
-                priority=data.get("priority", "normal"),
-                urgency=data.get("urgency", "advisory"),
-                message_hint=data.get("message_hint"),
+                priority=data.priority,
+                urgency=data.urgency,
+                message_hint=data.message_hint,
                 target_agent_id=context.assessment.subject_agent_id,
-                reason=data.get("reasoning", "LLM-based intervention decision"),
-                cooldown_ticks=data.get("cooldown_ticks", 3),
+                reason=data.reasoning,
+                cooldown_ticks=data.cooldown_ticks,
                 is_intelligent_decision=True,
-                strategy=data.get("strategy"),
+                strategy=data.strategy,
             )
 
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, ValidationError) as exc:
             msg = f"Failed to parse DirectorAgent response: {exc}"
             raise ValueError(msg) from exc
         except Exception as exc:

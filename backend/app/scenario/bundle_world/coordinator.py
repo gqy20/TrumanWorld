@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from app.cognition.types import BackendExecutionContext
+from app.director.candidates import (
+    build_actor_candidates,
+    format_recent_event,
+    rank_eligible_candidates,
+)
 from app.director.directives import DirectorDirective, compile_directives
 from app.director.observer import DirectorAssessment, DirectorObserver, DirectorObserverSemantics
 from app.director.planner import DirectorPlanner, DirectorPlannerSemantics
@@ -23,6 +29,7 @@ from app.store.repositories import (
     LocationRepository,
     RunRepository,
 )
+from app.store.models import DirectorMemory
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,12 +127,62 @@ class BundleWorldCoordinator:
                     self._convert_memory_to_plan(memory), run_id, run.current_tick, agents
                 )
 
-        if not self.settings.director_auto_intervention_enabled:
+        if active_directives:
             return self._plan_from_active(active_directives)
+
+        replan = await self._build_replan_plan(run_id, run.current_tick, agents)
+        if replan is not None:
+            return await self._attach_directives(replan, run_id, run.current_tick, agents)
+
+        if not self.settings.director_auto_intervention_enabled:
+            return None
         plan = await self._build_auto_plan(run_id, agents)
         if plan is None:
-            return self._plan_from_active(active_directives)
+            return None
         return await self._attach_directives(plan, run_id, run.current_tick, agents)
+
+    async def _build_replan_plan(
+        self, run_id: str, current_tick: int, agents: list[Agent]
+    ) -> DirectorPlan | None:
+        if self.director_directive_repo is None or self.event_repo is None:
+            return None
+        drifted = list(await self.director_directive_repo.list_needing_replan(run_id))
+        if not drifted:
+            return None
+        events = list(await self.event_repo.list_for_run(run_id, limit=30))
+        subject_agent_id = drifted[0].subject_agent_id
+        candidates = build_actor_candidates(
+            agents=agents,
+            events=events,
+            current_tick=current_tick,
+            subject_agent_id=subject_agent_id,
+        )
+        support_roles = set(self._runtime_role_semantics.support_roles)
+        support_candidates = {
+            agent_id: candidate
+            for agent_id, candidate in candidates.items()
+            if get_world_role(candidate.profile) in support_roles
+        }
+        ranked = rank_eligible_candidates(
+            support_candidates,
+            excluded_agent_ids={directive.target_agent_id for directive in drifted},
+        )
+        if not ranked:
+            return None
+        previous = drifted[0]
+        return DirectorPlan(
+            scene_goal=previous.objective,
+            target_agent_ids=[ranked[0].agent_id],
+            target_agent_id=previous.subject_agent_id,
+            priority="high",
+            urgency="immediate",
+            message_hint=previous.message_hint,
+            reason="Previous actor drifted from the objective; reassigned to an available actor.",
+            cooldown_ticks=max(2, previous.expires_at_tick - previous.issued_tick),
+            source_type="replan",
+            source_memory_id=previous.source_memory_id,
+            replaces_directive_ids=[directive.id for directive in drifted],
+        )
 
     async def _attach_directives(
         self,
@@ -164,6 +221,10 @@ class BundleWorldCoordinator:
                 constraints=dict(row.constraints_json or {}),
                 completion_criteria=dict(row.completion_criteria_json or {}),
                 source=row.source,
+                source_memory_id=row.source_memory_id,
+                attempt_count=row.attempt_count,
+                last_attempt_tick=row.last_attempt_tick,
+                last_progress_tick=row.last_progress_tick,
             )
             for row in rows
         ]
@@ -236,13 +297,23 @@ class BundleWorldCoordinator:
             previous_subject_alert_score=previous_subject_alert_score,
         )
 
+        agent_names = {agent.id: agent.name for agent in agents}
+        locations = await self.location_repo.list_for_run(run_id) if self.location_repo else []
+        location_names = {location.id: location.name for location in locations}
+        actor_candidates = build_actor_candidates(
+            agents=agents,
+            events=list(raw_events),
+            current_tick=run.current_tick,
+            subject_agent_id=assessment.subject_agent_id,
+        )
+
         recent_events: list[dict[str, Any]] = [
-            {
-                "tick_no": e.tick_no,
-                "event_type": e.event_type,
-                "description": str(e.payload)[:100] if e.payload else "N/A",
-            }
-            for e in raw_events
+            format_recent_event(
+                event,
+                agent_names=agent_names,
+                location_names=location_names,
+            )
+            for event in raw_events
         ]
 
         world_time = get_run_world_time(run).isoformat()
@@ -272,6 +343,7 @@ class BundleWorldCoordinator:
                 world_time=world_time,
                 run_id=run_id,
                 runtime_ctx=runtime_ctx,
+                actor_candidates=actor_candidates,
             )
         except Exception as exc:
             logger.warning(
@@ -318,29 +390,44 @@ class BundleWorldCoordinator:
         tick_no = run.current_tick if run is not None else 0
         if plan.source_type == "active":
             return
+        if plan.source_memory_id is None:
+            memory = await self.director_memory_repo.create(
+                run_id=run_id,
+                tick_no=tick_no,
+                scene_goal=plan.scene_goal,
+                target_agent_ids=plan.target_agent_ids,
+                priority=plan.priority,
+                urgency=plan.urgency,
+                message_hint=plan.message_hint,
+                target_agent_id=plan.target_agent_id,
+                reason=plan.reason,
+                trigger_subject_alert_score=(
+                    assessment.subject_alert_score
+                    if assessment
+                    else plan.trigger_subject_alert_score
+                ),
+                trigger_continuity_risk=(
+                    assessment.continuity_risk if assessment else plan.trigger_continuity_risk
+                ),
+                cooldown_ticks=plan.cooldown_ticks,
+                commit=False,
+            )
+            plan.source_memory_id = memory.id
+            plan.directives = [
+                replace(directive, source_memory_id=memory.id) for directive in plan.directives
+            ]
         if self.director_directive_repo is not None:
             await self.director_directive_repo.add_many(plan.directives)
+            if plan.replaces_directive_ids and plan.directives:
+                await self.session.flush()
+                await self.director_directive_repo.mark_replanned(
+                    plan.replaces_directive_ids, plan.directives[0].id
+                )
         if plan.source_type == "manual" and plan.source_memory_id:
-            await self.director_memory_repo.mark_executed(plan.source_memory_id)
-            return
-        await self.director_memory_repo.create(
-            run_id=run_id,
-            tick_no=tick_no,
-            scene_goal=plan.scene_goal,
-            target_agent_ids=plan.target_agent_ids,
-            priority=plan.priority,
-            urgency=plan.urgency,
-            message_hint=plan.message_hint,
-            target_agent_id=plan.target_agent_id,
-            reason=plan.reason,
-            trigger_subject_alert_score=(
-                assessment.subject_alert_score if assessment else plan.trigger_subject_alert_score
-            ),
-            trigger_continuity_risk=(
-                assessment.continuity_risk if assessment else plan.trigger_continuity_risk
-            ),
-            cooldown_ticks=plan.cooldown_ticks,
-        )
+            memory = await self.session.get(DirectorMemory, plan.source_memory_id)
+            if memory is not None:
+                memory.was_executed = True
+        await self.session.commit()
         if plan.is_intelligent_decision:
             logger.info(
                 f"Saved intelligent director plan at tick {tick_no}: "

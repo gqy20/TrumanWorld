@@ -326,6 +326,8 @@ async def test_get_director_directives_supports_status_and_detail(client, db_ses
     assert item["target_agent_name"] == "Meryl"
     assert item["subject_agent_name"] == "Truman"
     assert item["location_name"] == "Plaza"
+    assert item["attempt_count"] == 0
+    assert item["source_memory_id"] is None
     assert detail_response.status_code == 200
     assert detail_response.json()["completion_criteria"] == {"action_type": "talk"}
 

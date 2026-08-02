@@ -31,6 +31,7 @@ from app.store.models import (
     Location,
     SimulationRun,
 )
+from app.store.repositories import AgentRepository
 
 
 # ---------------------------------------------------------------------------
@@ -510,3 +511,78 @@ async def test_run_method_no_longer_triggers_planner():
 
     # run() 不再负责 Planner，应为 0 次
     mock_planning.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_reassigns_drifted_directive_to_available_actor(db_session):
+    run_id = "replan-run"
+    location_id = "replan-home"
+    db_session.add_all(
+        [
+            _make_run(run_id, current_tick=6),
+            _make_location(location_id, run_id),
+            _make_truman("replan-subject", run_id, location_id),
+            _make_cast("replan-busy", run_id, location_id),
+            Agent(
+                id="replan-ready",
+                run_id=run_id,
+                name="Lauren",
+                occupation="resident",
+                home_location_id=location_id,
+                current_location_id=location_id,
+                current_goal="rest",
+                personality={},
+                profile={"agent_config_id": "neighbor", "world_role": "cast"},
+                status={},
+                current_plan={},
+            ),
+            DirectorMemory(
+                id="replan-memory",
+                run_id=run_id,
+                tick_no=2,
+                scene_goal="soft_check_in",
+                target_agent_ids='["replan-busy"]',
+            ),
+            DirectorDirective(
+                id="replan-old",
+                run_id=run_id,
+                target_agent_id="replan-busy",
+                subject_agent_id="replan-subject",
+                objective="soft_check_in",
+                mode="priority",
+                priority="high",
+                status="failed",
+                issued_tick=2,
+                expires_at_tick=6,
+                constraints_json={},
+                completion_criteria_json={
+                    "action_type": "talk",
+                    "target_agent_id": "replan-subject",
+                },
+                source_memory_id="replan-memory",
+                attempt_count=3,
+                last_attempt_tick=5,
+                failure_reason="target_drift",
+            ),
+        ]
+    )
+    await db_session.commit()
+    agents = list(await AgentRepository(db_session).list_for_run(run_id))
+    coordinator = BundleWorldCoordinator(db_session)
+
+    plan = await coordinator.build_director_plan(run_id, agents)
+
+    assert plan is not None
+    assert plan.source_type == "replan"
+    assert plan.target_agent_ids == ["replan-ready"]
+    assert plan.source_memory_id == "replan-memory"
+    assert plan.replaces_directive_ids == ["replan-old"]
+
+    await coordinator.persist_director_plan(run_id, plan)
+    old = await db_session.get(DirectorDirective, "replan-old")
+    assert old is not None
+    assert old.failure_reason == "replanned"
+    assert old.replaced_by_directive_id == plan.directives[0].id
+    replacement = await db_session.get(DirectorDirective, plan.directives[0].id)
+    assert replacement is not None
+    assert replacement.source_memory_id == "replan-memory"

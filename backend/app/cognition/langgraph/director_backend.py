@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from langchain_core.runnables import Runnable
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import RetryPolicy
 
 from app.cognition.claude.director_agent import DirectorAgent
 from app.cognition.errors import UpstreamApiUnavailableError, is_upstream_api_unavailable_error
@@ -18,6 +19,7 @@ from app.cognition.langgraph.observability import (
 from app.cognition.protocols import ChatModelProtocol, DirectorIntervention
 from app.cognition.types import DirectorDecisionInvocation
 from app.infra.logging import get_logger
+from app.infra.metrics import observe_director_decision
 from app.infra.settings import Settings, get_settings
 
 if TYPE_CHECKING:
@@ -26,10 +28,13 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class _DirectorState(TypedDict):
+class _DirectorState(TypedDict, total=False):
     invocation: DirectorDecisionInvocation
     trace: LangGraphTrace
     result: DirectorIntervention | None
+    candidates: list[dict[str, Any]]
+    validation_error: str | None
+    outcome: str
 
 
 class LangGraphDirectorBackend:
@@ -55,9 +60,27 @@ class LangGraphDirectorBackend:
             text_model or self._build_default_model()
         )
         graph = StateGraph(_DirectorState)
-        graph.add_node("model_propose", self._propose_node)
-        graph.add_edge(START, "model_propose")
-        graph.add_edge("model_propose", END)
+        graph.add_node("select_candidates", self._select_candidates_node)
+        graph.add_node(
+            "model_propose",
+            self._propose_node,
+            retry_policy=RetryPolicy(max_attempts=2),
+        )
+        graph.add_node("validate_proposal", self._validate_node)
+        graph.add_node("repair_target", self._repair_target_node)
+        graph.add_edge(START, "select_candidates")
+        graph.add_conditional_edges(
+            "select_candidates",
+            self._route_after_selection,
+            {"propose": "model_propose", "end": END},
+        )
+        graph.add_edge("model_propose", "validate_proposal")
+        graph.add_conditional_edges(
+            "validate_proposal",
+            self._route_after_validation,
+            {"repair": "repair_target", "end": END},
+        )
+        graph.add_edge("repair_target", END)
         self._graph = graph.compile()
 
     def is_enabled(self) -> bool:
@@ -92,22 +115,72 @@ class LangGraphDirectorBackend:
             model=self._settings.director_agent_model or self._settings.llm_model,
         )
         state = await self._graph.ainvoke(
-            {"invocation": invocation, "trace": trace, "result": None},
+            {
+                "invocation": invocation,
+                "trace": trace,
+                "result": None,
+                "candidates": [],
+                "validation_error": None,
+                "outcome": "noop",
+            },
             config=trace.runnable_config(LangGraphLoggingCallback(trace)),
         )
+        observe_director_decision(outcome=state.get("outcome", "noop"))
         return state["result"]
 
+    async def _select_candidates_node(self, state: _DirectorState) -> dict[str, Any]:
+        candidates = self._agent._select_support_agents(state["invocation"].context)
+        return {
+            "candidates": candidates,
+            "outcome": "candidate_selected" if candidates else "no_candidates",
+        }
+
+    @staticmethod
+    def _route_after_selection(state: _DirectorState) -> str:
+        return "propose" if state.get("candidates") else "end"
+
     async def _propose_node(self, state: _DirectorState) -> dict[str, Any]:
-        result = await self._propose_once(state["invocation"], state["trace"])
+        result = await self._propose_once(
+            state["invocation"], state["trace"], state.get("candidates") or []
+        )
         return {"result": result}
+
+    @staticmethod
+    async def _validate_node(state: _DirectorState) -> dict[str, Any]:
+        result = state.get("result")
+        if result is None:
+            return {"validation_error": None, "outcome": "noop"}
+        candidate_ids = {candidate.get("id") for candidate in state.get("candidates") or []}
+        if result.target_agent_ids and all(
+            target_id in candidate_ids for target_id in result.target_agent_ids
+        ):
+            return {"validation_error": None, "outcome": "proposed"}
+        return {"validation_error": "unavailable_target", "outcome": "invalid_target"}
+
+    @staticmethod
+    def _route_after_validation(state: _DirectorState) -> str:
+        return "repair" if state.get("validation_error") else "end"
+
+    @staticmethod
+    async def _repair_target_node(state: _DirectorState) -> dict[str, Any]:
+        result = state.get("result")
+        candidates = state.get("candidates") or []
+        if result is None or not candidates:
+            return {"result": None, "outcome": "invalid_target"}
+        result.target_agent_ids = [candidates[0]["id"]]
+        return {
+            "result": result,
+            "validation_error": None,
+            "outcome": "repaired",
+        }
 
     async def _propose_once(
         self,
         invocation: DirectorDecisionInvocation,
         trace: LangGraphTrace,
+        support_agents: list[dict[str, Any]],
     ) -> DirectorIntervention | None:
         context = invocation.context
-        support_agents = self._agent._select_support_agents(context)
         if not support_agents or context.assessment.subject_agent_id is None:
             return None
 

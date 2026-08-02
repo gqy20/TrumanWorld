@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from app.infra.metrics import REGISTRY, observe_langgraph_retry, observe_llm_records
+from app.infra.metrics import (
+    REGISTRY,
+    observe_director_decision,
+    observe_director_directive,
+    observe_langgraph_retry,
+    observe_llm_records,
+)
 from app.store.models import LlmCall
 
 
@@ -41,3 +47,26 @@ def test_langgraph_retry_metric_uses_bounded_labels() -> None:
 
     after = REGISTRY.get_sample_value("trumanworld_langgraph_retry_total", labels)
     assert after == before + 1
+
+
+def test_director_business_metrics_track_outcomes_and_response_lag() -> None:
+    decision_labels = {"outcome": "repaired_test"}
+    directive_labels = {"outcome": "acknowledged_test", "mode": "priority"}
+    before_decisions = (
+        REGISTRY.get_sample_value("trumanworld_director_decision_total", decision_labels) or 0
+    )
+    before_directives = (
+        REGISTRY.get_sample_value("trumanworld_director_directive_total", directive_labels) or 0
+    )
+
+    observe_director_decision(outcome="repaired_test")
+    observe_director_directive(outcome="acknowledged_test", mode="priority", response_ticks=2)
+
+    assert (
+        REGISTRY.get_sample_value("trumanworld_director_decision_total", decision_labels)
+        == before_decisions + 1
+    )
+    assert (
+        REGISTRY.get_sample_value("trumanworld_director_directive_total", directive_labels)
+        == before_directives + 1
+    )

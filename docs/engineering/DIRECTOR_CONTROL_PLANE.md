@@ -5,7 +5,8 @@ directive，Actor cognition 显式接收 directive，模拟执行层仍通过 `A
 
 ```text
 World snapshot
-  -> Director StateGraph
+  -> candidate availability ranking
+  -> Director StateGraph (select -> propose -> validate -> repair)
   -> DirectorPlan proposal
   -> validated DirectorDirective
   -> AgentActionInvocation.directives
@@ -21,6 +22,19 @@ World snapshot
 directive 状态为 `pending`、`active`、`succeeded`、`failed`、`expired` 或 `cancelled`。
 同一角色收到新 directive 时，旧的活跃 directive 会以 `superseded` 原因取消。超过
 `expires_at_tick` 的任务会自动过期。
+
+每条 directive 通过 `source_memory_id` 关联导演记忆，并记录 `attempt_count`、最后尝试、最后
+有效进展、最后动作和替代指令。记忆的消费与效果状态由真实执行结果派生，不再只表示计划已生成。
+
+## 候选角色与自适应执行
+
+导演只会看到可执行候选人。正在移动或与非主体角色交谈的 Actor 会被排除；已经与主体交谈的
+Actor 会优先于空闲但距离更远的角色。模型返回后，LangGraph validation 节点会再次校验目标，
+无效目标由 repair 节点确定性替换。
+
+Actor 接受指令但动作不满足 completion criteria 时会累计尝试：第二次偏离将 advisory 升级为
+priority，第三次偏离标记为 `target_drift`。下一个 tick 会把原目标重新分配给另一名可用角色，
+并通过 `replaced_by_directive_id` 保留完整追踪链。
 
 ## 控制模式
 
@@ -49,3 +63,7 @@ inline 与 isolated tick 都执行以下生命周期：
 自动导演仍由 `TRUMANWORLD_DIRECTOR_AUTO_INTERVENTION_ENABLED` 控制，认知后端由
 `TRUMANWORLD_DIRECTOR_BACKEND` 选择。决策间隔使用
 `TRUMANWORLD_DIRECTOR_DECISION_INTERVAL`，最小值为 1。
+
+Prometheus 指标包括 `trumanworld_director_decision_total`、
+`trumanworld_director_directive_total` 和 `trumanworld_director_directive_response_ticks`，用于区分
+图运行成功与业务目标真正达成。

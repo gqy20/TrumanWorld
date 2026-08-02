@@ -27,6 +27,10 @@ class DirectorDirective:
     constraints: dict[str, Any] = field(default_factory=dict)
     completion_criteria: dict[str, Any] = field(default_factory=dict)
     source: str = "auto"
+    source_memory_id: str | None = None
+    attempt_count: int = 0
+    last_attempt_tick: int | None = None
+    last_progress_tick: int | None = None
 
     def as_context(self) -> dict[str, Any]:
         return asdict(self)
@@ -67,6 +71,7 @@ def compile_directives(
             ),
             completion_criteria=_build_completion_criteria(plan),
             source=plan.source_type,
+            source_memory_id=plan.source_memory_id,
         )
         for agent_id in targets
     ]

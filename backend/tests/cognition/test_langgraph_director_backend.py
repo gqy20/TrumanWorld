@@ -121,6 +121,78 @@ async def test_langgraph_director_backend_proposes_plan() -> None:
     assert collector.records[0].input_tokens == 17
 
 
+async def test_langgraph_director_repairs_unavailable_model_target() -> None:
+    from app.cognition.claude.director_agent import DirectorContext
+    from app.cognition.langgraph.director_backend import LangGraphDirectorBackend
+
+    class FakeTextModel:
+        async def ainvoke(self, prompt: str):
+            return type(
+                "Response",
+                (),
+                {
+                    "content": """
+                    {
+                      "should_intervene": true,
+                      "scene_goal": "soft_check_in",
+                      "target_agent_names": ["Marlon"],
+                      "priority": "normal",
+                      "urgency": "advisory"
+                    }
+                    """
+                },
+            )()
+
+    context = DirectorContext(
+        run_id="run-1",
+        current_tick=5,
+        assessment=DirectorAssessment(
+            run_id="run-1",
+            current_tick=5,
+            subject_agent_id="truman-1",
+            subject_alert_score=0.9,
+            suspicion_level="high",
+            continuity_risk="watch",
+        ),
+        agents=[
+            {
+                "id": "busy",
+                "name": "Marlon",
+                "profile": {"world_role": "cast"},
+                "availability": "in_conversation",
+                "eligible": False,
+            },
+            {
+                "id": "ready",
+                "name": "Lauren",
+                "profile": {"world_role": "cast"},
+                "availability": "available",
+                "eligible": True,
+                "same_location_as_subject": True,
+            },
+        ],
+        support_roles=["cast"],
+        recent_events=[],
+        recent_interventions=[],
+        world_time="2026-03-02T08:00:00+00:00",
+    )
+    backend = LangGraphDirectorBackend(
+        settings=Settings(
+            agent_backend="heuristic",
+            director_backend="langgraph",
+            llm_api_key="test",
+        ),
+        text_model=FakeTextModel(),
+    )
+
+    result = await backend.propose_intervention(
+        DirectorDecisionInvocation(prompt="", context=context, recent_goals=set())
+    )
+
+    assert result is not None
+    assert result.target_agent_ids == ["ready"]
+
+
 def test_director_agent_parse_response_prefers_target_agent_names() -> None:
     from app.cognition.claude.director_agent import DirectorAgent, DirectorContext
 

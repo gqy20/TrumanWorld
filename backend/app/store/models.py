@@ -390,8 +390,19 @@ class DirectorDirective(Base):
     constraints_json: Mapped[dict] = mapped_column(JSON, default=dict)
     completion_criteria_json: Mapped[dict] = mapped_column(JSON, default=dict)
     source: Mapped[str] = mapped_column(String(20), default="auto")
+    source_memory_id: Mapped[str | None] = mapped_column(
+        ForeignKey("director_memories.id", ondelete="SET NULL")
+    )
     disposition: Mapped[str | None] = mapped_column(String(20))
     failure_reason: Mapped[str | None] = mapped_column(String(100))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_attempt_tick: Mapped[int | None] = mapped_column(Integer)
+    last_progress_tick: Mapped[int | None] = mapped_column(Integer)
+    last_result_action_type: Mapped[str | None] = mapped_column(String(50))
+    last_result_target_agent_id: Mapped[str | None] = mapped_column(String(64))
+    replaced_by_directive_id: Mapped[str | None] = mapped_column(
+        ForeignKey("director_directives.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

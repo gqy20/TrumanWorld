@@ -52,6 +52,7 @@ truman doctor
 truman system status
 truman system access
 truman system scenarios
+truman scenario list
 
 truman run list
 truman run create --name smoke --scenario narrative_world --paused
@@ -91,6 +92,7 @@ truman agent economy <run-id> <agent-id>
 truman agent governance <run-id> <agent-id>
 
 truman timeline list <run-id> --tick-from 10 --event-type talk
+truman timeline list <run-id> --oldest-first
 truman --output ndjson timeline follow <run-id> --since-tick 10
 ```
 
@@ -128,8 +130,8 @@ truman evaluate <run-id>
 truman evaluate <run-id> --ticks 20 --output-file artifacts/run-quality.json
 ```
 
-`directives` 用于检查导演控制闭环，包括 Actor、目标、控制模式、生命周期状态、回执和失败
-原因。`directive` 接受完整 ID 或唯一短前缀。在 `truman play` 控制台中可使用
+`directives` 用于检查导演控制闭环，包括 Actor、目标、控制模式、生命周期状态、回执、尝试
+次数、最后尝试 tick 和失败原因。`directive` 接受完整 ID 或唯一短前缀。在 `truman play` 控制台中可使用
 `directives`（简写 `d`）快速查看最近 20 条指令。
 
 带 `--ticks` 的评估会产生真实模型调用，且要求 run 先暂停。只读评估不推进世界。

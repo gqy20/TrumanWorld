@@ -28,6 +28,7 @@ world_app = typer.Typer(help="Inspect world snapshots and cost telemetry.")
 agent_app = typer.Typer(help="Inspect residents, memories, governance, and economy.")
 timeline_app = typer.Typer(help="Query or follow the event timeline.")
 director_app = typer.Typer(help="Observe and intervene as the director.")
+scenario_app = typer.Typer(help="Discover registered simulation scenarios.")
 
 app.add_typer(config_app, name="config")
 app.add_typer(system_app, name="system")
@@ -36,6 +37,7 @@ app.add_typer(world_app, name="world")
 app.add_typer(agent_app, name="agent")
 app.add_typer(timeline_app, name="timeline")
 app.add_typer(director_app, name="director")
+app.add_typer(scenario_app, name="scenario")
 
 
 @dataclass(slots=True)
@@ -407,6 +409,11 @@ def system_access(ctx: typer.Context) -> None:
 
 @system_app.command("scenarios")
 def scenarios(ctx: typer.Context) -> None:
+    scenario_list(ctx)
+
+
+@scenario_app.command("list")
+def scenario_list(ctx: typer.Context) -> None:
     runtime = rt(ctx)
     rows = runtime.client.get("scenarios")
     runtime.renderer.rows(
@@ -835,7 +842,9 @@ def timeline_list(
     event_type: str | None = typer.Option(None, "--event-type"),
     agent: str | None = typer.Option(None, "--agent"),
     limit: int = typer.Option(100, min=1, max=1000),
-    newest_first: bool = typer.Option(False, "--newest-first"),
+    newest_first: bool = typer.Option(
+        True, "--newest-first/--oldest-first", help="Show latest events first by default."
+    ),
 ) -> None:
     runtime = rt(ctx)
     run_id = _resolve_run_id(runtime, run_id)
@@ -925,6 +934,8 @@ def director_directives(
             ("mode", "Mode"),
             ("status", "Status"),
             ("disposition", "Receipt"),
+            ("attempt_count", "Attempts"),
+            ("last_attempt_tick", "Last tick"),
             ("failure_reason", "Reason"),
         ),
         title="Director directives",

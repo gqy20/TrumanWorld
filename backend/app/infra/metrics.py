@@ -156,6 +156,28 @@ LANGGRAPH_FALLBACK_TOTAL = Counter(
     registry=REGISTRY,
 )
 
+DIRECTOR_DECISION_TOTAL = Counter(
+    "trumanworld_director_decision_total",
+    "Director decisions by outcome.",
+    labelnames=("outcome",),
+    registry=REGISTRY,
+)
+
+DIRECTOR_DIRECTIVE_TOTAL = Counter(
+    "trumanworld_director_directive_total",
+    "Director directive lifecycle transitions.",
+    labelnames=("outcome", "mode"),
+    registry=REGISTRY,
+)
+
+DIRECTOR_DIRECTIVE_RESPONSE_TICKS = Histogram(
+    "trumanworld_director_directive_response_ticks",
+    "Ticks from directive issue to first actor response.",
+    labelnames=("mode",),
+    buckets=(0, 1, 2, 3, 5, 8, 13, 21),
+    registry=REGISTRY,
+)
+
 
 def observe_tick(*, mode: str, status: str, duration_seconds: float) -> None:
     TICK_TOTAL.labels(mode=mode, status=status).inc()
@@ -235,6 +257,18 @@ def observe_langgraph_fallback(
         to_path=to_path,
         reason=reason,
     ).inc()
+
+
+def observe_director_decision(*, outcome: str) -> None:
+    DIRECTOR_DECISION_TOTAL.labels(outcome=outcome).inc()
+
+
+def observe_director_directive(
+    *, outcome: str, mode: str, response_ticks: int | None = None
+) -> None:
+    DIRECTOR_DIRECTIVE_TOTAL.labels(outcome=outcome, mode=mode).inc()
+    if response_ticks is not None:
+        DIRECTOR_DIRECTIVE_RESPONSE_TICKS.labels(mode=mode).observe(max(0, response_ticks))
 
 
 def render_metrics() -> tuple[bytes, str]:

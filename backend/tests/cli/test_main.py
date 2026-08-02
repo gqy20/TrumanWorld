@@ -43,6 +43,40 @@ def test_run_create_paused_sends_auto_start_false(monkeypatch):
     assert recorded["body"]["auto_start"] is False
 
 
+def test_scenario_list_exposes_registered_scenarios(monkeypatch):
+    monkeypatch.setattr(
+        ApiClient,
+        "get",
+        lambda _self, path, **_kwargs: (
+            [{"id": "narrative_world", "name": "Narrative World", "version": "1"}]
+            if path == "scenarios"
+            else {}
+        ),
+    )
+
+    result = runner.invoke(app, ["--output", "json", "scenario", "list"])
+
+    assert result.exit_code == 0
+    assert '"id": "narrative_world"' in result.stdout
+
+
+def test_timeline_list_requests_latest_events_by_default(monkeypatch):
+    requests = []
+
+    def fake_get(_self, path, **kwargs):
+        requests.append((path, kwargs.get("params")))
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        return {"events": []}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(app, ["--output", "json", "timeline", "list", "Town"])
+
+    assert result.exit_code == 0
+    assert requests[-1][1]["order_desc"] is True
+
+
 def test_run_show_resolves_short_id(monkeypatch):
     requested: list[str] = []
 

@@ -25,6 +25,7 @@ class DirectorMemoryRepository:
         trigger_continuity_risk: str = "stable",
         cooldown_ticks: int = 3,
         location_hint: str | None = None,
+        commit: bool = True,
     ) -> DirectorMemory:
         """创建导演干预记忆"""
         resolved_target_agent_ids = list(target_agent_ids or [])
@@ -51,8 +52,11 @@ class DirectorMemoryRepository:
             metadata_json=metadata_json,
         )
         self.session.add(memory)
-        await self.session.commit()
-        await self.session.refresh(memory)
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(memory)
+        else:
+            await self.session.flush()
         return memory
 
     async def list_for_run(
