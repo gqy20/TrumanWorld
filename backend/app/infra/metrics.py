@@ -50,6 +50,20 @@ DATABASE_DURATION_SECONDS = Histogram(
     registry=REGISTRY,
 )
 
+HTTP_REQUEST_TOTAL = Counter(
+    "trumanworld_http_request_total",
+    "Total HTTP requests handled by the API.",
+    labelnames=("method", "route", "status_code"),
+    registry=REGISTRY,
+)
+
+HTTP_REQUEST_DURATION_SECONDS = Histogram(
+    "trumanworld_http_request_duration_seconds",
+    "HTTP request duration in seconds.",
+    labelnames=("method", "route"),
+    registry=REGISTRY,
+)
+
 ACTIVE_RUNS = Gauge(
     "trumanworld_active_runs",
     "Number of currently scheduled runs.",
@@ -119,6 +133,18 @@ def observe_database_operation(
 ) -> None:
     DATABASE_QUERIES_PER_OPERATION.labels(operation=operation).observe(query_count)
     DATABASE_DURATION_SECONDS.labels(operation=operation).observe(duration_seconds)
+
+
+def observe_http_request(
+    *, method: str, route: str, status_code: int, duration_seconds: float
+) -> None:
+    """Record bounded-cardinality request metrics using the route template."""
+    HTTP_REQUEST_TOTAL.labels(
+        method=method,
+        route=route,
+        status_code=str(status_code),
+    ).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels(method=method, route=route).observe(duration_seconds)
 
 
 def observe_llm_records(llm_records: list) -> None:

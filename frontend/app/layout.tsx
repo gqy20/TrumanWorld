@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   },
 };
 
+// The shell loads live run state on every request and must not be statically rendered.
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const railwayBackendApiBaseUrl = process.env.RAILWAY_SERVICE_BACKEND_URL
     ? `https://${process.env.RAILWAY_SERVICE_BACKEND_URL.replace(/\/$/, "")}/api`

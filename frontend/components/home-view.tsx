@@ -10,7 +10,7 @@ import { RunControls } from "@/components/run-controls";
 import { useRuns } from "@/components/runs-provider";
 
 export function HomeView() {
-  const { runs, error } = useRuns();
+  const { runs, error, requestId } = useRuns();
   const { adminAuthorized, writeProtected } = useDemoAccess();
   const [visible, setVisible] = useState(false);
 
@@ -106,7 +106,16 @@ export function HomeView() {
               </div>
               {error && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
-                  {error === "network_error" ? "后端当前不可达，列表展示的是空状态。" : "运行列表加载失败。"}
+                  {error === "network_error"
+                    ? "后端当前不可达，列表展示的是空状态。"
+                    : error === "timeout_error"
+                      ? "后端响应超时，请稍后重试。"
+                      : "运行列表加载失败。"}
+                  {requestId ? (
+                    <span className="ml-2 font-mono text-xs text-amber-700">
+                      问题编号：{requestId}
+                    </span>
+                  ) : null}
                 </div>
               )}
               <RunList runs={runs} />

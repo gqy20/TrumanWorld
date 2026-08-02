@@ -9,7 +9,9 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+
+LOG_RETENTION_DAYS ?= 7
 
 # 同步 agent logo 到前端 public 目录
 sync-agent-logos:
@@ -49,6 +51,11 @@ frontend-dev: frontend-clean-port sync-agent-logos
 	LOG_FILE_FRONTEND="$(CURDIR)/$(LOGS_DIR)/dev_$${LOG_TIMESTAMP}_frontend.log"; \
 	echo "📝 前端日志: $${LOG_FILE_FRONTEND}"; \
 	cd $(FRONTEND_DIR) && INTERNAL_API_BASE_URL=http://127.0.0.1:$(BACKEND_PORT)/api NEXT_PUBLIC_API_BASE_URL=/api pnpm dev --port $(FRONTEND_PORT) --hostname 0.0.0.0 2>&1 | tee "$${LOG_FILE_FRONTEND}"
+
+logs-prune:
+	@mkdir -p $(LOGS_DIR)
+	@echo "清理 $(LOG_RETENTION_DAYS) 天前的本地开发日志"
+	@find "$(CURDIR)/$(LOGS_DIR)" -maxdepth 1 -type f -name 'dev_*.log' -mtime +$(LOG_RETENTION_DAYS) -print -delete
 
 frontend-clean-port:
 	@echo "🧹 清理前端端口和锁文件..."

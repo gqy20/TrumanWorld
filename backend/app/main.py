@@ -14,7 +14,7 @@ from app.api.errors import default_error_code
 from app.api.schemas.simulation import ErrorResponse, ValidationErrorResponse
 from app.infra.db import get_db_session_context
 from app.infra.logging import get_logger, info, reset_request_id, set_request_id
-from app.infra.metrics import observe_database_operation
+from app.infra.metrics import observe_database_operation, observe_http_request
 from app.infra.settings import get_settings
 from app.infra.sql_observability import track_sql_queries
 from app.store.repositories import RunRepository
@@ -38,8 +38,10 @@ async def lifespan(app: FastAPI):
                     f"{[r.id for r in reset_runs]}"
                 )
             break  # Only need one session
-    except Exception as e:
-        logger.error(f"Failed to reset running runs on startup: {e}")
+    except Exception:
+        logger.exception(
+            "Failed to reset running runs on startup", extra={"event": "startup_error"}
+        )
 
     yield  # Application runs here
 
@@ -49,15 +51,18 @@ async def lifespan(app: FastAPI):
         from app.sim.scheduler import get_scheduler
 
         await get_scheduler().stop_all()
-    except Exception as e:
-        logger.warning(f"Failed to stop scheduler on shutdown: {e}")
+    except Exception:
+        logger.exception("Failed to stop scheduler on shutdown", extra={"event": "shutdown_error"})
 
     try:
         from app.cognition.registry import get_cognition_registry
 
         await get_cognition_registry().cleanup()
-    except Exception as e:
-        logger.warning(f"Failed to close connection pool on shutdown: {e}")
+    except Exception:
+        logger.exception(
+            "Failed to close connection pool on shutdown",
+            extra={"event": "shutdown_error"},
+        )
 
 
 def create_app() -> FastAPI:
@@ -218,11 +223,21 @@ Prometheus 指标暴露，供监控系统抓取。
             finally:
                 duration_ms = round((perf_counter() - started_at) * 1000, 2)
                 route = request.scope.get("route")
-                operation = f"http.{getattr(route, 'name', 'unmatched')}"
+                route_name = getattr(route, "name", "unmatched")
+                route_template = getattr(route, "path_format", None) or getattr(
+                    route, "path", "unmatched"
+                )
+                operation = f"http.{route_name}"
                 observe_database_operation(
                     operation=operation,
                     query_count=database_stats.query_count,
                     duration_seconds=database_stats.duration_seconds,
+                )
+                observe_http_request(
+                    method=request.method,
+                    route=route_template,
+                    status_code=status_code,
+                    duration_seconds=duration_ms / 1000,
                 )
                 logger.info(
                     "HTTP request completed",
@@ -230,6 +245,8 @@ Prometheus 指标暴露，供监控系统抓取。
                         "event": "http_request",
                         "method": request.method,
                         "path": request.url.path,
+                        "route": route_template,
+                        "operation": operation,
                         "status_code": status_code,
                         "duration_ms": duration_ms,
                         "db_query_count": database_stats.query_count,

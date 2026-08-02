@@ -19,6 +19,12 @@ describe("ErrorState", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it("renders a request id for support correlation", () => {
+    render(<ErrorState message="加载失败" requestId="req-12345678" />);
+
+    expect(screen.getByText("问题编号：req-12345678")).toBeInTheDocument();
+  });
+
   it("does not render retry button when onRetry is not provided", () => {
     render(<ErrorState message="出错了" />);
 

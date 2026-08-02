@@ -1,8 +1,15 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   db:
     image: postgres:17.3
     container_name: trumanworld-db
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: trumanworld
       POSTGRES_USER: postgres
@@ -23,6 +30,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: trumanworld-backend
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +58,7 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: trumanworld-frontend
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       backend:
         condition: service_started

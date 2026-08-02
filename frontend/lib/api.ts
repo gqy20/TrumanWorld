@@ -18,6 +18,7 @@ import type {
   WorldPulse,
   WorldSnapshot,
 } from "@/lib/types";
+import { reportApplicationError } from "@/lib/observability";
 
 export type {
   AgentDetails,
@@ -50,6 +51,7 @@ export type ApiResult<T> = {
   errorCode: string | null;
   errorDetail: string | null;
   status: number | null;
+  requestId?: string;
 };
 
 type ErrorPayload = {
@@ -79,6 +81,24 @@ const RAILWAY_BACKEND_API_BASE_URL = process.env.RAILWAY_SERVICE_BACKEND_URL
   ? `https://${process.env.RAILWAY_SERVICE_BACKEND_URL.replace(/\/$/, "")}/api`
   : undefined;
 
+function normalizeRequestId(value: string | null | undefined): string | null {
+  return value && /^[A-Za-z0-9._:-]{8,128}$/.test(value) ? value : null;
+}
+
+function requestPath(url: string): string {
+  try {
+    return new URL(url, "http://trumanworld.local").pathname;
+  } catch {
+    return "invalid-url";
+  }
+}
+
+function isFrameworkControlFlowError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const digest = "digest" in error ? String(error.digest) : "";
+  return digest.includes("DYNAMIC_SERVER_USAGE") || error.message.includes("Dynamic server usage");
+}
+
 async function readErrorPayload(response: Response): Promise<ErrorPayload | null> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
@@ -92,7 +112,11 @@ async function readErrorPayload(response: Response): Promise<ErrorPayload | null
   }
 }
 
-function normalizeError(response: Response, payload: ErrorPayload | null) {
+function normalizeError(
+  response: Response,
+  payload: ErrorPayload | null,
+  requestId: string | null,
+) {
   const detail = payload?.detail;
   const firstValidationMessage =
     Array.isArray(detail) && detail.length > 0 ? detail[0]?.msg ?? null : null;
@@ -110,6 +134,7 @@ function normalizeError(response: Response, payload: ErrorPayload | null) {
     errorCode: payload?.code ?? null,
     errorDetail: typeof detail === "string" ? detail : firstValidationMessage,
     status: response.status,
+    ...(requestId ? { requestId } : {}),
   } satisfies ApiResult<never>;
 }
 
@@ -166,10 +191,14 @@ async function requestResultUrl<T>(
   url: string,
   { method = "GET", body, timeoutMs = 5000, headers = {} }: RequestOptions = {},
 ): Promise<ApiResult<T>> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
+  try {
     const response = await fetch(url, {
       method,
       cache: "no-store",
@@ -183,10 +212,19 @@ async function requestResultUrl<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 
-    clearTimeout(timeoutId);
+    const requestId = normalizeRequestId(response.headers?.get?.("x-request-id"));
 
     if (!response.ok) {
-      return normalizeError(response, await readErrorPayload(response));
+      if (response.status >= 500) {
+        reportApplicationError(new Error(`Backend returned ${response.status}`), {
+          event: "api_request_failed",
+          method,
+          path: requestPath(url),
+          requestId,
+          status: response.status,
+        });
+      }
+      return normalizeError(response, await readErrorPayload(response), requestId);
     }
 
     return {
@@ -195,15 +233,26 @@ async function requestResultUrl<T>(
       errorCode: null,
       errorDetail: null,
       status: response.status,
+      ...(requestId ? { requestId } : {}),
     };
-  } catch {
+  } catch (error) {
+    if (!isFrameworkControlFlowError(error)) {
+      reportApplicationError(error, {
+        event: timedOut ? "api_request_timeout" : "api_network_error",
+        method,
+        path: requestPath(url),
+        timeoutMs,
+      });
+    }
     return {
       data: null,
-      error: "network_error",
+      error: timedOut ? "timeout_error" : "network_error",
       errorCode: null,
       errorDetail: null,
       status: null,
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -64,6 +64,22 @@ describe('API', () => {
       })
     })
 
+    it('returns the backend request id for log correlation', async () => {
+      const mockRun: RunSummary = { id: '1', name: 'Test', status: 'running' }
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name: string) => name === 'x-request-id' ? 'req-12345678' : null,
+        },
+        json: async () => mockRun,
+      } as unknown as Response)
+
+      const result = await getRunResult('1')
+
+      expect(result.requestId).toBe('req-12345678')
+    })
+
     it('returns network_error on fetch failure', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
@@ -75,6 +91,17 @@ describe('API', () => {
         errorDetail: null,
         status: null,
       })
+    })
+
+    it('does not report Next.js dynamic-render control flow as an application error', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+      mockFetch.mockRejectedValueOnce(new Error('Dynamic server usage: route is dynamic'))
+
+      const result = await getRunResult('1')
+
+      expect(result.error).toBe('network_error')
+      expect(consoleSpy).not.toHaveBeenCalled()
+      consoleSpy.mockRestore()
     })
   })
 

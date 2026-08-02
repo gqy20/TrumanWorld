@@ -59,10 +59,16 @@ async def test_http_exception_handler_returns_normalized_error_payload(client):
 @pytest.mark.asyncio
 async def test_request_logging_middleware_reports_database_activity(client, monkeypatch):
     observations: list[dict] = []
+    http_observations: list[dict] = []
     monkeypatch.setattr(
         main_module,
         "observe_database_operation",
         lambda **fields: observations.append(fields),
+    )
+    monkeypatch.setattr(
+        main_module,
+        "observe_http_request",
+        lambda **fields: http_observations.append(fields),
     )
 
     response = await client.get("/api/health", headers={"x-request-id": "req-test-123"})
@@ -74,5 +80,13 @@ async def test_request_logging_middleware_reports_database_activity(client, monk
             "operation": "http.health_check",
             "query_count": 0,
             "duration_seconds": 0.0,
+        }
+    ]
+    assert http_observations == [
+        {
+            "method": "GET",
+            "route": "/api/health",
+            "status_code": 200,
+            "duration_seconds": pytest.approx(0, abs=1),
         }
     ]

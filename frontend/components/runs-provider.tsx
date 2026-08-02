@@ -11,6 +11,7 @@ type RunsContextValue = {
   runs: RunSummary[];
   error: string | null;
   status: number | null;
+  requestId: string | null;
   refreshRuns: () => Promise<ApiResult<RunSummary[]> | undefined>;
 };
 
@@ -39,6 +40,7 @@ export function RunsProvider({ children, initialResult }: RunsProviderProps) {
     runs: data?.data ?? [],
     error: data?.error ?? null,
     status: data?.status ?? null,
+    requestId: data?.requestId ?? null,
     refreshRuns: () => mutate(),
   };
 

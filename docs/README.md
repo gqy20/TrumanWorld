@@ -47,9 +47,10 @@
 
 ### 我想部署和排障
 
-1. 看 [operations/RAILWAY_DEPLOYMENT.md](operations/RAILWAY_DEPLOYMENT.md)
-2. 看 [operations/RUN_QUALITY.md](operations/RUN_QUALITY.md)
-3. 如需性能背景，补看 [operations/REACTOR_POOL_BENCHMARK.md](operations/REACTOR_POOL_BENCHMARK.md)
+1. 看 [operations/OBSERVABILITY.md](operations/OBSERVABILITY.md)
+2. 看 [operations/RAILWAY_DEPLOYMENT.md](operations/RAILWAY_DEPLOYMENT.md)
+3. 看 [operations/RUN_QUALITY.md](operations/RUN_QUALITY.md)
+4. 如需性能背景，补看 [operations/REACTOR_POOL_BENCHMARK.md](operations/REACTOR_POOL_BENCHMARK.md)
 
 ## 3. 文档约定
 

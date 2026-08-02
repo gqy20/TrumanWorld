@@ -228,7 +228,16 @@ class LangGraphAgentBackend:
             raise RuntimeError(msg)
         parsed = PromptLoader.extract_json_from_text(content)
         if parsed is None:
-            logger.warning(f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}")
+            logger.warning(
+                "LangGraph response was not valid JSON",
+                extra={
+                    "event": "llm_response_invalid",
+                    "run_id": runtime_ctx.run_id if runtime_ctx is not None else None,
+                    "agent_id": agent_id,
+                    "task": task,
+                    "response_length": len(content),
+                },
+            )
             logger.debug(
                 "langgraph_text_task_completed run_id=%s agent_id=%s task=%s duration_ms=%s "
                 "success=false reason=non_json",
@@ -237,7 +246,7 @@ class LangGraphAgentBackend:
                 task,
                 duration_ms,
             )
-            msg = f"LangGraph {task} returned non-JSON for {agent_id}: {content[:200]}"
+            msg = f"LangGraph {task} returned non-JSON for {agent_id}"
             raise ValueError(msg)
         else:
             logger.debug(

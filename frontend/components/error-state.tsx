@@ -2,9 +2,10 @@ interface ErrorStateProps {
   message: string;
   onRetry?: () => void;
   size?: "sm" | "md" | "lg";
+  requestId?: string | null;
 }
 
-export function ErrorState({ message, onRetry, size = "md" }: ErrorStateProps) {
+export function ErrorState({ message, onRetry, size = "md", requestId }: ErrorStateProps) {
   const iconSizes = {
     sm: "h-8 w-8",
     md: "h-12 w-12",
@@ -33,6 +34,9 @@ export function ErrorState({ message, onRetry, size = "md" }: ErrorStateProps) {
         />
       </svg>
       <p className={`mt-3 ${textSizes[size]} text-slate-500`}>{message}</p>
+      {requestId ? (
+        <p className="mt-1 font-mono text-[11px] text-slate-400">问题编号：{requestId}</p>
+      ) : null}
       {onRetry && (
         <button
           type="button"

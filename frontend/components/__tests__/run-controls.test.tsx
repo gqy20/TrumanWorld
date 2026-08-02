@@ -53,6 +53,7 @@ describe("RunControls", () => {
       runs: [],
       error: null,
       status: null,
+      requestId: null,
       refreshRuns: mockRefreshRuns,
     });
     mockPauseRunResult.mockResolvedValue(createMockApiResult(createMockRun({ status: "paused" })));
