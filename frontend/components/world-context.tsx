@@ -13,7 +13,7 @@ import {
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, getWorldPulseResult, type ApiResult } from "@/lib/api";
 import { EVENT_MOVE, EVENT_MOVE_ARRIVED } from "@/lib/simulation-protocol";
-import type { WorldEvent, WorldPulse, WorldSnapshot } from "@/lib/types";
+import type { RunSummary, WorldEvent, WorldPulse, WorldSnapshot } from "@/lib/types";
 import { useUiSearchParams } from "@/lib/ui-url-state";
 
 import { mergeWorldEvents, useWorldEventStream } from "./use-world-event-stream";
@@ -24,6 +24,7 @@ type WorldContextValue = {
   pulse: WorldPulse | null;
   error: string | null;
   isValidating: boolean;
+  updateRun: (run: RunSummary) => void;
   refresh: () => void;
 };
 
@@ -84,7 +85,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
       refreshInterval: (snapshot) =>
         pausePolling ? 0 : pollingInterval(snapshot, 15000),
       revalidateOnFocus: false,
-      revalidateOnMount: true,
+      revalidateOnMount: initialData == null,
       // Keep previous data during revalidation to prevent full-screen flash
       keepPreviousData: true,
     },
@@ -142,6 +143,22 @@ export function WorldProvider({ runId, initialData, children }: Props) {
     void mutatePulse();
   }, [mutate, mutatePulse]);
 
+  const updateRun = useCallback((run: RunSummary) => {
+    void mutate(
+      (current) => current?.data
+        ? { ...current, data: { ...current.data, run } }
+        : current,
+      false,
+    );
+    void mutatePulse(
+      (current) => current?.data
+        ? { ...current, data: { ...current.data, run } }
+        : current,
+      false,
+    );
+    lastKnownRunStatus.current = run.status;
+  }, [mutate, mutatePulse]);
+
   const error = result?.error ?? null;
   const world = useMemo(
     () =>
@@ -156,7 +173,9 @@ export function WorldProvider({ runId, initialData, children }: Props) {
   const pulse = pulseResult?.data ?? null;
 
   return (
-    <WorldContext.Provider value={{ runId, world: world ?? null, pulse, error, isValidating, refresh }}>
+    <WorldContext.Provider
+      value={{ runId, world: world ?? null, pulse, error, isValidating, updateRun, refresh }}
+    >
       {children}
     </WorldContext.Provider>
   );

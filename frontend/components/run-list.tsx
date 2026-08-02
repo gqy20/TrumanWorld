@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition, useRef, useCallback } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { useDemoAccess } from "@/components/demo-access-provider";
 import { deleteRunResult } from "@/lib/api";
 import { useRuns } from "@/components/runs-provider";
@@ -44,21 +44,16 @@ export function RunList({ runs }: RunListProps) {
   const { refreshRuns } = useRuns();
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [animationVisible, setAnimationVisible] = useState(false);
-  const [animationRunName, setAnimationRunName] = useState("");
-  const pendingRunId = useRef<string | null>(null);
+  const [enteringRunName, setEnteringRunName] = useState<string | null>(null);
   const canWrite = adminAuthorized || !writeProtected;
 
   const handleWorldClick = useCallback((run: Run) => {
-    pendingRunId.current = run.id;
-    setAnimationRunName(run.name);
-    setAnimationVisible(true);
-  }, []);
+    setEnteringRunName(run.name);
+    router.push(`/runs/${run.id}/world`);
+  }, [router]);
 
-  const handleAnimationComplete = useCallback(() => {
-    if (pendingRunId.current) {
-      router.push(`/runs/${pendingRunId.current}/world`);
-    }
+  const handleWorldPrefetch = useCallback((runId: string) => {
+    router.prefetch(`/runs/${runId}/world`);
   }, [router]);
 
   const handleDelete = (runId: string) => {
@@ -98,12 +93,7 @@ export function RunList({ runs }: RunListProps) {
 
   return (
     <>
-      <WorldOpeningAnimation
-        isVisible={animationVisible}
-        onComplete={handleAnimationComplete}
-        runName={animationRunName}
-        mode="enter"
-      />
+      {enteringRunName ? <WorldOpeningAnimation runName={enteringRunName} /> : null}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {runs.map((run) => {
           const isRunning = run.status === "running";
@@ -130,6 +120,8 @@ export function RunList({ runs }: RunListProps) {
                 <button
                   type="button"
                   onClick={() => handleWorldClick(run)}
+                  onFocus={() => handleWorldPrefetch(run.id)}
+                  onPointerEnter={() => handleWorldPrefetch(run.id)}
                   className="min-w-0 flex-1 text-left"
                 >
                   <h3 className="truncate text-lg font-semibold text-ink transition-colors group-hover:text-moss">
@@ -147,6 +139,8 @@ export function RunList({ runs }: RunListProps) {
                   <button
                     type="button"
                     onClick={() => handleWorldClick(run)}
+                    onFocus={() => handleWorldPrefetch(run.id)}
+                    onPointerEnter={() => handleWorldPrefetch(run.id)}
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-moss/10 hover:text-moss"
                     title="进入世界"
                   >

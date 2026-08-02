@@ -1,155 +1,64 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import { motion, useReducedMotion } from "framer-motion";
 
-interface WorldOpeningAnimationProps {
-  isVisible: boolean;
-  onComplete: () => void;
-  runName?: string;
-  mode?: "enter" | "create";
-}
+export function WorldOpeningAnimation({ runName }: { runName?: string }) {
+  const prefersReducedMotion = useReducedMotion();
 
-type Stage = "noise" | "zoom" | "text" | "fade" | "done";
-
-export function WorldOpeningAnimation({ isVisible, onComplete, runName, mode = "create" }: WorldOpeningAnimationProps) {
-  const [stage, setStage] = useState<Stage>("done");
-  const [mounted, setMounted] = useState(false);
-  // 用 ref 存储 onComplete，避免 effect 因回调引用变化而重复触发
-  const onCompleteRef = useRef(onComplete);
-  useEffect(() => { onCompleteRef.current = onComplete; });
-
-  // 确保只在客户端挂载 portal
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // 只依赖 isVisible，onComplete 通过 ref 调用，不影响 effect 稳定性
-  useEffect(() => {
-    if (!isVisible) {
-      return;
-    }
-
-    // 阶段 1: 雪花噪点 (0-1s)
-    setStage("noise");
-
-    // 阶段 2: 镜头拉近 (1-2s)
-    const zoomTimer = setTimeout(() => setStage("zoom"), 1000);
-
-    // 阶段 3: 打字机文字 (2-4s)
-    const textTimer = setTimeout(() => setStage("text"), 2000);
-
-    // 阶段 4: 渐出开始时立即触发跳转
-    // 不设置 completeTimer，不主动 setStage("done")
-    // 遮罩靠路由切换后组件卸载自然消失，彻底避免"遮罩先消失再跳转"的闪回
-    const fadeTimer = setTimeout(() => {
-      setStage("fade");
-      onCompleteRef.current();
-    }, 4000);
-
-    return () => {
-      clearTimeout(zoomTimer);
-      clearTimeout(textTimer);
-      clearTimeout(fadeTimer);
-    };
-  }, [isVisible]);  // 只依赖 isVisible，稳定
-
-  const isAnimating = stage !== "done";
-
-  const content = (
-    <AnimatePresence>
-      {isAnimating && (
-        <motion.div
-          initial={{ opacity: 1 }}
-          animate={{ opacity: stage === "fade" ? 0 : 1 }}
-          transition={{ duration: 1 }}
-          className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-black"
-        >
-          {/* 阶段 1: 雪花噪点效果 */}
-          {stage === "noise" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMjIiIG9wYWNpdHk9IjAuNCIvPgo8L3N2Zz4=')] bg-size-[4px_4px]"
-            />
-          )}
-
-          {/* 阶段 2: 镜头拉近到小镇 */}
-          {(stage === "zoom" || stage === "text" || stage === "fade") && (
-            <motion.div
-              initial={{ scale: 3, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className="relative h-64 w-64"
-            >
-              <Image
-                src="/logo.svg"
-                alt="楚门世界"
-                width={256}
-                height={256}
-                className="h-full w-full"
-              />
-            </motion.div>
-          )}
-
-          {/* 阶段 3: 打字机文字 */}
-          {(stage === "text" || stage === "fade") && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="absolute bottom-32 text-center"
-            >
-              <TypewriterText
-                text={
-                  mode === "enter"
-                    ? "欢迎来到楚门世界"
-                    : runName ? `世界 "${runName}" 已创建` : "新世界已创建"
-                }
-                className="text-2xl font-medium text-white"
-              />
-            </motion.div>
-          )}
-
-          {/* 底部 logo */}
-          {(stage === "text" || stage === "fade") && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="absolute bottom-8"
-            >
-              <p className="text-xs text-slate-500">楚门世界</p>
-            </motion.div>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#172338] px-6 text-center text-white"
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+        className="flex max-w-sm flex-col items-center"
+      >
+        <TownLoadingMark reducedMotion={Boolean(prefersReducedMotion)} />
+        <p className="mt-6 text-lg font-semibold tracking-tight text-white">
+          {runName ? `正在进入 ${runName}` : "正在准备小镇"}
+        </p>
+        <p className="mt-2 text-sm text-[#cbd8ca]">同步道路、居民与最近事件</p>
+        <span className="sr-only">世界数据加载中</span>
+      </motion.div>
+    </div>
   );
-
-  if (!mounted) return null;
-  return createPortal(content, document.body);
 }
 
-// 简化版打字机组件（内联）
-function TypewriterText({ text, className }: { text: string; className?: string }) {
-  const [displayed, setDisplayed] = useState("");
-
-  useEffect(() => {
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i < text.length) {
-        setDisplayed(text.slice(0, i + 1));
-        i++;
-      } else {
-        clearInterval(timer);
-      }
-    }, 80);
-    return () => clearInterval(timer);
-  }, [text]);
-
-  return <span className={className}>{displayed}</span>;
+function TownLoadingMark({ reducedMotion }: { reducedMotion: boolean }) {
+  return (
+    <motion.svg
+      aria-hidden="true"
+      viewBox="0 0 144 104"
+      className="h-[6.5rem] w-36"
+      animate={reducedMotion ? undefined : { y: [0, -2, 0] }}
+      transition={{ duration: 2.2, ease: "easeInOut", repeat: Infinity }}
+    >
+      <path d="M12 67 72 35l60 32-60 33Z" fill="#667c5b" />
+      <path d="m12 67 60 33 60-33v8l-60 29-60-29Z" fill="#40533e" />
+      <path d="m32 68 40-21 40 21-40 21Z" fill="#a9a49a" />
+      <path d="m68 48 8-4 5 3-8 4Z" fill="#d8d4cb" />
+      <path d="m70 87 9-5 5 3-9 5Z" fill="#d8d4cb" />
+      <g>
+        <path d="m37 55 17-9 17 9-17 9Z" fill="#a45345" />
+        <path d="m40 55 14 7v18l-14-7Z" fill="#e7e7e1" />
+        <path d="m54 62 14-7v18l-14 7Z" fill="#cfd4cb" />
+        <path d="m58 64 5-3v7l-5 3Z" fill="#f2b45b" />
+      </g>
+      <g>
+        <path d="m78 47 14-7 14 7-14 8Z" fill="#526b7a" />
+        <path d="m80 47 12 6v20l-12-6Z" fill="#e7e7e1" />
+        <path d="m92 53 12-6v20l-12 6Z" fill="#cfd4cb" />
+        <path d="m95 56 5-2v6l-5 3Z" fill="#f2b45b" />
+      </g>
+      <g>
+        <path d="M107 69c0-7 4-13 9-13s9 6 9 13c0 5-4 8-9 8s-9-3-9-8Z" fill="#7f9a68" />
+        <path d="M114 75h4v12h-4Z" fill="#6c4a35" />
+      </g>
+    </motion.svg>
+  );
 }

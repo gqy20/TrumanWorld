@@ -111,7 +111,9 @@ async def create_run(
     run = SimulationRun(
         id=str(uuid4()),
         name=payload.name,
-        status="running",
+        # The lifecycle service owns the transition to running so started_at is
+        # always recorded together with the externally visible status.
+        status="created",
         scenario_type=scenario_type,
         tick_minutes=payload.tick_minutes,
     )

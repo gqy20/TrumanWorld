@@ -79,6 +79,26 @@ async def test_ensure_run_started_updates_status_when_scheduler_already_running(
     assert updated.status == "running"
     assert refreshed is not None
     assert refreshed.status == "running"
+    assert refreshed.started_at is not None
+    assert scheduler.started == []
+
+
+@pytest.mark.asyncio
+async def test_ensure_run_started_repairs_running_run_without_start_timestamp(db_session):
+    run = SimulationRun(id="run-lifecycle-missing-start", name="demo", status="running")
+    db_session.add(run)
+    await db_session.commit()
+
+    scheduler = FakeScheduler(running=True)
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(run_lifecycle_module, "get_scheduler", lambda: scheduler)
+    try:
+        updated = await run_lifecycle_module.ensure_run_started(db_session, run)
+    finally:
+        monkeypatch.undo()
+
+    assert updated.status == "running"
+    assert updated.started_at is not None
     assert scheduler.started == []
 
 
@@ -136,6 +156,7 @@ async def test_ensure_run_started_warms_pool_and_registers_tick_callback(db_sess
         monkeypatch.undo()
 
     assert updated.status == "running"
+    assert updated.started_at is not None
     assert bootstrapper.prepare_calls == ["run-lifecycle-2"]
     assert scheduler.started
     assert scheduler.started[0][0] == "run-lifecycle-2"

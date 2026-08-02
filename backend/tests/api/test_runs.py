@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -229,6 +231,8 @@ async def test_create_run_returns_running_status(client):
     body = response.json()
     assert body["name"] == "test-run"
     assert body["status"] == "running"
+    assert body["started_at"] is not None
+    assert body["elapsed_seconds"] == 0
     assert body["scenario_type"] == "narrative_world"
     assert body["id"]
     assert get_scheduler().is_running(body["id"])
@@ -358,12 +362,37 @@ async def test_run_status_transitions(client):
     pause_response = await client.post(f"/api/runs/{run_id}/pause")
     assert pause_response.status_code == 200
     assert pause_response.json()["status"] == "paused"
+    assert pause_response.json()["started_at"] is None
     assert not get_scheduler().is_running(run_id)
 
     resume_response = await client.post(f"/api/runs/{run_id}/resume")
     assert resume_response.status_code == 200
     assert resume_response.json()["status"] == "running"
+    assert resume_response.json()["started_at"] is not None
     assert get_scheduler().is_running(run_id)
+
+
+@pytest.mark.asyncio
+async def test_pause_accumulates_elapsed_time_across_resume(
+    client,
+    db_session: AsyncSession,
+):
+    create_response = await client.post("/api/runs", json={"name": "timed-run"})
+    run_id = create_response.json()["id"]
+    run = await db_session.get(SimulationRun, run_id)
+    assert run is not None
+    run.started_at = datetime.now(UTC) - timedelta(seconds=65)
+    run.elapsed_seconds = 10
+    await db_session.commit()
+
+    first_pause = await client.post(f"/api/runs/{run_id}/pause")
+    first_elapsed = first_pause.json()["elapsed_seconds"]
+    assert 74 <= first_elapsed <= 76
+
+    resume = await client.post(f"/api/runs/{run_id}/resume")
+    assert resume.json()["started_at"] is not None
+    second_pause = await client.post(f"/api/runs/{run_id}/pause")
+    assert second_pause.json()["elapsed_seconds"] >= first_elapsed
 
 
 @pytest.mark.asyncio

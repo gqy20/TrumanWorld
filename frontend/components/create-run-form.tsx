@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, useRef, useCallback } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { createRunResult, listScenariosResult } from "@/lib/api";
 import type { ScenarioSummary } from "@/lib/types";
@@ -16,24 +16,9 @@ export function CreateRunForm() {
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
   const [tickMinutes, setTickMinutes] = useState(5);
   const [message, setMessage] = useState<string>("");
+  const [enteringRunName, setEnteringRunName] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [showAnimation, setShowAnimation] = useState(false);
-  const [animationName, setAnimationName] = useState("");
-  // 用 ref 保存待跳转的 runId，避免动画与创建完成的时序问题
-  const pendingRunId = useRef<string | null>(null);
-  const animationDone = useRef(false);
   const suggestions = ["demo-run", "town-morning", "story-lab", "night-shift"];
-
-  const doNavigate = useCallback(() => {
-    if (pendingRunId.current) {
-      router.push(`/runs/${pendingRunId.current}/world`);
-    }
-  }, [router]);
-
-  const handleAnimationComplete = useCallback(() => {
-    animationDone.current = true;
-    doNavigate();
-  }, [doNavigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,14 +48,8 @@ export function CreateRunForm() {
 
   return (
     <>
-      {/* 创建动画覆盖全屏 */}
-      <WorldOpeningAnimation
-        isVisible={showAnimation}
-        onComplete={handleAnimationComplete}
-        runName={animationName}
-        mode="enter"
-      />
-    <form
+      {enteringRunName ? <WorldOpeningAnimation runName={enteringRunName} /> : null}
+      <form
       className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -78,26 +57,14 @@ export function CreateRunForm() {
           setMessage("暂无可用场景，请稍后重试");
           return;
         }
-        // 立即启动动画
-        setAnimationName(name);
-        setShowAnimation(true);
-        animationDone.current = false;
-        pendingRunId.current = null;
-
         startTransition(async () => {
           const result = await createRunResult(name, scenarioType, true, tickMinutes);
           const createdRun = result.data;
           if (createdRun) {
-            await refreshRuns();
-            pendingRunId.current = createdRun.id;
-            // 如果动画已经先播完，立即跳转
-            if (animationDone.current) {
-              doNavigate();
-            }
-            // 否则等动画 onComplete 时再跳转
+            setEnteringRunName(createdRun.name);
+            router.push(`/runs/${createdRun.id}/world`);
+            void refreshRuns();
           } else {
-            // 创建失败：终止动画并显示错误
-            setShowAnimation(false);
             setMessage(
               result.error === "network_error"
                 ? "创建失败，后端当前不可达"
@@ -217,7 +184,7 @@ export function CreateRunForm() {
           {message}
         </p>
       )}
-    </form>
+      </form>
     </>
   );
 }

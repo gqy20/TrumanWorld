@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
 
 import {
+  createRunResult,
   fetchApiResult,
   getDemoAccessStatusResult,
   listScenariosResult,
@@ -12,10 +12,11 @@ import { makeRunSummary, makeScenarioSummary } from "@/test-utils/app/fixtures";
 import { errorResult, okResult, renderHomePage } from "@/test-utils/app/render";
 
 const push = jest.fn();
+const prefetch = jest.fn();
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/",
-  useRouter: () => ({ push }),
+  useRouter: () => ({ prefetch, push }),
 }));
 
 jest.mock("@/lib/ui-url-state", () => ({
@@ -23,21 +24,9 @@ jest.mock("@/lib/ui-url-state", () => ({
 }));
 
 jest.mock("@/components/world-opening-animation", () => ({
-  WorldOpeningAnimation: ({
-    isVisible,
-    onComplete,
-  }: {
-    isVisible: boolean;
-    onComplete: () => void;
-  }) => {
-    useEffect(() => {
-      if (isVisible) {
-        onComplete();
-      }
-    }, [isVisible, onComplete]);
-
-    return null;
-  },
+  WorldOpeningAnimation: ({ runName }: { runName?: string }) => (
+    <div role="status">{runName ? `正在进入 ${runName}` : "正在准备小镇"}</div>
+  ),
 }));
 
 jest.mock("@/lib/api", () => {
@@ -45,6 +34,7 @@ jest.mock("@/lib/api", () => {
 
   return {
     ...actual,
+    createRunResult: jest.fn(),
     fetchApiResult: jest.fn(),
     getDemoAccessStatusResult: jest.fn(),
     listScenariosResult: jest.fn(),
@@ -112,9 +102,38 @@ describe("HomePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Campus Morning/ }));
 
+    expect(screen.getByRole("status")).toHaveTextContent("正在进入 Campus Morning");
     await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/runs/run-alpha/world");
     });
+  });
+
+  it("prefetches an existing world before immediate navigation", async () => {
+    renderHomePage(okResult(runs));
+
+    const worldButton = await screen.findByRole("button", { name: /Campus Morning/ });
+    fireEvent.pointerEnter(worldButton);
+    fireEvent.click(worldButton);
+
+    expect(prefetch).toHaveBeenCalledWith("/runs/run-alpha/world");
+    expect(push).toHaveBeenCalledWith("/runs/run-alpha/world");
+  });
+
+  it("navigates after creation without waiting for the run list refresh", async () => {
+    (createRunResult as jest.MockedFunction<typeof createRunResult>).mockResolvedValue(
+      okResult({ id: "run-new", name: "demo-run", status: "running" }),
+    );
+    renderHomePage(okResult(runs));
+    await screen.findByRole("button", { name: "Narrative World" });
+    (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
+      .mockReturnValue(new Promise(() => {}));
+
+    fireEvent.click(screen.getByRole("button", { name: "创建运行" }));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/runs/run-new/world");
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("正在进入 demo-run");
   });
 
   it("shows the network error and empty state when the initial run load fails", async () => {

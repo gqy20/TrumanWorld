@@ -1,6 +1,7 @@
 "use client";
 
 import { WorldCanvas } from "@/components/world-canvas";
+import { WorldOpeningAnimation } from "@/components/world-opening-animation";
 import { WorldStatusBar } from "@/components/world-status-bar";
 import { useWorld } from "@/components/world-context";
 import { useScenarioCatalog } from "@/hooks/use-scenario-catalog";
@@ -34,8 +35,8 @@ export default function WorldPage() {
 
   if (!world) {
     return (
-      <div className="flex h-full flex-col items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,#f7f3e8,#eef5f1_48%,#f8fafc)]">
-        <div className="animate-pulse text-slate-400">加载中...</div>
+      <div className="flex h-full min-h-screen flex-col overflow-hidden lg:min-h-0">
+        <WorldOpeningAnimation />
       </div>
     );
   }

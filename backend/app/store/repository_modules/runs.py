@@ -4,6 +4,11 @@ from __future__ import annotations
 from app.store.repository_modules._common import *
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Normalize database timestamps across drivers that drop timezone metadata."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 class RunRepository:
     """Persistence facade for simulation runs."""
 
@@ -42,7 +47,7 @@ class RunRepository:
                 run.started_at = now
         elif run.started_at is not None:
             # 暂停/停止：把本次运行时长累加到 elapsed_seconds
-            delta = int((now - run.started_at).total_seconds())
+            delta = int((now - _as_utc(run.started_at)).total_seconds())
             run.elapsed_seconds = (run.elapsed_seconds or 0) + max(0, delta)
             run.started_at = None
         run.status = status
@@ -116,7 +121,7 @@ class RunRepository:
         for run in running_runs:
             new_elapsed = run.elapsed_seconds or 0
             if run.started_at is not None:
-                delta = int((now - run.started_at).total_seconds())
+                delta = int((now - _as_utc(run.started_at)).total_seconds())
                 new_elapsed += max(0, delta)
             run_updates.append(
                 {

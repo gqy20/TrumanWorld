@@ -18,7 +18,7 @@ function formatElapsed(seconds: number): string {
 }
 
 export function WorldStatusBar() {
-  const { runId, world, pulse, error, isValidating, refresh } = useWorld();
+  const { runId, world, pulse, error, isValidating, updateRun, refresh } = useWorld();
   const { adminAuthorized, writeProtected } = useDemoAccess();
   const [isToggling, setIsToggling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -30,10 +30,9 @@ export function WorldStatusBar() {
   // 暂停时仅展示 elapsed_seconds，不再递增
   // 惰性初始化：mount 时直接从已有 world 数据计算，避免从 0 闪烁
   // 注意：world 在 mount 时可能还是 null（SWR 异步加载），
-  // 所以这里即使返回 0 也无妨，useEffect 会在 world 到达后立即修正
+  // 数据尚未到达时先显示 0，useEffect 会在 run 数据到达后立即修正。
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const localStartRef = useRef<number | null>(null);
 
   const isRunning = activeRun?.status === "running";
   const canWrite = adminAuthorized || !writeProtected;
@@ -45,13 +44,9 @@ export function WorldStatusBar() {
       : Math.floor(((activeRun.current_tick ?? 0) * (activeRun.tick_minutes ?? 5)) / 1440) + 1;
 
   useEffect(() => {
-    // world 尚未加载，跳过
-    if (!activeRun) return;
-
     if (isRunning) {
       if (startedAt) {
         // 有服务端时间戳：累计历史 + 本次运行时长
-        localStartRef.current = null;
         const calcElapsed = () => {
           const startMs = new Date(startedAt).getTime();
           const sessionSecs = Math.floor((Date.now() - startMs) / 1000);
@@ -67,20 +62,11 @@ export function WorldStatusBar() {
           intervalRef.current = setInterval(calcElapsed, 1000);
         }
       } else {
-        // 无服务端时间戳（旧数据）：本地从 elapsedBase 开始累加
-        if (localStartRef.current === null) {
-          localStartRef.current = Date.now();
-        }
-        if (!intervalRef.current) {
-          intervalRef.current = setInterval(() => {
-            const localSecs = Math.floor((Date.now() - localStartRef.current!) / 1000);
-            setElapsed(elapsedBase + localSecs);
-          }, 1000);
-        }
+        // 服务端缺少启动时间时不伪造不可持久化的本地时长。
+        setElapsed(elapsedBase);
       }
     } else {
       // 暂停：展示历史累计秒数，停止计时，立即同步
-      localStartRef.current = null;
       setElapsed(elapsedBase);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -93,7 +79,7 @@ export function WorldStatusBar() {
         intervalRef.current = null;
       }
     };
-  }, [activeRun, isRunning, startedAt, elapsedBase]);
+  }, [isRunning, startedAt, elapsedBase]);
 
   if (!world && !pulse) {
     return (
@@ -115,7 +101,7 @@ export function WorldStatusBar() {
       } else {
         setActionError(null);
       }
-      setTimeout(() => refresh(), 500);
+      updateRun(result.data);
     } catch (err) {
       console.error("Failed to toggle run:", err);
     } finally {
@@ -182,7 +168,7 @@ export function WorldStatusBar() {
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
             : "border-slate-200 bg-slate-50 text-slate-400"
         }`}
-        title="本次启动后的已运行时长（暂停时停止计时）"
+        title="累计实际运行时长，暂停期间不计时"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5 shrink-0">
           <circle cx="12" cy="12" r="10" />

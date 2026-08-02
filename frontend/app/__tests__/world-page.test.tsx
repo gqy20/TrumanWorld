@@ -6,6 +6,7 @@ import {
   getDemoAccessStatusResult,
   getWorldPulseResult,
   listScenariosResult,
+  pauseRunResult,
 } from "@/lib/api";
 import type { DemoAccessStatus, ScenarioSummary, WorldSnapshot } from "@/lib/types";
 import type { VoxelCameraFocusRequest } from "@/components/voxel/camera-controller";
@@ -19,6 +20,7 @@ jest.mock("framer-motion", () => {
 
   return {
     AnimatePresence,
+    useReducedMotion: () => false,
     motion: new Proxy(
       {},
       {
@@ -272,6 +274,19 @@ describe("WorldPage", () => {
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
   });
 
+  it("shows one accessible town loading state while the first snapshot is pending", () => {
+    (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
+      .mockReturnValue(new Promise(() => {}));
+
+    renderWorldPage({ initialWorld: null });
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("正在准备小镇")).toBeInTheDocument();
+    expect(screen.getByText("同步道路、居民与最近事件")).toBeInTheDocument();
+    expect(screen.queryByText("楚门世界")).not.toBeInTheDocument();
+  });
+
   it("keeps the last world visible when a refresh fails", async () => {
     (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
       .mockResolvedValue(errorResult<WorldSnapshot>("network_error"));
@@ -279,7 +294,25 @@ describe("WorldPage", () => {
     renderWorldPage({ initialWorld: world });
 
     expect(await screen.findByRole("heading", { name: "Campus Morning" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
     expect(await screen.findByText("刷新失败")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "世界加载失败" })).not.toBeInTheDocument();
+  });
+
+  it("applies a paused run response immediately without waiting for pulse polling", async () => {
+    (pauseRunResult as jest.MockedFunction<typeof pauseRunResult>).mockResolvedValue(
+      okResult({
+        ...world.run,
+        status: "paused",
+        started_at: null,
+        elapsed_seconds: 147,
+      }),
+    );
+    renderWorldPage({ initialWorld: world });
+
+    fireEvent.click(await screen.findByRole("button", { name: "暂停" }));
+
+    expect(await screen.findByRole("button", { name: "启动" })).toBeInTheDocument();
+    expect(screen.getByText("2:27")).toBeInTheDocument();
   });
 });

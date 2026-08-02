@@ -56,6 +56,7 @@ describe("WorldProvider polling", () => {
     }
     expect(worldConfig.refreshInterval(failedSnapshot)).toBe(15000);
     expect(pulseConfig.refreshInterval(failedSnapshot)).toBe(5000);
+    expect(worldConfig).toHaveProperty("revalidateOnMount", false);
     expect(worldConfig).not.toHaveProperty("compare");
   });
 });

@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 async def ensure_run_started(session: AsyncSession, run: SimulationRun) -> SimulationRun:
     scheduler = get_scheduler()
     if scheduler.is_running(run.id):
-        if run.status != "running":
+        if run.status != "running" or run.started_at is None:
             return await RunRepository(session).update_status(run, "running")
         return run
 
@@ -29,7 +29,7 @@ async def ensure_run_started(session: AsyncSession, run: SimulationRun) -> Simul
         start_kwargs["on_max_errors"] = on_max_errors
     await scheduler.start_run(run.id, **start_kwargs)
 
-    if run.status != "running":
+    if run.status != "running" or run.started_at is None:
         return await RunRepository(session).update_status(run, "running")
     return run
 
