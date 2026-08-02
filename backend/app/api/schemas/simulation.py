@@ -122,6 +122,11 @@ class RunCreateRequest(BaseModel):
         description="是否自动填充演示数据（agent、地点等）",
         examples=[True],
     )
+    auto_start: bool = Field(
+        default=True,
+        description="初始化完成后是否立即启动自动 tick 调度",
+        examples=[False],
+    )
     tick_minutes: int = Field(
         default=5,
         ge=1,
@@ -668,6 +673,7 @@ class WorldDailyStatsResponse(BaseModel):
     total_reasoning_tokens: int = Field(0, description="推理 token 数", ge=0)
     total_cache_read_tokens: int = Field(0, description="缓存读取 token 数", ge=0)
     total_cache_creation_tokens: int = Field(0, description="缓存创建 token 数", ge=0)
+    total_cost_usd: float = Field(0.0, description="累计 LLM 成本（美元）", ge=0)
     llm_provider: str | None = Field(None, description="最近一次 LLM 调用的 provider")
     llm_model: str | None = Field(None, description="最近一次 LLM 调用的模型名")
 

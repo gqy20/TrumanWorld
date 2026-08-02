@@ -243,6 +243,23 @@ async def test_create_run_returns_running_status(client):
 
 
 @pytest.mark.asyncio
+async def test_create_run_can_seed_without_starting_scheduler(client):
+    response = await client.post(
+        "/api/runs",
+        json={"name": "paused-debug-run", "auto_start": False},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "created"
+    assert body["started_at"] is None
+    assert not get_scheduler().is_running(body["id"])
+
+    agents_response = await client.get(f"/api/runs/{body['id']}/agents")
+    assert len(agents_response.json()["agents"]) == 6
+
+
+@pytest.mark.asyncio
 async def test_create_run_accepts_missing_scenario_type_and_uses_default(client):
     response = await client.post(
         "/api/runs",

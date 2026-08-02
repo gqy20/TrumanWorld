@@ -86,7 +86,7 @@ async def cleanup_run_runtime_resources(run_id: str) -> None:
     "",
     response_model=RunResponse,
     summary="创建新运行",
-    description="创建一个新的 AI 模拟运行，可选择自动填充演示数据",
+    description="创建一个新的 AI 模拟运行，可选择填充演示数据并控制是否立即启动",
     responses={
         **COMMON_RESPONSES,
         201: {"description": "运行创建成功", "model": RunResponse},
@@ -118,7 +118,9 @@ async def create_run(
         tick_minutes=payload.tick_minutes,
     )
     created = await repo.create(run)
-    logger.info(f"Run created: id={created.id}, name={created.name}, auto-running")
+    logger.info(
+        f"Run created: id={created.id}, name={created.name}, auto_start={payload.auto_start}"
+    )
 
     if payload.seed_demo:
         logger.debug(f"Seeding demo data for run {created.id}")
@@ -129,7 +131,8 @@ async def create_run(
         await service.seed_demo_run(created.id)
         logger.info(f"Demo data seeded for run {created.id}")
 
-    created = await ensure_run_started(session, created)
+    if payload.auto_start:
+        created = await ensure_run_started(session, created)
     return build_run_response(created)
 
 

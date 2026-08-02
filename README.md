@@ -107,6 +107,23 @@ make backend-dev   # http://127.0.0.1:18080
 make frontend-dev  # http://127.0.0.1:13000
 ```
 
+### 命令行控制
+
+后端安装完成后可使用统一的 `truman` CLI。它与浏览器一样通过 FastAPI 操作世界，不会绕过
+API 直接修改数据库：
+
+```bash
+cd backend
+uv run truman doctor
+uv run truman run list
+uv run truman run create --name debug-town --scenario narrative_world --paused
+uv run truman timeline follow <run-id>
+uv run truman world cost <run-id>
+```
+
+也可以从仓库根目录执行 `make cli CLI_ARGS="run list"`。完整命令、profile、JSON 输出、预算保护
+和退出码见 [CLI 指南](docs/engineering/CLI.md)。
+
 ## 当前可用世界类型
 
 - `Truman World`：默认场景，包含 Truman 与配套 cast。

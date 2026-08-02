@@ -145,6 +145,7 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
       total_reasoning_tokens: 0,
       total_cache_read_tokens: 0,
       total_cache_creation_tokens: 0,
+      total_cost_usd: 0,
     },
     ...overrides,
   };

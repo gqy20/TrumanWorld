@@ -199,6 +199,7 @@ export type WorldSnapshot = {
     total_reasoning_tokens: number;
     total_cache_read_tokens: number;
     total_cache_creation_tokens: number;
+    total_cost_usd: number;
     llm_provider?: string | null;
     llm_model?: string | null;
   };

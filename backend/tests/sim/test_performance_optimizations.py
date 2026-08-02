@@ -578,6 +578,7 @@ async def test_world_stats_are_loaded_in_one_query(db_session):
         "reasoning_tokens": 3,
         "cache_read_tokens": 4,
         "cache_creation_tokens": 5,
+        "total_cost_usd": 0.0,
         "provider": "openai",
         "model": "MiniMax-M3",
     }

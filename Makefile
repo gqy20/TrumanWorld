@@ -138,6 +138,12 @@ evaluate-run:
 		--run-id "$(RUN_ID)" \
 		--ticks "$(RUN_QUALITY_TICKS)" $(if $(RUN_QUALITY_OUTPUT),--output "$(RUN_QUALITY_OUTPUT)",)
 
+CLI_ARGS ?= --help
+
+.PHONY: cli
+cli:
+	cd $(BACKEND_DIR) && uv run truman $(CLI_ARGS)
+
 migrate:
 	cd $(BACKEND_DIR) && uv run alembic upgrade head
 

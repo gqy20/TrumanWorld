@@ -22,7 +22,7 @@ class WorldStats:
     event_counts: dict[str, int]
     director_total: int
     director_executed: int
-    token_totals: dict[str, int | str | None]
+    token_totals: dict[str, int | float | str | None]
 
 
 class WorldStatsRepository:
@@ -63,6 +63,7 @@ class WorldStatsRepository:
                 func.coalesce(func.sum(LlmCall.cache_creation_tokens), 0).label(
                     "cache_creation_tokens"
                 ),
+                func.coalesce(func.sum(LlmCall.total_cost_usd), 0.0).label("total_cost_usd"),
             )
             .where(LlmCall.run_id == run_id)
             .subquery()
@@ -91,6 +92,7 @@ class WorldStatsRepository:
                 token_stats.c.reasoning_tokens,
                 token_stats.c.cache_read_tokens,
                 token_stats.c.cache_creation_tokens,
+                token_stats.c.total_cost_usd,
                 latest_provider.label("provider"),
                 latest_model.label("model"),
             )
@@ -111,6 +113,7 @@ class WorldStatsRepository:
                 "reasoning_tokens": int(row.reasoning_tokens),
                 "cache_read_tokens": int(row.cache_read_tokens),
                 "cache_creation_tokens": int(row.cache_creation_tokens),
+                "total_cost_usd": float(row.total_cost_usd),
                 "provider": row.provider,
                 "model": row.model,
             },

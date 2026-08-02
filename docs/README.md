@@ -17,7 +17,8 @@
 
 1. 看 [engineering/CURRENT_ARCHITECTURE.md](engineering/CURRENT_ARCHITECTURE.md)
 2. 再看 [engineering/DEVELOPMENT.md](engineering/DEVELOPMENT.md)
-3. 如需题材资料，补看 [references/SCENARIOS.md](references/SCENARIOS.md)
+3. 命令行调试看 [engineering/CLI.md](engineering/CLI.md)
+4. 如需题材资料，补看 [references/SCENARIOS.md](references/SCENARIOS.md)
 
 ### 我想了解产品方向
 

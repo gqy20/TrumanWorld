@@ -470,6 +470,7 @@ async def test_llm_call_repository_get_token_totals_empty(db_session):
     assert totals["reasoning_tokens"] == 0
     assert totals["cache_read_tokens"] == 0
     assert totals["cache_creation_tokens"] == 0
+    assert totals["total_cost_usd"] == 0.0
     assert totals["provider"] is None
     assert totals["model"] is None
 
@@ -536,6 +537,7 @@ async def test_llm_call_repository_get_token_totals_aggregates_correctly(db_sess
     assert totals["reasoning_tokens"] == 300
     assert totals["cache_read_tokens"] == 130
     assert totals["cache_creation_tokens"] == 50
+    assert totals["total_cost_usd"] == pytest.approx(0.03)
     assert totals["provider"] == "openai"
     assert totals["model"] == "qwen-test-2"
 
