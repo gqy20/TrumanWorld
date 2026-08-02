@@ -288,7 +288,7 @@ function StageScene({
   const batches = useMemo(() => buildBlockBatches(plan.blocks), [plan.blocks]);
   const cameraSubjects = useMemo<VoxelCameraSubject[]>(
     () => [
-      ...plan.blocks,
+      ...plan.blocks.filter((block) => block.layer === "core"),
       ...plan.assets.flatMap((asset) => asset.fallbackBlocks),
     ].map(({ position, rotationY, size }) => ({ position, rotationY, size })),
     [plan.assets, plan.blocks],
@@ -307,7 +307,7 @@ function StageScene({
     <>
       <RendererConfiguration exposure={lightingProfile.exposure} />
       <CameraRig
-        bounds={plan.bounds}
+        bounds={plan.focusBounds}
         subjects={cameraSubjects}
         focusRequest={resolvedCameraFocus}
         resetRevision={cameraResetRevision}

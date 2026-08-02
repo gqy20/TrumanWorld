@@ -89,8 +89,24 @@ export type VoxelBlock = {
   rotationY: number;
   castShadow: boolean;
   receiveShadow: boolean;
+  layer: "ambient" | "core";
   hitTarget?: VoxelHitTarget;
 };
+
+export type VoxelBlockWriter = (
+  prefix: string,
+  position: [number, number, number],
+  size: [number, number, number],
+  material: VoxelMaterialKey,
+  options?: {
+    castShadow?: boolean;
+    receiveShadow?: boolean;
+    hitTarget?: VoxelHitTarget;
+    layer?: VoxelBlock["layer"];
+    rotationY?: number;
+    geometry?: VoxelGeometryKind;
+  },
+) => VoxelBlock;
 
 export type VoxelPrefabBlock = {
   position: VoxelVector3;
@@ -157,6 +173,7 @@ export type VoxelScenePlan = {
   assets: VoxelAssetPlacement[];
   agents: VoxelAgentPlan[];
   bounds: VoxelBounds;
+  focusBounds: VoxelBounds;
   plots: VoxelPlot[];
   roads: VoxelRoadTile[];
   locationAnchors: Record<string, VoxelSelectionAnchor>;

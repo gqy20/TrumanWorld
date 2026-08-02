@@ -10,29 +10,18 @@ import type {
   VoxelAgentPlan,
   VoxelAssetPlacement,
   VoxelBlock,
+  VoxelBlockWriter,
   VoxelBounds,
   VoxelHitTarget,
-  VoxelGeometryKind,
   VoxelMaterialKey,
   VoxelPlot,
   VoxelPoint,
   VoxelRoadTile,
   VoxelScenePlan,
 } from "./types";
+import { buildAmbientWorld, type AmbientFrame } from "./ambient-world";
 
-type BlockWriter = (
-  prefix: string,
-  position: [number, number, number],
-  size: [number, number, number],
-  material: VoxelMaterialKey,
-  options?: {
-    castShadow?: boolean;
-    receiveShadow?: boolean;
-    hitTarget?: VoxelHitTarget;
-    rotationY?: number;
-    geometry?: VoxelGeometryKind;
-  },
-) => VoxelBlock;
+type BlockWriter = VoxelBlockWriter;
 
 export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
   const blocks: VoxelBlock[] = [];
@@ -48,6 +37,7 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
       rotationY: options.rotationY ?? 0,
       castShadow: options.castShadow ?? true,
       receiveShadow: options.receiveShadow ?? true,
+      layer: options.layer ?? "core",
       hitTarget: options.hitTarget,
     } satisfies VoxelBlock;
     blockIndex += 1;
@@ -127,11 +117,14 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
 
   const agents = buildAgents(sceneWorld.agents, plots);
   const agentAnchors = Object.fromEntries(agents.map((agent) => [agent.id, agent.anchor]));
+  const focusBlocks = [...blocks, ...assets.flatMap((asset) => asset.fallbackBlocks)];
+  buildAmbientWorld(addBlock, groundFrame, sceneWorld.stage);
   return {
     blocks,
     assets,
     agents,
     bounds: calculateBounds([...blocks, ...assets.flatMap((asset) => asset.fallbackBlocks)]),
+    focusBounds: calculateBounds(focusBlocks),
     plots,
     roads,
     locationAnchors,
@@ -139,12 +132,7 @@ export function buildVoxelScenePlan(sceneWorld: SceneWorld): VoxelScenePlan {
   };
 }
 
-type GroundFrame = {
-  centerX: number;
-  centerZ: number;
-  depth: number;
-  width: number;
-};
+type GroundFrame = AmbientFrame;
 
 function buildGround(
   addBlock: BlockWriter,

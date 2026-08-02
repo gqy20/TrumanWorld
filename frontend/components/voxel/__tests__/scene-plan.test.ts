@@ -174,6 +174,28 @@ describe("voxel scene plan", () => {
     expect(roadSurfaces.every((block) => block.position.y < 0.06)).toBe(true);
   });
 
+  it("extends the world with a non-interactive ambient district", () => {
+    const plan = buildVoxelScenePlan(makeSceneWorld());
+    const ambientBlocks = plan.blocks.filter((block) => block.layer === "ambient");
+
+    expect(ambientBlocks.length).toBeGreaterThan(40);
+    expect(ambientBlocks.every((block) => block.hitTarget === undefined)).toBe(true);
+    expect(plan.bounds.minX).toBeLessThan(plan.focusBounds.minX);
+    expect(plan.bounds.maxX).toBeGreaterThan(plan.focusBounds.maxX);
+    expect(plan.bounds.minZ).toBeLessThan(plan.focusBounds.minZ);
+    expect(plan.bounds.maxZ).toBeGreaterThan(plan.focusBounds.maxZ);
+  });
+
+  it("builds a waterfront edge without changing the core camera frame", () => {
+    const world = makeSceneWorld();
+    world.stage = { theme: "seaside_night", groundPreset: "boardwalk" };
+    const plan = buildVoxelScenePlan(world);
+
+    expect(plan.blocks.some((block) => block.id.startsWith("ambient-sea"))).toBe(true);
+    expect(plan.blocks.filter((block) => block.id.startsWith("ambient-pier"))).toHaveLength(2);
+    expect(plan.blocks.filter((block) => block.layer === "core").length).toBeGreaterThan(30);
+  });
+
   it("gives locations a readable threshold and district-specific planting", () => {
     const plan = buildVoxelScenePlan(makeSceneWorld());
     const thresholds = plan.blocks.filter((block) => block.id.startsWith("plot-threshold"));
