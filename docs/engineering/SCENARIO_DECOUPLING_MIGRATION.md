@@ -9,7 +9,7 @@
 ## 当前结论
 
 - 运行时代码已经完成主要迁移
-- 默认 scenario adapter 与默认 bundle id 已迁移到 `narrative_world`
+- 默认 scenario adapter 已迁移到 `bundle_world`，默认 bundle id 为 `narrative_world`
 - API / OpenAPI 已移除旧字段兼容别名
 - 持久化模型已切换到通用字段名
 - Director 提示词与上下文已改为 subject / agent 语义
@@ -111,25 +111,9 @@
 - 只要复用现有 adapter，就可以通过 `scenario.yml` 派生不同角色语义的场景 bundle
 - 主体告警值不再是平台默认世界机制，而是场景可选能力
 
-## 当前已支持的 initial.yml 兼容输入
+## 当前 initial.yml 输入
 
-`initial.yml` 目前已经支持两类写法并行存在：
-
-旧写法：
-
-```yaml
-initial_location: home
-initial_goal: work
-status:
-  energy: 0.8
-  suspicion_score: 0.2
-plan:
-  morning: work
-  daytime: work
-  evening: rest
-```
-
-新写法：
+`initial.yml` 已统一为通用写法：
 
 ```yaml
 spawn:
@@ -144,11 +128,9 @@ plan:
 
 当前行为是：
 
-- `spawn.location` 优先于 `initial_location`
-- `spawn.goal` 优先于 `initial_goal`
-- `status.<alert_metric>` 优先作为主体告警输入
-- `status.alert_score` 是推荐的通用输入名
-- `status.suspicion_score` 仍是兼容输入字段
+- `spawn.location` 定义初始位置
+- `spawn.goal` 定义初始目标
+- `status.alert_score` 是通用告警输入名
 - seed 会根据 `scenario.yml` 的 `semantics.alert_metric` 把最终值写入对应状态字段
 
 因此，场景作者已经可以在不改公共 schema 的前提下：
@@ -158,9 +140,8 @@ plan:
 
 ## 当前仍未完全泛化的部分
 
-以下部分仍然保留兼容层或旧 DSL 形态，需要后续继续收口：
+以下部分仍然保留旧 DSL 形态，需要后续继续收口：
 
-- `status.suspicion_score` 仍作为兼容输入字段存在
 - `plan.morning/daytime/evening` 仍然是默认保留计划字段
 - 产品品牌文案和历史参考文档仍大量使用 `TrumanWorld`
 
@@ -199,7 +180,6 @@ plan:
 
 - Alembic migration history
 - 用于断言旧字段不存在的测试
-- `status.suspicion_score` 兼容输入
 - 旧产品/参考文档中的历史说明
 
 这里应继续遵守两条原则：

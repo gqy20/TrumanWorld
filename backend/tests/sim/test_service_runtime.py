@@ -42,7 +42,7 @@ def test_simulation_service_switches_registry_root_with_scenario_bundle(
                 "id: open_world",
                 "name: Open World",
                 "version: 1",
-                "runtime_adapter: open_world",
+                "adapter: open_world",
             ]
         ),
         encoding="utf-8",

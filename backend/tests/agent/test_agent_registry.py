@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from app.agent.config_loader import AgentConfigLoader, InitialConfigLoader
 from app.agent.prompt_loader import PromptLoader
 from app.agent.registry import AgentRegistry
@@ -80,7 +83,7 @@ def test_agent_registry_lists_configs_and_renders_prompt(tmp_path: Path):
     assert '"tick": 3' in prompt
 
 
-def test_initial_config_loader_supports_spawn_aliases(tmp_path: Path):
+def test_initial_config_loader_reads_spawn_config(tmp_path: Path):
     initial_path = tmp_path / "initial.yml"
     initial_path.write_text(
         "\n".join(
@@ -104,22 +107,15 @@ def test_initial_config_loader_supports_spawn_aliases(tmp_path: Path):
     assert config.status.alert_score == 0.2
     assert config.spawn.location == "workplace"
     assert config.spawn.goal == "greet"
-    assert config.initial_location is None
-    assert config.initial_goal is None
 
 
-def test_initial_config_loader_normalizes_legacy_suspicion_score_alias(tmp_path: Path):
+@pytest.mark.parametrize(
+    "removed_field",
+    ["initial_goal: work", "initial_location: home", "status:\n  suspicion_score: 0.2"],
+)
+def test_initial_config_loader_rejects_removed_fields(tmp_path: Path, removed_field: str) -> None:
     initial_path = tmp_path / "initial.yml"
-    initial_path.write_text(
-        "\n".join(
-            [
-                "status:",
-                "  suspicion_score: 0.2",
-            ]
-        ),
-        encoding="utf-8",
-    )
+    initial_path.write_text(removed_field, encoding="utf-8")
 
-    config = InitialConfigLoader().load(initial_path)
-
-    assert config.status.alert_score == 0.2
+    with pytest.raises(ValidationError):
+        InitialConfigLoader().load(initial_path)

@@ -13,7 +13,6 @@ from app.sim.day_boundary import (
 
 if TYPE_CHECKING:
     from app.agent.runtime import AgentRuntime
-    from app.sim.runner import TickResult
     from app.sim.world import WorldState
 
 
@@ -74,24 +73,3 @@ class DayBoundaryCoordinator:
             logger.warning(f"Day boundary reflector failed: {exc}")
             if not isinstance(agent_runtime.backend, HeuristicAgentBackend):
                 raise
-
-    async def run(
-        self,
-        *,
-        run_id: str,
-        result: TickResult,
-        world: WorldState,
-        engine,
-        agent_runtime: AgentRuntime,
-    ) -> None:
-        """向后兼容接口：在 tick 结束后仅处理 Reflector。
-
-        Planner 已由 run_planner_if_needed() 在 agent 决策前提前执行。
-        """
-        await self.run_reflector_if_needed(
-            run_id=run_id,
-            tick_no=result.tick_no,
-            world=world,
-            engine=engine,
-            agent_runtime=agent_runtime,
-        )

@@ -39,7 +39,6 @@ class Settings(BaseSettings):
     langgraph_reactor_structured_enabled: bool = False
     langgraph_reactor_prompt_cache_enabled: bool = True
     langgraph_reactor_max_concurrency: int = 4
-    agent_fail_fast_on_api_unavailable: bool = False
     anthropic_model: str | None = None
     log_level: str = "INFO"
     log_format: Literal["text", "json"] = "text"

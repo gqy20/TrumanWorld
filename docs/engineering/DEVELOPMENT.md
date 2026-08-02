@@ -272,25 +272,9 @@ capabilities:
 - fallback heuristics
 - seed 初始状态写入
 
-### initial.yml 兼容写法
+### initial.yml 写法
 
-`initial.yml` 现在同时支持旧写法和更通用的 `spawn` 写法。
-
-旧写法：
-
-```yaml
-initial_location: home
-initial_goal: work
-status:
-  energy: 0.8
-  suspicion_score: 0.1
-plan:
-  morning: work
-  daytime: work
-  evening: rest
-```
-
-新写法：
+`initial.yml` 使用统一的 `spawn` 结构和通用告警输入：
 
 ```yaml
 spawn:
@@ -303,12 +287,9 @@ plan:
   default: patrol
 ```
 
-当前兼容规则：
-
-- `spawn.location` 优先于 `initial_location`
-- `spawn.goal` 优先于 `initial_goal`
-- `status.alert_score` 是推荐输入名
-- `status.suspicion_score` 仍然是兼容输入名
+- `spawn.location` 描述初始位置
+- `spawn.goal` 描述初始目标
+- `status.alert_score` 是通用告警输入名
 - seed 会根据 `semantics.alert_metric` 把它写成对应状态字段
 
 ---

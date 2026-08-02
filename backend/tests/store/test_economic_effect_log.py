@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 
 
-from app.store.models import EconomicEffectLog, SimulationRun, Agent
+from app.store.models import Agent, SimulationRun
 from app.store.repositories import EconomicEffectLogRepository
 
 
@@ -39,33 +39,12 @@ async def sample_agent(db_session, sample_run):
     return agent
 
 
-class TestEconomicEffectLogModel:
-    """Test EconomicEffectLog model creation and attributes."""
+class TestEconomicEffectLogRepository:
+    """Test EconomicEffectLogRepository CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_create_effect_log_minimal(self, db_session, sample_run, sample_agent):
-        log = EconomicEffectLog(
-            id="log-1",
-            run_id=sample_run.id,
-            agent_id=sample_agent.id,
-            tick_no=10,
-            effect_type="daily_work_income",
-            cash_delta=10.0,
-        )
-        db_session.add(log)
-        await db_session.commit()
-
-        assert log.id == "log-1"
-        assert log.run_id == sample_run.id
-        assert log.agent_id == sample_agent.id
-        assert log.tick_no == 10
-        assert log.effect_type == "daily_work_income"
-        assert log.cash_delta == 10.0
-
-    @pytest.mark.asyncio
-    async def test_create_effect_log_full_fields(self, db_session, sample_run, sample_agent):
-        log = EconomicEffectLog(
-            id="log-2",
+    async def test_create(self, db_session, effect_log_repo, sample_run, sample_agent):
+        log = await effect_log_repo.create(
             run_id=sample_run.id,
             agent_id=sample_agent.id,
             tick_no=20,
@@ -78,32 +57,19 @@ class TestEconomicEffectLogModel:
             reason="work_ban active",
             case_id="case-1",
         )
-        db_session.add(log)
-        await db_session.commit()
 
+        assert log.id is not None
+        assert log.run_id == sample_run.id
+        assert log.agent_id == sample_agent.id
+        assert log.tick_no == 20
+        assert log.effect_type == "governance_work_loss"
+        assert log.cash_delta == -10.0
         assert log.food_security_delta == -0.1
         assert log.housing_security_delta == 0.0
         assert log.employment_status_before == "stable"
         assert log.employment_status_after == "suspended"
         assert log.reason == "work_ban active"
         assert log.case_id == "case-1"
-
-
-class TestEconomicEffectLogRepository:
-    """Test EconomicEffectLogRepository CRUD operations."""
-
-    @pytest.mark.asyncio
-    async def test_create(self, db_session, effect_log_repo, sample_run, sample_agent):
-        log = await effect_log_repo.create(
-            run_id=sample_run.id,
-            agent_id=sample_agent.id,
-            tick_no=10,
-            effect_type="daily_work_income",
-            cash_delta=10.0,
-        )
-
-        assert log.id is not None
-        assert log.effect_type == "daily_work_income"
 
     @pytest.mark.asyncio
     async def test_list_for_agent(self, db_session, effect_log_repo, sample_run, sample_agent):

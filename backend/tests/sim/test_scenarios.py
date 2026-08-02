@@ -356,7 +356,7 @@ async def test_narrative_world_adapter_updates_configured_subject_alert_metric(
             "id: alt_world",
             "name: Alt World",
             "version: 1",
-            "adapter: narrative_world",
+            "adapter: bundle_world",
             "semantics:",
             "  subject_role: protagonist",
             "  support_roles:",
@@ -476,7 +476,7 @@ async def test_narrative_world_adapter_skips_subject_alert_updates_when_tracking
             "id: alt_world_no_alert",
             "name: Alt World No Alert",
             "version: 1",
-            "adapter: narrative_world",
+            "adapter: bundle_world",
             "semantics:",
             "  subject_role: protagonist",
             "  support_roles:",
@@ -542,7 +542,7 @@ async def test_narrative_world_adapter_skips_subject_alert_updates_when_tracking
 
 
 @pytest.mark.asyncio
-async def test_narrative_world_adapter_seed_supports_spawn_aliases(
+async def test_bundle_world_adapter_seed_uses_spawn_config(
     db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
     write_hero_bundle(
@@ -552,7 +552,7 @@ async def test_narrative_world_adapter_seed_supports_spawn_aliases(
             "id: alt_world_spawn",
             "name: Alt World Spawn",
             "version: 1",
-            "adapter: narrative_world",
+            "adapter: bundle_world",
             "semantics:",
             "  subject_role: protagonist",
             "  alert_metric: anomaly_score",
@@ -623,7 +623,7 @@ async def test_narrative_world_adapter_seed_supports_generic_alert_status_inputs
             "id: alt_world_alert_seed",
             "name: Alt World Alert Seed",
             "version: 1",
-            "adapter: narrative_world",
+            "adapter: bundle_world",
             "semantics:",
             "  subject_role: protagonist",
             "  alert_metric: anomaly_score",
@@ -688,7 +688,7 @@ async def test_narrative_world_seed_builder_prefers_scenario_bundle_agents(
             "id: narrative_world",
             "name: Narrative World",
             "version: 1",
-            "runtime_adapter: narrative_world",
+            "adapter: bundle_world",
         ],
     )
     (scenario_agents_root / "agent.yml").write_text(
@@ -746,7 +746,7 @@ async def test_narrative_world_adapter_seed_demo_run_uses_active_bundle_files(
             "id: alt_world",
             "name: Alt World",
             "version: 1",
-            "runtime_adapter: narrative_world",
+            "adapter: bundle_world",
         ],
         world_lines=[
             "locations:",
@@ -798,7 +798,7 @@ async def test_bundle_seed_rolls_back_seed_records_when_final_commit_fails(
             "id: seed_failure_world",
             "name: Seed Failure World",
             "version: 1",
-            "runtime_adapter: narrative_world",
+            "adapter: bundle_world",
         ],
         world_lines=[
             "locations:",
@@ -863,7 +863,7 @@ async def test_bundle_seed_uses_world_start_time_from_scenario_world_config(
             "id: late_world",
             "name: Late World",
             "version: 1",
-            "runtime_adapter: narrative_world",
+            "adapter: bundle_world",
         ],
         world_lines=[
             "world_start_time: 2030-01-15T09:30:00+00:00",
@@ -910,7 +910,7 @@ async def test_bundle_seed_preserves_explicit_run_world_start_time(
             "id: override_world",
             "name: Override World",
             "version: 1",
-            "runtime_adapter: narrative_world",
+            "adapter: bundle_world",
         ],
         world_lines=[
             "world_start_time: 2035-06-01T08:00:00+00:00",

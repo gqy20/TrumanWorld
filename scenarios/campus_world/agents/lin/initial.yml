@@ -5,5 +5,6 @@ plan:
   morning: commute
   daytime: study
   evening: socialize
-initial_goal: study
-initial_location: home
+spawn:
+  goal: study
+  location: home

@@ -1,10 +1,11 @@
 # Truman 的初始状态配置
 status:
   energy: 0.85
-  suspicion_score: 0.0
+  alert_score: 0.0
 plan:
   morning: commute
   daytime: work
   evening: socialize
-initial_goal: work
-initial_location: home
+spawn:
+  goal: work
+  location: home

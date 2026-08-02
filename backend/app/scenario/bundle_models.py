@@ -16,16 +16,10 @@ class ScenarioManifest(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _normalize_adapter_alias(cls, data):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-        adapter = normalized.get("adapter")
-        legacy_runtime_adapter = normalized.get("runtime_adapter")
-        if not isinstance(adapter, str) or not adapter:
-            if isinstance(legacy_runtime_adapter, str) and legacy_runtime_adapter:
-                normalized["adapter"] = legacy_runtime_adapter
-        return normalized
+    def reject_removed_adapter_field(cls, data: object) -> object:
+        if isinstance(data, dict) and "runtime_adapter" in data:
+            raise ValueError("runtime_adapter was removed; use adapter")
+        return data
 
 
 class ScenarioSemantics(BaseModel):
@@ -45,15 +39,10 @@ class ScenarioCapabilities(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _normalize_subject_alert_tracking_alias(cls, data):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-        subject_alert_tracking = normalized.get("subject_alert_tracking")
-        legacy_alert_tracking = normalized.get("alert_tracking")
-        if subject_alert_tracking is None and legacy_alert_tracking is not None:
-            normalized["subject_alert_tracking"] = legacy_alert_tracking
-        return normalized
+    def reject_removed_alert_tracking_field(cls, data: object) -> object:
+        if isinstance(data, dict) and "alert_tracking" in data:
+            raise ValueError("alert_tracking was removed; use subject_alert_tracking")
+        return data
 
 
 class ScenarioModules(BaseModel):

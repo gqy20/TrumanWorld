@@ -61,7 +61,6 @@ truman run start <run-id>
 truman run pause <run-id>
 truman run resume <run-id>
 truman run step <run-id> --count 3       # 暂停状态下精确推进
-truman run tick <run-id> --count 3       # step 的兼容别名
 truman run restore-all
 truman run delete <run-id> --yes
 ```

@@ -53,7 +53,7 @@ def test_settings_backfill_langgraph_config_from_existing_anthropic_fields() -> 
 
 
 def test_settings_default_llm_provider_is_anthropic() -> None:
-    settings = Settings(agent_backend="langgraph", llm_provider="anthropic")
+    settings = Settings(agent_backend="langgraph")
 
     assert settings.llm_provider == "anthropic"
 

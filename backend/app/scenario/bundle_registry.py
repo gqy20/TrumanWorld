@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -13,7 +14,7 @@ from app.scenario.bundle_models import (
     ScenarioSemantics,
 )
 
-LEGACY_DEFAULT_SCENARIO_ID = "narrative_world"
+DEFAULT_SCENARIO_ID = "narrative_world"
 
 
 class ScenarioBundleRegistry:
@@ -43,7 +44,7 @@ class ScenarioBundleRegistry:
     def get_default_scenario_id(self) -> str:
         bundles = self.list_bundles()
         if not bundles:
-            return LEGACY_DEFAULT_SCENARIO_ID
+            return DEFAULT_SCENARIO_ID
         configured_default = next(
             (bundle for bundle in bundles if bundle.manifest.default),
             None,
@@ -51,7 +52,7 @@ class ScenarioBundleRegistry:
         if configured_default is not None:
             return configured_default.manifest.id
         preferred = next(
-            (bundle for bundle in bundles if bundle.manifest.id == LEGACY_DEFAULT_SCENARIO_ID), None
+            (bundle for bundle in bundles if bundle.manifest.id == DEFAULT_SCENARIO_ID), None
         )
         return preferred.manifest.id if preferred is not None else bundles[0].manifest.id
 
@@ -77,7 +78,7 @@ class ScenarioBundleRegistry:
             manifest_path=manifest_path,
         )
 
-    def load_bundle_yaml(self, scenario_id: str | None, filename: str) -> dict:
+    def load_bundle_yaml(self, scenario_id: str | None, filename: str) -> dict[str, Any]:
         bundle = self.get_bundle(scenario_id)
         if bundle is None:
             return {}
@@ -88,7 +89,7 @@ class ScenarioBundleRegistry:
             raw = yaml.safe_load(file) or {}
         return raw if isinstance(raw, dict) else {}
 
-    def load_bundle_nested_yaml(self, scenario_id: str | None, *path_parts: str) -> dict:
+    def load_bundle_nested_yaml(self, scenario_id: str | None, *path_parts: str) -> dict[str, Any]:
         bundle = self.get_bundle(scenario_id)
         if bundle is None:
             return {}

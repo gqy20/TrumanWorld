@@ -87,7 +87,7 @@ def test_narrative_world_adapter_uses_active_bundle_world_knowledge(
             "id: alt_world",
             "name: Alt World",
             "version: 1",
-            "runtime_adapter: narrative_world",
+            "adapter: bundle_world",
         ],
         world_lines=[
             "social_norms:",

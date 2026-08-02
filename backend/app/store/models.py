@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -20,7 +21,7 @@ class SimulationRun(Base):
     world_seed: Mapped[int | None] = mapped_column(Integer)
     # 标记服务重启前是否在运行中，用于一键恢复
     was_running_before_restart: Mapped[bool] = mapped_column(default=False)
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     elapsed_seconds: Mapped[int] = mapped_column(Integer, default=0)
@@ -45,11 +46,11 @@ class Agent(Base):
     home_location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"))
     current_location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"))
     current_goal: Mapped[str | None] = mapped_column(String(255))
-    personality: Mapped[dict] = mapped_column(JSON, default=dict)
-    profile: Mapped[dict] = mapped_column(JSON, default=dict)
-    status: Mapped[dict] = mapped_column(JSON, default=dict)
-    movement: Mapped[dict] = mapped_column(JSON, default=dict)
-    current_plan: Mapped[dict] = mapped_column(JSON, default=dict)
+    personality: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    movement: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    current_plan: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -69,7 +70,7 @@ class Location(Base):
     x: Mapped[int] = mapped_column(Integer, default=0)
     y: Mapped[int] = mapped_column(Integer, default=0)
     capacity: Mapped[int] = mapped_column(Integer, default=10)
-    attributes: Mapped[dict] = mapped_column(JSON, default=dict)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class Event(Base):
@@ -89,7 +90,7 @@ class Event(Base):
     location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"))
     importance: Mapped[float] = mapped_column(Float, default=0.0)
     visibility: Mapped[str] = mapped_column(String(30), default="public")
-    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -136,7 +137,7 @@ class GovernanceRecord(Base):
     observed: Mapped[bool] = mapped_column(default=False)
     observation_score: Mapped[float] = mapped_column(Float, default=0.0)
     intervention_score: Mapped[float] = mapped_column(Float, default=0.0)
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -162,7 +163,7 @@ class GovernanceCase(Base):
     severity: Mapped[str] = mapped_column(String(20), default="low")  # low / medium / high
     record_count: Mapped[int] = mapped_column(Integer, default=0)
     active_restriction_count: Mapped[int] = mapped_column(Integer, default=0)
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -192,7 +193,7 @@ class GovernanceRestriction(Base):
     start_tick: Mapped[int] = mapped_column(Integer, default=0)
     end_tick: Mapped[int | None] = mapped_column(Integer, nullable=True)
     severity: Mapped[str] = mapped_column(String(20), default="low")  # low / medium / high
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -215,7 +216,7 @@ class AgentEconomicState(Base):
     housing_security: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0 to 1.0
     work_restriction_until_tick: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_income_tick: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -246,7 +247,7 @@ class EconomicEffectLog(Base):
     employment_status_before: Mapped[str | None] = mapped_column(String(20), nullable=True)
     employment_status_after: Mapped[str | None] = mapped_column(String(20), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -279,7 +280,7 @@ class Memory(Base):
     location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"))
     source_event_id: Mapped[str | None] = mapped_column(ForeignKey("events.id"))
     consolidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -355,7 +356,7 @@ class DirectorMemory(Base):
     cooldown_ticks: Mapped[int] = mapped_column(Integer, default=3)
     cooldown_until_tick: Mapped[int | None] = mapped_column(Integer)
     # 元数据
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -387,8 +388,8 @@ class DirectorDirective(Base):
     completed_tick: Mapped[int | None] = mapped_column(Integer)
     location_id: Mapped[str | None] = mapped_column(String(64))
     message_hint: Mapped[str | None] = mapped_column(Text)
-    constraints_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    completion_criteria_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    constraints_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    completion_criteria_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     source: Mapped[str] = mapped_column(String(20), default="auto")
     source_memory_id: Mapped[str | None] = mapped_column(
         ForeignKey("director_memories.id", ondelete="SET NULL")

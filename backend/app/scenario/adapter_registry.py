@@ -49,7 +49,6 @@ def _build_open_world_scenario(
 def create_default_scenario_adapter_registry() -> ScenarioAdapterRegistry:
     registry = ScenarioAdapterRegistry()
     registry.register("bundle_world", _build_bundle_world_scenario)
-    registry.register("narrative_world", _build_bundle_world_scenario)
     registry.register("open_world", _build_open_world_scenario)
     return registry
 

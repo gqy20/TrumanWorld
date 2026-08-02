@@ -5,5 +5,6 @@ plan:
   morning: prepare_day
   daytime: work
   evening: home
-initial_goal: work
-initial_location: home
+spawn:
+  goal: work
+  location: home

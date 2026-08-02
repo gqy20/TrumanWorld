@@ -52,13 +52,10 @@ class InitialStatusConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _normalize_alert_aliases(cls, data):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-        if "alert_score" not in normalized and "suspicion_score" in normalized:
-            normalized["alert_score"] = normalized["suspicion_score"]
-        return normalized
+    def reject_removed_alert_field(cls, data: object) -> object:
+        if isinstance(data, dict) and "suspicion_score" in data:
+            raise ValueError("status.suspicion_score was removed; use status.alert_score")
+        return data
 
 
 class InitialPlanConfig(BaseModel):
@@ -81,29 +78,11 @@ class InitialSpawnConfig(BaseModel):
 class AgentInitialConfig(BaseModel):
     """initial.yml 的完整结构"""
 
+    model_config = ConfigDict(extra="forbid")
+
     status: InitialStatusConfig = Field(default_factory=InitialStatusConfig)
     plan: InitialPlanConfig = Field(default_factory=InitialPlanConfig)
     spawn: InitialSpawnConfig = Field(default_factory=InitialSpawnConfig)
-    initial_goal: str | None = None
-    initial_location: str | None = None  # "home" 或 "workplace" 或具体 location_id
-
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_spawn_aliases(cls, data):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-        spawn_raw = normalized.get("spawn")
-        spawn = dict(spawn_raw) if isinstance(spawn_raw, dict) else {}
-
-        if not spawn.get("goal") and isinstance(normalized.get("initial_goal"), str):
-            spawn["goal"] = normalized["initial_goal"]
-        if not spawn.get("location") and isinstance(normalized.get("initial_location"), str):
-            spawn["location"] = normalized["initial_location"]
-
-        if spawn:
-            normalized["spawn"] = spawn
-        return normalized
 
 
 class AgentConfig(BaseModel):

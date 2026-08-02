@@ -9,7 +9,7 @@ class EventRepository:
         self.session = session
 
     @staticmethod
-    def _event_api_columns():
+    def _event_api_columns() -> tuple[Any, ...]:
         return (
             Event.id,
             Event.tick_no,
@@ -25,7 +25,7 @@ class EventRepository:
         )
 
     @staticmethod
-    def _to_event_api_rows(rows) -> list[EventApiRow]:
+    def _to_event_api_rows(rows: Sequence[Any]) -> list[EventApiRow]:
         return [
             EventApiRow(
                 id=row.id,

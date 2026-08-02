@@ -131,8 +131,8 @@ class BundleWorldSeedBuilder:
                 )
 
             current_location_id = home_location_id
-            initial_location = initial.spawn.location or initial.initial_location
-            initial_goal = initial.spawn.goal or initial.initial_goal
+            initial_location = initial.spawn.location
+            initial_goal = initial.spawn.goal
 
             if initial_location == "workplace" and workplace_location_id:
                 current_location_id = workplace_location_id

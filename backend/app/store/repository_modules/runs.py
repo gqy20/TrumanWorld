@@ -95,7 +95,7 @@ class RunRepository:
         await self.session.delete(run)
         await self.session.commit()
 
-    async def reset_running_on_startup(self) -> list[SimulationRun]:
+    async def reset_running_on_startup(self) -> Sequence[SimulationRun]:
         """Reset all running runs to paused on startup.
 
         Sets was_running_before_restart=True for runs that were running,

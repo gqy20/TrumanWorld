@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from app.scenario.open_world.scenario import OpenWorldScenario
-from app.scenario.bundle_world.scenario import BundleWorldScenario
 from app.sim.world_loader import load_tick_data
 from app.store.models import Agent, Event, Location, SimulationRun
 
@@ -103,7 +102,10 @@ async def test_load_tick_data_includes_director_system_events_for_cast_only(db_s
     loaded = await load_tick_data(
         session=db_session,
         run_id=run.id,
-        scenario=BundleWorldScenario(db_session),
+        # Event visibility belongs to snapshot construction, not director planning.
+        # Keep this unit test on the lightweight scenario so it does not exercise
+        # the coordinator's database workflow a second time.
+        scenario=OpenWorldScenario(db_session),
     )
 
     cast_snapshot = next(item for item in loaded.agent_data if item.id == cast.id)

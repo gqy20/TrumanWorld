@@ -16,9 +16,10 @@
 ### 我想了解当前系统
 
 1. 看 [engineering/CURRENT_ARCHITECTURE.md](engineering/CURRENT_ARCHITECTURE.md)
-2. 再看 [engineering/DEVELOPMENT.md](engineering/DEVELOPMENT.md)
-3. 命令行调试看 [engineering/CLI.md](engineering/CLI.md)
-4. 如需题材资料，补看 [references/SCENARIOS.md](references/SCENARIOS.md)
+2. 兼容层、降级路径与风险看 [fallbacks.md](fallbacks.md)
+3. 再看 [engineering/DEVELOPMENT.md](engineering/DEVELOPMENT.md)
+4. 命令行调试看 [engineering/CLI.md](engineering/CLI.md)
+5. 如需题材资料，补看 [references/SCENARIOS.md](references/SCENARIOS.md)
 
 ### 我想了解产品方向
 

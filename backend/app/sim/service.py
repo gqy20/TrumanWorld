@@ -241,9 +241,9 @@ class SimulationService:
                 result=result,
                 plan=orchestrator.director_plan,
             )
-            await self.day_boundary_coordinator.run(
+            await self.day_boundary_coordinator.run_reflector_if_needed(
                 run_id=run_id,
-                result=result,
+                tick_no=result.tick_no,
                 world=world,
                 engine=self._require_session_bound().bind,
                 agent_runtime=self.agent_runtime,

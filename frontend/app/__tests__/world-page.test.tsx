@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import {
@@ -274,7 +274,7 @@ describe("WorldPage", () => {
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
   });
 
-  it("shows one accessible town loading state while the first snapshot is pending", () => {
+  it("shows one accessible town loading state while the first snapshot is pending", async () => {
     (fetchApiResult as jest.MockedFunction<typeof fetchApiResult>)
       .mockReturnValue(new Promise(() => {}));
 
@@ -285,6 +285,13 @@ describe("WorldPage", () => {
     expect(screen.getByText("正在准备小镇")).toBeInTheDocument();
     expect(screen.getByText("同步道路、居民与最近事件")).toBeInTheDocument();
     expect(screen.queryByText("楚门世界")).not.toBeInTheDocument();
+
+    // Flush the providers' resolved startup requests before the test unmounts.
+    // The world request intentionally remains pending to preserve the loading state.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
   });
 
   it("keeps the last world visible when a refresh fails", async () => {

@@ -162,9 +162,9 @@ class IsolatedTickRunner:
         )
         # ── 夜晚边界：tick 结束后执行 Reflector ──
         reflector_started_at = perf_counter()
-        await self.day_boundary_coordinator.run(
+        await self.day_boundary_coordinator.run_reflector_if_needed(
             run_id=run_id,
-            result=result,
+            tick_no=result.tick_no,
             world=loaded.world,
             engine=engine,
             agent_runtime=self.agent_runtime,

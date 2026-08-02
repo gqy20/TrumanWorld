@@ -31,11 +31,21 @@ class _FakeCognitionRegistry:
 
 
 @pytest.mark.asyncio
-async def test_get_world_snapshot_returns_locations_agents_and_public_events(client):
+async def test_get_world_snapshot_returns_locations_agents_and_public_events(client, db_session):
     create_response = await client.post("/api/runs", json={"name": "world-run"})
     run_id = create_response.json()["id"]
 
-    await client.post(f"/api/runs/{run_id}/tick")
+    db_session.add(
+        Event(
+            id="world-snapshot-public-event",
+            run_id=run_id,
+            tick_no=1,
+            event_type="rest",
+            visibility="public",
+            payload={},
+        )
+    )
+    await db_session.commit()
     world_response = await client.get(f"/api/runs/{run_id}/world")
 
     assert world_response.status_code == 200
@@ -451,7 +461,6 @@ async def test_get_director_observation_returns_assessment(client):
     create_response = await client.post("/api/runs", json={"name": "observer-run"})
     run_id = create_response.json()["id"]
 
-    await client.post(f"/api/runs/{run_id}/tick")
     response = await client.get(f"/api/runs/{run_id}/director/observation")
 
     assert response.status_code == 200

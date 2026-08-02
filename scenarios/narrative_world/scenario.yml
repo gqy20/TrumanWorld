@@ -1,7 +1,7 @@
 id: narrative_world
 name: Narrative World
 version: 1
-runtime_adapter: narrative_world
+adapter: bundle_world
 semantics:
   subject_role: truman
   support_roles:

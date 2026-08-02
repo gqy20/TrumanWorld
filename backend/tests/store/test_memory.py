@@ -82,33 +82,6 @@ async def setup_memories(db_session: AsyncSession):
     }
 
 
-async def test_memory_category_field(db_session: AsyncSession, setup_memories):
-    """Test that memory_category field exists and defaults correctly."""
-    result = await db_session.execute(
-        select(Memory)
-        .where(Memory.agent_id == setup_memories["agent_id"])
-        .order_by(Memory.created_at)
-    )
-    memories = result.scalars().all()
-
-    # Verify we have both short_term and long_term memories
-    categories = {m.memory_category for m in memories}
-    assert "short_term" in categories
-    assert "long_term" in categories
-
-
-async def test_memory_consolidated_at(db_session: AsyncSession, setup_memories):
-    """Test that consolidated_at is set for long-term memories."""
-    result = await db_session.execute(
-        select(Memory)
-        .where(Memory.agent_id == setup_memories["agent_id"])
-        .where(Memory.memory_category == "long_term")
-    )
-    long_term = result.scalars().all()
-    for mem in long_term:
-        assert mem.consolidated_at is not None
-
-
 async def test_query_by_category(db_session: AsyncSession, setup_memories):
     """Test querying memories by category."""
     # Query short_term only
@@ -136,8 +109,8 @@ async def test_query_by_category(db_session: AsyncSession, setup_memories):
     )
     long_term = result.scalars().all()
     assert len(long_term) == 2
-    for mem in long_term:
-        assert mem.memory_category == "long_term"
+    assert all(mem.memory_category == "long_term" for mem in long_term)
+    assert all(mem.consolidated_at is not None for mem in long_term)
 
 
 async def test_consolidate_memory_directly(db_session: AsyncSession, setup_memories):

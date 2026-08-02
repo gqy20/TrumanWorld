@@ -30,7 +30,7 @@ class DirectorMemoryRepository:
         """创建导演干预记忆"""
         resolved_target_agent_ids = list(target_agent_ids or [])
         # Build metadata dict for extra fields not in the model
-        metadata_json: dict = {}
+        metadata_json: dict[str, Any] = {}
         if location_hint:
             metadata_json["location_hint"] = location_hint
 

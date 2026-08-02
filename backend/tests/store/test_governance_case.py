@@ -39,33 +39,13 @@ async def sample_agent(db_session, sample_run):
     return agent
 
 
-class TestGovernanceCaseModel:
-    """Test GovernanceCase model creation and attributes."""
+class TestGovernanceCaseRepository:
+    """Test GovernanceCaseRepository CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_create_governance_case_minimal(self, db_session, sample_run, sample_agent):
+    async def test_create_case(self, db_session, governance_case_repo, sample_run, sample_agent):
         case = GovernanceCase(
             id="case-1",
-            run_id=sample_run.id,
-            agent_id=sample_agent.id,
-            status="open",
-            opened_tick=0,
-            primary_reason="late_night_activity",
-        )
-        db_session.add(case)
-        await db_session.commit()
-
-        assert case.id == "case-1"
-        assert case.run_id == sample_run.id
-        assert case.agent_id == sample_agent.id
-        assert case.status == "open"
-        assert case.opened_tick == 0
-        assert case.primary_reason == "late_night_activity"
-
-    @pytest.mark.asyncio
-    async def test_create_governance_case_full_fields(self, db_session, sample_run, sample_agent):
-        case = GovernanceCase(
-            id="case-2",
             run_id=sample_run.id,
             agent_id=sample_agent.id,
             status="warned",
@@ -77,34 +57,19 @@ class TestGovernanceCaseModel:
             active_restriction_count=1,
             metadata_json={"notes": "multiple warnings issued"},
         )
-        db_session.add(case)
-        await db_session.commit()
-
-        assert case.status == "warned"
-        assert case.last_updated_tick == 10
-        assert case.severity == "medium"
-        assert case.record_count == 3
-        assert case.active_restriction_count == 1
-        assert case.metadata_json["notes"] == "multiple warnings issued"
-
-
-class TestGovernanceCaseRepository:
-    """Test GovernanceCaseRepository CRUD operations."""
-
-    @pytest.mark.asyncio
-    async def test_create_case(self, db_session, governance_case_repo, sample_run, sample_agent):
-        case = GovernanceCase(
-            id="case-1",
-            run_id=sample_run.id,
-            agent_id=sample_agent.id,
-            status="open",
-            opened_tick=0,
-            primary_reason="test_reason",
-        )
         result = await governance_case_repo.create(case)
 
         assert result.id == "case-1"
-        assert result.status == "open"
+        assert result.run_id == sample_run.id
+        assert result.agent_id == sample_agent.id
+        assert result.status == "warned"
+        assert result.opened_tick == 5
+        assert result.last_updated_tick == 10
+        assert result.primary_reason == "noise_complaint"
+        assert result.severity == "medium"
+        assert result.record_count == 3
+        assert result.active_restriction_count == 1
+        assert result.metadata_json == {"notes": "multiple warnings issued"}
 
     @pytest.mark.asyncio
     async def test_get_case_by_id(self, db_session, governance_case_repo, sample_run, sample_agent):

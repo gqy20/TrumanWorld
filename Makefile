@@ -2,7 +2,7 @@ PYTHON ?= python3.13
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 LOGS_DIR := logs
-BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py
+BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py app/store
 BACKEND_TEST_ENV := TRUMANWORLD_ANTHROPIC_API_KEY=test-key
 PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 

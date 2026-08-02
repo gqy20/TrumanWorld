@@ -13,9 +13,7 @@ from app.scenario.bundle_world.coordinator import BundleWorldCoordinator
 from app.scenario.bundle_world.scenario import BundleWorldScenario
 
 
-def test_factory_resolves_runtime_adapter_from_bundle_registry(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-):
+def test_factory_resolves_adapter_from_bundle_registry(tmp_path, monkeypatch: pytest.MonkeyPatch):
     scenarios_root = tmp_path / "scenarios"
     truman_root = scenarios_root / "narrative_world"
     truman_root.mkdir(parents=True)
@@ -25,7 +23,7 @@ def test_factory_resolves_runtime_adapter_from_bundle_registry(
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -93,7 +91,7 @@ def test_factory_falls_back_to_default_scenario_when_bundle_missing(
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -103,30 +101,6 @@ def test_factory_falls_back_to_default_scenario_when_bundle_missing(
     get_settings.cache_clear()
 
     scenario = create_scenario("unknown_world")
-
-    assert isinstance(scenario, BundleWorldScenario)
-
-
-def test_factory_supports_legacy_runtime_adapter_alias(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    scenarios_root = tmp_path / "scenarios"
-    truman_root = scenarios_root / "narrative_world"
-    truman_root.mkdir(parents=True)
-    (truman_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: narrative_world",
-                "name: Narrative World",
-                "version: 1",
-                "runtime_adapter: narrative_world",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
-    get_settings.cache_clear()
-
-    scenario = create_scenario("narrative_world")
 
     assert isinstance(scenario, BundleWorldScenario)
 
@@ -145,15 +119,12 @@ def test_adapter_registry_builds_registered_adapter():
     assert scenario.scenario_id == "custom_world"
 
 
-def test_default_adapter_registry_keeps_bundle_world_and_legacy_alias_in_sync():
+def test_default_adapter_registry_builds_bundle_world():
     registry = get_scenario_adapter_registry()
 
-    narrative_world = registry.build("narrative_world", scenario_id="narrative_world")
     bundle_world = registry.build("bundle_world", scenario_id="hero_world")
 
-    assert isinstance(narrative_world, BundleWorldScenario)
     assert isinstance(bundle_world, BundleWorldScenario)
-    assert narrative_world.scenario_id == "narrative_world"
     assert bundle_world.scenario_id == "hero_world"
 
 

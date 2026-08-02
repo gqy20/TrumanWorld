@@ -55,7 +55,7 @@ async def test_bootstrapper_uses_bundle_agents_root_when_present(db_session, tmp
                 "id: open_world",
                 "name: Open World",
                 "version: 1",
-                "runtime_adapter: open_world",
+                "adapter: open_world",
             ]
         ),
         encoding="utf-8",

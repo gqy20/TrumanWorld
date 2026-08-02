@@ -477,43 +477,6 @@ async def test_run_planner_if_needed_calls_planning_at_morning_boundary():
 
 
 @pytest.mark.asyncio
-async def test_run_method_no_longer_triggers_planner():
-    """run() 方法（向后兼容）在清晨时段不应再触发 Planner，只触发 Reflector 检测。"""
-    from datetime import datetime
-    from unittest.mock import AsyncMock, MagicMock, patch
-    from app.sim.day_boundary_coordinator import DayBoundaryCoordinator
-    from app.sim.runner import TickResult
-    from app.sim.world import WorldState
-
-    world = WorldState(
-        current_time=datetime(2026, 3, 2, 6, 0),  # 06:00 清晨
-        tick_minutes=5,
-    )
-    result = TickResult(
-        tick_no=1,
-        world_time="2026-03-02T06:00:00",
-        tick_delta=1,
-        accepted=[],
-        rejected=[],
-    )
-    coordinator = DayBoundaryCoordinator()
-
-    with patch(
-        "app.sim.day_boundary_coordinator.run_morning_planning", new_callable=AsyncMock
-    ) as mock_planning:
-        await coordinator.run(
-            run_id="test-run",
-            result=result,
-            world=world,
-            engine=MagicMock(),
-            agent_runtime=MagicMock(),
-        )
-
-    # run() 不再负责 Planner，应为 0 次
-    mock_planning.assert_not_awaited()
-
-
-@pytest.mark.asyncio
 async def test_coordinator_reassigns_drifted_directive_to_available_actor(db_session):
     run_id = "replan-run"
     location_id = "replan-home"

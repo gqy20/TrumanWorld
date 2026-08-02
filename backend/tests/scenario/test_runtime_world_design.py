@@ -17,7 +17,7 @@ def test_runtime_world_design_package_loads_bundle_assets(
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
                 "default: true",
             ]
         ),
@@ -100,7 +100,7 @@ def test_runtime_world_design_package_uses_empty_rules_and_default_policy_when_a
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
                 "default: true",
             ]
         ),
@@ -136,7 +136,7 @@ def test_runtime_world_design_package_falls_back_to_default_bundle_world_only(
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
                 "default: true",
             ]
         ),
@@ -190,7 +190,7 @@ def test_runtime_world_design_package_falls_back_to_default_bundle_world_only(
                 "id: mystery_world",
                 "name: Mystery World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -222,7 +222,7 @@ def test_runtime_world_design_cache_is_isolated_by_project_root(
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
                 "default: true",
             ]
         ),
@@ -244,7 +244,7 @@ def test_runtime_world_design_cache_is_isolated_by_project_root(
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
                 "default: true",
             ]
         ),

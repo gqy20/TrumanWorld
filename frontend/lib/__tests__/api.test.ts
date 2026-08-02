@@ -25,6 +25,10 @@ describe('API', () => {
     jest.clearAllMocks()
   })
 
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
   describe('getRunResult', () => {
     it('returns data and status on success', async () => {
       const mockRun: RunSummary = { id: '1', name: 'Test', status: 'running' }
@@ -81,6 +85,7 @@ describe('API', () => {
     })
 
     it('returns network_error on fetch failure', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       const result = await getRunResult('1')
@@ -91,6 +96,11 @@ describe('API', () => {
         errorDetail: null,
         status: null,
       })
+      expect(consoleSpy).toHaveBeenCalledWith(expect.objectContaining({
+        event: 'api_network_error',
+        method: 'GET',
+        path: '/api/runs/1',
+      }))
     })
 
     it('does not report Next.js dynamic-render control flow as an application error', async () => {
@@ -101,12 +111,12 @@ describe('API', () => {
 
       expect(result.error).toBe('network_error')
       expect(consoleSpy).not.toHaveBeenCalled()
-      consoleSpy.mockRestore()
     })
   })
 
   describe('fetchApiResult', () => {
     it('returns request_failed on non-404 error', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -124,6 +134,12 @@ describe('API', () => {
         errorDetail: 'Boom',
         status: 500,
       })
+      expect(consoleSpy).toHaveBeenCalledWith(expect.objectContaining({
+        event: 'api_request_failed',
+        method: 'GET',
+        path: '/api/runs',
+        status: 500,
+      }))
     })
   })
 
@@ -287,6 +303,7 @@ describe('API', () => {
     })
 
     it('returns detailed error metadata', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -304,6 +321,12 @@ describe('API', () => {
         errorDetail: 'Failed to create',
         status: 500,
       })
+      expect(consoleSpy).toHaveBeenCalledWith(expect.objectContaining({
+        event: 'api_request_failed',
+        method: 'POST',
+        path: '/api/runs',
+        status: 500,
+      }))
     })
 
     it('omits scenario_type when caller does not provide one', async () => {
@@ -330,66 +353,22 @@ describe('API', () => {
     })
   })
 
-  describe('startRunResult', () => {
-    it('calls correct endpoint and returns detailed start response', async () => {
-      const mockRun: RunSummary = { id: '1', name: 'Test', status: 'running' }
+  describe.each([
+    ['start', startRunResult, 'running'],
+    ['pause', pauseRunResult, 'paused'],
+    ['resume', resumeRunResult, 'running'],
+  ] as const)('%sRunResult', (action, request, status) => {
+    it(`posts to the ${action} endpoint and returns the run`, async () => {
+      const mockRun: RunSummary = { id: '1', name: 'Test', status }
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => mockRun,
       } as unknown as Response)
 
-      const result = await startRunResult('1')
+      const result = await request('1')
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/runs/1/start'),
-        expect.objectContaining({ method: 'POST' })
-      )
-      expect(result).toEqual({
-        data: mockRun,
-        error: null,
-        errorCode: null,
-        errorDetail: null,
-        status: 200,
-      })
-    })
-  })
-
-  describe('pauseRunResult', () => {
-    it('calls correct endpoint', async () => {
-      const mockRun: RunSummary = { id: '1', name: 'Test', status: 'paused' }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockRun,
-      } as unknown as Response)
-
-      const result = await pauseRunResult('1')
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/runs/1/pause'),
-        expect.objectContaining({ method: 'POST' })
-      )
-      expect(result).toEqual({
-        data: mockRun,
-        error: null,
-        errorCode: null,
-        errorDetail: null,
-        status: 200,
-      })
-    })
-  })
-
-  describe('resumeRunResult', () => {
-    it('calls correct endpoint', async () => {
-      const mockRun: RunSummary = { id: '1', name: 'Test', status: 'running' }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockRun,
-      } as unknown as Response)
-
-      const result = await resumeRunResult('1')
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/runs/1/resume'),
+        expect.stringContaining(`/runs/1/${action}`),
         expect.objectContaining({ method: 'POST' })
       )
       expect(result).toEqual({
@@ -460,7 +439,7 @@ describe('API', () => {
   })
 
   describe('deleteRunResult', () => {
-    it('returns success payload on delete', async () => {
+    it('sends a bodyless delete and returns the success payload', async () => {
       const mockResponse = { run_id: '1', status: 'deleted' }
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -476,17 +455,6 @@ describe('API', () => {
         errorDetail: null,
         status: 200,
       })
-    })
-
-    it('sends delete without a JSON body', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ run_id: '1', status: 'deleted' }),
-      } as unknown as Response)
-
-      await deleteRunResult('1')
-
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/runs/1'),
         expect.objectContaining({

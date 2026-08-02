@@ -5,6 +5,7 @@ from app.store.repository_modules._common import *
 
 from app.director.directives import DirectorDirective as DirectiveDTO
 from app.infra.metrics import observe_director_directive
+from app.sim.action_resolver import ActionResult
 from app.store.models import DirectorDirective
 
 
@@ -96,7 +97,9 @@ class DirectorDirectiveRepository:
             observe_director_directive(outcome="expired", mode=directive.mode)
         await self._refresh_memory_effectiveness(list(directives))
 
-    async def apply_results(self, run_id: str, tick_no: int, results: list) -> None:
+    async def apply_results(
+        self, run_id: str, tick_no: int, results: Sequence[ActionResult]
+    ) -> None:
         by_id = {
             result.event_payload.get("director_directive_id"): result
             for result in results
@@ -159,7 +162,7 @@ class DirectorDirectiveRepository:
         self,
         run_id: str,
         tick_no: int,
-        agents: list,
+        agents: Sequence[Agent],
         *,
         alert_metric: str = "truman_suspicion_score",
     ) -> None:
@@ -256,7 +259,7 @@ class DirectorDirectiveRepository:
             directive.failure_reason = "superseded"
 
 
-def _matches_completion(directive: DirectorDirective, result) -> bool:
+def _matches_completion(directive: DirectorDirective, result: ActionResult) -> bool:
     criteria = directive.completion_criteria_json or {}
     if criteria.get("accepted_action"):
         return result.accepted
@@ -278,9 +281,9 @@ def _matches_completion(directive: DirectorDirective, result) -> bool:
 
 
 def _evaluate_effect_score(
-    directive,
-    memory,
-    agent_by_id: dict[str, object],
+    directive: DirectorDirective,
+    memory: DirectorMemory | None,
+    agent_by_id: dict[str, Agent],
     *,
     alert_metric: str,
 ) -> float:

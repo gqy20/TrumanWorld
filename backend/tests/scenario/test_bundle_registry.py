@@ -25,7 +25,7 @@ def test_bundle_registry_loads_scenarios_from_directory(tmp_path):
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -39,7 +39,7 @@ def test_bundle_registry_loads_scenarios_from_directory(tmp_path):
                 "id: open_world",
                 "name: Open World",
                 "version: 1",
-                "runtime_adapter: open_world",
+                "adapter: open_world",
             ]
         ),
         encoding="utf-8",
@@ -64,7 +64,7 @@ def test_bundle_registry_returns_bundle_by_id(tmp_path):
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -87,7 +87,7 @@ def test_bundle_registry_loads_scenario_semantics_and_capabilities(tmp_path):
                 "id: hero_world",
                 "name: Hero World",
                 "version: 1",
-                "adapter: narrative_world",
+                "adapter: bundle_world",
                 "semantics:",
                 "  subject_role: protagonist",
                 "  support_roles:",
@@ -169,11 +169,35 @@ def test_bundle_registry_uses_empty_defaults_when_semantics_and_capabilities_mis
     assert bundle.capabilities.scene_guidance is None
 
 
+@pytest.mark.parametrize(
+    "removed_line",
+    ["runtime_adapter: bundle_world", "capabilities:\n  alert_tracking: true"],
+)
+def test_bundle_registry_rejects_removed_manifest_fields(tmp_path, removed_line):
+    scenario_root = tmp_path / "scenarios" / "invalid_world"
+    scenario_root.mkdir(parents=True)
+    (scenario_root / "scenario.yml").write_text(
+        "\n".join(
+            [
+                "id: invalid_world",
+                "name: Invalid World",
+                "version: 1",
+                "adapter: bundle_world",
+                removed_line,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Invalid scenario manifest"):
+        ScenarioBundleRegistry(tmp_path / "scenarios").get_bundle("invalid_world")
+
+
 def test_bundle_registry_prefers_narrative_world_as_default_when_present(tmp_path):
     scenarios_root = tmp_path / "scenarios"
     for scenario_id, adapter in (
         ("open_world", "open_world"),
-        ("narrative_world", "narrative_world"),
+        ("narrative_world", "bundle_world"),
     ):
         bundle_root = scenarios_root / scenario_id
         bundle_root.mkdir(parents=True)
@@ -194,7 +218,7 @@ def test_bundle_registry_prefers_narrative_world_as_default_when_present(tmp_pat
     assert registry.get_default_scenario_id() == "narrative_world"
 
 
-def test_bundle_registry_prefers_manifest_default_flag_over_legacy_name(tmp_path):
+def test_bundle_registry_prefers_manifest_default_flag_over_conventional_default(tmp_path):
     scenarios_root = tmp_path / "scenarios"
     for scenario_id, adapter, is_default in (
         ("narrative_world", "bundle_world", False),
@@ -267,31 +291,6 @@ def test_resolve_default_scenario_id_uses_manifest_default_flag(tmp_path, monkey
     assert resolve_default_scenario_id() == "beta_world"
 
 
-def test_bundle_registry_normalizes_legacy_alert_tracking_capability(tmp_path):
-    scenario_root = tmp_path / "scenarios" / "legacy_alert_world"
-    scenario_root.mkdir(parents=True)
-    (scenario_root / "scenario.yml").write_text(
-        "\n".join(
-            [
-                "id: legacy_alert_world",
-                "name: Legacy Alert World",
-                "version: 1",
-                "adapter: narrative_world",
-                "capabilities:",
-                "  alert_tracking: false",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    registry = ScenarioBundleRegistry(tmp_path / "scenarios")
-
-    bundle = registry.get_bundle("legacy_alert_world")
-
-    assert bundle is not None
-    assert bundle.capabilities.subject_alert_tracking is False
-
-
 def test_bundle_registry_prefers_bundle_agents_directory(tmp_path, monkeypatch):
     scenarios_root = tmp_path / "scenarios"
     bundle_root = scenarios_root / "narrative_world"
@@ -302,7 +301,7 @@ def test_bundle_registry_prefers_bundle_agents_directory(tmp_path, monkeypatch):
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -332,7 +331,7 @@ def test_resolve_agents_root_falls_back_to_project_agents_when_bundle_agents_mis
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -357,7 +356,7 @@ def test_load_world_config_for_scenario_reads_bundle_world_file(tmp_path, monkey
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -395,7 +394,7 @@ def test_resolve_sleep_config_for_scenario_reads_bundle_world_file(tmp_path, mon
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -429,7 +428,7 @@ def test_load_director_config_and_prompt_for_scenario_reads_bundle_files(tmp_pat
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -471,7 +470,7 @@ def test_load_ui_config_for_scenario_reads_bundle_ui_file(tmp_path, monkeypatch)
                 "id: narrative_world",
                 "name: Narrative World",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",
@@ -506,7 +505,7 @@ def test_bundle_registry_rejects_invalid_manifest(tmp_path):
             [
                 "name: Missing Id",
                 "version: 1",
-                "runtime_adapter: narrative_world",
+                "adapter: bundle_world",
             ]
         ),
         encoding="utf-8",

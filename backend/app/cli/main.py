@@ -500,16 +500,6 @@ def run_resume(ctx: typer.Context, run_id: str) -> None:
     _run_action(ctx, run_id, "resume")
 
 
-@run_app.command("tick")
-def run_tick(
-    ctx: typer.Context,
-    run_id: str,
-    count: int = typer.Option(1, "--count", "-n", min=1),
-) -> None:
-    """Compatibility alias for deterministic step."""
-    _run_steps(ctx, run_id, count)
-
-
 @run_app.command("step")
 def run_step(
     ctx: typer.Context,
