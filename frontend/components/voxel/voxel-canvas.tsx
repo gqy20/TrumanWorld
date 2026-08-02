@@ -18,8 +18,13 @@ import {
   calculateVoxelCameraZoom,
   easeOutQuint,
   type VoxelCameraFocusRequest,
+  type VoxelCameraSubject,
 } from "./camera-controller";
-import { buildVoxelMotionPath } from "./agent-motion";
+import {
+  buildVoxelMotionPath,
+  offsetVoxelMotionSample,
+  sampleVoxelMotionPathAtDistance,
+} from "./agent-motion";
 import {
   buildVoxelEventPlan,
   type VoxelEventBubble,
@@ -281,6 +286,13 @@ function StageScene({
   onLocationClick?: (locationId: string) => void;
 }) {
   const batches = useMemo(() => buildBlockBatches(plan.blocks), [plan.blocks]);
+  const cameraSubjects = useMemo<VoxelCameraSubject[]>(
+    () => [
+      ...plan.blocks,
+      ...plan.assets.flatMap((asset) => asset.fallbackBlocks),
+    ].map(({ position, rotationY, size }) => ({ position, rotationY, size })),
+    [plan.assets, plan.blocks],
+  );
   const agentPosesRef = useRef<Map<string, THREE.Vector3>>(new Map());
   const resolvedCameraFocus = useMemo<ResolvedCameraFocus | null>(() => {
     if (!cameraFocusRequest) return null;
@@ -296,6 +308,7 @@ function StageScene({
       <RendererConfiguration exposure={lightingProfile.exposure} />
       <CameraRig
         bounds={plan.bounds}
+        subjects={cameraSubjects}
         focusRequest={resolvedCameraFocus}
         resetRevision={cameraResetRevision}
         agentPosesRef={agentPosesRef}
@@ -707,10 +720,19 @@ function MoveTrailLayer({ trails }: { trails: VoxelMoveTrail[] }) {
 function MoveTrailMarkers({ trail }: { trail: VoxelMoveTrail }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const invalidate = useThree((state) => state.invalidate);
-  const markerPoints = useMemo(
-    () => interpolateTrailPoints(buildVoxelMotionPath(trail.points).points),
-    [trail.points],
-  );
+  const markerPoints = useMemo(() => {
+    const path = buildVoxelMotionPath(trail.points);
+    const formedPath = path.cumulativeLengths.map((distance) =>
+      offsetVoxelMotionSample(
+        path,
+        distance,
+        sampleVoxelMotionPathAtDistance(path, distance),
+        trail.formation.laneOffset,
+        trail.formation.longitudinalOffset,
+      ).position,
+    );
+    return interpolateTrailPoints(formedPath);
+  }, [trail.formation.laneOffset, trail.formation.longitudinalOffset, trail.points]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -793,11 +815,13 @@ function interpolateTrailPoints(points: VoxelVector3[]): VoxelVector3[] {
 
 function CameraRig({
   bounds,
+  subjects,
   focusRequest,
   resetRevision,
   agentPosesRef,
 }: {
   bounds: VoxelBounds;
+  subjects: VoxelCameraSubject[];
   focusRequest: ResolvedCameraFocus | null;
   resetRevision: number;
   agentPosesRef: AgentPoseMap;
@@ -817,8 +841,9 @@ function CameraRig({
       calculateVoxelCameraFrame(
         { maxX, maxY, maxZ, minX, minY, minZ },
         { height: viewportHeight, width: viewportWidth },
+        subjects,
       ),
-    [maxX, maxY, maxZ, minX, minY, minZ, viewportHeight, viewportWidth],
+    [maxX, maxY, maxZ, minX, minY, minZ, subjects, viewportHeight, viewportWidth],
   );
   const focusAnchorX = focusRequest?.anchor.position.x;
   const focusAnchorZ = focusRequest?.anchor.position.z;

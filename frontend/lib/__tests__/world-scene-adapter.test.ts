@@ -20,6 +20,7 @@ describe("buildSceneWorld", () => {
             to_location_id: "library",
             started_tick: 2,
             arrival_tick: 4,
+            speed: 1.8,
           },
         },
       ],
@@ -45,6 +46,7 @@ describe("buildSceneWorld", () => {
         toLocationId: "library",
         initialProgress: 0.5,
         isActive: true,
+        speed: 1.8,
       }),
     ]);
   });

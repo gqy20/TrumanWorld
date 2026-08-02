@@ -23,8 +23,8 @@ describe("voxel camera controller", () => {
 
     expect(frame).toEqual(calculateVoxelCameraFrame(bounds, { width: 1280, height: 720 }));
     expect(frame.aspect).toBeCloseTo(16 / 9);
-    expect(frame.target.x).toBe(0);
-    expect(frame.target.z).toBe(0);
+    expect(frame.target.x).toBeCloseTo(0);
+    expect(frame.target.z).toBeCloseTo(0);
     expect(frame.position.x).toBeGreaterThan(frame.target.x);
     expect(frame.position.y).toBeGreaterThan(frame.target.y);
     expect(frame.position.z).toBeGreaterThan(frame.target.z);
@@ -36,6 +36,35 @@ describe("voxel camera controller", () => {
     const portrait = calculateVoxelCameraFrame(bounds, { width: 390, height: 844 });
 
     expect(portrait.viewHeight).toBeGreaterThan(landscape.viewHeight);
+    const landscapeElevation = (landscape.position.y - landscape.target.y)
+      / (landscape.position.x - landscape.target.x);
+    const portraitElevation = (portrait.position.y - portrait.target.y)
+      / (portrait.position.x - portrait.target.x);
+    expect(portraitElevation).toBeGreaterThan(landscapeElevation);
+  });
+
+  it("fits actual scene subjects instead of an impossible global height box", () => {
+    const coarse = calculateVoxelCameraFrame(bounds, { width: 1280, height: 720 });
+    const fitted = calculateVoxelCameraFrame(
+      bounds,
+      { width: 1280, height: 720 },
+      [
+        {
+          position: { x: 0, y: -0.3, z: 0 },
+          rotationY: 0,
+          size: { x: 16, y: 0.2, z: 16 },
+        },
+        {
+          position: { x: 0, y: 1.4, z: 0 },
+          rotationY: Math.PI / 4,
+          size: { x: 1, y: 3.2, z: 1 },
+        },
+      ],
+    );
+
+    expect(fitted.viewHeight).toBeLessThan(coarse.viewHeight);
+    expect(fitted.target.x).toBeCloseTo(fitted.target.z);
+    expect(Math.abs(fitted.target.x)).toBeLessThan(0.5);
   });
 
   it("zooms monotonically and clamps extreme wheel input", () => {

@@ -8,7 +8,22 @@ export type VoxelEventBubble = SceneBubble & {
 };
 
 export type VoxelMoveTrail = SceneMoveTrail & {
+  formation: VoxelMovementFormation;
+  junctions: VoxelMovementJunction[];
   points: VoxelVector3[];
+};
+
+export type VoxelMovementJunction = {
+  id: string;
+  position: VoxelVector3;
+};
+
+export type VoxelMovementFormation = {
+  id: string;
+  laneOffset: number;
+  longitudinalOffset: number;
+  memberIndex: number;
+  size: number;
 };
 
 export type VoxelEventPlan = {
@@ -31,6 +46,7 @@ export function buildVoxelEventPlan(
   const plotByLocationId = new Map(
     scenePlan.plots.map((plotItem) => [plotItem.locationId, plotItem]),
   );
+  const formationByTrailId = buildVoxelMovementFormations(moveTrails);
 
   return {
     bubbles: bubbles.flatMap((bubble) => {
@@ -101,13 +117,70 @@ export function buildVoxelEventPlan(
         const previous = allPoints[index - 1];
         return !previous || previous.x !== point.x || previous.z !== point.z;
       });
+      const roadByKey = new Map(scenePlan.roads.map((road) => [pointKey(road), road]));
+      const junctions = roadPath.flatMap((point) => {
+        const road = roadByKey.get(pointKey(point));
+        if (!road || countRoadConnections(road) < 3) return [];
+        return [{ id: `junction:${pointKey(point)}`, position: { ...point, y: 0 } }];
+      });
       return [
         {
           ...trail,
+          formation: formationByTrailId.get(trail.id) ?? createSoloFormation(trail),
+          junctions,
           points,
         },
       ];
     }),
+  };
+}
+
+function countRoadConnections(road: VoxelRoadTile): number {
+  return Object.values(road.connections).filter(Boolean).length;
+}
+
+export function buildVoxelMovementFormations(
+  moveTrails: SceneMoveTrail[],
+): Map<string, VoxelMovementFormation> {
+  const groups = new Map<string, SceneMoveTrail[]>();
+  for (const trail of moveTrails) {
+    const routeKey = trail.routeNodeIds?.join(",") ?? "fallback";
+    const key = `${trail.fromLocationId}>${trail.toLocationId}:${routeKey}`;
+    const group = groups.get(key) ?? [];
+    group.push(trail);
+    groups.set(key, group);
+  }
+
+  const formations = new Map<string, VoxelMovementFormation>();
+  for (const [key, trails] of groups) {
+    const members = trails.slice().sort((left, right) =>
+      (left.actorId ?? left.actorName).localeCompare(right.actorId ?? right.actorName)
+      || left.id.localeCompare(right.id),
+    );
+    members.forEach((trail, memberIndex) => {
+      const rowIndex = Math.floor(memberIndex / 2);
+      const isUnpairedLastMember = memberIndex === members.length - 1 && members.length % 2 === 1;
+      formations.set(trail.id, {
+        id: `formation:${key}`,
+        laneOffset: members.length === 1 || isUnpairedLastMember
+          ? 0.09
+          : memberIndex % 2 === 0 ? 0 : 0.18,
+        longitudinalOffset: rowIndex * 0.42,
+        memberIndex,
+        size: members.length,
+      });
+    });
+  }
+  return formations;
+}
+
+function createSoloFormation(trail: SceneMoveTrail): VoxelMovementFormation {
+  return {
+    id: `formation:${trail.fromLocationId}>${trail.toLocationId}`,
+    laneOffset: 0.09,
+    longitudinalOffset: 0,
+    memberIndex: 0,
+    size: 1,
   };
 }
 

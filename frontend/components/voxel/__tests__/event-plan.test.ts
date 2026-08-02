@@ -1,7 +1,11 @@
 import { makeWorldSnapshot } from "@/test-utils/app/fixtures";
 import { buildSceneWorld, type SceneBubble, type SceneMoveTrail } from "@/lib/world-scene-adapter";
 
-import { buildVoxelEventPlan, findRoadPath } from "../event-plan";
+import {
+  buildVoxelEventPlan,
+  buildVoxelMovementFormations,
+  findRoadPath,
+} from "../event-plan";
 import { snapRoadPoint } from "../road-graph";
 import { buildVoxelScenePlan } from "../scene-plan";
 
@@ -9,6 +13,8 @@ describe("voxel event plan", () => {
   it("anchors speech to the speaker and maps movement onto the road graph", () => {
     const world = buildSceneWorld(makeWorldSnapshot());
     const scenePlan = buildVoxelScenePlan(world);
+    const centerRoad = scenePlan.roads.find((road) => road.x === 0 && road.z === 0);
+    if (centerRoad) centerRoad.connections.north = true;
     const eventPlan = buildVoxelEventPlan(world.bubbles, world.moveTrails, scenePlan);
 
     expect(eventPlan.bubbles).toHaveLength(1);
@@ -28,6 +34,11 @@ describe("voxel event plan", () => {
     const roadKeys = new Set(scenePlan.roads.map((road) => `${road.x}:${road.z}`));
 
     expect(trail.id).toBe("event-2");
+    expect(trail.formation).toEqual(expect.objectContaining({
+      laneOffset: 0.09,
+      longitudinalOffset: 0,
+      size: 1,
+    }));
     expect(trail.points[0]).toMatchObject(fromPlot!.agentAnchors[0]);
     expect(trail.points.at(-1)).toEqual({
       ...scenePlan.agentAnchors["agent-1"].position,
@@ -41,6 +52,9 @@ describe("voxel event plan", () => {
     expect(trail.points.slice(1, -1).map(({ x, z }) => ({ x, z }))).toEqual(
       [4, 3, 2, 1, 0].map((x) => ({ x: x - 2, z: 0 })),
     );
+    expect(trail.junctions).toEqual([
+      { id: "junction:0:0", position: { x: 0, y: 0, z: 0 } },
+    ]);
   });
 
   it("falls back to a location roof anchor when the speaker is not present", () => {
@@ -85,5 +99,35 @@ describe("voxel event plan", () => {
       moveTrails: [],
     });
     expect(findRoadPath(scenePlan.roads, { x: 999, z: 999 }, { x: 0, z: 0 })).toEqual([]);
+  });
+
+  it("forms same-route residents into pairs with stable following rows", () => {
+    const movements: SceneMoveTrail[] = ["charlie", "alpha", "bravo", "delta"].map(
+      (actorId, index) => ({
+        id: `move-${actorId}`,
+        actorId,
+        actorName: actorId,
+        fromLocationId: "library",
+        toLocationId: "cafe",
+        recencyIndex: index,
+        routeNodeIds: ["west", "center", "east"],
+      }),
+    );
+    const formations = buildVoxelMovementFormations(movements);
+    const reversed = buildVoxelMovementFormations(movements.slice().reverse());
+
+    expect(formations).toEqual(reversed);
+    expect(formations.get("move-alpha")).toEqual(expect.objectContaining({
+      laneOffset: 0,
+      longitudinalOffset: 0,
+      memberIndex: 0,
+      size: 4,
+    }));
+    expect(formations.get("move-bravo")?.laneOffset).toBe(0.18);
+    expect(formations.get("move-charlie")?.longitudinalOffset).toBe(0.42);
+    expect(formations.get("move-delta")).toEqual(expect.objectContaining({
+      laneOffset: 0.18,
+      longitudinalOffset: 0.42,
+    }));
   });
 });

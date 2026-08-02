@@ -61,6 +61,7 @@ export type SceneMoveTrail = {
   initialProgress?: number;
   isActive?: boolean;
   routeNodeIds?: string[];
+  speed?: number;
 };
 
 export type SceneNavigation = {
@@ -170,6 +171,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
         ),
         isActive: true,
         routeNodeIds: movement.route_node_ids,
+        speed: movement.speed,
       },
     ];
   });
@@ -211,6 +213,9 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
           fromLocationId,
           toLocationId,
           recencyIndex: index,
+          speed: typeof event.payload.speed === "number" && event.payload.speed > 0
+            ? event.payload.speed
+            : undefined,
           routeNodeIds: Array.isArray(event.payload.route_node_ids)
             ? event.payload.route_node_ids.filter(
                 (nodeId): nodeId is string => typeof nodeId === "string",
