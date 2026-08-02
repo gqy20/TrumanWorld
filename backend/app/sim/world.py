@@ -49,6 +49,9 @@ class ActiveConversationState:
     last_proposal: str | None = None
     open_question: str | None = None
     repeat_count: int = 0
+    started_tick_no: int = 0
+    turn_count: int = 0
+    phase: str = "open"
 
 
 @dataclass
@@ -141,6 +144,9 @@ class WorldState:
                     "last_proposal": conversation.last_proposal,
                     "open_question": conversation.open_question,
                     "repeat_count": conversation.repeat_count,
+                    "started_tick_no": conversation.started_tick_no,
+                    "turn_count": conversation.turn_count,
+                    "phase": conversation.phase,
                 }
                 for conversation_id, conversation in self.active_conversations.items()
             },

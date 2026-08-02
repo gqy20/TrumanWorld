@@ -59,6 +59,7 @@ def compute_relationship_delta(
     governance_reason: str | None = None,
     actor_attention_score: float = 0.0,
     target_attention_score: float = 0.0,
+    conversation_turn_no: int = 1,
     policy_values: dict[str, Any] | None = None,
 ) -> RelationshipDelta | None:
     if event_type not in SOCIAL_RELATION_EVENT_TYPES:
@@ -68,6 +69,13 @@ def compute_relationship_delta(
     trust_delta = 0.05
     affinity_delta = 0.05
     modifiers: list[str] = []
+
+    if conversation_turn_no > 1:
+        multiplier = max(0.2, 1.0 / conversation_turn_no)
+        familiarity_delta *= multiplier
+        trust_delta *= multiplier
+        affinity_delta *= multiplier
+        modifiers.append(f"diminishing_turn:{conversation_turn_no}")
 
     values = policy_values or {}
     social_boost_locations = values.get("social_boost_locations")

@@ -130,3 +130,48 @@ def test_conversation_scheduler_refreshes_existing_session_location_on_continuat
     assert sessions[0].id == "conv-1"
     assert sessions[0].location_id == "plaza"
     assert assignments["alice"].conversation_id == "conv-1"
+
+
+def test_conversation_scheduler_closes_session_when_no_one_continues_talking():
+    world = _build_collocated_world()
+    world.current_tick = 6
+    world.active_conversations = {
+        "conv-1": ActiveConversationState(
+            id="conv-1",
+            location_id="plaza",
+            participant_ids=["alice", "bob"],
+            active_speaker_id="alice",
+            last_tick_no=5,
+            started_tick_no=1,
+            turn_count=4,
+        )
+    }
+
+    sessions, assignments = ConversationScheduler().schedule(
+        [ActionIntent(agent_id="alice", action_type="move", target_location_id="elsewhere")],
+        world,
+    )
+
+    assert sessions == []
+    assert assignments == {}
+
+
+def test_conversation_scheduler_does_not_reopen_session_at_turn_limit():
+    world = _build_collocated_world()
+    world.current_tick = 6
+    world.active_conversations = {
+        "conv-1": ActiveConversationState(
+            id="conv-1",
+            location_id="plaza",
+            participant_ids=["alice", "bob"],
+            active_speaker_id="alice",
+            last_tick_no=5,
+            started_tick_no=1,
+            turn_count=6,
+            phase="closing",
+        )
+    }
+
+    sessions, _assignments = ConversationScheduler().schedule([], world)
+
+    assert sessions == []

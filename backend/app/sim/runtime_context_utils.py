@@ -174,6 +174,9 @@ def extract_active_conversation_state(
             "last_proposal": conversation.last_proposal,
             "open_question": conversation.open_question,
             "repeat_count": conversation.repeat_count,
+            "started_tick_no": getattr(conversation, "started_tick_no", 0),
+            "turn_count": getattr(conversation, "turn_count", 0),
+            "phase": getattr(conversation, "phase", "open"),
         }
     return None
 

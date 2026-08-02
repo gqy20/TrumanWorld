@@ -715,7 +715,9 @@ class DirectorMemoryResponse(BaseModel):
     reason: str | None = Field(None, description="原因说明")
     was_executed: bool = Field(..., description="是否已被本轮 tick 消费")
     delivery_status: str = Field(
-        ..., description="投递状态", examples=["queued", "consumed", "expired"]
+        ...,
+        description="聚合投递与效果状态",
+        examples=["queued", "active", "evaluating", "succeeded", "failed", "expired"],
     )
     effectiveness_score: float | None = Field(None, description="效果分数", ge=0, le=1)
     trigger_subject_alert_score: float = Field(0.0, description="触发主体告警度", ge=0, le=1)
@@ -759,6 +761,9 @@ class DirectorDirectiveResponse(BaseModel):
     last_result_action_type: str | None = Field(None, description="最后动作类型")
     last_result_target_agent_id: str | None = Field(None, description="最后动作目标")
     replaced_by_directive_id: str | None = Field(None, description="替代指令 ID")
+    effect_status: str = Field("pending", description="效果评估状态")
+    effectiveness_score: float | None = Field(None, description="延迟效果分数", ge=0, le=1)
+    evaluated_tick: int | None = Field(None, description="效果评估 tick")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
 

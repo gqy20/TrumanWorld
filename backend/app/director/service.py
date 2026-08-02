@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.director.manual_planner import ManualDirectorPlanner, ManualDirectorPlannerSemantics
+from app.director.candidates import build_actor_candidates
 from app.protocol.simulation import build_director_event_type
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_world_role
@@ -46,12 +47,15 @@ class DirectorEventService:
             msg = f"Run not found: {run_id}"
             raise ValueError(msg)
 
+        locations = await self.location_repo.list_for_run(run_id)
         if location_id is not None:
-            locations = await self.location_repo.list_for_run(run_id)
             valid_location_ids = {location.id for location in locations}
             if location_id not in valid_location_ids:
                 msg = f"Invalid location_id for this run: {location_id}"
                 raise ValueError(msg)
+
+        if location_id is None:
+            location_id = _resolve_mentioned_location_id(payload.get("message"), locations)
 
         if event_type == "power_outage" and location_id is None:
             msg = "power_outage requires location_id"
@@ -66,12 +70,24 @@ class DirectorEventService:
             (agent for agent in agents if get_world_role(agent.profile) == semantics.subject_role),
             None,
         )
+        recent_events = await self.event_repo.list_for_run(run_id, limit=50)
+        candidates = build_actor_candidates(
+            agents=list(agents),
+            events=list(recent_events),
+            current_tick=run.current_tick,
+            subject_agent_id=subject_agent.id if subject_agent else None,
+        )
         plan = manual_planner.build_plan_from_manual_event(
             event_type=event_type,
             payload=payload,
             location_id=location_id,
             agents=agents,
             subject_agent_id=subject_agent.id if subject_agent else None,
+            eligible_agent_ids={
+                agent_id
+                for agent_id, candidate in candidates.items()
+                if candidate.availability == "available"
+            },
         )
         if plan is None:
             msg = f"Unsupported director event type: {event_type}"
@@ -158,3 +174,23 @@ def _resolve_world_effect_key(event_type: str) -> str:
         return "location_shutdowns"
     msg = f"Unsupported world effect type: {event_type}"
     raise ValueError(msg)
+
+
+def _resolve_mentioned_location_id(message, locations) -> str | None:
+    if not isinstance(message, str) or not message.strip():
+        return None
+    normalized = message.casefold()
+    aliases = {
+        "plaza": ("广场", "plaza", "square"),
+        "cafe": ("咖啡", "cafe", "coffee"),
+        "hospital": ("医院", "hospital"),
+        "office": ("办公室", "公司", "office"),
+        "park": ("公园", "park"),
+    }
+    for location in locations:
+        name = str(location.name or "").casefold()
+        location_type = str(location.location_type or "").casefold()
+        keywords = aliases.get(location_type, ())
+        if (name and name in normalized) or any(keyword in normalized for keyword in keywords):
+            return location.id
+    return None

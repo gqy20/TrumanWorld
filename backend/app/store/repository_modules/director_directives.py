@@ -90,8 +90,11 @@ class DirectorDirectiveRepository:
         for directive in directives:
             directive.status = "expired"
             directive.failure_reason = "deadline_exceeded"
-            await self._update_memory(directive, effectiveness_score=0.0)
+            directive.effect_status = "evaluated"
+            directive.effectiveness_score = 0.0
+            directive.evaluated_tick = tick_no
             observe_director_directive(outcome="expired", mode=directive.mode)
+        await self._refresh_memory_effectiveness(list(directives))
 
     async def apply_results(self, run_id: str, tick_no: int, results: list) -> None:
         by_id = {
@@ -115,12 +118,13 @@ class DirectorDirectiveRepository:
             directive.last_result_target_agent_id = result.event_payload.get("target_agent_id")
             directive.disposition = result.event_payload.get("director_disposition")
             if result.accepted and _matches_completion(directive, result):
-                directive.status = "succeeded"
+                directive.status = "executed"
                 directive.completed_tick = tick_no
                 directive.last_progress_tick = tick_no
                 directive.failure_reason = None
-                await self._update_memory(directive, effectiveness_score=1.0)
-                observe_director_directive(outcome="succeeded", mode=directive.mode)
+                directive.effect_status = "pending"
+                await self._update_memory(directive)
+                observe_director_directive(outcome="executed", mode=directive.mode)
             elif result.accepted:
                 await self._update_memory(directive)
                 if directive.attempt_count == 2 and directive.mode == "advisory":
@@ -139,7 +143,9 @@ class DirectorDirectiveRepository:
             elif not result.accepted:
                 directive.status = "failed"
                 directive.failure_reason = result.reason
-                await self._update_memory(directive, effectiveness_score=0.0)
+                directive.effect_status = "evaluated"
+                directive.effectiveness_score = 0.0
+                directive.evaluated_tick = tick_no
                 observe_director_directive(outcome="rejected", mode=directive.mode)
             if first_response:
                 observe_director_directive(
@@ -147,6 +153,62 @@ class DirectorDirectiveRepository:
                     mode=directive.mode,
                     response_ticks=tick_no - directive.issued_tick,
                 )
+        await self._refresh_memory_effectiveness(list(directives))
+
+    async def evaluate_effects(
+        self,
+        run_id: str,
+        tick_no: int,
+        agents: list,
+        *,
+        alert_metric: str = "truman_suspicion_score",
+    ) -> None:
+        stmt = select(DirectorDirective).where(
+            DirectorDirective.run_id == run_id,
+            DirectorDirective.status == "executed",
+            DirectorDirective.effect_status == "pending",
+            DirectorDirective.completed_tick < tick_no,
+        )
+        directives = list((await self.session.execute(stmt)).scalars().all())
+        if not directives:
+            return
+        agent_by_id = {agent.id: agent for agent in agents}
+        for directive in directives:
+            memory = (
+                await self.session.get(DirectorMemory, directive.source_memory_id)
+                if directive.source_memory_id
+                else None
+            )
+            score = _evaluate_effect_score(
+                directive, memory, agent_by_id, alert_metric=alert_metric
+            )
+            directive.effect_status = "evaluated"
+            directive.effectiveness_score = score
+            directive.evaluated_tick = tick_no
+            directive.status = "succeeded" if score >= 0.5 else "failed"
+            directive.failure_reason = None if score >= 0.5 else "effect_not_achieved"
+            observe_director_directive(
+                outcome="effect_achieved" if score >= 0.5 else "effect_missed",
+                mode=directive.mode,
+            )
+        await self._refresh_memory_effectiveness(directives)
+
+    async def _refresh_memory_effectiveness(self, directives: list[DirectorDirective]) -> None:
+        memory_ids = {item.source_memory_id for item in directives if item.source_memory_id}
+        for memory_id in memory_ids:
+            stmt = select(
+                DirectorDirective.effect_status,
+                DirectorDirective.effectiveness_score,
+            ).where(DirectorDirective.source_memory_id == memory_id)
+            rows = list((await self.session.execute(stmt)).all())
+            memory = await self.session.get(DirectorMemory, memory_id)
+            if memory is None:
+                continue
+            if not rows or any(status != "evaluated" for status, _score in rows):
+                memory.effectiveness_score = None
+                continue
+            scores = [score for _status, score in rows if score is not None]
+            memory.effectiveness_score = sum(scores) / len(scores) if scores else None
 
     async def list_needing_replan(self, run_id: str) -> Sequence[DirectorDirective]:
         stmt = select(DirectorDirective).where(
@@ -170,20 +232,13 @@ class DirectorDirectiveRepository:
             directive.failure_reason = "replanned"
             observe_director_directive(outcome="replanned", mode=directive.mode)
 
-    async def _update_memory(
-        self,
-        directive: DirectorDirective,
-        *,
-        effectiveness_score: float | None = None,
-    ) -> None:
+    async def _update_memory(self, directive: DirectorDirective) -> None:
         if not directive.source_memory_id:
             return
         memory = await self.session.get(DirectorMemory, directive.source_memory_id)
         if memory is None:
             return
         memory.was_executed = True
-        if effectiveness_score is not None:
-            memory.effectiveness_score = effectiveness_score
 
     async def _cancel_superseded(self, directives: list[DirectiveDTO]) -> None:
         run_id = directives[0].run_id
@@ -203,6 +258,10 @@ class DirectorDirectiveRepository:
 
 def _matches_completion(directive: DirectorDirective, result) -> bool:
     criteria = directive.completion_criteria_json or {}
+    if criteria.get("accepted_action"):
+        return result.accepted
+    if directive.objective in {"gather", "activity"} and not directive.location_id:
+        return result.accepted
     action_type = criteria.get("action_type")
     if action_type and action_type != result.action_type:
         return False
@@ -216,3 +275,39 @@ def _matches_completion(directive: DirectorDirective, result) -> bool:
     }:
         return False
     return True
+
+
+def _evaluate_effect_score(
+    directive,
+    memory,
+    agent_by_id: dict[str, object],
+    *,
+    alert_metric: str,
+) -> float:
+    actor = agent_by_id.get(directive.target_agent_id)
+    subject = agent_by_id.get(directive.subject_agent_id) if directive.subject_agent_id else None
+    if directive.location_id and actor is not None:
+        return 1.0 if actor.current_location_id == directive.location_id else 0.0
+    if directive.objective in {"shutdown", "weather_change", "power_outage"}:
+        return 1.0
+    alert_objectives = {
+        "soft_check_in",
+        "preemptive_comfort",
+        "break_isolation",
+        "rejection_recovery",
+        "keep_scene_natural",
+    }
+    if directive.objective not in alert_objectives:
+        return 0.5
+    if subject is None or memory is None:
+        return 0.5
+    status = subject.status or {}
+    current_alert = float(status.get(alert_metric, 0.0) or 0.0)
+    alert_delta = current_alert - float(memory.trigger_subject_alert_score or 0.0)
+    if alert_delta <= -0.05:
+        return 1.0
+    if alert_delta <= 0:
+        return 0.6
+    if alert_delta < 0.1:
+        return 0.25
+    return 0.0

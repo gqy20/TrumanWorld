@@ -7,7 +7,9 @@ from uuid import uuid4
 from app.director.types import DirectorPlan
 
 DirectiveMode = Literal["advisory", "priority", "enforced"]
-DirectiveStatus = Literal["pending", "active", "succeeded", "failed", "expired", "cancelled"]
+DirectiveStatus = Literal[
+    "pending", "active", "executed", "succeeded", "failed", "expired", "cancelled"
+]
 DirectiveDisposition = Literal["accepted", "deferred", "rejected", "completed"]
 
 
@@ -69,7 +71,7 @@ def compile_directives(
                 subject_agent_id=subject_agent_id,
                 location_id=location_id,
             ),
-            completion_criteria=_build_completion_criteria(plan),
+            completion_criteria=_build_completion_criteria(plan, location_id=location_id),
             source=plan.source_type,
             source_memory_id=plan.source_memory_id,
         )
@@ -97,9 +99,16 @@ def _build_constraints(
     return constraints
 
 
-def _build_completion_criteria(plan: DirectorPlan) -> dict[str, Any]:
-    if plan.location_hint:
-        return {"action_type": "move", "target_location_id": plan.location_hint}
-    if plan.target_agent_id:
+def _build_completion_criteria(plan: DirectorPlan, *, location_id: str | None) -> dict[str, Any]:
+    if location_id:
+        return {"action_type": "move", "target_location_id": location_id}
+    interaction_goals = {
+        "soft_check_in",
+        "preemptive_comfort",
+        "break_isolation",
+        "rejection_recovery",
+        "keep_scene_natural",
+    }
+    if plan.target_agent_id and plan.scene_goal in interaction_goals:
         return {"action_type": "talk", "target_agent_id": plan.target_agent_id}
     return {"accepted_action": True}

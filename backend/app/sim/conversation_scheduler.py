@@ -6,6 +6,8 @@ from uuid import uuid4
 from app.sim.action_resolver import ActionIntent
 from app.sim.world import WorldState
 
+MAX_CONVERSATION_TURNS = 6
+
 
 @dataclass
 class ConversationSession:
@@ -15,6 +17,8 @@ class ConversationSession:
     active_speaker_id: str
     turn_order: list[str] = field(default_factory=list)
     is_new: bool = True
+    started_tick_no: int = 0
+    turn_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,8 @@ class ConversationScheduler:
         for conversation in world.active_conversations.values():
             if conversation.last_tick_no < max(0, world.current_tick - 1):
                 continue
+            if conversation.phase != "open" or conversation.turn_count >= MAX_CONVERSATION_TURNS:
+                continue
             session = ConversationSession(
                 id=conversation.id,
                 location_id=conversation.location_id,
@@ -54,8 +60,9 @@ class ConversationScheduler:
                 active_speaker_id=conversation.active_speaker_id,
                 turn_order=list(conversation.participant_ids),
                 is_new=False,
+                started_tick_no=conversation.started_tick_no,
+                turn_count=conversation.turn_count,
             )
-            sessions.append(session)
             session_by_id[session.id] = session
             for participant_id in session.participant_ids:
                 session_by_participant[participant_id] = session.id
@@ -102,6 +109,7 @@ class ConversationScheduler:
                 and actor_session_id in session_by_id
             ):
                 session = session_by_id[actor_session_id]
+                self._append_session_once(sessions, session)
                 session.location_id = actor.location_id
                 session.active_speaker_id = actor.id
                 occupied_agents.add(actor.id)
@@ -125,6 +133,7 @@ class ConversationScheduler:
 
             if target_session_id is not None:
                 session = session_by_id[target_session_id]
+                self._append_session_once(sessions, session)
                 session.location_id = actor.location_id
                 # If actor is already the active speaker in this session (e.g., Lin
                 # continues talking to Mei across ticks), keep them as speaker so their
@@ -166,6 +175,7 @@ class ConversationScheduler:
                 participant_ids=[actor.id, target.id],
                 active_speaker_id=actor.id,
                 turn_order=[actor.id, target.id],
+                started_tick_no=world.current_tick,
             )
             sessions.append(session)
             session_by_id[session.id] = session
@@ -187,6 +197,13 @@ class ConversationScheduler:
             )
 
         return sessions, assignments
+
+    @staticmethod
+    def _append_session_once(
+        sessions: list[ConversationSession], session: ConversationSession
+    ) -> None:
+        if all(current.id != session.id for current in sessions):
+            sessions.append(session)
 
     @staticmethod
     def _ordered_talk_intents(intents: list[ActionIntent]) -> list[ActionIntent]:

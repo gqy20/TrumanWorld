@@ -355,6 +355,7 @@ class ActionResolver:
             action_type="move",
             reason="accepted",
             event_payload={
+                **intent.payload,
                 "agent_id": intent.agent_id,
                 **movement.to_event_payload(),
             },

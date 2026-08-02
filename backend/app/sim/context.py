@@ -239,19 +239,23 @@ async def load_active_conversations(
 
     recent_events, _total = await event_repo.list_timeline_api_rows(
         run_id=run_id,
-        tick_from=max(0, current_tick - 3),
+        tick_from=max(0, current_tick - 12),
         tick_to=current_tick,
-        event_type="speech,listen,conversation_started,conversation_joined",
-        limit=100,
+        event_type=("speech,listen,conversation_started,conversation_joined,conversation_closed"),
+        limit=300,
         order_desc=False,
     )
 
     speech_history: dict[str, list[tuple[int, str, str]]] = {}
     conversations: dict[str, ActiveConversationState] = {}
+    closed_conversation_ids: set[str] = set()
     for event in recent_events:
         payload = event.payload or {}
         conversation_id = payload.get("conversation_id")
         if not isinstance(conversation_id, str) or not conversation_id:
+            continue
+        if event.event_type == "conversation_closed":
+            closed_conversation_ids.add(conversation_id)
             continue
         participant_ids = payload.get("participant_ids")
         if not isinstance(participant_ids, list):
@@ -280,6 +284,7 @@ async def load_active_conversations(
                 participant_ids=normalized_participants,
                 active_speaker_id=speaker_agent_id,
                 last_tick_no=event.tick_no,
+                started_tick_no=event.tick_no,
             )
             continue
 
@@ -287,6 +292,7 @@ async def load_active_conversations(
         existing.participant_ids = normalized_participants
         existing.active_speaker_id = speaker_agent_id
         existing.last_tick_no = max(existing.last_tick_no, event.tick_no)
+        existing.started_tick_no = min(existing.started_tick_no, event.tick_no)
 
     for conversation_id, conversation in conversations.items():
         history = speech_history.get(conversation_id, [])
@@ -300,8 +306,14 @@ async def load_active_conversations(
         if _looks_like_question(latest_message):
             conversation.open_question = latest_message
         conversation.repeat_count = _repeat_count(history)
+        conversation.turn_count = len(history)
+        conversation.phase = "closing" if len(history) >= 6 else "open"
 
-    return {cid: conv for cid, conv in conversations.items() if conv.location_id}
+    return {
+        cid: conv
+        for cid, conv in conversations.items()
+        if conv.location_id and cid not in closed_conversation_ids
+    }
 
 
 def _repeat_count(history: list[tuple[int, str, str]]) -> int:

@@ -16,6 +16,7 @@ from app.store.models import Agent, Event, Location, Memory, SimulationRun
 from app.store.repositories import (
     AgentRepository,
     EventRepository,
+    LlmCallRepository,
     RelationshipRepository,
     RunRepository,
 )
@@ -46,6 +47,19 @@ class RecordingDecisionProvider(AgentDecisionProvider):
             return RuntimeDecision(
                 action_type="move",
                 target_location_id=goal.split(":", 1)[1].strip(),
+            )
+        return RuntimeDecision(action_type="rest")
+
+
+class TokenReportingDecisionProvider(AgentDecisionProvider):
+    async def decide(self, invocation: RuntimeInvocation, runtime_ctx=None):
+        if runtime_ctx and runtime_ctx.on_llm_call:
+            runtime_ctx.on_llm_call(
+                invocation.agent_id,
+                invocation.task,
+                {"input_tokens": 41, "output_tokens": 9},
+                0.004,
+                120,
             )
         return RuntimeDecision(action_type="rest")
 
@@ -666,6 +680,52 @@ async def test_simulation_service_uses_planner_result_without_reloading_world(
 
     assert provider.world_by_agent["alice"]["daily_schedule"] == new_plan
     assert load_count == 1
+
+
+@pytest.mark.asyncio
+async def test_inline_tick_persists_actor_llm_usage(db_session, tmp_path):
+    agent_dir = tmp_path / "alice_usage"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "agent.yml").write_text(
+        "id: alice_usage\nname: Alice\noccupation: resident\nhome: loc-usage-home\n",
+        encoding="utf-8",
+    )
+    (agent_dir / "prompt.md").write_text("# Alice\nBase prompt", encoding="utf-8")
+    run = SimulationRun(
+        id="run-inline-usage", name="usage", status="paused", current_tick=1, tick_minutes=5
+    )
+    home = Location(
+        id="loc-usage-home",
+        run_id=run.id,
+        name="Home",
+        location_type="home",
+        capacity=2,
+    )
+    agent = Agent(
+        id="agent-inline-usage",
+        run_id=run.id,
+        name="Alice",
+        home_location_id=home.id,
+        current_location_id=home.id,
+        profile={"agent_config_id": "alice_usage"},
+        personality={},
+        status={},
+        current_plan={},
+    )
+    db_session.add_all([run, home, agent])
+    await db_session.commit()
+    runtime = AgentRuntime(
+        registry=AgentRegistry(tmp_path),
+        backend=HeuristicAgentBackend(TokenReportingDecisionProvider()),
+    )
+
+    await SimulationService(
+        db_session, agent_runtime=runtime, agents_root=tmp_path, scenario=FakeScenario()
+    ).run_tick(run.id)
+
+    totals = await LlmCallRepository(db_session).get_token_totals(run.id)
+    assert totals["input_tokens"] == 41
+    assert totals["output_tokens"] == 9
 
 
 @pytest.mark.asyncio

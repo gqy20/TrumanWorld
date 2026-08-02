@@ -7,6 +7,7 @@ ACTION_TALK = "talk"
 ACTION_LISTEN = "listen"
 ACTION_CONVERSATION_STARTED = "conversation_started"
 ACTION_CONVERSATION_JOINED = "conversation_joined"
+ACTION_CONVERSATION_CLOSED = "conversation_closed"
 ACTION_WORK = "work"
 ACTION_REST = "rest"
 
@@ -17,6 +18,7 @@ EVENT_SPEECH = "speech"
 EVENT_LISTEN = ACTION_LISTEN
 EVENT_CONVERSATION_STARTED = ACTION_CONVERSATION_STARTED
 EVENT_CONVERSATION_JOINED = ACTION_CONVERSATION_JOINED
+EVENT_CONVERSATION_CLOSED = ACTION_CONVERSATION_CLOSED
 EVENT_WORK = ACTION_WORK
 EVENT_REST = ACTION_REST
 EVENT_PLAN = "plan"
@@ -52,6 +54,7 @@ ActionType: TypeAlias = Literal[
     "listen",
     "conversation_started",
     "conversation_joined",
+    "conversation_closed",
     "work",
     "rest",
     "plan",
@@ -70,6 +73,7 @@ RejectedActionEventType: TypeAlias = Literal[
     "listen_rejected",
     "conversation_started_rejected",
     "conversation_joined_rejected",
+    "conversation_closed_rejected",
     "work_rejected",
     "rest_rejected",
     "plan_rejected",

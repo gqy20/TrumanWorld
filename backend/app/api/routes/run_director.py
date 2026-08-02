@@ -48,10 +48,24 @@ def serialize_director_memory(
     agent_name_map: dict[str, str],
     location_name_map: dict[str, str],
     manual_goals: set[str],
+    directive_statuses: list[str] | None = None,
 ) -> DirectorMemoryResponse:
     target_agent_ids = json.loads(memory.target_agent_ids) if memory.target_agent_ids else []
     location_hint = memory.metadata_json.get("location_hint") if memory.metadata_json else None
-    if memory.was_executed:
+    statuses = set(directive_statuses or [])
+    if statuses & {"active", "pending"}:
+        delivery_status = "active"
+    elif "executed" in statuses:
+        delivery_status = "evaluating"
+    elif statuses and statuses <= {"succeeded"}:
+        delivery_status = "succeeded"
+    elif "failed" in statuses:
+        delivery_status = "failed"
+    elif "expired" in statuses:
+        delivery_status = "expired"
+    elif "cancelled" in statuses:
+        delivery_status = "cancelled"
+    elif memory.was_executed:
         delivery_status = "consumed"
     elif memory.scene_goal in manual_goals and current_tick > memory.tick_no + 5:
         delivery_status = "expired"
@@ -121,6 +135,9 @@ def serialize_director_directive(
         last_result_action_type=directive.last_result_action_type,
         last_result_target_agent_id=directive.last_result_target_agent_id,
         replaced_by_directive_id=directive.replaced_by_directive_id,
+        effect_status=directive.effect_status,
+        effectiveness_score=directive.effectiveness_score,
+        evaluated_tick=directive.evaluated_tick,
         created_at=directive.created_at,
         updated_at=directive.updated_at,
     )
@@ -245,6 +262,19 @@ async def get_director_memories(
     agents = await agent_repo.list_names_for_run(str(run_id))
     locations = await location_repo.list_names_for_run(str(run_id))
     memories = await director_memory_repo.list_for_run(str(run_id), limit=limit)
+    directives = await DirectorDirectiveRepository(session).list_for_run(
+        str(run_id), limit=min(200, max(limit * 5, 100))
+    )
+    directive_statuses_by_memory: dict[str, list[str]] = {}
+    for directive in directives:
+        if directive.source_memory_id:
+            directive_statuses_by_memory.setdefault(directive.source_memory_id, []).append(
+                directive.status
+            )
+            continue
+        legacy_memory = _match_legacy_directive_memory(directive, memories)
+        if legacy_memory is not None:
+            directive_statuses_by_memory.setdefault(legacy_memory.id, []).append(directive.status)
 
     agent_name_map = {agent.id: agent.name for agent in agents}
     location_name_map = {location.id: location.name for location in locations}
@@ -259,11 +289,26 @@ async def get_director_memories(
                 agent_name_map=agent_name_map,
                 location_name_map=location_name_map,
                 manual_goals=manual_goals,
+                directive_statuses=directive_statuses_by_memory.get(memory.id),
             )
             for memory in memories
         ],
         total=len(memories),
     )
+
+
+def _match_legacy_directive_memory(directive, memories):
+    matches = []
+    for memory in memories:
+        target_ids = json.loads(memory.target_agent_ids) if memory.target_agent_ids else []
+        if memory.scene_goal != directive.objective:
+            continue
+        if directive.target_agent_id not in target_ids:
+            continue
+        tick_distance = abs(memory.tick_no - directive.issued_tick)
+        if tick_distance <= 1:
+            matches.append((tick_distance, memory))
+    return min(matches, key=lambda item: item[0])[1] if matches else None
 
 
 @router.get(
@@ -278,7 +323,9 @@ async def get_director_memories(
 )
 async def get_director_directives(
     run_id: UUID,
-    directive_status: Literal["pending", "active", "succeeded", "failed", "expired", "cancelled"]
+    directive_status: Literal[
+        "pending", "active", "executed", "succeeded", "failed", "expired", "cancelled"
+    ]
     | None = Query(None, alias="status"),
     agent_id: str | None = Query(None, description="按执行角色过滤"),
     limit: int = Query(100, ge=1, le=200),

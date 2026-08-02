@@ -531,7 +531,9 @@ def _run_steps(ctx: typer.Context, run_id: str, count: int) -> None:
             exit_code=7,
         )
     status_context = (
-        runtime.renderer.console.status(f"Advancing tick 1/{count}…", spinner="dots")
+        runtime.renderer.console.status(
+            f"Tick 1/{count}: running director and actor graphs…", spinner="dots"
+        )
         if runtime.config.output == "table"
         else nullcontext()
     )
@@ -539,7 +541,7 @@ def _run_steps(ctx: typer.Context, run_id: str, count: int) -> None:
     with status_context as progress:
         for index in range(count):
             if progress is not None:
-                progress.update(f"Advancing tick {index + 1}/{count}…")
+                progress.update(f"Tick {index + 1}/{count}: running director and actor graphs…")
             results.append(runtime.client.post(f"runs/{run_id}/tick"))
     runtime.renderer.rows(
         results,
@@ -924,18 +926,29 @@ def director_directives(
         if value is not None
     }
     payload = runtime.client.get(f"runs/{run_id}/director/directives", params=params)
+    rows = payload.get("directives") or []
+    if runtime.config.output == "table":
+        rows = [
+            {
+                **directive,
+                "short_id": str(directive.get("id") or "")[:8],
+                "effect": (
+                    f"{float(directive['effectiveness_score']):.2f}"
+                    if directive.get("effectiveness_score") is not None
+                    else directive.get("effect_status") or "pending"
+                ),
+            }
+            for directive in rows
+        ]
     runtime.renderer.rows(
-        payload.get("directives") or [],
+        rows,
         (
-            ("id", "Directive"),
+            ("short_id", "ID"),
             ("issued_tick", "Tick"),
             ("target_agent_name", "Actor"),
             ("objective", "Objective"),
-            ("mode", "Mode"),
             ("status", "Status"),
-            ("disposition", "Receipt"),
-            ("attempt_count", "Attempts"),
-            ("last_attempt_tick", "Last tick"),
+            ("effect", "Effect"),
             ("failure_reason", "Reason"),
         ),
         title="Director directives",

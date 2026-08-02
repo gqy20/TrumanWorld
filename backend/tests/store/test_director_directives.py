@@ -96,7 +96,7 @@ async def test_directive_escalates_then_marks_target_drift(db_session) -> None:
 
 
 @pytest.mark.asyncio
-async def test_directive_success_updates_progress_and_memory(db_session) -> None:
+async def test_directive_execution_waits_for_delayed_effect_evaluation(db_session) -> None:
     await _seed_directive(db_session)
     repo = DirectorDirectiveRepository(db_session)
 
@@ -106,8 +106,40 @@ async def test_directive_success_updates_progress_and_memory(db_session) -> None
     directive = await repo.get_for_run("run-1", "directive-1")
     memory = await db_session.get(DirectorMemory, "memory-1")
     assert directive is not None
-    assert directive.status == "succeeded"
+    assert directive.status == "executed"
     assert directive.last_progress_tick == 2
+    assert directive.effect_status == "pending"
     assert memory is not None
     assert memory.was_executed is True
-    assert memory.effectiveness_score == 1.0
+    assert memory.effectiveness_score is None
+
+    subject = await db_session.get(Agent, "subject")
+    assert subject is not None
+    subject.status = {"truman_suspicion_score": 0.0}
+    await repo.evaluate_effects("run-1", 3, [subject])
+    await db_session.commit()
+
+    assert directive.status == "succeeded"
+    assert directive.effect_status == "evaluated"
+    assert directive.effectiveness_score == 0.6
+    assert directive.evaluated_tick == 3
+    assert memory.effectiveness_score == 0.6
+
+
+@pytest.mark.asyncio
+async def test_expired_directive_is_not_reported_as_executed(db_session) -> None:
+    await _seed_directive(db_session)
+    repo = DirectorDirectiveRepository(db_session)
+
+    await repo.expire_stale("run-1", 9)
+    await db_session.commit()
+
+    directive = await repo.get_for_run("run-1", "directive-1")
+    memory = await db_session.get(DirectorMemory, "memory-1")
+    assert directive is not None
+    assert directive.status == "expired"
+    assert directive.effect_status == "evaluated"
+    assert directive.effectiveness_score == 0.0
+    assert memory is not None
+    assert memory.was_executed is False
+    assert memory.effectiveness_score == 0.0

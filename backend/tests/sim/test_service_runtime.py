@@ -153,6 +153,9 @@ async def test_simulation_service_includes_director_system_events_for_cast_recen
         importance=0.8,
     )
 
+    memories = await DirectorMemoryRepository(db_session).list_for_run(run.id)
+    assert memories[0].metadata_json["location_hint"] == square.id
+
     write_agent_config(
         tmp_path,
         "spouse",

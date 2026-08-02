@@ -133,8 +133,8 @@ class IsolatedTickRunner:
             )
             if loaded.director_plan is not None or has_directive_result:
                 directive_repo = DirectorDirectiveRepository(write_session)
-                await directive_repo.expire_stale(run_id, result.tick_no)
                 await directive_repo.apply_results(run_id, result.tick_no, directive_results)
+                await directive_repo.expire_stale(run_id, result.tick_no)
                 await write_session.commit()
         logger.debug(
             "tick_phase_completed run_id=%s tick_no=%s phase=persist_tick duration_ms=%s "

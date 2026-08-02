@@ -12,7 +12,7 @@ from app.scenario.runtime.world_design_models import (
 from app.sim.action_resolver import ActionIntent, ActionResolver
 from app.sim.conversation_scheduler import ConversationScheduler
 from app.sim.runner import SimulationRunner
-from app.sim.world import AgentState, LocationState, WorldState
+from app.sim.world import ActiveConversationState, AgentState, LocationState, WorldState
 
 
 def build_world() -> WorldState:
@@ -43,6 +43,22 @@ def test_action_resolver_accepts_valid_move():
     assert result.accepted is True
     assert result.event_payload["to_location_id"] == "park"
     assert result.event_payload["state"] == "in_transit"
+
+
+def test_action_resolver_preserves_director_receipt_on_move():
+    world = build_world()
+    result = ActionResolver().resolve(
+        world,
+        ActionIntent(
+            agent_id="alice",
+            action_type="move",
+            target_location_id="park",
+            payload={"director_directive_id": "directive-1"},
+        ),
+    )
+
+    assert result.accepted is True
+    assert result.event_payload["director_directive_id"] == "directive-1"
     assert result.event_payload["started_tick"] == 1
     assert result.event_payload["arrival_tick"] == 3
     assert world.agents["alice"].location_id == "home"
@@ -756,6 +772,36 @@ def test_simulation_runner_advances_tick_and_collects_results():
     assert len(result.rejected) == 0
     assert result.tick_delta == 1
     assert world.current_time.isoformat() == "2026-03-07T08:05:00"
+
+
+def test_simulation_runner_emits_closure_and_allows_participant_to_move():
+    world = build_world()
+    world.locations["home"].occupants.add("bob")
+    world.locations["cafe"].occupants.discard("bob")
+    world.agents["bob"].location_id = "home"
+    world.current_tick = 6
+    world.active_conversations = {
+        "conv-1": ActiveConversationState(
+            id="conv-1",
+            location_id="home",
+            participant_ids=["alice", "bob"],
+            active_speaker_id="bob",
+            last_tick_no=5,
+            started_tick_no=1,
+            turn_count=6,
+            phase="closing",
+        )
+    }
+    runner = SimulationRunner(world)
+    runner.tick_no = 6
+
+    result = runner.tick(
+        [ActionIntent(agent_id="alice", action_type="move", target_location_id="park")]
+    )
+
+    assert [item.action_type for item in result.accepted] == ["conversation_closed", "move"]
+    assert result.accepted[0].reason == "turn_limit_reached"
+    assert result.rejected == []
 
 
 def test_simulation_runner_arrives_only_when_movement_reaches_arrival_tick():

@@ -106,6 +106,8 @@ Agent reactor 使用 LangGraph 原生 `RunnableConfig` 和 lifecycle callback �
 `llm_calls` 对成功、失败和无有效输出的模型请求都落审计记录，关键字段包括 `status`、
 `trace_id`、`node_name`、`attempt_no`、`exception_type`、`failure_reason` 和
 `fallback_from`。失败记录 token 可以为 0；这表示供应商未返回 usage，而不是调用没有发生。
+inline 与 isolated tick 都会为 actor reactor 注入同一套采集回调并持久化 `llm_calls`，因此 CLI
+成本/Token 保护和 Prometheus 计数不依赖 tick 执行模式。
 
 正常运行不启用 LangGraph `debug` stream，因为完整 state 快照可能包含 prompt、上下文和模型
 输出。需要临时诊断时，应在隔离环境中显式启用并遵守上述隐私边界。

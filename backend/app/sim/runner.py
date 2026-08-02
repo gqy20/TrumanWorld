@@ -57,6 +57,7 @@ class SimulationRunner:
             for assignment in assignments.values()
         }
         self.resolver.prefill_conversation_assignments(conversation_assignments)
+        accepted.extend(self._build_conversation_closed_results(sessions))
         accepted.extend(self._build_conversation_structure_results(sessions, assignments))
         for intent in intent_list:
             if self._should_skip_intent(intent, assignments):
@@ -188,6 +189,39 @@ class SimulationRunner:
 
         return structure_results
 
+    def _build_conversation_closed_results(
+        self,
+        sessions: list[ConversationSession],
+    ) -> list[ActionResult]:
+        active_ids = {session.id for session in sessions}
+        return [
+            ActionResult(
+                accepted=True,
+                action_type="conversation_closed",
+                reason=self._conversation_close_reason(conversation),
+                event_payload={
+                    "agent_id": conversation.active_speaker_id,
+                    "location_id": conversation.location_id,
+                    "conversation_id": conversation.id,
+                    "conversation_event_type": "conversation_closed",
+                    "speaker_agent_id": conversation.active_speaker_id,
+                    "participant_ids": list(conversation.participant_ids),
+                    "turn_count": conversation.turn_count,
+                    "phase": "closed",
+                    "reason": self._conversation_close_reason(conversation),
+                },
+            )
+            for conversation in self.world.active_conversations.values()
+            if conversation.id not in active_ids
+        ]
+
+    def _conversation_close_reason(self, conversation: ActiveConversationState) -> str:
+        if conversation.turn_count >= 6 or conversation.phase == "closing":
+            return "turn_limit_reached"
+        if conversation.last_tick_no < max(0, self.world.current_tick - 1):
+            return "inactive"
+        return "participants_moved_on"
+
     def _build_listen_results(
         self,
         sessions: list[ConversationSession],
@@ -237,6 +271,11 @@ class SimulationRunner:
             if item.action_type == "talk"
             and isinstance(item.event_payload.get("conversation_id"), str)
         }
+        for session in sessions:
+            speech = accepted_speeches_by_conversation_id.get(session.id)
+            if speech is not None:
+                speech.event_payload["conversation_turn_no"] = session.turn_count + 1
+
         self.world.active_conversations = {
             session.id: ActiveConversationState(
                 id=session.id,
@@ -260,6 +299,16 @@ class SimulationRunner:
                 repeat_count=self._conversation_repeat_count_for_session(
                     session.id,
                     accepted_speeches_by_conversation_id,
+                ),
+                started_tick_no=session.started_tick_no,
+                turn_count=session.turn_count
+                + (1 if session.id in accepted_speeches_by_conversation_id else 0),
+                phase=(
+                    "closing"
+                    if session.turn_count
+                    + (1 if session.id in accepted_speeches_by_conversation_id else 0)
+                    >= 6
+                    else "open"
                 ),
             )
             for session in sessions

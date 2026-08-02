@@ -403,6 +403,9 @@ class DirectorDirective(Base):
     replaced_by_directive_id: Mapped[str | None] = mapped_column(
         ForeignKey("director_directives.id", ondelete="SET NULL")
     )
+    effect_status: Mapped[str] = mapped_column(String(20), default="pending")
+    effectiveness_score: Mapped[float | None] = mapped_column(Float)
+    evaluated_tick: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

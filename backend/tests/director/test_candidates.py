@@ -79,3 +79,36 @@ def test_actor_in_conversation_with_subject_remains_eligible_and_ranks_first() -
     assert candidates["engaged"].availability == "engaged_with_subject"
     assert candidates["engaged"].eligible is True
     assert rank_eligible_candidates(candidates)[0].agent_id == "engaged"
+
+
+def test_closed_conversation_releases_actor_candidate() -> None:
+    agents = [
+        _agent("subject", "Truman", location="home"),
+        _agent("actor", "Marlon", location="home"),
+    ]
+    events = [
+        Event(
+            id="event-speech",
+            run_id="run-1",
+            tick_no=9,
+            event_type="speech",
+            payload={"conversation_id": "c-1", "participant_ids": ["actor", "other"]},
+        ),
+        Event(
+            id="event-close",
+            run_id="run-1",
+            tick_no=10,
+            event_type="conversation_closed",
+            payload={"conversation_id": "c-1", "participant_ids": ["actor", "other"]},
+        ),
+    ]
+
+    candidates = build_actor_candidates(
+        agents=agents,
+        events=events,
+        current_tick=10,
+        subject_agent_id="subject",
+    )
+
+    assert candidates["actor"].availability == "available"
+    assert candidates["actor"].eligible is True

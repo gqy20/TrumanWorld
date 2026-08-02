@@ -113,6 +113,14 @@ class BundleWorldCoordinator:
         if run is None:
             return None
 
+        if self.director_directive_repo is not None:
+            await self.director_directive_repo.evaluate_effects(
+                run_id,
+                run.current_tick,
+                list(agents),
+                alert_metric=self._runtime_role_semantics.alert_metric,
+            )
+
         active_directives = await self._load_active_directives(run_id, run.current_tick)
 
         if self.director_memory_repo is not None:
@@ -123,9 +131,14 @@ class BundleWorldCoordinator:
             )
             if pending_manual:
                 memory = pending_manual[0]
-                return await self._attach_directives(
-                    self._convert_memory_to_plan(memory), run_id, run.current_tick, agents
+                manual_plan = await self._build_manual_plan(
+                    memory=memory,
+                    current_tick=run.current_tick,
+                    agents=agents,
                 )
+                if manual_plan is None:
+                    return None
+                return await self._attach_directives(manual_plan, run_id, run.current_tick, agents)
 
         if active_directives:
             return self._plan_from_active(active_directives)
@@ -190,7 +203,7 @@ class BundleWorldCoordinator:
         run_id: str,
         tick_no: int,
         agents: list[Agent],
-    ) -> DirectorPlan:
+    ) -> DirectorPlan | None:
         locations = await self.location_repo.list_for_run(run_id) if self.location_repo else []
         plan.directives = compile_directives(
             plan,
@@ -456,6 +469,30 @@ class BundleWorldCoordinator:
             source_type="manual",
             source_memory_id=memory.id,
         )
+
+    async def _build_manual_plan(
+        self,
+        *,
+        memory: DirectorMemory,
+        current_tick: int,
+        agents: list[Agent],
+    ) -> DirectorPlan:
+        plan = self._convert_memory_to_plan(memory)
+        events = (
+            await self.event_repo.list_for_run(memory.run_id, limit=50) if self.event_repo else []
+        )
+        candidates = build_actor_candidates(
+            agents=agents,
+            events=list(events),
+            current_tick=current_tick,
+            subject_agent_id=plan.target_agent_id,
+        )
+        plan.target_agent_ids = [
+            agent_id
+            for agent_id in plan.target_agent_ids
+            if agent_id in candidates and candidates[agent_id].availability == "available"
+        ]
+        return plan if plan.target_agent_ids else None
 
     def assess(
         self,

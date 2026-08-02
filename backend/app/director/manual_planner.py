@@ -41,6 +41,7 @@ class ManualDirectorPlanner:
         location_id: str | None,
         agents: list[Agent],
         subject_agent_id: str | None = None,
+        eligible_agent_ids: set[str] | None = None,
     ) -> DirectorPlan | None:
         """Build a DirectorPlan from a manual event injection.
 
@@ -58,6 +59,7 @@ class ManualDirectorPlanner:
             agent
             for agent in agents
             if get_world_role(agent.profile) in self._semantics.support_role_set()
+            and (eligible_agent_ids is None or agent.id in eligible_agent_ids)
         ]
         if not support_agents:
             return None

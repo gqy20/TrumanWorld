@@ -102,6 +102,18 @@ class Renderer:
             self.console.print(
                 f"[bold cyan]{escape(str(actor))}[/bold cyan]{participants} 开始交谈"
             )
+        elif event_type == "conversation_closed":
+            reason = payload.get("reason") or value.get("reason") or "conversation complete"
+            self.console.print(
+                f"[bold cyan]{escape(str(actor))}[/bold cyan] 结束交谈 "
+                f"[dim]({escape(str(reason))})[/dim]"
+            )
+        elif event_type.endswith("_rejected"):
+            reason = payload.get("reason") or value.get("reason") or "rejected"
+            self.console.print(
+                f"[bold yellow]{escape(str(actor))}[/bold yellow] "
+                f"{escape(event_type)} [dim]({escape(str(reason))})[/dim]"
+            )
         else:
             suffix = f" → {escape(str(target))}" if target else ""
             self.console.print(

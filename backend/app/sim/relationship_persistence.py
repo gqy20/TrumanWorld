@@ -106,6 +106,9 @@ class RelationshipPersistence:
             package = load_world_design_runtime_package(run.scenario_type)
             policy_values = package.policy_config.values
         payload = event.payload or {}
+        conversation_turn_no = payload.get("conversation_turn_no", 1)
+        if not isinstance(conversation_turn_no, int) or conversation_turn_no < 1:
+            conversation_turn_no = 1
         rule_evaluation = payload.get("rule_evaluation")
         governance_execution = payload.get("governance_execution")
         rule_decision = None
@@ -160,6 +163,7 @@ class RelationshipPersistence:
             governance_reason=governance_reason,
             actor_attention_score=actor_attention_score,
             target_attention_score=target_attention_score,
+            conversation_turn_no=conversation_turn_no,
             policy_values=policy_values,
         )
 

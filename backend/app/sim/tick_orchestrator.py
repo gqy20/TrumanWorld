@@ -60,6 +60,7 @@ class TickOrchestrator:
         self._runtime_role_semantics = build_scenario_runtime_config(scenario_id)
         self._subject_alert_tracking_enabled = self._runtime_role_semantics.subject_alert_tracking
         self.director_plan = None
+        self.llm_records: list[LlmCall] = []
 
     async def prepare_tick_intents(
         self,
@@ -74,6 +75,8 @@ class TickOrchestrator:
             return []
 
         started_at = perf_counter()
+        collector = LlmCallCollector()
+        settings = get_settings()
         agents = await self.agent_repo.list_for_run(run_id)
         intents: list[ActionIntent] = []
         subject_alert_score = (
@@ -107,6 +110,20 @@ class TickOrchestrator:
                 for directive in (plan.directives if plan is not None else [])
                 if directive.target_agent_id == agent.id
             ]
+            runtime_ctx = RuntimeContext(
+                db_engine=self.session.bind,
+                run_id=run_id,
+                tick_no=world.current_tick,
+                enable_memory_tools=True,
+                on_llm_call=collector.build_callback(
+                    run_id=run_id,
+                    db_agent_id=agent.id,
+                    tick_no=world.current_tick,
+                    provider=settings.llm_provider,
+                    model=settings.llm_model,
+                    backend=settings.agent_backend,
+                ),
+            )
             intents.append(
                 await self.decide_intent_for_agent(
                     agent_id=agent.id,
@@ -122,8 +139,11 @@ class TickOrchestrator:
                     current_plan=(plan_overrides or {}).get(agent.id, agent.current_plan),
                     relationship_context=world.relationship_contexts.get(agent.id),
                     director_directives=directives,
+                    runtime_ctx=runtime_ctx,
                 )
             )
+
+        self.llm_records = collector.records
 
         logger.debug(
             "tick_phase_completed run_id=%s tick_no=%s phase=prepare_tick_intents "
@@ -515,6 +535,18 @@ class TickOrchestrator:
         conversation_state = world_ctx.get("conversation_state")
         if not isinstance(conversation_state, dict):
             return intent
+
+        turn_count = conversation_state.get("turn_count")
+        phase = conversation_state.get("phase")
+        if phase == "closing" or (isinstance(turn_count, int) and turn_count >= 6):
+            return ActionIntent(
+                agent_id=intent.agent_id,
+                action_type="rest",
+                payload={
+                    "intent_source": "conversation_lifecycle_guard",
+                    "guard_reason": "conversation_turn_limit",
+                },
+            )
 
         repeat_count = conversation_state.get("repeat_count")
         if not isinstance(repeat_count, int) or repeat_count < 1:

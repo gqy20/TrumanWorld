@@ -19,7 +19,10 @@ World snapshot
 跨 tick 的控制事实保存在 `director_directives`；LangGraph state 只服务于一次认知运行，不作为
 业务持久化来源。这样可以避免 checkpoint、世界事件和数据库任务状态之间出现冲突。
 
-directive 状态为 `pending`、`active`、`succeeded`、`failed`、`expired` 或 `cancelled`。
+directive 状态为 `pending`、`active`、`executed`、`succeeded`、`failed`、`expired` 或
+`cancelled`。`executed` 表示 Actor 已完成符合 completion criteria 的动作，但导演效果尚未评估；
+系统至少等待一个 tick，再根据主体告警变化、到达目标地点或确定性世界效果填写
+`effect_status`、`effectiveness_score` 和 `evaluated_tick`。
 同一角色收到新 directive 时，旧的活跃 directive 会以 `superseded` 原因取消。超过
 `expires_at_tick` 的任务会自动过期。
 
@@ -28,7 +31,7 @@ directive 状态为 `pending`、`active`、`succeeded`、`failed`、`expired` �
 
 ## 候选角色与自适应执行
 
-导演只会看到可执行候选人。正在移动或与非主体角色交谈的 Actor 会被排除；已经与主体交谈的
+自动决策和手动事件都会只选择可执行候选人。正在移动或与非主体角色交谈的 Actor 会被排除；已经与主体交谈的
 Actor 会优先于空闲但距离更远的角色。模型返回后，LangGraph validation 节点会再次校验目标，
 无效目标由 repair 节点确定性替换。
 
@@ -58,7 +61,8 @@ inline 与 isolated tick 都执行以下生命周期：
 2. 将 proposal 编译为 directive 并分配给目标 Actor；
 3. Actor 返回带 directive 关联的动作；
 4. 持久化世界结果、导演计划与 directive；
-5. 根据 accepted/rejected results 完成、失败或过期 directive。
+5. 根据 accepted/rejected results 标记执行、失败或过期 directive；
+6. 后续 tick 延迟评估效果，再进入 `succeeded` 或 `failed`。
 
 自动导演仍由 `TRUMANWORLD_DIRECTOR_AUTO_INTERVENTION_ENABLED` 控制，认知后端由
 `TRUMANWORLD_DIRECTOR_BACKEND` 选择。决策间隔使用

@@ -75,6 +75,22 @@ def test_manual_planner_builds_gather_plan_for_broadcast():
     assert plan.cooldown_ticks == 2
 
 
+def test_manual_planner_targets_only_eligible_support_agents():
+    planner = ManualDirectorPlanner()
+
+    plan = planner.build_plan_from_manual_event(
+        event_type="broadcast",
+        payload={"message": "available residents gather"},
+        location_id="square",
+        agents=[_make_agent("cast-a", "cast"), _make_agent("cast-b", "cast")],
+        subject_agent_id="truman",
+        eligible_agent_ids={"cast-b"},
+    )
+
+    assert plan is not None
+    assert plan.target_agent_ids == ["cast-b"]
+
+
 def test_manual_planner_builds_activity_shutdown_weather_and_power_outage_plans():
     planner = ManualDirectorPlanner()
     agents = [_make_agent("cast-a", "cast")]

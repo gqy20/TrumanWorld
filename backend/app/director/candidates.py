@@ -17,20 +17,30 @@ def build_actor_candidates(
 ) -> dict[str, DirectorActorCandidate]:
     """Build deterministic actor availability from persisted world state."""
 
-    recent_participants: dict[str, tuple[str, ...]] = {}
-    for event in events:
-        if event.tick_no < max(0, current_tick - 3):
+    active_by_conversation: dict[str, tuple[int, tuple[str, ...]]] = {}
+    for event in sorted(events, key=lambda item: item.tick_no):
+        if event.tick_no < max(0, current_tick - 1):
             continue
         payload = event.payload or {}
         conversation_id = payload.get("conversation_id")
+        if not isinstance(conversation_id, str):
+            continue
+        if event.event_type == "conversation_closed":
+            active_by_conversation.pop(conversation_id, None)
+            continue
         participants = payload.get("participant_ids")
-        if not isinstance(conversation_id, str) or not isinstance(participants, list):
+        if not isinstance(participants, list):
             continue
         normalized = tuple(item for item in participants if isinstance(item, str))
         if len(normalized) < 2:
             continue
-        for participant_id in normalized:
-            recent_participants[participant_id] = normalized
+        active_by_conversation[conversation_id] = (event.tick_no, normalized)
+
+    recent_participants = {
+        participant_id: participants
+        for _tick_no, participants in active_by_conversation.values()
+        for participant_id in participants
+    }
 
     subject = next((agent for agent in agents if agent.id == subject_agent_id), None)
     subject_location_id = subject.current_location_id if subject is not None else None

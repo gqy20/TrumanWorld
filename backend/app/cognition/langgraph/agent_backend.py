@@ -172,7 +172,8 @@ class LangGraphAgentBackend:
         invocation = state["invocation"]
         runtime_ctx = runtime.context.get("runtime_ctx")
         trace = runtime.context["trace"]
-        attempt_no = runtime.execution_info.node_attempt if runtime.execution_info else 1
+        execution_info = getattr(runtime, "execution_info", None)
+        attempt_no = getattr(execution_info, "node_attempt", 1)
         try:
             fallback_from = None
             if self._settings.langgraph_reactor_structured_enabled:

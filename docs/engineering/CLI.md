@@ -130,9 +130,12 @@ truman evaluate <run-id>
 truman evaluate <run-id> --ticks 20 --output-file artifacts/run-quality.json
 ```
 
-`directives` 用于检查导演控制闭环，包括 Actor、目标、控制模式、生命周期状态、回执、尝试
-次数、最后尝试 tick 和失败原因。`directive` 接受完整 ID 或唯一短前缀。在 `truman play` 控制台中可使用
+`directives` 的默认表格使用短 ID，集中展示 Actor、目标、生命周期状态、延迟效果分数、尝试
+次数和失败原因；JSON 输出仍保留完整字段。`directive` 接受完整 ID 或唯一短前缀。在 `truman play` 控制台中可使用
 `directives`（简写 `d`）快速查看最近 20 条指令。
+
+`director memories` 的 `delivery_status` 会聚合关联 directive：`queued`、`active`、
+`evaluating`、`succeeded` 或 `failed`，不再把“动作已执行”直接等同于“干预有效”。
 
 带 `--ticks` 的评估会产生真实模型调用，且要求 run 先暂停。只读评估不推进世界。
 

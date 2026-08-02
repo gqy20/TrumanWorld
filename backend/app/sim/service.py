@@ -10,7 +10,7 @@ from app.agent.registry import AgentRegistry
 from app.agent.runtime import AgentRuntime
 from app.director.observer import DirectorAssessment
 from app.infra.logging import bind_log_context, get_logger, reset_log_context
-from app.infra.metrics import observe_database_operation, observe_tick
+from app.infra.metrics import observe_database_operation, observe_llm_records, observe_tick
 from app.infra.settings import get_settings
 from app.infra.sql_observability import SqlQueryStats, track_sql_queries
 from app.scenario.base import Scenario
@@ -90,6 +90,7 @@ class SimulationService:
             registry=AgentRegistry(agents_root or (settings.project_root / "agents"))
         )
         self.day_boundary_coordinator = DayBoundaryCoordinator()
+        self._inline_llm_records = []
         self._scenario.configure_runtime(self.agent_runtime)
 
     def _configure_scenario(self, scenario_type: str | None) -> Scenario:
@@ -176,9 +177,12 @@ class SimulationService:
                 try:
                     result = await self._run_tick_unlocked(run_id, intents)
                     await session.commit()
+                    observe_llm_records(self._inline_llm_records)
+                    self._inline_llm_records = []
                     return result
                 except BaseException:
                     await session.rollback()
+                    self._inline_llm_records = []
                     raise
                 finally:
                     _record_database_activity("tick.inline", database_stats)
@@ -216,6 +220,8 @@ class SimulationService:
                     world,
                     plan_overrides=planner_plans,
                 )
+                self._inline_llm_records = list(orchestrator.llm_records)
+                self._require_session_bound().add_all(self._inline_llm_records)
             result = orchestrator.execute_tick(
                 run_id=run_id,
                 world=world,
@@ -271,8 +277,8 @@ class SimulationService:
             await self._scenario.persist_director_plan(run_id, plan)
         session = self._require_session_bound()
         repo = DirectorDirectiveRepository(session)
-        await repo.expire_stale(run_id, tick_no)
         await repo.apply_results(run_id, tick_no, results)
+        await repo.expire_stale(run_id, tick_no)
         await session.commit()
 
     async def _persist_tick_writes(

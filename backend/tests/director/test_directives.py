@@ -55,3 +55,4 @@ def test_compile_directives_rejects_invalid_location_and_caps_expiry() -> None:
     assert directive.location_id is None
     assert "location_id" not in directive.constraints
     assert directive.expires_at_tick == 22
+    assert directive.completion_criteria == {"accepted_action": True}
