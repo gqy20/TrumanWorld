@@ -15,6 +15,8 @@ make cli CLI_ARGS="--output json run list"
 ```
 
 全局参数必须写在子命令之前，例如 `truman --output json run list`。
+运行可使用完整 UUID、`run list` 展示的唯一短 ID，或精确名称；居民可使用 `agent list`
+展示的 `Ref`（例如 `truman`），导演地点也可使用 `plaza`、`cafe` 等唯一后缀。
 
 ## 配置
 
@@ -57,12 +59,24 @@ truman run show <run-id>
 truman run start <run-id>
 truman run pause <run-id>
 truman run resume <run-id>
-truman run tick <run-id> --count 3
+truman run step <run-id> --count 3       # 暂停状态下精确推进
+truman run tick <run-id> --count 3       # step 的兼容别名
 truman run restore-all
 truman run delete <run-id> --yes
 ```
 
 `--paused` 会完成场景 seed，但不启动 scheduler，适合无费用的结构检查和手动 tick 调试。
+
+## 世界会话
+
+```bash
+truman play <run-ref>
+truman play <run-ref> --execute look --execute people --execute cost
+```
+
+`play` 会记住当前世界，支持 `look`、`people`、`inspect truman`、`step 1`、
+`broadcast <message>`、`start`、`pause` 和 `cost`。交互模式适合持续体验；重复的
+`--execute` 适合五风格冒烟测试。
 
 ## 观察与自动化
 
@@ -93,8 +107,9 @@ truman run wait <run-id> --until-tick 100 --max-tokens 500000
 
 达到 `--max-cost` 或 `--max-tokens` 时，CLI 会通过 API 暂停仍在运行的世界。
 `--max-seconds` 控制等待总时限，`--poll-interval` 控制采样频率。成本来自持久化的
-`LlmCall.total_cost_usd` 汇总；MiniMax 等上游没有返回价格时该值为零，因此这类 provider 应以
-`--max-tokens` 作为强制保护，美元成本只作为可用时的补充指标。
+`LlmCall.total_cost_usd` 汇总；MiniMax 等上游没有返回价格时，CLI 会显示 `unavailable`。
+这类 provider 应以 `--max-tokens` 作为强制保护；如果只提供 `--max-cost`，`run wait`
+会暂停正在运行的世界并返回错误，避免把“价格未知”误判为零成本。
 
 ## 导演与质量评估
 
@@ -128,3 +143,5 @@ truman evaluate <run-id> --ticks 20 --output-file artifacts/run-quality.json
 | `130` | 用户中断 |
 
 CLI 默认不会隐式启动服务。先运行 `make backend-dev`，或把 profile 指向已经部署的 API。
+面向不同测试意图的完整体验路径见
+[五种 CLI 玩家风格](../references/CLI_PLAYER_STYLES.md)。

@@ -4,6 +4,7 @@ from app.cli.client import ApiClient
 from app.cli.main import app
 
 runner = CliRunner()
+RUN_ID = "12345678-1234-4234-8234-123456789abc"
 
 
 def test_run_list_supports_json_output(monkeypatch):
@@ -42,10 +43,213 @@ def test_run_create_paused_sends_auto_start_false(monkeypatch):
     assert recorded["body"]["auto_start"] is False
 
 
+def test_run_show_resolves_short_id(monkeypatch):
+    requested: list[str] = []
+
+    def fake_get(_self, path, **_kwargs):
+        requested.append(path)
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        return {"id": RUN_ID, "status": "paused"}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(app, ["--output", "json", "run", "show", "12345678"])
+
+    assert result.exit_code == 0
+    assert requested == ["runs", f"runs/{RUN_ID}"]
+    assert RUN_ID in result.stdout
+
+
+def test_agent_show_resolves_run_and_agent_aliases(monkeypatch):
+    requested: list[str] = []
+
+    def fake_get(_self, path, **_kwargs):
+        requested.append(path)
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        if path == f"runs/{RUN_ID}/agents":
+            return {"agents": [{"id": f"{RUN_ID}-truman", "config_id": "truman", "name": "Truman"}]}
+        return {"agent_id": f"{RUN_ID}-truman", "name": "Truman"}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(
+        app,
+        ["--output", "json", "agent", "show", "12345678", "truman"],
+    )
+
+    assert result.exit_code == 0
+    assert requested[-1] == f"runs/{RUN_ID}/agents/{RUN_ID}-truman"
+
+
+def test_director_inject_validates_type_and_resolves_location_alias(monkeypatch):
+    recorded = {}
+
+    def fake_get(_self, path, **_kwargs):
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        if path == f"runs/{RUN_ID}/world":
+            return {"locations": [{"id": f"{RUN_ID}-plaza", "name": "小镇广场"}]}
+        raise AssertionError(path)
+
+    def fake_post(_self, path, *, json_body=None):
+        recorded.update({"path": path, "body": json_body})
+        return {"status": "queued"}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+    monkeypatch.setattr(ApiClient, "post", fake_post)
+
+    result = runner.invoke(
+        app,
+        [
+            "director",
+            "inject",
+            "12345678",
+            "--type",
+            "broadcast",
+            "--location",
+            "plaza",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert recorded == {
+        "path": f"runs/{RUN_ID}/director/events",
+        "body": {
+            "event_type": "broadcast",
+            "payload": {},
+            "location_id": f"{RUN_ID}-plaza",
+            "importance": 0.5,
+        },
+    }
+
+
+def test_director_inject_help_lists_supported_event_types():
+    result = runner.invoke(app, ["director", "inject", "--help"])
+
+    assert result.exit_code == 0
+    assert "broadcast" in result.stdout
+    assert "power_outage" in result.stdout
+
+
+def test_run_step_advances_an_inactive_world_exactly(monkeypatch):
+    posts: list[str] = []
+    next_tick = iter((4, 5))
+
+    monkeypatch.setattr(
+        ApiClient,
+        "get",
+        lambda _self, path, **_kwargs: {"id": RUN_ID, "status": "paused", "current_tick": 3},
+    )
+    monkeypatch.setattr(
+        ApiClient,
+        "post",
+        lambda _self, path, **_kwargs: (
+            posts.append(path)
+            or {
+                "tick_no": next(next_tick),
+                "accepted_count": 2,
+                "rejected_count": 0,
+            }
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        ["--output", "json", "run", "step", RUN_ID, "--count", "2"],
+    )
+
+    assert result.exit_code == 0
+    assert posts == [f"runs/{RUN_ID}/tick", f"runs/{RUN_ID}/tick"]
+    assert '"tick_no": 5' in result.stdout
+
+
+def test_play_script_renders_latest_story(monkeypatch):
+    def fake_get(_self, path, **_kwargs):
+        if path == f"runs/{RUN_ID}":
+            return {"id": RUN_ID, "name": "Town", "status": "paused", "current_tick": 1}
+        if path.endswith("world/pulse"):
+            return {
+                "world_clock": {"display": "06:05"},
+                "daily_stats": {"total_input_tokens": 10, "total_output_tokens": 2},
+            }
+        if path.endswith("timeline"):
+            return {
+                "events": [
+                    {
+                        "tick_no": 1,
+                        "event_type": "speech",
+                        "world_time": "06:05",
+                        "payload": {
+                            "actor_name": "Meryl",
+                            "target_name": "Truman",
+                            "message": "早上好",
+                        },
+                    }
+                ]
+            }
+        raise AssertionError(path)
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(app, ["play", RUN_ID, "--execute", "look"])
+
+    assert result.exit_code == 0
+    assert "Latest story" in result.stdout
+    assert "Meryl → Truman" in result.stdout
+    assert "“早上好”" in result.stdout
+
+
+def test_world_cost_marks_unreported_provider_cost_as_unavailable(monkeypatch):
+    monkeypatch.setattr(
+        ApiClient,
+        "get",
+        lambda _self, path, **_kwargs: {
+            "daily_stats": {
+                "llm_provider": "anthropic",
+                "llm_model": "MiniMax-M3",
+                "total_cost_usd": 0,
+                "total_input_tokens": 100,
+                "total_output_tokens": 20,
+            }
+        },
+    )
+
+    result = runner.invoke(app, ["world", "cost", RUN_ID])
+
+    assert result.exit_code == 0
+    assert "unavailable" in result.stdout
+
+
+def test_system_status_distinguishes_remote_database_from_local_process(monkeypatch):
+    def fake_get(_self, path, **_kwargs):
+        if path == "ready":
+            return {"status": "ready"}
+        return {
+            "components": {
+                "backend": {"status": "available", "rss_bytes": 1048576},
+                "frontend": {"status": "available", "rss_bytes": 2097152},
+                "postgres": {"status": "unavailable", "rss_bytes": 0},
+                "total": {"status": "available", "rss_bytes": 3145728},
+            }
+        }
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(app, ["system", "status"])
+
+    assert result.exit_code == 0
+    assert "database_connectivity" in result.stdout
+    assert "remote / no local process" in result.stdout
+
+
 def test_run_wait_pauses_when_cost_limit_is_reached(monkeypatch):
     posts = []
 
     def fake_get(_self, path, **_kwargs):
+        if path == "runs":
+            return [{"id": "run-1", "status": "running", "current_tick": 4}]
         if path.endswith("world/pulse"):
             return {"daily_stats": {"total_cost_usd": 0.25}}
         return {"id": "run-1", "status": "running", "current_tick": 4}
@@ -67,6 +271,8 @@ def test_run_wait_can_guard_providers_that_only_report_tokens(monkeypatch):
     posts = []
 
     def fake_get(_self, path, **_kwargs):
+        if path == "runs":
+            return [{"id": "run-1", "status": "running", "current_tick": 4}]
         if path.endswith("world/pulse"):
             return {
                 "daily_stats": {

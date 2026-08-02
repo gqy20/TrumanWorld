@@ -43,7 +43,7 @@ backend-dev:
 	@LOG_TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
 	LOG_FILE_BACKEND="$(CURDIR)/$(LOGS_DIR)/dev_$${LOG_TIMESTAMP}_backend.log"; \
 	echo "📝 后端日志: $${LOG_FILE_BACKEND}"; \
-	cd $(BACKEND_DIR) && env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --reload --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}"
+	cd $(BACKEND_DIR) && env -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL uv run uvicorn app.main:app --reload --reload-dir app --reload-exclude 'app/cli/**' --host 127.0.0.1 --port $(BACKEND_PORT) 2>&1 | tee "$${LOG_FILE_BACKEND}"
 
 frontend-dev: frontend-clean-port sync-agent-logos
 	@mkdir -p $(LOGS_DIR)
