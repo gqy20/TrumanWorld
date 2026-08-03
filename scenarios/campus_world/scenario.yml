@@ -13,7 +13,7 @@ capabilities:
 modules:
   director_policy: standard_director
   agent_context_policy: standard_context
-  allowed_actions_policy: standard_actions
+  allowed_actions_policy: embodied_actions
   profile_merge_policy: director_guidance_merge
   fallback_policy: social_default
   seed_policy: standard_bundle_seed

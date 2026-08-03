@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useWorldEventStream } from "@/components/use-world-event-stream";
+import { buildApiUrl } from "@/lib/api";
+import type { WorldEvent } from "@/lib/types";
+
 import { GodotBridge } from "./godot-bridge";
 import {
   PHASE_ZERO_RUN_ID,
@@ -23,39 +27,100 @@ type Props = {
 };
 
 export function GodotWorldHost({
-  runId = PHASE_ZERO_RUN_ID,
-  snapshot = PHASE_ZERO_WORLD_SNAPSHOT,
+  runId,
+  snapshot: providedSnapshot,
   readyTimeoutMs = 15_000,
 }: Props) {
+  const resolvedRunId = runId ?? PHASE_ZERO_RUN_ID;
+  const isLiveRun = Boolean(runId && !providedSnapshot);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const bridgeRef = useRef<GodotBridge | null>(null);
+  const snapshotRef = useRef<GodotWorldSnapshot | null>(
+    providedSnapshot ?? (isLiveRun ? null : PHASE_ZERO_WORLD_SNAPSHOT),
+  );
+  const readyRef = useRef(false);
+  const readyMapRef = useRef<{ mapId: string; contentHash: string } | null>(null);
+  const refreshTimerRef = useRef<number | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>("loading");
   const [protocolError, setProtocolError] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [connectionRevision, setConnectionRevision] = useState(0);
+  const [liveSnapshot, setLiveSnapshot] = useState<GodotWorldSnapshot | null>(null);
+
+  const snapshot =
+    providedSnapshot ?? (isLiveRun ? liveSnapshot : PHASE_ZERO_WORLD_SNAPSHOT);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   const selectedAgent = useMemo(
-    () => snapshot.agents.find((agent) => agent.id === selectedAgentId) ?? null,
-    [selectedAgentId, snapshot.agents],
+    () => snapshot?.agents.find((agent) => agent.id === selectedAgentId) ?? null,
+    [selectedAgentId, snapshot],
   );
+
+  const sendSnapshot = useCallback((nextSnapshot: GodotWorldSnapshot) => {
+    if (!readyRef.current) return;
+    const readyMap = readyMapRef.current;
+    if (
+      readyMap &&
+      (readyMap.mapId !== nextSnapshot.map_id ||
+        readyMap.contentHash !== nextSnapshot.map_content_hash)
+    ) {
+      setProtocolError("map_mismatch");
+      setBridgeStatus("error");
+      return;
+    }
+    bridgeRef.current?.post("initialize", {
+      client: "next-director-console",
+      map_id: nextSnapshot.map_id,
+    });
+    bridgeRef.current?.post(
+      "world_snapshot",
+      nextSnapshot as unknown as Record<string, unknown>,
+    );
+    setBridgeStatus("ready");
+  }, []);
+
+  const fetchLiveSnapshot = useCallback(async () => {
+    if (!isLiveRun) return;
+    try {
+      const response = await fetch(buildApiUrl(`/runs/${resolvedRunId}/world`), {
+        cache: "no-store",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(`snapshot_${response.status}`);
+      const value = (await response.json()) as unknown;
+      const nextSnapshot = decodeWorldSnapshot(value);
+      if (!nextSnapshot) throw new Error("invalid_world_snapshot");
+      setLiveSnapshot(nextSnapshot);
+      sendSnapshot(nextSnapshot);
+      setProtocolError(null);
+    } catch (error) {
+      setProtocolError(error instanceof Error ? error.message : "snapshot_failed");
+      setBridgeStatus("error");
+    }
+  }, [isLiveRun, resolvedRunId, sendSnapshot]);
 
   const handleGodotMessage = useCallback(
     (message: GodotEnvelope<GodotClientMessageType>) => {
       if (message.type === "ready") {
+        readyRef.current = true;
+        readyMapRef.current = {
+          mapId: String(message.payload.map_id ?? ""),
+          contentHash: String(message.payload.map_content_hash ?? ""),
+        };
+        const currentSnapshot = snapshotRef.current;
+        if (!currentSnapshot) return;
         if (
-          message.payload.map_id !== snapshot.map_id ||
-          message.payload.map_content_hash !== snapshot.map_content_hash
+          message.payload.map_id !== currentSnapshot.map_id ||
+          message.payload.map_content_hash !== currentSnapshot.map_content_hash
         ) {
           setProtocolError("map_mismatch");
           setBridgeStatus("error");
           return;
         }
-        setBridgeStatus("ready");
-        bridgeRef.current?.post("initialize", {
-          client: "next-director-console",
-          map_id: snapshot.map_id,
-        });
-        bridgeRef.current?.post("world_snapshot", snapshot as unknown as Record<string, unknown>);
+        sendSnapshot(currentSnapshot);
         return;
       }
       if (message.type === "selection_changed") {
@@ -63,17 +128,42 @@ export function GodotWorldHost({
         if (selection.kind === "agent") setSelectedAgentId(selection.id);
       }
     },
-    [snapshot],
+    [sendSnapshot],
   );
+
+  useEffect(() => {
+    void fetchLiveSnapshot();
+  }, [fetchLiveSnapshot]);
+
+  const handleWorldEvent = useCallback(
+    (event: WorldEvent) => {
+      bridgeRef.current?.post("world_event_batch", { events: [event] });
+      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        void fetchLiveSnapshot();
+      }, 100);
+    },
+    [fetchLiveSnapshot],
+  );
+
+  useWorldEventStream({
+    enabled: isLiveRun && bridgeStatus === "ready",
+    latestKnownTick: snapshot?.tick ?? 0,
+    onEvent: handleWorldEvent,
+    runId: resolvedRunId,
+  });
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
     setBridgeStatus("loading");
     setProtocolError(null);
+    readyRef.current = false;
+    readyMapRef.current = null;
     const bridge = new GodotBridge(
       iframe,
-      runId,
+      resolvedRunId,
       window.location.origin,
       handleGodotMessage,
       (error) => setProtocolError(error),
@@ -89,9 +179,12 @@ export function GodotWorldHost({
       window.clearTimeout(timeout);
       bridge.post("dispose", {});
       bridge.stop();
+      readyRef.current = false;
+      readyMapRef.current = null;
+      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
       if (bridgeRef.current === bridge) bridgeRef.current = null;
     };
-  }, [connectionRevision, handleGodotMessage, readyTimeoutMs, runId]);
+  }, [connectionRevision, handleGodotMessage, readyTimeoutMs, resolvedRunId]);
 
   const focusAgent = (agentId: string) => {
     setSelectedAgentId(agentId);
@@ -149,22 +242,22 @@ export function GodotWorldHost({
 
       <aside className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase">
-          Phase 2 Fixture
+          {isLiveRun ? "Live Run · Phase 3" : "Phase 3 Fixture"}
         </p>
         <h2 className="mt-2 text-xl font-semibold text-slate-900">协议与选择闭环</h2>
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-xl bg-slate-100 p-3">
             <dt className="text-xs text-slate-500">Map</dt>
-            <dd className="mt-1 font-medium text-slate-900">{snapshot.map_id}</dd>
+            <dd className="mt-1 font-medium text-slate-900">{snapshot?.map_id ?? "loading"}</dd>
           </div>
           <div className="rounded-xl bg-slate-100 p-3">
             <dt className="text-xs text-slate-500">Agents</dt>
-            <dd className="mt-1 font-medium text-slate-900">{snapshot.agents.length}</dd>
+            <dd className="mt-1 font-medium text-slate-900">{snapshot?.agents.length ?? 0}</dd>
           </div>
         </dl>
 
         <div className="mt-5 space-y-2" aria-label="Fixture 居民">
-          {snapshot.agents.map((agent) => (
+          {(snapshot?.agents ?? []).map((agent) => (
             <button
               key={agent.id}
               type="button"
@@ -204,4 +297,25 @@ export function GodotWorldHost({
       </aside>
     </section>
   );
+}
+
+function decodeWorldSnapshot(value: unknown): GodotWorldSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const snapshot = value as Partial<GodotWorldSnapshot>;
+  if (
+    typeof snapshot.map_id !== "string" ||
+    typeof snapshot.map_content_hash !== "string" ||
+    typeof snapshot.tick !== "number" ||
+    typeof snapshot.world_time !== "string" ||
+    typeof snapshot.run_status !== "string" ||
+    typeof snapshot.simulation_speed !== "number" ||
+    !Array.isArray(snapshot.agents) ||
+    !Array.isArray(snapshot.object_states)
+  ) {
+    return null;
+  }
+  return {
+    ...snapshot,
+    conversations: Array.isArray(snapshot.conversations) ? snapshot.conversations : [],
+  } as GodotWorldSnapshot;
 }

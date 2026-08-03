@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas.simulation import (
     COMMON_RESPONSES,
+    ManualActionRequest,
+    ManualActionResultResponse,
+    ManualTickResponse,
     RunCreateRequest,
     RunDetailResponse,
     RunResponse,
@@ -26,6 +29,7 @@ from app.sim.run_lifecycle import ensure_run_started, pause_run_execution
 from app.sim.errors import TickInProgressError
 from app.sim.scheduler import get_scheduler
 from app.sim.service import SimulationService
+from app.sim.action_resolver import ActionIntent
 from app.store.models import Agent, Event, Location, SimulationRun
 from app.store.repositories import RunRepository
 
@@ -334,6 +338,91 @@ async def advance_run_tick(
         tick_no=result.tick_no,
         accepted_count=len(result.accepted),
         rejected_count=len(result.rejected),
+    )
+
+
+@router.post(
+    "/{run_id}/actions",
+    response_model=ManualTickResponse,
+    summary="执行调试动作并推进 Tick",
+    description="在非运行状态下执行一个明确 Agent 动作；该操作会推进一次世界时钟。",
+)
+async def execute_manual_action(
+    run_id: UUID,
+    payload: ManualActionRequest,
+    _: None = Depends(require_demo_admin_access),
+    session: AsyncSession = Depends(get_db_session),
+) -> ManualTickResponse:
+    run = await get_required_run(session, run_id)
+    if run.status == "running":
+        raise api_error(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pause the run before executing a manual action",
+            code="RUN_MUST_BE_INACTIVE",
+            context={"run_id": str(run_id), "status": run.status},
+        )
+    agent = await session.get(Agent, payload.agent_id)
+    if agent is None or agent.run_id != str(run_id):
+        raise api_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found",
+            code="AGENT_NOT_FOUND",
+            context={"run_id": str(run_id), "agent_id": payload.agent_id},
+        )
+    if payload.target_agent_id is not None:
+        target_agent = await session.get(Agent, payload.target_agent_id)
+        if target_agent is None or target_agent.run_id != str(run_id):
+            raise api_error(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Target agent not found",
+                code="TARGET_AGENT_NOT_FOUND",
+                context={"run_id": str(run_id), "agent_id": payload.target_agent_id},
+            )
+    if payload.target_location_id is not None:
+        target_location = await session.get(Location, payload.target_location_id)
+        if target_location is None or target_location.run_id != str(run_id):
+            raise api_error(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Target location not found",
+                code="TARGET_LOCATION_NOT_FOUND",
+                context={"run_id": str(run_id), "location_id": payload.target_location_id},
+            )
+    service = SimulationService(session)
+    try:
+        result = await service.run_tick(
+            str(run_id),
+            intents=[
+                ActionIntent(
+                    agent_id=payload.agent_id,
+                    action_type=payload.action_type,
+                    target_location_id=payload.target_location_id,
+                    target_agent_id=payload.target_agent_id,
+                    payload=payload.payload,
+                )
+            ],
+        )
+    except TickInProgressError as exc:
+        raise api_error(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A tick is already in progress for this run",
+            code="RUN_TICK_IN_PROGRESS",
+            context={"run_id": exc.run_id},
+        ) from exc
+
+    def present(item) -> ManualActionResultResponse:
+        return ManualActionResultResponse(
+            accepted=item.accepted,
+            action_type=item.action_type,
+            reason=item.reason,
+            event_payload=item.event_payload,
+        )
+
+    return ManualTickResponse(
+        run_id=str(run_id),
+        tick_no=result.tick_no,
+        world_time=result.world_time,
+        accepted=[present(item) for item in result.accepted],
+        rejected=[present(item) for item in result.rejected],
     )
 
 

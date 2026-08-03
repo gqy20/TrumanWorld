@@ -140,8 +140,13 @@ func _resolve_visual_state(snapshot: Dictionary) -> String:
 		return "idle"
 	if activity.get("status") == "navigating":
 		return "walk"
+	if activity.get("status") == "waiting_for_resource":
+		return "queue"
 	if activity.get("status") != "performing":
 		return "idle"
+	var configured_visual_state := str(activity.get("visual_state", ""))
+	if not configured_visual_state.is_empty():
+		return configured_visual_state
 	match str(activity.get("activity_type", "")):
 		"drink_coffee":
 			return "drink"

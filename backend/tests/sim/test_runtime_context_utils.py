@@ -4,8 +4,11 @@ from app.scenario.bundle_world.types import build_bundle_world_guidance
 from app.scenario.runtime_config import RuntimeRoleSemantics
 from app.sim.runtime_context_utils import (
     build_agent_world_context,
+    extract_encounter_opportunity,
     extract_subject_alert_from_agent_data,
 )
+from app.sim.action_resolver import ActionIntent
+from app.sim.tick_orchestrator import TickOrchestrator
 from app.sim.types import AgentDecisionSnapshot
 from app.sim.world import (
     ActiveConversationState,
@@ -699,3 +702,70 @@ def test_extract_subject_alert_from_agent_data_supports_runtime_semantics():
     )
 
     assert alert_score == 0.55
+
+
+def test_encounter_opportunity_wakes_only_deterministic_initiator() -> None:
+    event = {
+        "event_type": "encounter_candidate_created",
+        "tick_no": 4,
+        "actor_agent_id": "alice",
+        "target_agent_id": "bob",
+        "encounter_id": "encounter-1",
+        "distance_meters": 1.2,
+        "zone_id": "quad.center",
+    }
+
+    opportunity = extract_encounter_opportunity(
+        recent_events=[event], self_agent_id="alice", current_tick=5
+    )
+
+    assert opportunity == {
+        "encounter_id": "encounter-1",
+        "other_agent_id": "bob",
+        "distance_meters": 1.2,
+        "zone_id": "quad.center",
+        "expires_at_world_time": None,
+        "response_options": ["ignore", "greet", "stop_and_talk"],
+    }
+    assert (
+        extract_encounter_opportunity(recent_events=[event], self_agent_id="bob", current_tick=5)
+        is None
+    )
+
+
+def test_encounter_judgment_maps_talk_to_resolved_social_intent() -> None:
+    intent = TickOrchestrator._apply_encounter_judgment(
+        intent=ActionIntent(
+            agent_id="alice",
+            action_type="talk",
+            target_agent_id="bob",
+            payload={"message": "一起走走？"},
+        ),
+        world_ctx={
+            "encounter_opportunity": {
+                "encounter_id": "encounter-1",
+                "other_agent_id": "bob",
+            }
+        },
+    )
+
+    assert intent.action_type == "talk"
+    assert intent.payload["encounter_id"] == "encounter-1"
+    assert intent.payload["encounter_outcome"] == "stop_and_talk"
+
+
+def test_encounter_judgment_preserves_busy_task_as_ignore_outcome() -> None:
+    intent = TickOrchestrator._apply_encounter_judgment(
+        intent=ActionIntent(agent_id="alice", action_type="rest"),
+        world_ctx={
+            "encounter_opportunity": {
+                "encounter_id": "encounter-1",
+                "other_agent_id": "bob",
+            }
+        },
+    )
+
+    assert intent.action_type == "encounter_resolved"
+    assert intent.target_agent_id == "bob"
+    assert intent.payload["outcome"] == "ignore"
+    assert intent.payload["original_action_type"] == "rest"

@@ -15,7 +15,7 @@
       "target_id": "district:campus-center"
     }
   ],
-  "content_hash": "sha256:5a42cca0743a0bfb398913d66d0ca0112d3156c2441d7baac1ba5e049fbca9a6",
+  "content_hash": "sha256:e2a7e49020876c2fea7ec0850ba58ff955bd67a85a944835bffb02cffbc532da",
   "districts": [
     {
       "id": "district:campus-center",
@@ -34,6 +34,24 @@
   ],
   "interactables": [
     {
+      "id": "cafe.coffee-counter",
+      "location_id": "cafe",
+      "position": [
+        5.0,
+        0.0,
+        -2.0
+      ],
+      "rotation_y_degrees": 0.0,
+      "slot_ids": [
+        "slot:cafe:coffee-counter:queue-1",
+        "slot:cafe:coffee-counter:queue-2",
+        "slot:cafe:coffee-counter:queue-3",
+        "slot:cafe:coffee-counter:service"
+      ],
+      "type": "coffee_counter",
+      "zone_id": "cafe.counter"
+    },
+    {
       "id": "cafe.window-chair-1",
       "location_id": "cafe",
       "position": [
@@ -50,6 +68,54 @@
     }
   ],
   "interaction_slots": [
+    {
+      "capacity": 1,
+      "id": "slot:cafe:coffee-counter:queue-1",
+      "kind": "queue",
+      "object_id": "cafe.coffee-counter",
+      "position": [
+        5.0,
+        0.0,
+        -0.2
+      ],
+      "rotation_y_degrees": 180.0
+    },
+    {
+      "capacity": 1,
+      "id": "slot:cafe:coffee-counter:queue-2",
+      "kind": "queue",
+      "object_id": "cafe.coffee-counter",
+      "position": [
+        5.0,
+        0.0,
+        0.8
+      ],
+      "rotation_y_degrees": 180.0
+    },
+    {
+      "capacity": 1,
+      "id": "slot:cafe:coffee-counter:queue-3",
+      "kind": "queue",
+      "object_id": "cafe.coffee-counter",
+      "position": [
+        5.0,
+        0.0,
+        1.8
+      ],
+      "rotation_y_degrees": 180.0
+    },
+    {
+      "capacity": 1,
+      "id": "slot:cafe:coffee-counter:service",
+      "kind": "service",
+      "object_id": "cafe.coffee-counter",
+      "position": [
+        5.0,
+        0.0,
+        -1.2
+      ],
+      "rotation_y_degrees": 180.0
+    },
     {
       "capacity": 1,
       "id": "slot:cafe:window-chair-1:sit",

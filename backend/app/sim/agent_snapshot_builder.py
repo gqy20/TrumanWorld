@@ -203,7 +203,15 @@ async def build_agent_recent_events(
     event_priority = case(
         (
             Event.event_type.in_(
-                ["talk", "speech", "listen", "conversation_started", "conversation_joined", "move"]
+                [
+                    "talk",
+                    "speech",
+                    "listen",
+                    "conversation_started",
+                    "conversation_joined",
+                    "encounter_candidate_created",
+                    "move",
+                ]
             ),
             0,
         ),

@@ -682,6 +682,54 @@ def world_pulse(ctx: typer.Context, run_id: str) -> None:
     runtime.renderer.data(runtime.client.get(f"runs/{run_id}/world/pulse"))
 
 
+@world_app.command("spatial")
+def world_spatial(ctx: typer.Context, run_id: str) -> None:
+    """Inspect authoritative positions, zones, activities, and resource occupancy."""
+    runtime = rt(ctx)
+    run_id = _resolve_run_id(runtime, run_id)
+    payload = runtime.client.get(f"runs/{run_id}/world")
+    spatial = {
+        "run_id": run_id,
+        "tick": payload.get("tick"),
+        "world_time": payload.get("world_time"),
+        "map_id": payload.get("map_id"),
+        "agents": [
+            {
+                "id": agent.get("id"),
+                "name": agent.get("name"),
+                "position_meters": agent.get("position_meters"),
+                "zone_id": agent.get("zone_id"),
+                "location_id": agent.get("current_location_id"),
+                "movement": agent.get("movement"),
+                "activity": agent.get("activity"),
+            }
+            for agent in payload.get("agents") or []
+        ],
+        "object_states": payload.get("object_states") or [],
+    }
+    runtime.renderer.data(spatial)
+
+
+@world_app.command("encounters")
+def world_encounters(
+    ctx: typer.Context,
+    run_id: str,
+    limit: int = typer.Option(50, min=1, max=500),
+) -> None:
+    """List spatial encounter candidates and their resolved outcomes."""
+    runtime = rt(ctx)
+    run_id = _resolve_run_id(runtime, run_id)
+    payload = runtime.client.get(
+        f"runs/{run_id}/timeline",
+        params={
+            "event_type": "encounter_candidate_created,encounter_resolved",
+            "limit": limit,
+            "order_desc": True,
+        },
+    )
+    runtime.renderer.data(payload)
+
+
 @world_app.command("cost")
 def world_cost(ctx: typer.Context, run_id: str) -> None:
     runtime = rt(ctx)
@@ -811,6 +859,55 @@ def agent_economy(ctx: typer.Context, run_id: str, agent_id: str) -> None:
     run_id = _resolve_run_id(runtime, run_id)
     agent_id = _resolve_agent_id(runtime, run_id, agent_id)
     runtime.renderer.data(runtime.client.get(f"runs/{run_id}/agents/{agent_id}/economic-summary"))
+
+
+@agent_app.command("activity-start")
+def agent_activity_start(
+    ctx: typer.Context,
+    run_id: str,
+    agent_id: str,
+    activity_type: str,
+    location: str = typer.Option(..., "--location", "-l"),
+) -> None:
+    """Start one embodied activity and advance the world clock once (run must be inactive)."""
+    runtime = rt(ctx)
+    run_id = _resolve_run_id(runtime, run_id)
+    agent_id = _resolve_agent_id(runtime, run_id, agent_id)
+    location_id = _resolve_location_id(runtime, run_id, location)
+    runtime.renderer.data(
+        runtime.client.post(
+            f"runs/{run_id}/actions",
+            json_body={
+                "agent_id": agent_id,
+                "action_type": "start_activity",
+                "target_location_id": location_id,
+                "payload": {"activity_type": activity_type},
+            },
+        )
+    )
+
+
+@agent_app.command("activity-interrupt")
+def agent_activity_interrupt(
+    ctx: typer.Context,
+    run_id: str,
+    agent_id: str,
+    reason: str = typer.Option("cli_debug", "--reason"),
+) -> None:
+    """Interrupt an activity and advance the world clock once (run must be inactive)."""
+    runtime = rt(ctx)
+    run_id = _resolve_run_id(runtime, run_id)
+    agent_id = _resolve_agent_id(runtime, run_id, agent_id)
+    runtime.renderer.data(
+        runtime.client.post(
+            f"runs/{run_id}/actions",
+            json_body={
+                "agent_id": agent_id,
+                "action_type": "interrupt_activity",
+                "payload": {"reason": reason},
+            },
+        )
+    )
 
 
 @agent_app.command("governance")

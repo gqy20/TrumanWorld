@@ -105,6 +105,8 @@ func apply_host_message(raw_message: String) -> Dictionary:
 			world_presenter.set_presentation_paused(not _client_clock.is_running())
 		"simulation_speed_changed":
 			_client_clock.set_speed(float(payload.get("simulation_speed", 1.0)))
+		"world_event_batch":
+			_set_status("已接收 %s 条世界事件" % (payload.get("events", []) as Array).size())
 		"dispose":
 			_set_status("宿主已断开")
 		_:

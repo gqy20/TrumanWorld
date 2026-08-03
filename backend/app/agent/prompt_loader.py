@@ -28,6 +28,21 @@ class PromptLoader:
         allowed_actions: list[str],
     ) -> str:
         action_names = ", ".join(allowed_actions)
+        embodied_action_lines = (
+            [
+                "- start_activity: 开始具身活动（payload.activity_type 必须来自 world.available_activities，并使用其 target_location_ids）",
+                "- interrupt_activity: 中断当前具身活动（payload.reason 可说明原因）",
+            ]
+            if "start_activity" in allowed_actions
+            else []
+        )
+        embodied_constraint_lines = (
+            [
+                "- 当 `action_type=start_activity` 时，必须在 payload 中提供 `activity_type`，并从 world.available_activities 选择有效活动和地点"
+            ]
+            if "start_activity" in allowed_actions
+            else []
+        )
         lines = [
             base_prompt,
             "",
@@ -40,6 +55,7 @@ class PromptLoader:
             "## 上下文使用原则",
             "- 根据 world.daily_schedule 与 world.time_period 主动执行当前时段计划",
             "- 存在 world.pending_reply 时，若对方仍在附近，优先延续对话",
+            "- 存在 world.encounter_opportunity 时，只在人物关系和当前任务值得时与 other_agent_id 交谈；否则保持原任务",
             "- 使用 world.conversation_state 和 conversation_diagnostics 推进话题，避免重复",
             "- recent_events 按事件历史理解，只引入与当前决策相关的信息",
             "",
@@ -48,6 +64,7 @@ class PromptLoader:
             "- talk: 与附近的 agent 对话（需提供 target_agent_id 和 message，30-200 字自然发言）",
             "- work: 在当前地点工作（仅在合理工作场景中使用）",
             "- rest: 休息/等待/日常活动",
+            *embodied_action_lines,
             "",
             "# 输出约束",
             "- 只能返回一个 JSON 对象",
@@ -55,6 +72,7 @@ class PromptLoader:
             "- `action_type` 只能使用本场景允许的标准动作，不得发明新动作类型",
             "- 当 `action_type=move` 时，只能使用运行上下文中真实存在的地点 ID，不要编造别名、英文变体或不存在的地点",
             "- 当 `action_type=talk` 时，必须提供 `target_agent_id` 与 `message`（30-200 字的自然发言；会在执行层映射为 speech 事件）",
+            *embodied_constraint_lines,
             "- 选择最符合角色、日程和当前情境的低风险动作；仅在确实没有合理动作时返回 `rest`",
             "- **重要**：对话要延续之前的内容，不要重复已说过的话",
             "",
@@ -107,6 +125,19 @@ class PromptLoader:
             if isinstance(message, str) and message:
                 lines.append(f'- 对方刚才说: "{message}"')
             lines.append("")
+
+        encounter = world.get("encounter_opportunity")
+        if isinstance(encounter, dict):
+            lines.extend(
+                [
+                    "# 偶遇判断",
+                    "后端空间系统确认你刚刚遇到另一位角色。只有这一次决策会唤醒你判断是否回应。",
+                    f"- 对方 ID: {encounter.get('other_agent_id', '未知')}",
+                    f"- 距离: {encounter.get('distance_meters', '未知')} 米",
+                    "- 想回应时返回 talk 并把对方 ID 作为 target_agent_id；不回应时返回原本会做的动作。",
+                    "",
+                ]
+            )
 
         diagnostics = world.get("conversation_diagnostics")
         if isinstance(diagnostics, dict):

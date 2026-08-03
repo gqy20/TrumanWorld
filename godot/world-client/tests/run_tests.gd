@@ -79,6 +79,8 @@ func _test_world_map_export() -> void:
 	var document: Dictionary = result["document"]
 	_expect(document["locations"].size() == 5, "map export contains five locations")
 	_expect(document["zones"].size() == 7, "map export contains seven zones")
+	_expect(document["interactables"].size() == 2, "map export contains cafe resources")
+	_expect(document["interaction_slots"].size() == 5, "map export contains resource slots")
 	_expect(document["route_edges"][0]["distance_meters"] > 0.0, "route distance is derived")
 	_expect(
 		str(document["content_hash"]).begins_with("sha256:"),
@@ -136,6 +138,24 @@ func _test_activity_visual_mapping() -> void:
 		"activity": {"activity_type": "drink_coffee", "status": "performing"},
 	})
 	_expect(avatar.visual_state() == "drink", "performing coffee activity maps to drink")
+	avatar.configure({
+		"id": "mei",
+		"name": "Mei",
+		"position_meters": [0.0, 0.0, 0.0],
+		"activity": {"activity_type": "drink_coffee", "status": "waiting_for_resource"},
+	})
+	_expect(avatar.visual_state() == "queue", "waiting activity maps to queue")
+	avatar.configure({
+		"id": "mei",
+		"name": "Mei",
+		"position_meters": [0.0, 0.0, 0.0],
+		"activity": {
+			"activity_type": "drink_coffee",
+			"status": "performing",
+			"visual_state": "sit",
+		},
+	})
+	_expect(avatar.visual_state() == "sit", "configured step visual state is authoritative")
 	avatar.free()
 
 

@@ -159,7 +159,7 @@ async def test_campus_snapshot_uses_godot_map_identity_and_meter_topology(client
     snapshot = response.json()
     assert snapshot["map_id"] == "campus-world-v2"
     assert snapshot["map_content_hash"] == (
-        "sha256:5a42cca0743a0bfb398913d66d0ca0112d3156c2441d7baac1ba5e049fbca9a6"
+        "sha256:e2a7e49020876c2fea7ec0850ba58ff955bd67a85a944835bffb02cffbc532da"
     )
     assert set(snapshot["navigation"]["location_entrances"]) == {
         f"{run_id}-dorm",

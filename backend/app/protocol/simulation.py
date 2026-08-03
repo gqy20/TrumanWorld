@@ -17,6 +17,11 @@ EVENT_ACTIVITY_STEP_STARTED = "activity_step_started"
 EVENT_ACTIVITY_STEP_COMPLETED = "activity_step_completed"
 EVENT_ACTIVITY_COMPLETED = "activity_completed"
 EVENT_ACTIVITY_INTERRUPTED = "activity_interrupted"
+EVENT_ACTIVITY_WAITING_FOR_RESOURCE = "activity_waiting_for_resource"
+EVENT_RESOURCE_RESERVED = "resource_reserved"
+EVENT_RESOURCE_RELEASED = "resource_released"
+EVENT_ENCOUNTER_CANDIDATE_CREATED = "encounter_candidate_created"
+EVENT_ENCOUNTER_RESOLVED = "encounter_resolved"
 
 EVENT_MOVE = ACTION_MOVE
 EVENT_MOVE_ARRIVED = "move_arrived"
@@ -71,6 +76,11 @@ ActionType: TypeAlias = Literal[
     "activity_step_completed",
     "activity_completed",
     "activity_interrupted",
+    "activity_waiting_for_resource",
+    "resource_reserved",
+    "resource_released",
+    "encounter_candidate_created",
+    "encounter_resolved",
     "plan",
     "reflect",
     "director_inject",
@@ -97,6 +107,11 @@ RejectedActionEventType: TypeAlias = Literal[
     "activity_step_completed_rejected",
     "activity_completed_rejected",
     "activity_interrupted_rejected",
+    "activity_waiting_for_resource_rejected",
+    "resource_reserved_rejected",
+    "resource_released_rejected",
+    "encounter_candidate_created_rejected",
+    "encounter_resolved_rejected",
     "plan_rejected",
     "reflect_rejected",
     "director_inject_rejected",

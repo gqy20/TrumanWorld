@@ -31,7 +31,13 @@ def test_campus_world_map_manifest_loads_with_verified_content_hash():
         "quad",
     }
     assert len(world_map.route_edges) == 5
-    assert world_map.interactables[0].slot_ids == ["slot:cafe:window-chair-1:sit"]
+    assert {slot_id for item in world_map.interactables for slot_id in item.slot_ids} == {
+        "slot:cafe:coffee-counter:queue-1",
+        "slot:cafe:coffee-counter:queue-2",
+        "slot:cafe:coffee-counter:queue-3",
+        "slot:cafe:coffee-counter:service",
+        "slot:cafe:window-chair-1:sit",
+    }
 
 
 def test_exported_world_map_rejects_unknown_location_entrance():

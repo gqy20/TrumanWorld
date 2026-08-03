@@ -13,6 +13,7 @@ from app.sim.governance_consequences import (
     apply_governance_attention_decay,
     apply_governance_consequences,
 )
+from app.sim.perception import build_encounter_candidates
 from app.sim.world import ActiveConversationState, InteractionEdgeState, WorldState
 
 
@@ -66,6 +67,23 @@ class SimulationRunner:
             apply_governance_consequences(self.world, result, policy_values=policy_values)
             if result.accepted:
                 accepted.append(result)
+                if result.action_type == "talk" and result.event_payload.get("encounter_id"):
+                    accepted.append(
+                        ActionResult(
+                            accepted=True,
+                            action_type="encounter_resolved",
+                            reason="accepted",
+                            event_payload={
+                                "agent_id": result.event_payload.get("agent_id"),
+                                "target_agent_id": result.event_payload.get("target_agent_id"),
+                                "location_id": result.event_payload.get("location_id"),
+                                "encounter_id": result.event_payload.get("encounter_id"),
+                                "outcome": result.event_payload.get(
+                                    "encounter_outcome", "stop_and_talk"
+                                ),
+                            },
+                        )
+                    )
             else:
                 rejected.append(result)
         accepted.extend(self._build_listen_results(sessions, assignments))
@@ -98,12 +116,33 @@ class SimulationRunner:
                     "activity_type": transition.activity.activity_type,
                     "activity_status": transition.activity_status,
                     "step_index": transition.step_index,
+                    "step_id": transition.step_id,
+                    "activity_action": transition.action,
+                    "resource_id": transition.resource_id,
+                    "zone_id": transition.zone_id,
+                    "queue_position": transition.queue_position,
                     "target_entity_id": transition.activity.target_entity_id,
                     "occurred_at_world_time": transition.occurred_at_world_time.isoformat(),
                 },
             )
             for transition in advanced.activity_transitions
         )
+        if self.world.social_spatial_config is not None:
+            accepted.extend(
+                ActionResult(
+                    accepted=True,
+                    action_type="encounter_candidate_created",
+                    reason="candidate_created",
+                    event_payload={
+                        **candidate.to_event_payload(),
+                        "occurred_at_world_time": advanced.current_time.isoformat(),
+                    },
+                )
+                for candidate in build_encounter_candidates(
+                    self.world,
+                    self.world.social_spatial_config,
+                )
+            )
         self._store_active_conversations(
             sessions,
             accepted=accepted,

@@ -24,6 +24,7 @@ from app.sim.runtime_context_utils import (
     extract_subject_alert_from_agent_data,
     extract_subject_alert_from_agents,
     inject_profile_fields_into_context,
+    extract_encounter_opportunity,
 )
 from app.sim.world import WorldState
 from app.sim.world_queries import find_recent_conversation_partner, get_agent
@@ -100,7 +101,11 @@ class TickOrchestrator:
 
         for agent in agents:
             state = get_agent(world, agent.id)
-            if state is None or self._agent_has_continuous_work(state):
+            recent_events = agent_recent_events.get(agent.id, [])
+            if state is None or (
+                self._agent_has_continuous_work(state)
+                and not self._has_encounter_opportunity(agent.id, world, recent_events)
+            ):
                 continue
 
             runtime_agent_id = self.resolve_runtime_agent_id(agent)
@@ -134,7 +139,7 @@ class TickOrchestrator:
                     home_location_id=agent.home_location_id,
                     current_status=state.status,
                     profile=profile,
-                    recent_events=agent_recent_events.get(agent.id, []),
+                    recent_events=recent_events,
                     subject_alert_score=subject_alert_score,
                     current_plan=(plan_overrides or {}).get(agent.id, agent.current_plan),
                     relationship_context=world.relationship_contexts.get(agent.id),
@@ -188,7 +193,12 @@ class TickOrchestrator:
         ) -> ActionIntent | None:
             agent_id = agent_snapshot.id
             state = get_agent(world, agent_id)
-            if state is None or self._agent_has_continuous_work(state):
+            if state is None or (
+                self._agent_has_continuous_work(state)
+                and not self._has_encounter_opportunity(
+                    agent_id, world, agent_snapshot.recent_events
+                )
+            ):
                 return None
 
             profile = agent_snapshot.profile
@@ -444,6 +454,7 @@ class TickOrchestrator:
             runtime_ctx=runtime_ctx,
         )
         intent.agent_id = agent_id
+        intent = self._apply_encounter_judgment(intent=intent, world_ctx=world_ctx)
         intent = self._apply_pending_reply_bias(intent=intent, world_ctx=world_ctx)
         return self._apply_conversation_state_guard(intent=intent, world_ctx=world_ctx)
 
@@ -617,6 +628,54 @@ class TickOrchestrator:
             return True
         activity = getattr(state, "activity", None)
         return bool(activity is not None and activity.is_active)
+
+    @staticmethod
+    def _has_encounter_opportunity(
+        agent_id: str,
+        world: WorldState,
+        recent_events: list[dict],
+    ) -> bool:
+        return (
+            extract_encounter_opportunity(
+                recent_events=recent_events,
+                self_agent_id=agent_id,
+                current_tick=world.current_tick,
+            )
+            is not None
+        )
+
+    @staticmethod
+    def _apply_encounter_judgment(intent: ActionIntent, world_ctx: dict) -> ActionIntent:
+        opportunity = world_ctx.get("encounter_opportunity")
+        if not isinstance(opportunity, dict):
+            return intent
+        encounter_id = opportunity.get("encounter_id")
+        other_agent_id = opportunity.get("other_agent_id")
+        if not isinstance(encounter_id, str) or not isinstance(other_agent_id, str):
+            return intent
+        if intent.action_type == "talk" and intent.target_agent_id == other_agent_id:
+            return ActionIntent(
+                agent_id=intent.agent_id,
+                action_type="talk",
+                target_agent_id=other_agent_id,
+                payload={
+                    **intent.payload,
+                    "encounter_id": encounter_id,
+                    "encounter_outcome": "stop_and_talk",
+                },
+                plan_update=intent.plan_update,
+            )
+        return ActionIntent(
+            agent_id=intent.agent_id,
+            action_type="encounter_resolved",
+            target_agent_id=other_agent_id,
+            payload={
+                "encounter_id": encounter_id,
+                "outcome": "ignore",
+                "original_action_type": intent.action_type,
+                "intent_source": "encounter_low_frequency_judgment",
+            },
+        )
 
     @staticmethod
     def resolve_runtime_agent_id(agent: Agent) -> str:

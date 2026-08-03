@@ -161,6 +161,13 @@ class DefaultAllowedActionsPolicy:
         return list(self._actions)
 
 
+class EmbodiedAllowedActionsPolicy(DefaultAllowedActionsPolicy):
+    def __init__(self) -> None:
+        super().__init__(
+            actions=["move", "talk", "work", "rest", "start_activity", "interrupt_activity"]
+        )
+
+
 class DefaultProfileMergePolicy:
     def merge_agent_profile(self, agent, plan):
         guidance = {}

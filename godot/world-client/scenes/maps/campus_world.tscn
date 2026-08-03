@@ -84,6 +84,45 @@ stable_id = "portal:cafe:entrance-seating"
 from_zone_id = "cafe.entrance"
 to_zone_id = "cafe.seating"
 
+[node name="CoffeeCounter" type="Node3D" parent="CampusCenter/StudioCafe/CounterZone"]
+script = ExtResource("7_object")
+stable_id = "cafe.coffee-counter"
+object_type = "coffee_counter"
+location_id = "cafe"
+zone_id = "cafe.counter"
+
+[node name="ServiceSlot" type="Marker3D" parent="CampusCenter/StudioCafe/CounterZone/CoffeeCounter"]
+position = Vector3(0, 0, 0.8)
+rotation = Vector3(0, 3.14159, 0)
+script = ExtResource("8_slot")
+stable_id = "slot:cafe:coffee-counter:service"
+object_id = "cafe.coffee-counter"
+slot_kind = "service"
+
+[node name="QueueSlot1" type="Marker3D" parent="CampusCenter/StudioCafe/CounterZone/CoffeeCounter"]
+position = Vector3(0, 0, 1.8)
+rotation = Vector3(0, 3.14159, 0)
+script = ExtResource("8_slot")
+stable_id = "slot:cafe:coffee-counter:queue-1"
+object_id = "cafe.coffee-counter"
+slot_kind = "queue"
+
+[node name="QueueSlot2" type="Marker3D" parent="CampusCenter/StudioCafe/CounterZone/CoffeeCounter"]
+position = Vector3(0, 0, 2.8)
+rotation = Vector3(0, 3.14159, 0)
+script = ExtResource("8_slot")
+stable_id = "slot:cafe:coffee-counter:queue-2"
+object_id = "cafe.coffee-counter"
+slot_kind = "queue"
+
+[node name="QueueSlot3" type="Marker3D" parent="CampusCenter/StudioCafe/CounterZone/CoffeeCounter"]
+position = Vector3(0, 0, 3.8)
+rotation = Vector3(0, 3.14159, 0)
+script = ExtResource("8_slot")
+stable_id = "slot:cafe:coffee-counter:queue-3"
+object_id = "cafe.coffee-counter"
+slot_kind = "queue"
+
 [node name="WindowChair" type="Node3D" parent="CampusCenter/StudioCafe/SeatingZone"]
 position = Vector3(1, 0, -1)
 rotation = Vector3(0, 3.14159, 0)

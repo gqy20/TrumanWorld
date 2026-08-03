@@ -99,5 +99,18 @@ def format_event_for_context(
             reason = payload["governance_execution"].get("reason")
             if isinstance(reason, str) and reason:
                 result["governance_feedback_reason"] = reason
+    if evt.event_type in {"encounter_candidate_created", "encounter_resolved"}:
+        result["actor_agent_id"] = evt.actor_agent_id
+        result["target_agent_id"] = evt.target_agent_id
+        for key in (
+            "encounter_id",
+            "zone_id",
+            "position_meters",
+            "distance_meters",
+            "expires_at_world_time",
+            "outcome",
+        ):
+            if key in payload:
+                result[key] = payload[key]
 
     return result

@@ -46,6 +46,12 @@ export type GodotAgentSnapshot = {
     activity_type: string;
     status: string;
     progress: number;
+    current_step_id?: string | null;
+    current_action?: string | null;
+    visual_state?: string | null;
+    zone_id?: string | null;
+    queue_position?: number | null;
+    claimed_resource_ids?: string[];
   } | null;
 };
 

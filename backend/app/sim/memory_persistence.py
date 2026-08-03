@@ -207,7 +207,12 @@ class MemoryPersistence:
         if event.event_type == "move_arrived":
             return []
 
-        if event.event_type in {"conversation_started", "conversation_joined"}:
+        if event.event_type in {
+            "conversation_started",
+            "conversation_joined",
+            "encounter_candidate_created",
+            "encounter_resolved",
+        }:
             return []
 
         if event.event_type in {"talk", "speech"}:

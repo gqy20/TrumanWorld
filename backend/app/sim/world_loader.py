@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from app.scenario.bundle_registry import resolve_sleep_config_for_scenario
+from app.scenario.embodiment_config import load_embodiment_catalog_for_scenario
 from app.sim.agent_snapshot_builder import build_agent_relationship_contexts, build_agent_snapshots
 from app.sim.context import get_run_world_effects, get_run_world_time, load_active_conversations
 from app.sim.location_utils import resolve_agent_location_id
@@ -125,6 +126,8 @@ async def load_tick_data(
             scenario_id=run.scenario_type,
             run_id=run_id,
         ),
+        embodiment_catalog=load_embodiment_catalog_for_scenario(run.scenario_type),
+        world_seed=run.world_seed or 0,
         **resolve_sleep_config_for_scenario(run.scenario_type),
     )
 

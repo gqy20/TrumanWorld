@@ -13,7 +13,15 @@ from app.scenario.runtime.world_design_models import (
 from app.sim.world import WorldState
 
 SUPPORTED_ACTIONS = frozenset(
-    {"move", "talk", "work", "rest", "start_activity", "interrupt_activity"}
+    {
+        "move",
+        "talk",
+        "work",
+        "rest",
+        "start_activity",
+        "interrupt_activity",
+        "encounter_resolved",
+    }
 )
 
 
@@ -145,7 +153,10 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        if agent.movement is not None:
+        is_encounter_response = intent.action_type in {"talk", "encounter_resolved"} and isinstance(
+            intent.payload.get("encounter_id"), str
+        )
+        if agent.movement is not None and not is_encounter_response:
             return self._build_result(
                 accepted=False,
                 action_type=intent.action_type,
@@ -161,7 +172,7 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        if agent.activity is not None and agent.activity.is_active:
+        if agent.activity is not None and agent.activity.is_active and not is_encounter_response:
             return self._build_result(
                 accepted=False,
                 action_type=intent.action_type,
@@ -288,6 +299,20 @@ class ActionResolver:
                 rule_evaluation=rule_evaluation,
                 governance_execution=governance_execution,
             )
+        if intent.action_type == "encounter_resolved":
+            return self._build_result(
+                accepted=True,
+                action_type="encounter_resolved",
+                reason="accepted",
+                event_payload={
+                    "agent_id": intent.agent_id,
+                    "target_agent_id": intent.target_agent_id,
+                    "location_id": agent.location_id if agent else None,
+                    **intent.payload,
+                },
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
 
         # rest and other standard actions
         return self._build_result(
@@ -410,18 +435,30 @@ class ActionResolver:
             reason = "agent_not_found"
         elif not isinstance(activity_type, str) or not activity_type:
             reason = "missing_activity_type"
-        elif not isinstance(duration_seconds, int | float) or duration_seconds < 0:
+        elif duration_seconds is not None and (
+            not isinstance(duration_seconds, int | float) or duration_seconds < 0
+        ):
             reason = "invalid_activity_duration"
         elif (
             intent.target_location_id is not None
             and world.get_location(intent.target_location_id) is None
         ):
             reason = "location_not_found"
+        elif target_error := world.validate_activity_target(
+            activity_type,
+            intent.target_location_id,
+            agent.location_id,
+        ):
+            reason = target_error
+        elif world.get_activity_definition(activity_type) is None and duration_seconds is None:
+            reason = "missing_activity_duration"
         else:
             activity = world.start_agent_activity(
                 intent.agent_id,
                 activity_type,
-                duration_seconds=float(duration_seconds),
+                duration_seconds=(
+                    float(duration_seconds) if isinstance(duration_seconds, int | float) else None
+                ),
                 target_location_id=intent.target_location_id,
                 parent_intent_id=(
                     intent.payload.get("intent_id")
@@ -477,6 +514,21 @@ class ActionResolver:
         reason = intent.payload.get("reason", "interrupted_by_intent")
         if not isinstance(reason, str) or not reason:
             reason = "interrupted_by_intent"
+        agent = world.get_agent(intent.agent_id)
+        if (
+            agent is not None
+            and agent.activity is not None
+            and agent.activity.is_active
+            and not agent.activity.interruptible
+        ):
+            return self._build_result(
+                False,
+                "interrupt_activity",
+                "activity_not_interruptible",
+                event_payload={"agent_id": intent.agent_id, "activity_id": agent.activity.id},
+                rule_evaluation=rule_evaluation,
+                governance_execution=governance_execution,
+            )
         activity = world.interrupt_agent_activity(intent.agent_id, reason)
         if activity is None:
             return self._build_result(
@@ -540,7 +592,7 @@ class ActionResolver:
                 rule_evaluation=rule_evaluation,
                 governance_execution=governance_execution,
             )
-        if agent.location_id != target.location_id:
+        if agent.location_id != target.location_id and not intent.payload.get("encounter_id"):
             event_payload = {
                 "agent_id": intent.agent_id,
                 "location_id": agent.location_id,

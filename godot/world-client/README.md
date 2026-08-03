@@ -1,7 +1,7 @@
 # Truman World Godot Client
 
-Phase 0～2 隔离客户端，用于验证 Godot Web、Next.js 宿主、版本化 Bridge 协议、语义地图
-内容管线以及权威世界时间下的持续活动表现。它尚未连接正式 Run，也不是当前世界页的默认渲染器。
+Phase 0～3 隔离客户端，用于验证 Godot Web、Next.js 宿主、版本化 Bridge 协议、语义地图
+内容管线、权威世界时间以及对象占用和排队表现。它尚不是当前世界页的默认渲染器。
 
 ## 本地运行
 
@@ -17,6 +17,15 @@ make frontend-dev
 ```text
 http://127.0.0.1:13000/labs/godot-world
 ```
+
+连接真实 Campus Run：
+
+```text
+http://127.0.0.1:13000/labs/godot-world?runId=<run-id>
+```
+
+未提供 `runId` 时保留本地 Fixture 模式。真实模式由 Next.js 获取世界快照并订阅现有 SSE；Godot
+不直接持有 API 凭据，收到世界事件后由宿主重新获取权威快照完成位置和资源状态校准。
 
 Godot Web 导出物生成到 `frontend/public/godot-world/`，该目录除 `.gitkeep` 外不进入 Git。
 
@@ -55,3 +64,7 @@ Godot 到 Host：
 `world_snapshot` 的客户端核心字段为 `tick / world_time / run_status / simulation_speed`。Agent 包含
 服务端权威的米制位置、移动进度和活动状态；Godot 的 `ClientClock` 只投影两次校准之间的显示时间，
 暂停时冻结表现，倍速变化时重新同步，不在客户端宣布活动完成。
+
+Phase 3 中，`activities.yml` 定义活动步骤、时长区间和资源要求，`object_types.yml` 定义对象
+Affordance，Godot 地图继续定义柜台、座位和排队槽位的坐标。服务端快照中的 `object_states` 是占用
+与队列的权威事实，Agent 的 `visual_state / zone_id / queue_position` 只驱动客户端表现。

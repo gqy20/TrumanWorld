@@ -10,6 +10,7 @@ from app.scenario.bundle_world.default_modules import (
     DefaultDirectorPolicy,
     DefaultFallbackPolicy,
     DefaultProfileMergePolicy,
+    EmbodiedAllowedActionsPolicy,
 )
 from app.scenario.bundle_world.seed import BundleWorldSeedBuilder
 from app.scenario.bundle_world.state import BundleWorldStateUpdater
@@ -92,6 +93,7 @@ _registry.register_state_update_policy("alert_tracking", BundleWorldStateUpdater
 _registry.register_director_policy("standard_director", DefaultDirectorPolicy)
 _registry.register_agent_context_policy("standard_context", DefaultAgentContextPolicy)
 _registry.register_allowed_actions_policy("standard_actions", DefaultAllowedActionsPolicy)
+_registry.register_allowed_actions_policy("embodied_actions", EmbodiedAllowedActionsPolicy)
 _registry.register_profile_merge_policy("director_guidance_merge", DefaultProfileMergePolicy)
 
 

@@ -38,6 +38,40 @@ _CLOSING_REPLY_PATTERNS = (
     "等会儿见",
 )
 _PENDING_REPLY_MAX_TICK_AGE = 1
+_ENCOUNTER_MAX_TICK_AGE = 1
+
+
+def extract_encounter_opportunity(
+    *,
+    recent_events: list[dict],
+    self_agent_id: str | None,
+    current_tick: int,
+) -> dict[str, object] | None:
+    if not self_agent_id:
+        return None
+    for event in recent_events:
+        if event.get("event_type") != "encounter_candidate_created":
+            continue
+        event_tick = event.get("tick_no")
+        if not isinstance(event_tick, int) or current_tick - event_tick > _ENCOUNTER_MAX_TICK_AGE:
+            continue
+        actor_id = event.get("actor_agent_id")
+        target_id = event.get("target_agent_id")
+        if self_agent_id != actor_id:
+            continue
+        other_agent_id = target_id
+        encounter_id = event.get("encounter_id")
+        if not isinstance(other_agent_id, str) or not isinstance(encounter_id, str):
+            continue
+        return {
+            "encounter_id": encounter_id,
+            "other_agent_id": other_agent_id,
+            "distance_meters": event.get("distance_meters"),
+            "zone_id": event.get("zone_id"),
+            "expires_at_world_time": event.get("expires_at_world_time"),
+            "response_options": ["ignore", "greet", "stop_and_talk"],
+        }
+    return None
 
 
 def build_agent_world_context(
@@ -74,6 +108,29 @@ def build_agent_world_context(
         "self_status": current_status or {},
         **world.time_context(),
     }
+    encounter_opportunity = extract_encounter_opportunity(
+        recent_events=recent_events or [],
+        self_agent_id=agent_id,
+        current_tick=getattr(world, "current_tick", 0),
+    )
+    if encounter_opportunity is not None:
+        context["encounter_opportunity"] = encounter_opportunity
+    if world.embodiment_catalog is not None:
+        context["available_activities"] = [
+            {
+                "activity_type": activity_type,
+                "target_location_ids": sorted(
+                    location_id
+                    for location_id, location in world.locations.items()
+                    if not definition.requirements.location_types
+                    or location.location_type in definition.requirements.location_types
+                ),
+                "steps": [step.action for step in definition.steps],
+            }
+            for activity_type, definition in sorted(
+                world.embodiment_catalog.activities.activities.items()
+            )
+        ]
     if subject_alert_score is not None:
         context["subject_alert_score"] = subject_alert_score
 

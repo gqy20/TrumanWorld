@@ -117,6 +117,85 @@ def test_agent_show_resolves_run_and_agent_aliases(monkeypatch):
     assert requested[-1] == f"runs/{RUN_ID}/agents/{RUN_ID}-truman"
 
 
+def test_world_spatial_returns_only_embodiment_diagnostics(monkeypatch):
+    def fake_get(_self, path, **_kwargs):
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        return {
+            "tick": 4,
+            "world_time": "2026-03-02T08:00:00Z",
+            "map_id": "campus-world-v2",
+            "agents": [
+                {
+                    "id": f"{RUN_ID}-truman",
+                    "name": "Truman",
+                    "position_meters": [1, 0, 2],
+                    "zone_id": "quad.center",
+                    "current_location_id": f"{RUN_ID}-quad",
+                    "movement": None,
+                    "activity": None,
+                    "profile": {"private": "omitted"},
+                }
+            ],
+            "object_states": [{"resource_id": "bench:1", "occupant_agent_ids": []}],
+        }
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(app, ["--output", "json", "world", "spatial", "Town"])
+
+    assert result.exit_code == 0
+    assert '"map_id": "campus-world-v2"' in result.stdout
+    assert '"position_meters"' in result.stdout
+    assert '"private"' not in result.stdout
+
+
+def test_agent_activity_start_resolves_aliases_and_advances_via_manual_action(monkeypatch):
+    recorded = {}
+
+    def fake_get(_self, path, **_kwargs):
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        if path == f"runs/{RUN_ID}/agents":
+            return {"agents": [{"id": f"{RUN_ID}-truman", "config_id": "truman", "name": "Truman"}]}
+        if path == f"runs/{RUN_ID}/world":
+            return {"locations": [{"id": f"{RUN_ID}-cafe", "name": "Studio Cafe"}]}
+        raise AssertionError(path)
+
+    def fake_post(_self, path, *, json_body=None):
+        recorded.update({"path": path, "body": json_body})
+        return {"run_id": RUN_ID, "tick_no": 3, "accepted": []}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+    monkeypatch.setattr(ApiClient, "post", fake_post)
+
+    result = runner.invoke(
+        app,
+        [
+            "--output",
+            "json",
+            "agent",
+            "activity-start",
+            "Town",
+            "truman",
+            "drink_coffee",
+            "--location",
+            "cafe",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert recorded == {
+        "path": f"runs/{RUN_ID}/actions",
+        "body": {
+            "agent_id": f"{RUN_ID}-truman",
+            "action_type": "start_activity",
+            "target_location_id": f"{RUN_ID}-cafe",
+            "payload": {"activity_type": "drink_coffee"},
+        },
+    }
+
+
 def test_director_inject_validates_type_and_resolves_location_alias(monkeypatch):
     recorded = {}
 

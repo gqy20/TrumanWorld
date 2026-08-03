@@ -145,6 +145,29 @@ class SimulationSpeedRequest(BaseModel):
     )
 
 
+class ManualActionRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, description="执行动作的运行时 Agent ID")
+    action_type: Literal["move", "talk", "work", "rest", "start_activity", "interrupt_activity"]
+    target_location_id: str | None = None
+    target_agent_id: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ManualActionResultResponse(BaseModel):
+    accepted: bool
+    action_type: str
+    reason: str
+    event_payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ManualTickResponse(BaseModel):
+    run_id: str
+    tick_no: int = Field(ge=0)
+    world_time: str
+    accepted: list[ManualActionResultResponse] = Field(default_factory=list)
+    rejected: list[ManualActionResultResponse] = Field(default_factory=list)
+
+
 class RunBaseResponse(BaseModel):
     id: str = Field(..., description="运行 ID", examples=["550e8400-e29b-41d4-a716-446655440000"])
     name: str = Field(..., description="运行名称", examples=["Truman Town"])
@@ -309,6 +332,21 @@ class AgentMovementResponse(BaseModel):
     activity_id: str | None = Field(None, description="所属活动 ID")
 
 
+class AgentActivityStepResponse(BaseModel):
+    id: str
+    action: str
+    status: Literal["pending", "waiting_for_resource", "performing", "completed"]
+    duration_seconds: float = Field(..., ge=0)
+    visual_state: str | None = None
+    resource_required: bool = False
+    candidate_resource_ids: list[str] = Field(default_factory=list)
+    claimed_resource_id: str | None = None
+    release_after: bool = True
+    started_at_world_time: datetime | None = None
+    expected_end_world_time: datetime | None = None
+    progress: float | None = Field(None, ge=0, le=1)
+
+
 class AgentActivityResponse(BaseModel):
     id: str = Field(..., description="活动实例 ID")
     agent_id: str = Field(..., description="Agent ID")
@@ -331,6 +369,13 @@ class AgentActivityResponse(BaseModel):
     claimed_resource_ids: list[str] = Field(default_factory=list)
     parent_intent_id: str | None = None
     interruption_reason: str | None = None
+    interruptible: bool = True
+    steps: list[AgentActivityStepResponse] = Field(default_factory=list)
+    current_step_id: str | None = None
+    current_action: str | None = None
+    visual_state: str | None = None
+    zone_id: str | None = None
+    queue_position: int | None = Field(None, ge=1)
     progress: float | None = Field(None, ge=0, le=1)
 
 
@@ -637,6 +682,18 @@ class WorldMapTopologyResponse(BaseModel):
     location_entrances: dict[str, str] = Field(default_factory=dict)
 
 
+class WorldObjectStateResponse(BaseModel):
+    resource_id: str
+    object_id: str
+    object_type: str
+    slot_kind: str
+    location_id: str
+    zone_id: str
+    capacity: int = Field(..., ge=1)
+    occupant_agent_ids: list[str] = Field(default_factory=list)
+    queue_agent_ids: list[str] = Field(default_factory=list)
+
+
 class WorldEventResponse(BaseModel):
     id: str = Field(..., description="事件 ID")
     tick_no: int = Field(..., description="Tick 编号")
@@ -841,6 +898,11 @@ class WorldSnapshotResponse(BaseModel):
         default_factory=WorldMapTopologyResponse,
         description="后端权威道路拓扑",
     )
+    object_states: list[WorldObjectStateResponse] = Field(
+        default_factory=list,
+        description="交互资源的权威占用与队列状态",
+    )
+    conversations: list[dict] = Field(default_factory=list, description="Godot 对话表现状态")
     recent_events: list[WorldEventResponse] = Field(default_factory=list, description="最近事件")
     director_stats: WorldDirectorStatsResponse = Field(
         default_factory=WorldDirectorStatsResponse, description="导演统计"

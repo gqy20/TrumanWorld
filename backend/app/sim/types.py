@@ -48,4 +48,5 @@ class RuntimeWorldContext(ScenarioGuidance, total=False):
     conversation_state: dict[str, Any]
     conversation_diagnostics: dict[str, Any]
     interaction_edge: dict[str, Any]
+    encounter_opportunity: dict[str, Any]
     director_directives: list[dict[str, Any]]

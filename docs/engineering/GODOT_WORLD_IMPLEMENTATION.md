@@ -1,7 +1,7 @@
 # Godot 具身世界完整实施方案
 
 - 类型：`engineering`
-- 状态：`in_progress`（Phase 0～2 已实现）
+- 状态：`in_progress`（Phase 0～3 已实现）
 - 目标版本：Godot `4.7.1-stable` Standard / GDScript
 - 适用范围：浏览器端 3D 世界、地图内容生产、具身活动展示
 - 不改变：FastAPI 权威状态、LangGraph 认知、Director 控制平面、数据库事实来源
@@ -43,7 +43,7 @@ Next.js director console
 
 ### 1.1 实施状态
 
-截至 2026-08-03，Phase 0～2 已完成：
+截至 2026-08-03，Phase 0～3 已完成：
 
 - 固定并验证 Godot `4.7.1-stable`；
 - 建立 `godot/world-client/` 隔离工程；
@@ -63,9 +63,22 @@ Next.js director console
 - 世界快照直接提供 `tick / world_time / run_status / simulation_speed`、权威坐标和活动进度；
 - Godot ClientClock 在暂停、恢复和倍速变化后按服务端世界时间校准，Agent 只做视觉插值；
 - 页面刷新从数据库恢复活动，自动调度会跳过忙碌 Agent，避免活动中重复触发认知决策。
+- `campus_world` 已加载并严格校验 `activities.yml` 与 `object_types.yml`；
+- 咖啡活动被确定性分解为点单、落座和饮用步骤，区间时长由 Run Seed 稳定解析；
+- 柜台、座位和排队槽位来自 Godot 地图，服务端负责唯一占用、队首推进、完成/中断释放；
+- 资源冲突、刷新恢复、槽位坐标和队列站位已经由 API 端到端测试覆盖；
+- 活跃移动或活动会阻止睡眠时段快进，避免一个 Tick 直接消费完整持续区间；空闲世界仍可快进到起床时间；
+- Campus Actor 已允许输出 `start_activity / interrupt_activity`，上下文会提供合法活动及目标地点；
+- Godot Labs 支持通过 `?runId=<id>` 获取真实快照并订阅 SSE，事件到达后批量通知并校准快照。
+- Phase 4 首个服务端切片已落地：确定性网格空间索引会从移动路径、活动槽位和地点入口解析
+  权威位置，按 Zone、距离、Seed 冷却相位和既有对话筛选唯一偶遇候选。
+- `encounter_candidate_created` 会在下一认知轮只唤醒稳定选定的一方进入 LangGraph；交谈映射为
+  `stop_and_talk`，保持原动作则记录 `ignore`，忙碌活动不会因此被销毁。
+- CLI 已提供 `world spatial`、`world encounters`、`agent activity-start` 和
+  `agent activity-interrupt`，调试写操作复用正式 Tick 锁、事务和事件持久化。
 
-尚未进入正式世界页，也未连接真实 Run 或 SSE 增量流。下一实施阶段是 Phase 3 Affordance、占用
-与队列；这一阶段会把当前通用持续活动细化为咖啡馆对象和资源约束下的多步骤活动。
+尚未进入正式世界页。Phase 4 仍缺少 Portal 传播、同行、加入活动、显式暂停/恢复原任务，以及
+Godot 的偶遇提示与对话编排表现；这些能力不能由客户端自行补造权威状态。
 
 ## 2. 目标与非目标
 
@@ -957,6 +970,8 @@ Agent decides drink_coffee
 
 ### Phase 3：Affordance、占用与队列
 
+状态：✅ 已完成（2026-08-03）。
+
 - 加载 `object_types.yml` 和 `activities.yml`。
 - 实现交互槽位、资源申请、过期和释放。
 - 实现咖啡馆柜台、队列、座位和饮用流程。
@@ -964,12 +979,21 @@ Agent decides drink_coffee
 
 退出条件：咖啡馆正常路径和资源冲突路径全部通过。
 
+当前实现把活动步骤及其资源租约保存在 Agent 的 `activity` JSON 中，并依赖既有的单 Run Tick 本地锁、
+PostgreSQL advisory lock 和 Tick 事务边界保证唯一裁决。资源租约的到期时间就是当前步骤的
+`expected_end_world_time`；步骤完成、活动完成或中断都会释放租约并立即推进确定性队首。若未来需要
+脱离 Tick 事务并发修改资源，再升级为独立 `resource_claims` 表和部分唯一索引。
+
 ### Phase 4：感知与偶遇
 
-- 建立服务端空间索引。
-- 生成感知事件和偶遇候选。
-- 接入 LangGraph 低频社会判断。
-- 实现招呼、停下交谈、同行和恢复原任务。
+状态：🟡 进行中（2026-08-03，已完成确定性候选、低频判断与 CLI 诊断）。
+
+- [x] 建立服务端空间索引。
+- [x] 生成权威偶遇候选。
+- [x] 接入 LangGraph 低频社会判断。
+- [ ] 增加 Portal/听觉感知事件与候选过期清理。
+- [ ] 实现同行、加入活动和显式暂停/恢复原任务。
+- [ ] 在 Godot 中表现偶遇提示、招呼和同行状态。
 
 退出条件：相同 Seed 下偶遇时机和候选可复现，人物回应允许因认知而不同。
 

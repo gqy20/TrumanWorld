@@ -57,6 +57,8 @@ class EventRepository:
                         "listen",
                         "conversation_started",
                         "conversation_joined",
+                        "encounter_candidate_created",
+                        "encounter_resolved",
                         "move",
                     ]
                 ),
@@ -89,6 +91,8 @@ class EventRepository:
                         "listen",
                         "conversation_started",
                         "conversation_joined",
+                        "encounter_candidate_created",
+                        "encounter_resolved",
                         "move",
                     ]
                 ),

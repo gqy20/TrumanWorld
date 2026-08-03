@@ -1,5 +1,6 @@
 import asyncio
 import json
+from math import radians
 from time import monotonic
 from uuid import UUID
 
@@ -26,6 +27,7 @@ from app.api.schemas.simulation import (
     WorldHealthMetricsConfig,
     WorldLocationResponse,
     WorldMapTopologyResponse,
+    WorldObjectStateResponse,
     WorldPulseResponse,
     WorldStageAgentStatusVisualResponse,
     WorldStageAgentUiResponse,
@@ -527,6 +529,12 @@ async def get_world_snapshot(
     semantic_zone_by_location = {
         zone.location_id: zone.id for zone in (spatial_manifest.zones if spatial_manifest else [])
     }
+    semantic_slots = {
+        slot.id: slot for slot in (spatial_manifest.interaction_slots if spatial_manifest else [])
+    }
+    semantic_objects = {
+        item.id: item for item in (spatial_manifest.interactables if spatial_manifest else [])
+    }
     agent_summaries = {}
     for agent in agents:
         movement = AgentMovementState.from_dict(agent.movement)
@@ -535,12 +543,59 @@ async def get_world_snapshot(
             movement.to_dict(world_time=world_time, tick_no=run.current_tick) if movement else None
         )
         position_meters = None
+        facing_radians = 0.0
         if movement is not None:
             position_meters = resolve_movement_position(
                 movement,
                 topology,
                 movement.progress_at(world_time, run.current_tick),
             )
+        claimed_slot = next(
+            (
+                semantic_slots[resource_id]
+                for resource_id in (activity.claimed_resource_ids if activity else ())
+                if resource_id in semantic_slots
+            ),
+            None,
+        )
+        presentation_slot = claimed_slot
+        if (
+            presentation_slot is None
+            and activity is not None
+            and activity.status == "waiting_for_resource"
+            and activity.current_step is not None
+            and activity.queue_position is not None
+        ):
+            awaited_slot = next(
+                (
+                    semantic_slots[resource_id]
+                    for resource_id in activity.current_step.candidate_resource_ids
+                    if resource_id in semantic_slots
+                ),
+                None,
+            )
+            if awaited_slot is not None:
+                queue_slots = sorted(
+                    (
+                        slot
+                        for slot in semantic_slots.values()
+                        if slot.object_id == awaited_slot.object_id and slot.kind == "queue"
+                    ),
+                    key=lambda slot: slot.id,
+                )
+                if queue_slots:
+                    presentation_slot = queue_slots[
+                        min(activity.queue_position - 1, len(queue_slots) - 1)
+                    ]
+        activity_zone_id = None
+        if presentation_slot is not None:
+            presentation_object = semantic_objects.get(presentation_slot.object_id)
+            activity_zone_id = (
+                presentation_object.zone_id if presentation_object is not None else None
+            )
+        if movement is None and presentation_slot is not None:
+            position_meters = presentation_slot.position
+            facing_radians = radians(presentation_slot.rotation_y_degrees)
         canonical_location_id = _canonical_location_id(agent.current_location_id, str(run.id))
         semantic_location = semantic_locations.get(canonical_location_id)
         if position_meters is None and semantic_location is not None:
@@ -557,10 +612,54 @@ async def get_world_snapshot(
             movement=movement_payload,
             activity=activity.to_dict(world_time=world_time) if activity else None,
             position_meters=position_meters,
-            zone_id=semantic_zone_by_location.get(canonical_location_id),
+            facing_radians=facing_radians,
+            zone_id=(
+                activity.zone_id
+                if activity is not None and activity.zone_id is not None
+                else activity_zone_id or semantic_zone_by_location.get(canonical_location_id)
+            ),
             status=agent.status or {},
             profile=agent.profile or {},
             config_id=get_agent_config_id(agent.profile),
+        )
+
+    activities_by_agent_id = {
+        agent.id: activity
+        for agent in agents
+        if (activity := ActivityInstance.from_dict(agent.activity)) is not None
+        and activity.is_active
+    }
+    object_states = []
+    for resource_id, slot in sorted(semantic_slots.items()):
+        interactable = semantic_objects.get(slot.object_id)
+        if interactable is None:
+            continue
+        occupants = sorted(
+            agent_id
+            for agent_id, activity in activities_by_agent_id.items()
+            if resource_id in activity.claimed_resource_ids
+        )
+        queued = sorted(
+            (
+                (activity.started_at_world_time, agent_id)
+                for agent_id, activity in activities_by_agent_id.items()
+                if activity.status == "waiting_for_resource"
+                and activity.current_step is not None
+                and resource_id in activity.current_step.candidate_resource_ids
+            )
+        )
+        object_states.append(
+            WorldObjectStateResponse(
+                resource_id=resource_id,
+                object_id=slot.object_id,
+                object_type=interactable.type,
+                slot_kind=slot.kind,
+                location_id=interactable.location_id,
+                zone_id=interactable.zone_id,
+                capacity=slot.capacity,
+                occupant_agent_ids=occupants,
+                queue_agent_ids=[agent_id for _started_at, agent_id in queued],
+            )
         )
     occupants_by_location = build_occupants_by_location(agents)
     locations_payload = [
@@ -603,6 +702,8 @@ async def get_world_snapshot(
         map_id=spatial_manifest.map_id if spatial_manifest else None,
         map_content_hash=spatial_manifest.content_hash if spatial_manifest else None,
         navigation=WorldMapTopologyResponse(**topology.to_dict()),
+        object_states=object_states,
+        conversations=[],
         recent_events=[
             build_world_event_response(event, agent_name_map, location_name_map)
             for event in events

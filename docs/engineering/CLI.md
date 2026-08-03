@@ -82,6 +82,8 @@ truman play <run-ref> --execute look --execute people --execute cost
 
 ```bash
 truman world show <run-id>
+truman world spatial <run-id>
+truman world encounters <run-id> --limit 50
 truman world pulse <run-id>
 truman world cost <run-id>
 
@@ -89,6 +91,8 @@ truman agent list <run-id>
 truman agent show <run-id> <agent-id> --event-limit 20 --memory-limit 20
 truman agent economy <run-id> <agent-id>
 truman agent governance <run-id> <agent-id>
+truman agent activity-start <run-id> <agent-id> drink_coffee --location cafe
+truman agent activity-interrupt <run-id> <agent-id> --reason "debug"
 
 truman timeline list <run-id> --tick-from 10 --event-type talk
 truman timeline list <run-id> --oldest-first
@@ -96,6 +100,12 @@ truman --output ndjson timeline follow <run-id> --since-tick 10
 ```
 
 所有查询支持 `--output table|json|ndjson`。JSON 适合单次响应，NDJSON 适合事件流与 Unix 管道。
+
+`world spatial` 是 Godot 具身层的调试视图，只返回权威坐标、Zone、移动、活动、资源占用和
+排队信息；`world encounters` 聚合偶遇候选与回应结果。`activity-start` 和
+`activity-interrupt` 要求 Run 已暂停，它们会通过正式 Tick 事务执行动作并推进一次世界时钟；
+持续移动或活动会抑制睡眠快进，避免一次命令吞掉整段活动；没有持续区间时，世界仍可能按既有规则
+跳到起床时间。因此不应把这两个命令用于只读检查。
 
 ## 条件等待与成本保护
 

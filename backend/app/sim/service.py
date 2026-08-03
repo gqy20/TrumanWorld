@@ -206,13 +206,15 @@ class SimulationService:
             self._configure_scenario_for_run(run)
 
             world = await self._load_world(run_id, tick_minutes=run.tick_minutes)
-            planner_plans = await self.day_boundary_coordinator.run_planner_if_needed(
-                run_id=run_id,
-                tick_no=run.current_tick,
-                world=world,
-                engine=self._require_session_bound().bind,
-                agent_runtime=self.agent_runtime,
-            )
+            planner_plans: dict[str, dict[str, str]] = {}
+            if intents is None:
+                planner_plans = await self.day_boundary_coordinator.run_planner_if_needed(
+                    run_id=run_id,
+                    tick_no=run.current_tick,
+                    world=world,
+                    engine=self._require_session_bound().bind,
+                    agent_runtime=self.agent_runtime,
+                )
             orchestrator = self._build_tick_orchestrator()
             if intents is None:
                 intents = await orchestrator.prepare_tick_intents(

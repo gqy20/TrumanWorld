@@ -10,6 +10,11 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from app.scenario.bundle_registry import resolve_sleep_config_for_scenario
+from app.scenario.embodiment_config import (
+    load_embodiment_catalog_for_scenario,
+    load_social_spatial_config_for_scenario,
+)
+from app.scenario.spatial_manifest import load_world_map_manifest_for_scenario
 from app.scenario.runtime_config import ScenarioRuntimeConfig
 from app.scenario.types import ScenarioGuidance, get_world_role
 from app.sim.event_utils import format_event_for_context
@@ -113,6 +118,7 @@ class ContextBuilder:
             if movement is None and location_id in location_states:
                 location_states[location_id].occupants.add(agent.id)
 
+        spatial_manifest = load_world_map_manifest_for_scenario(run.scenario_type)
         return WorldState(
             current_time=get_run_world_time(run),
             current_tick=run.current_tick,
@@ -127,6 +133,13 @@ class ContextBuilder:
                 scenario_id=run.scenario_type,
                 run_id=run_id,
             ),
+            embodiment_catalog=load_embodiment_catalog_for_scenario(run.scenario_type),
+            world_seed=run.world_seed or 0,
+            social_spatial_config=load_social_spatial_config_for_scenario(run.scenario_type),
+            location_zone_ids={
+                f"{run_id}-{zone.location_id}": zone.id
+                for zone in (spatial_manifest.zones if spatial_manifest else [])
+            },
             **resolve_sleep_config_for_scenario(run.scenario_type),
         )
 
