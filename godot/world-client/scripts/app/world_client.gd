@@ -5,7 +5,9 @@ const MAP_ID := "campus-world-v2"
 
 @onready var world_presenter: WorldPresenter = $WorldRoot/Agents
 @onready var world_map: Node3D = $WorldRoot/Map
-@onready var camera: Camera3D = $WorldRoot/CameraRig/Camera3D
+@onready var camera_rig: DirectorCamera = $WorldRoot/CameraRig
+@onready var world_environment: WorldEnvironment = $WorldRoot/WorldEnvironment
+@onready var sun: DirectionalLight3D = $WorldRoot/Sun
 @onready var status_label: Label = $Overlay/StatusPanel/StatusLabel
 
 var _host_window: JavaScriptObject
@@ -15,14 +17,20 @@ var _last_host_sequence := -1
 var _client_sequence := 0
 var _map_content_hash := ""
 var _client_clock := ClientClock.new()
+var _atmosphere := WorldAtmosphere.new()
+var _object_presenter := WorldObjectPresenter.new()
+var _selected_agent_id := ""
+var _status_update_elapsed := 0.0
 
 
 func _ready() -> void:
-	camera.look_at(Vector3(0.0, 0.5, 0.0), Vector3.UP)
+	RuntimeMapVisuals.build(world_map)
+	_object_presenter.configure(world_map)
+	_atmosphere.configure(world_environment.environment, sun, $WorldRoot)
 	world_presenter.agent_selected.connect(_on_agent_selected)
 	var map_result := WorldMapExporter.new().build_document(world_map, MAP_ID)
 	if not map_result.get("ok", false):
-		_set_status("地图契约无效")
+		_set_status("INVALID MAP")
 		push_error("Runtime world map is invalid: %s" % "; ".join(map_result.get("errors", [])))
 		return
 	_map_content_hash = str(map_result["document"]["content_hash"])
@@ -30,13 +38,34 @@ func _ready() -> void:
 		_connect_web_bridge()
 	else:
 		_load_local_fixture()
-	_set_status("等待宿主快照")
+	_set_status("WAITING FOR WORLD")
 	_post_to_host("ready", {
 		"engine_version": Engine.get_version_info().get("string", "unknown"),
 		"capabilities": ["world_snapshot", "selection_changed"],
 		"map_id": MAP_ID,
 		"map_content_hash": _map_content_hash,
 	})
+
+
+func _process(delta: float) -> void:
+	if _client_clock.world_time_seconds() <= 0.0:
+		return
+	_atmosphere.update(_client_clock.world_time_seconds())
+	if not _selected_agent_id.is_empty():
+		camera_rig.focus_position(world_presenter.agent_focus_position(_selected_agent_id), false)
+	_status_update_elapsed += delta
+	if _status_update_elapsed >= 0.5:
+		_status_update_elapsed = 0.0
+		var time := Time.get_datetime_dict_from_unix_time(int(_client_clock.world_time_seconds()))
+		_set_status(
+			"%02d:%02d · %s · %d RESIDENTS"
+			% [
+				int(time.get("hour", 0)),
+				int(time.get("minute", 0)),
+				"LIVE" if _client_clock.is_running() else "PAUSED",
+				world_presenter.agent_count(),
+			]
+		)
 
 
 func _exit_tree() -> void:
@@ -61,7 +90,7 @@ func _on_web_message(arguments: Array) -> void:
 func apply_host_message(raw_message: String) -> Dictionary:
 	var decoded := WorldProtocolCodec.decode_host_message(raw_message)
 	if not decoded.get("ok", false):
-		_set_status("协议消息被拒绝")
+		_set_status("MESSAGE REJECTED")
 		return decoded
 
 	var envelope := decoded["envelope"] as Dictionary
@@ -74,11 +103,11 @@ func apply_host_message(raw_message: String) -> Dictionary:
 	var payload := envelope.get("payload", {}) as Dictionary
 	if message_type == "initialize":
 		if payload.get("map_id") != MAP_ID:
-			_set_status("地图版本不匹配")
+			_set_status("MAP VERSION MISMATCH")
 			return {"ok": false, "error": {"code": "map_mismatch"}}
 		_active_run_id = message_run_id
 		_last_host_sequence = sequence
-		_set_status("宿主已连接")
+		_set_status("HOST CONNECTED")
 		return {"ok": true}
 	if message_run_id != _active_run_id:
 		return {"ok": false, "error": {"code": "run_mismatch"}}
@@ -87,7 +116,7 @@ func apply_host_message(raw_message: String) -> Dictionary:
 	match message_type:
 		"world_snapshot":
 			if payload.get("map_id") != MAP_ID or payload.get("map_content_hash") != _map_content_hash:
-				_set_status("地图快照不匹配")
+				_set_status("MAP SNAPSHOT MISMATCH")
 				return {"ok": false, "error": {"code": "map_snapshot_mismatch"}}
 			_client_clock.synchronize(
 				str(payload.get("world_time", "")),
@@ -95,26 +124,32 @@ func apply_host_message(raw_message: String) -> Dictionary:
 				float(payload.get("simulation_speed", 1.0)),
 			)
 			world_presenter.apply_snapshot(payload)
+			_object_presenter.apply_states(payload.get("object_states", []))
 			world_presenter.set_presentation_paused(not _client_clock.is_running())
-			_set_status("已同步 %s 位居民" % world_presenter.agent_count())
 		"focus_entity":
 			if payload.get("kind") == "agent":
-				world_presenter.focus_agent(str(payload.get("id", "")))
+				_selected_agent_id = str(payload.get("id", ""))
+				if world_presenter.focus_agent(_selected_agent_id):
+					camera_rig.focus_position(
+						world_presenter.agent_focus_position(_selected_agent_id), true
+					)
 		"run_status_changed":
 			_client_clock.set_status(str(payload.get("status", "paused")))
 			world_presenter.set_presentation_paused(not _client_clock.is_running())
 		"simulation_speed_changed":
 			_client_clock.set_speed(float(payload.get("simulation_speed", 1.0)))
 		"world_event_batch":
-			_set_status("已接收 %s 条世界事件" % (payload.get("events", []) as Array).size())
+			pass
 		"dispose":
-			_set_status("宿主已断开")
+			_set_status("HOST DISCONNECTED")
 		_:
 			pass
 	return {"ok": true}
 
 
 func _on_agent_selected(agent_id: String) -> void:
+	_selected_agent_id = agent_id
+	camera_rig.focus_position(world_presenter.agent_focus_position(agent_id), true)
 	_post_to_host("selection_changed", {"kind": "agent", "id": agent_id})
 
 
@@ -133,7 +168,7 @@ func _post_to_host(message_type: String, payload: Dictionary) -> void:
 
 func _set_status(message: String) -> void:
 	if is_instance_valid(status_label):
-		status_label.text = "GODOT LAB · %s" % message
+		status_label.text = "GODOT WORLD · %s" % message
 
 
 func _load_local_fixture() -> void:

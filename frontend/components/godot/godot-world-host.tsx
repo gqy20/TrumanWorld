@@ -58,6 +58,13 @@ export function GodotWorldHost({
     () => snapshot?.agents.find((agent) => agent.id === selectedAgentId) ?? null,
     [selectedAgentId, snapshot],
   );
+  const selectedConversation = useMemo(
+    () =>
+      snapshot?.conversations.find((conversation) =>
+        conversation.participant_ids.includes(selectedAgentId ?? ""),
+      ) ?? null,
+    [selectedAgentId, snapshot],
+  );
 
   const sendSnapshot = useCallback((nextSnapshot: GodotWorldSnapshot) => {
     if (!readyRef.current) return;
@@ -242,7 +249,7 @@ export function GodotWorldHost({
 
       <aside className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase">
-          {isLiveRun ? "Live Run · Phase 3" : "Phase 3 Fixture"}
+          {isLiveRun ? "Live Run · Phase 4" : "Phase 4 Fixture"}
         </p>
         <h2 className="mt-2 text-xl font-semibold text-slate-900">协议与选择闭环</h2>
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
@@ -269,8 +276,12 @@ export function GodotWorldHost({
               }`}
             >
               <span className="font-medium">{agent.name}</span>
-              <span className="text-xs text-slate-500">
-                {agent.activity?.activity_type ?? "idle"}
+              <span className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${agentStateColor(agent)}`}
+                />
+                {describeAgentState(agent)}
               </span>
             </button>
           ))}
@@ -279,10 +290,32 @@ export function GodotWorldHost({
         <div className="mt-5 min-h-20 rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">
           {selectedAgent ? (
             <>
-              已选择 <strong className="text-slate-900">{selectedAgent.name}</strong>
-              <p className="mt-1 text-xs text-slate-500">
-                点击 Godot 角色或此列表，选择状态会跨 Bridge 同步。
-              </p>
+              <div className="flex items-baseline justify-between gap-3">
+                <strong className="text-slate-900">{selectedAgent.name}</strong>
+                <span className="text-xs text-slate-500">
+                  {describeAgentState(selectedAgent)}
+                </span>
+              </div>
+              {selectedAgent.activity?.status === "performing" ? (
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+                    style={{
+                      width: `${Math.round(selectedAgent.activity.progress * 100)}%`,
+                    }}
+                  />
+                </div>
+              ) : null}
+              {selectedConversation ? (
+                <p className="mt-2 text-xs leading-5 text-slate-600">
+                  {selectedConversation.active_speaker_name ?? "居民"}：
+                  {selectedConversation.last_message ?? "正在交谈"}
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-slate-500">
+                  右键拖动旋转镜头，中键拖动平移，滚轮缩放。
+                </p>
+              )}
             </>
           ) : (
             "尚未选择居民"
@@ -297,6 +330,35 @@ export function GodotWorldHost({
       </aside>
     </section>
   );
+}
+
+function describeAgentState(agent: GodotWorldSnapshot["agents"][number]): string {
+  if (agent.movement) {
+    return agent.movement.state === "paused" ? "交谈中" : "步行中";
+  }
+  const activity = agent.activity;
+  if (!activity || activity.status === "completed") return "观察环境";
+  if (activity.status === "waiting_for_resource") return "排队等候";
+  if (activity.status === "paused") return "交谈中";
+  const action = activity.current_action ?? activity.visual_state ?? activity.activity_type;
+  const labels: Record<string, string> = {
+    drink: "喝咖啡",
+    sit: "落座",
+    order_coffee: "点单",
+    talk: "交谈中",
+    walk: "步行中",
+    jog: "慢跑中",
+    use_object: "使用设施",
+  };
+  return labels[action] ?? activity.activity_type;
+}
+
+function agentStateColor(agent: GodotWorldSnapshot["agents"][number]): string {
+  if (agent.movement) return "bg-sky-500";
+  if (agent.activity?.status === "paused") return "bg-amber-500";
+  if (agent.activity?.status === "waiting_for_resource") return "bg-orange-500";
+  if (agent.activity?.status === "performing") return "bg-emerald-500";
+  return "bg-slate-400";
 }
 
 function decodeWorldSnapshot(value: unknown): GodotWorldSnapshot | null {

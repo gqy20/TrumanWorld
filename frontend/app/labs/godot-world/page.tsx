@@ -15,7 +15,7 @@ export default async function GodotWorldLabPage({ searchParams }: Props) {
               Isolated Engineering Lab
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              Godot 具身世界 · Phase 3
+              Godot 具身世界 · Phase 4
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               {runId

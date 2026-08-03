@@ -49,6 +49,11 @@ export type SceneAgent = {
   slotIndex: number;
   visual?: SceneAgentVisual;
   movementId?: string;
+  activity?: {
+    label: string;
+    marker: string;
+    progress?: number;
+  };
 };
 
 export type SceneMoveTrail = {
@@ -138,6 +143,7 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
           status,
           slotIndex: index,
           movementId: agent.movement?.id,
+          activity: describeSceneActivity(agent),
           visual: {
             visualPreset: agentVisualConfig?.visual_preset ?? undefined,
             marker: agentVisualConfig?.marker ?? undefined,
@@ -264,6 +270,40 @@ export function buildSceneWorld(world: WorldSnapshot): SceneWorld {
         labelColor: world.ui_config?.stage?.palette?.label_color ?? undefined,
       },
     },
+  };
+}
+
+function describeSceneActivity(agent: AgentSummary): SceneAgent["activity"] {
+  const activity = agent.activity;
+  if (!activity || ["completed", "interrupted", "failed", "cancelled"].includes(activity.status)) {
+    return undefined;
+  }
+  const actionLabels: Record<string, string> = {
+    drink: "喝咖啡",
+    order_coffee: "点咖啡",
+    sit: "入座",
+  };
+  const activityLabels: Record<string, string> = {
+    drink_coffee: "喝咖啡",
+    plaza_jog: "慢跑",
+  };
+  const visualMarkers: Record<string, string> = {
+    drink: "☕",
+    jog: "◌",
+    queue: "…",
+    sit: "↘",
+    talk: "💬",
+    use_object: "·",
+    walk: "→",
+  };
+  const label =
+    actionLabels[activity.current_action ?? ""] ??
+    activityLabels[activity.activity_type] ??
+    activity.activity_type.replaceAll("_", " ");
+  return {
+    label: activity.status === "paused" ? `交谈中，稍后继续${label}` : label,
+    marker: visualMarkers[activity.visual_state ?? ""] ?? "•",
+    progress: activity.progress ?? undefined,
   };
 }
 

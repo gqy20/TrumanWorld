@@ -835,6 +835,47 @@ def test_simulation_runner_arrives_only_when_movement_reaches_arrival_tick():
     assert "alice" in world.locations["park"].occupants
 
 
+def test_encounter_conversation_freezes_then_resumes_route_movement():
+    world = build_world()
+    world.locations["park"].capacity = 2
+    alice_movement = world.start_agent_movement("alice", "park")
+    bob_movement = world.start_agent_movement("bob", "park")
+    runner = SimulationRunner(world)
+
+    encounter_tick = runner.tick(
+        [
+            ActionIntent(
+                agent_id="alice",
+                action_type="talk",
+                target_agent_id="bob",
+                payload={
+                    "message": "路上碰见了，聊两句？",
+                    "encounter_id": "encounter-route-1",
+                    "encounter_outcome": "stop_and_talk",
+                },
+            )
+        ]
+    )
+
+    assert alice_movement.state == "paused"
+    assert bob_movement.state == "paused"
+    assert alice_movement.progress_at(world.current_time, world.current_tick) == 0.0
+    assert bob_movement.progress_at(world.current_time, world.current_tick) == 0.0
+    paused_events = [
+        item for item in encounter_tick.accepted if item.action_type == "movement_paused"
+    ]
+    assert {item.event_payload["agent_id"] for item in paused_events} == {"alice", "bob"}
+
+    resumed_tick = runner.tick([])
+
+    assert "conversation_closed" in [item.action_type for item in resumed_tick.accepted]
+    assert sum(item.action_type == "movement_resumed" for item in resumed_tick.accepted) == 2
+    assert alice_movement.state == "in_transit"
+    assert bob_movement.state == "in_transit"
+    assert alice_movement.progress_at(world.current_time, world.current_tick) == 0.5
+    assert bob_movement.progress_at(world.current_time, world.current_tick) == 0.5
+
+
 def test_simulation_runner_skips_sleep_hours_in_single_tick():
     world = WorldState(
         current_time=datetime(2026, 3, 7, 22, 55, 0),

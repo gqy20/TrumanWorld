@@ -76,4 +76,31 @@ describe("buildSceneWorld", () => {
 
     expect(scene.ambience).toEqual(expect.objectContaining({ hour: 19, timeOfDay: "evening" }));
   });
+
+  it("describes an embodied activity for the stage overlay", () => {
+    const base = makeWorldSnapshot();
+    const scene = buildSceneWorld({
+      ...base,
+      agents: [{
+        id: "agent-1",
+        name: "Alice",
+        current_location_id: base.locations[0].id,
+        activity: {
+          id: "activity-1",
+          activity_type: "drink_coffee",
+          status: "performing",
+          current_action: "drink",
+          visual_state: "drink",
+          progress: 0.64,
+        },
+      }],
+      locations: base.locations.map((location) => ({ ...location, occupants: [] })),
+    });
+
+    expect(scene.agents[0].activity).toEqual({
+      label: "喝咖啡",
+      marker: "☕",
+      progress: 0.64,
+    });
+  });
 });

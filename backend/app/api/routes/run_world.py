@@ -83,6 +83,56 @@ def build_occupants_by_location(agents) -> dict[str, list]:
     return occupants_by_location
 
 
+def build_conversation_presentations(events, agent_name_map: dict[str, str]) -> list[dict]:
+    conversations: dict[str, dict] = {}
+    ordered_events = sorted(events, key=lambda event: (event.tick_no, event.created_at, event.id))
+    for event in ordered_events:
+        payload = event.payload or {}
+        conversation_id = payload.get("conversation_id")
+        if not isinstance(conversation_id, str) or not conversation_id:
+            continue
+        if event.event_type == "conversation_closed":
+            conversations.pop(conversation_id, None)
+            continue
+        participant_ids = payload.get("participant_ids")
+        if not isinstance(participant_ids, list):
+            continue
+        normalized_ids = [agent_id for agent_id in participant_ids if isinstance(agent_id, str)]
+        if len(normalized_ids) < 2:
+            continue
+        speaker_id = payload.get("speaker_agent_id") or event.actor_agent_id
+        current = conversations.setdefault(
+            conversation_id,
+            {
+                "id": conversation_id,
+                "location_id": event.location_id,
+                "participant_ids": normalized_ids,
+                "participant_names": [
+                    agent_name_map.get(agent_id, agent_id) for agent_id in normalized_ids
+                ],
+                "active_speaker_id": speaker_id,
+                "active_speaker_name": agent_name_map.get(speaker_id, speaker_id),
+                "last_message": None,
+                "turn_count": 0,
+                "phase": "open",
+            },
+        )
+        current["location_id"] = event.location_id or current["location_id"]
+        current["participant_ids"] = normalized_ids
+        current["participant_names"] = [
+            agent_name_map.get(agent_id, agent_id) for agent_id in normalized_ids
+        ]
+        if isinstance(speaker_id, str) and speaker_id:
+            current["active_speaker_id"] = speaker_id
+            current["active_speaker_name"] = agent_name_map.get(speaker_id, speaker_id)
+        message = payload.get("message")
+        if event.event_type == "speech" and isinstance(message, str) and message.strip():
+            current["last_message"] = message.strip()
+            current["turn_count"] += 1
+            current["phase"] = "closing" if current["turn_count"] >= 6 else "open"
+    return list(conversations.values())
+
+
 def _canonical_location_id(location_id: str | None, run_id: str) -> str | None:
     if location_id is None:
         return None
@@ -306,7 +356,6 @@ async def get_run_events(
     events = await event_repo.list_api_rows_for_run(str(run_id), limit=limit, since_tick=since_tick)
 
     agent_name_map, location_name_map = build_name_maps(agents, locations)
-
     if event_type:
         if event_type == "social":
             filter_types = {
@@ -596,6 +645,13 @@ async def get_world_snapshot(
         if movement is None and presentation_slot is not None:
             position_meters = presentation_slot.position
             facing_radians = radians(presentation_slot.rotation_y_degrees)
+        if (
+            movement is None
+            and activity is not None
+            and activity.status == "paused"
+            and activity.paused_position_meters is not None
+        ):
+            position_meters = activity.paused_position_meters
         canonical_location_id = _canonical_location_id(agent.current_location_id, str(run.id))
         semantic_location = semantic_locations.get(canonical_location_id)
         if position_meters is None and semantic_location is not None:
@@ -678,6 +734,7 @@ async def get_world_snapshot(
     ]
 
     agent_name_map, location_name_map = build_name_maps(agents, locations)
+    conversations = build_conversation_presentations(events, agent_name_map)
 
     social_speech_count = all_time_event_counts.get("speech", 0) + all_time_event_counts.get(
         "talk", 0
@@ -703,7 +760,7 @@ async def get_world_snapshot(
         map_content_hash=spatial_manifest.content_hash if spatial_manifest else None,
         navigation=WorldMapTopologyResponse(**topology.to_dict()),
         object_states=object_states,
-        conversations=[],
+        conversations=conversations,
         recent_events=[
             build_world_event_response(event, agent_name_map, location_name_map)
             for event in events

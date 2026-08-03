@@ -156,7 +156,11 @@ class ActionResolver:
         is_encounter_response = intent.action_type in {"talk", "encounter_resolved"} and isinstance(
             intent.payload.get("encounter_id"), str
         )
-        if agent.movement is not None and not is_encounter_response:
+        is_conversation_response = (
+            intent.action_type == "talk" and intent.agent_id in self._conversation_ids
+        )
+        is_social_response = is_encounter_response or is_conversation_response
+        if agent.movement is not None and not is_social_response:
             return self._build_result(
                 accepted=False,
                 action_type=intent.action_type,
@@ -172,7 +176,7 @@ class ActionResolver:
                 governance_execution=governance_execution,
             )
 
-        if agent.activity is not None and agent.activity.is_active and not is_encounter_response:
+        if agent.activity is not None and agent.activity.is_active and not is_social_response:
             return self._build_result(
                 accepted=False,
                 action_type=intent.action_type,
@@ -629,6 +633,38 @@ class ActionResolver:
         self._talked_agents.add(intent.agent_id)
         self._talked_agents.add(target.id)
 
+        paused_activity_ids: list[str] = []
+        paused_movement_ids: list[str] = []
+        encounter_id = intent.payload.get("encounter_id")
+        if isinstance(encounter_id, str):
+            conversation_id = self._conversation_ids.get(intent.agent_id)
+            for participant_id in (intent.agent_id, target.id):
+                paused = world.pause_agent_activity(
+                    participant_id,
+                    reason="encounter_conversation",
+                    encounter_id=encounter_id,
+                    conversation_id=conversation_id,
+                )
+                if paused is not None:
+                    paused_activity_ids.append(paused.id)
+                paused_movement = world.pause_agent_movement(
+                    participant_id,
+                    encounter_id=encounter_id,
+                    conversation_id=conversation_id,
+                )
+                if paused_movement is not None:
+                    paused_movement_ids.append(paused_movement.id)
+                else:
+                    participant = world.get_agent(participant_id)
+                    movement = participant.movement if participant is not None else None
+                    if (
+                        movement is not None
+                        and movement.state == "paused"
+                        and movement.paused_for_encounter_id == encounter_id
+                        and movement.id not in paused_movement_ids
+                    ):
+                        paused_movement_ids.append(movement.id)
+
         event_payload = {
             **intent.payload,
             "agent_id": intent.agent_id,
@@ -637,6 +673,8 @@ class ActionResolver:
             "message": intent.payload.get("message") or "",
             "conversation_event_type": "speech",
             "speaker_agent_id": intent.agent_id,
+            "paused_activity_ids": paused_activity_ids,
+            "paused_movement_ids": paused_movement_ids,
         }
         self._append_conversation_metadata(intent.agent_id, event_payload)
 

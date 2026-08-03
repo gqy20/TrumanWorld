@@ -46,13 +46,32 @@ export type GodotAgentSnapshot = {
     activity_type: string;
     status: string;
     progress: number;
+    elapsed_seconds?: number;
     current_step_id?: string | null;
     current_action?: string | null;
     visual_state?: string | null;
     zone_id?: string | null;
     queue_position?: number | null;
     claimed_resource_ids?: string[];
+    paused_at_world_time?: string | null;
+    pause_reason?: string | null;
+    paused_for_encounter_id?: string | null;
+    paused_for_conversation_id?: string | null;
+    resume_status?: string | null;
+    paused_position_meters?: [number, number, number] | null;
   } | null;
+};
+
+export type GodotConversationSnapshot = {
+  id: string;
+  location_id?: string | null;
+  participant_ids: string[];
+  participant_names?: string[];
+  active_speaker_id?: string | null;
+  active_speaker_name?: string | null;
+  last_message?: string | null;
+  turn_count?: number;
+  phase?: "open" | "closing" | string;
 };
 
 export type GodotWorldSnapshot = {
@@ -64,7 +83,7 @@ export type GodotWorldSnapshot = {
   simulation_speed: number;
   agents: GodotAgentSnapshot[];
   object_states: Array<Record<string, unknown>>;
-  conversations: Array<Record<string, unknown>>;
+  conversations: GodotConversationSnapshot[];
 };
 
 export type GodotSelectionPayload = {

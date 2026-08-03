@@ -10,6 +10,7 @@ ActivityStatus = Literal[
     "navigating",
     "waiting_for_resource",
     "performing",
+    "paused",
     "completed",
     "interrupted",
     "failed",
@@ -18,7 +19,7 @@ ActivityStatus = Literal[
 ActivityStepStatus = Literal["pending", "waiting_for_resource", "performing", "completed"]
 
 ACTIVE_ACTIVITY_STATUSES = frozenset(
-    {"planned", "navigating", "waiting_for_resource", "performing"}
+    {"planned", "navigating", "waiting_for_resource", "performing", "paused"}
 )
 TERMINAL_ACTIVITY_STATUSES = frozenset({"completed", "interrupted", "failed", "cancelled"})
 
@@ -36,22 +37,19 @@ class ActivityStepInstance:
     release_after: bool = True
     started_at_world_time: datetime | None = None
     expected_end_world_time: datetime | None = None
+    elapsed_seconds: float = 0.0
 
     def progress_at(self, world_time: datetime) -> float:
         if self.status == "completed":
             return 1.0
-        if (
-            self.status != "performing"
-            or self.started_at_world_time is None
-            or self.expected_end_world_time is None
-        ):
-            return 0.0
-        total = max(
-            0.001,
-            (self.expected_end_world_time - self.started_at_world_time).total_seconds(),
-        )
-        elapsed = max(0.0, (world_time - self.started_at_world_time).total_seconds())
-        return round(min(1.0, elapsed / total), 4)
+        elapsed = self.elapsed_seconds
+        if self.status == "performing" and self.started_at_world_time is not None:
+            elapsed += max(0.0, (world_time - self.started_at_world_time).total_seconds())
+        return round(min(1.0, elapsed / max(self.duration_seconds, 0.001)), 4)
+
+    @property
+    def remaining_seconds(self) -> float:
+        return max(0.0, self.duration_seconds - self.elapsed_seconds)
 
     def to_dict(self, *, world_time: datetime | None = None) -> dict[str, Any]:
         return {
@@ -66,6 +64,7 @@ class ActivityStepInstance:
             "release_after": self.release_after,
             "started_at_world_time": _format_datetime(self.started_at_world_time),
             "expected_end_world_time": _format_datetime(self.expected_end_world_time),
+            "elapsed_seconds": self.elapsed_seconds,
             "progress": self.progress_at(world_time) if world_time is not None else None,
         }
 
@@ -94,6 +93,7 @@ class ActivityStepInstance:
                 release_after=bool(value.get("release_after", True)),
                 started_at_world_time=_parse_datetime(value.get("started_at_world_time")),
                 expected_end_world_time=_parse_datetime(value.get("expected_end_world_time")),
+                elapsed_seconds=max(0.0, float(value.get("elapsed_seconds", 0.0))),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -109,6 +109,7 @@ class ActivityInstance:
     started_at_world_time: datetime
     expected_end_world_time: datetime | None
     duration_seconds: float
+    elapsed_seconds: float = 0.0
     target_entity_id: str | None = None
     claimed_resource_ids: tuple[str, ...] = ()
     parent_intent_id: str | None = None
@@ -117,6 +118,12 @@ class ActivityInstance:
     steps: tuple[ActivityStepInstance, ...] = ()
     zone_id: str | None = None
     queue_position: int | None = None
+    paused_at_world_time: datetime | None = None
+    pause_reason: str | None = None
+    paused_for_encounter_id: str | None = None
+    paused_for_conversation_id: str | None = None
+    resume_status: str | None = None
+    paused_position_meters: tuple[float, float, float] | None = None
 
     @property
     def is_active(self) -> bool:
@@ -131,18 +138,20 @@ class ActivityInstance:
                 self.current_step.progress_at(world_time) if self.current_step else 0.0
             )
             return round(min(1.0, (completed + current_progress) / len(self.steps)), 4)
-        if self.status != "performing" or self.expected_end_world_time is None:
-            return 0.0
-        performing_started_at = self.expected_end_world_time - timedelta(
-            seconds=self.duration_seconds
-        )
-        elapsed = max(0.0, (world_time - performing_started_at).total_seconds())
+        elapsed = self.elapsed_seconds
+        if self.status == "performing" and self.expected_end_world_time is not None:
+            performing_started_at = self.expected_end_world_time - timedelta(
+                seconds=max(0.0, self.duration_seconds - self.elapsed_seconds)
+            )
+            elapsed += max(0.0, (world_time - performing_started_at).total_seconds())
         return round(min(1.0, elapsed / max(self.duration_seconds, 0.001)), 4)
 
     def start_performing(self, world_time: datetime) -> None:
         self.status = "performing"
         self.step_index += 1
-        self.expected_end_world_time = world_time + timedelta(seconds=self.duration_seconds)
+        self.expected_end_world_time = world_time + timedelta(
+            seconds=max(0.0, self.duration_seconds - self.elapsed_seconds)
+        )
 
     def complete(self) -> None:
         self.status = "completed"
@@ -150,6 +159,31 @@ class ActivityInstance:
     def interrupt(self, reason: str) -> None:
         self.status = "interrupted"
         self.interruption_reason = reason
+
+    def pause(
+        self,
+        world_time: datetime,
+        *,
+        reason: str,
+        encounter_id: str | None,
+        conversation_id: str | None,
+    ) -> None:
+        self.resume_status = self.status
+        self.status = "paused"
+        self.paused_at_world_time = world_time
+        self.pause_reason = reason
+        self.paused_for_encounter_id = encounter_id
+        self.paused_for_conversation_id = conversation_id
+        self.expected_end_world_time = None
+        self.queue_position = None
+
+    def mark_resumed(self) -> None:
+        self.paused_at_world_time = None
+        self.pause_reason = None
+        self.paused_for_encounter_id = None
+        self.paused_for_conversation_id = None
+        self.resume_status = None
+        self.paused_position_meters = None
 
     @property
     def current_step(self) -> ActivityStepInstance | None:
@@ -167,6 +201,8 @@ class ActivityInstance:
 
     @property
     def visual_state(self) -> str | None:
+        if self.status == "paused":
+            return "talk"
         return self.current_step.visual_state if self.current_step is not None else None
 
     def to_dict(self, *, world_time: datetime | None = None) -> dict[str, Any]:
@@ -183,6 +219,7 @@ class ActivityInstance:
                 else None
             ),
             "duration_seconds": self.duration_seconds,
+            "elapsed_seconds": self.elapsed_seconds,
             "target_entity_id": self.target_entity_id,
             "claimed_resource_ids": list(self.claimed_resource_ids),
             "parent_intent_id": self.parent_intent_id,
@@ -194,6 +231,16 @@ class ActivityInstance:
             "visual_state": self.visual_state,
             "zone_id": self.zone_id,
             "queue_position": self.queue_position,
+            "paused_at_world_time": _format_datetime(self.paused_at_world_time),
+            "pause_reason": self.pause_reason,
+            "paused_for_encounter_id": self.paused_for_encounter_id,
+            "paused_for_conversation_id": self.paused_for_conversation_id,
+            "resume_status": self.resume_status,
+            "paused_position_meters": (
+                list(self.paused_position_meters)
+                if self.paused_position_meters is not None
+                else None
+            ),
             "progress": self.progress_at(world_time) if world_time is not None else None,
         }
 
@@ -232,6 +279,7 @@ class ActivityInstance:
                 started_at_world_time=started_at,
                 expected_end_world_time=expected_end,
                 duration_seconds=max(0.0, float(value.get("duration_seconds", 0.0))),
+                elapsed_seconds=max(0.0, float(value.get("elapsed_seconds", 0.0))),
                 target_entity_id=value.get("target_entity_id"),
                 claimed_resource_ids=tuple(claimed),
                 parent_intent_id=value.get("parent_intent_id"),
@@ -244,6 +292,12 @@ class ActivityInstance:
                     if isinstance(value.get("queue_position"), int)
                     else None
                 ),
+                paused_at_world_time=_parse_datetime(value.get("paused_at_world_time")),
+                pause_reason=_optional_str(value.get("pause_reason")),
+                paused_for_encounter_id=_optional_str(value.get("paused_for_encounter_id")),
+                paused_for_conversation_id=_optional_str(value.get("paused_for_conversation_id")),
+                resume_status=_optional_str(value.get("resume_status")),
+                paused_position_meters=_parse_position(value.get("paused_position_meters")),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -298,3 +352,11 @@ def _format_datetime(value: datetime | None) -> str | None:
 
 def _optional_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _parse_position(value: object) -> tuple[float, float, float] | None:
+    if not isinstance(value, list) or len(value) != 3:
+        return None
+    if not all(isinstance(item, int | float) for item in value):
+        return None
+    return (float(value[0]), float(value[1]), float(value[2]))

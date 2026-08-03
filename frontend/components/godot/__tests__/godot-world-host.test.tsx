@@ -58,6 +58,8 @@ describe("GodotWorldHost", () => {
     });
 
     await waitFor(() => expect(screen.getByText("Chen", { selector: "strong" })).toBeInTheDocument());
+    expect(screen.getByText(/Morning\. Are you heading to class\?/)).toBeInTheDocument();
+    expect(screen.getAllByText("交谈中").length).toBeGreaterThan(0);
   });
 
   test("loads an authoritative snapshot when a real run id is provided", async () => {
@@ -109,7 +111,7 @@ describe("GodotWorldHost", () => {
         "initialize",
         "world_snapshot",
       ]);
-      expect(screen.getByText("Live Run · Phase 3")).toBeInTheDocument();
+      expect(screen.getByText("Live Run · Phase 4")).toBeInTheDocument();
     } finally {
       global.fetch = originalFetch;
     }

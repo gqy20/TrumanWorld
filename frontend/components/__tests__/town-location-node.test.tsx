@@ -58,4 +58,26 @@ describe("TownLocationNode", () => {
     expect(onAgentClick).toHaveBeenCalledWith("agent-1");
     expect(setMapSummary).toHaveBeenCalledWith("Mei Lin · talk");
   });
+
+  it("uses an initial instead of requesting an unavailable campus logo", () => {
+    const campusNode = {
+      ...node,
+      occupants: [{ ...node.occupants[0], config_id: "mei" }],
+    };
+    const { container } = render(
+      <svg>
+        <TownLocationNode
+          node={campusNode}
+          agentNameMap={{ "agent-1": "Mei" }}
+          speechBubbles={{}}
+          timeStyle={getTimeOfDayStyle("afternoon")}
+          viewBox={viewBox}
+          setMapSummary={jest.fn()}
+        />
+      </svg>,
+    );
+
+    expect(container.querySelector('image[href="/agents/mei.svg"]')).toBeNull();
+    expect(screen.getByText("M")).toBeInTheDocument();
+  });
 });

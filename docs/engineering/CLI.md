@@ -102,7 +102,8 @@ truman --output ndjson timeline follow <run-id> --since-tick 10
 所有查询支持 `--output table|json|ndjson`。JSON 适合单次响应，NDJSON 适合事件流与 Unix 管道。
 
 `world spatial` 是 Godot 具身层的调试视图，只返回权威坐标、Zone、移动、活动、资源占用和
-排队信息；`world encounters` 聚合偶遇候选与回应结果。`activity-start` 和
+排队信息，其中 `paused` 移动会保留冻结进度，`paused` 活动会显示暂停原因及关联的偶遇、对话；
+`world encounters` 聚合偶遇候选、回应结果，以及关联活动/移动的暂停与恢复事件。`activity-start` 和
 `activity-interrupt` 要求 Run 已暂停，它们会通过正式 Tick 事务执行动作并推进一次世界时钟；
 持续移动或活动会抑制睡眠快进，避免一次命令吞掉整段活动；没有持续区间时，世界仍可能按既有规则
 跳到起床时间。因此不应把这两个命令用于只读检查。

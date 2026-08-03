@@ -91,6 +91,17 @@ type ProjectedBubble = {
   y: number;
 };
 
+type ProjectedActivity = {
+  agentId: string;
+  label: string;
+  marker: string;
+  name: string;
+  progress?: number;
+  visible: boolean;
+  x: number;
+  y: number;
+};
+
 const SHARED_BLOCK_GEOMETRIES: Record<VoxelGeometryKind, THREE.BufferGeometry> = {
   box: new THREE.BoxGeometry(1, 1, 1),
   cone: new THREE.ConeGeometry(0.5, 1, 4),
@@ -134,6 +145,7 @@ export function VoxelCanvas({
   );
   const [cameraResetRevision, setCameraResetRevision] = useState(0);
   const [projectedBubbles, setProjectedBubbles] = useState<ProjectedBubble[]>([]);
+  const [projectedActivities, setProjectedActivities] = useState<ProjectedActivity[]>([]);
   const [showStageEvents, setShowStageEvents] = useState(true);
   const prefersReducedMotion = usePrefersReducedMotion();
   const stageEventCount = eventPlan.bubbles.length + eventPlan.moveTrails.length;
@@ -174,6 +186,7 @@ export function VoxelCanvas({
           isSimulationPaused={!sceneWorld.isRunning}
           prefersReducedMotion={prefersReducedMotion}
           onBubbleProjectionChange={setProjectedBubbles}
+          onActivityProjectionChange={setProjectedActivities}
           onAgentClick={onAgentClick}
           onLocationClick={onLocationClick}
         />
@@ -183,6 +196,7 @@ export function VoxelCanvas({
         bubbles={showStageEvents ? eventPlan.bubbles : []}
         projectedBubbles={projectedBubbles}
       />
+      <ActivityStatusOverlay activities={projectedActivities} onAgentClick={onAgentClick} />
       {stageEventCount > 0 ? (
         <button
           type="button"
@@ -268,6 +282,7 @@ function StageScene({
   isSimulationPaused,
   prefersReducedMotion,
   onBubbleProjectionChange,
+  onActivityProjectionChange,
   onAgentClick,
   onLocationClick,
 }: {
@@ -282,6 +297,7 @@ function StageScene({
   isSimulationPaused: boolean;
   prefersReducedMotion: boolean;
   onBubbleProjectionChange: (bubbles: ProjectedBubble[]) => void;
+  onActivityProjectionChange: (activities: ProjectedActivity[]) => void;
   onAgentClick?: (agentId: string) => void;
   onLocationClick?: (locationId: string) => void;
 }) {
@@ -363,6 +379,11 @@ function StageScene({
         bubbles={showStageEvents ? eventPlan.bubbles : []}
         agentPosesRef={agentPosesRef}
         onProjectionChange={onBubbleProjectionChange}
+      />
+      <ActivityProjectionBridge
+        agents={plan.agents}
+        agentPosesRef={agentPosesRef}
+        onProjectionChange={onActivityProjectionChange}
       />
       <SelectionLayer
         locationAnchor={
@@ -653,6 +674,105 @@ function StageEventOverlay({
       ))}
     </div>
   );
+}
+
+function ActivityStatusOverlay({
+  activities,
+  onAgentClick,
+}: {
+  activities: ProjectedActivity[];
+  onAgentClick?: (agentId: string) => void;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10" aria-live="polite">
+      {activities
+        .filter((activity) => activity.visible)
+        .map((activity) => (
+          <button
+            key={activity.agentId}
+            type="button"
+            className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-2 rounded-xl bg-slate-950/88 px-2.5 py-1.5 text-left text-white shadow-[0_2px_8px_rgba(15,23,42,0.2)] transition-colors hover:bg-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            style={{ left: activity.x, top: activity.y }}
+            onClick={() => onAgentClick?.(activity.agentId)}
+            aria-label={`聚焦 ${activity.name}，当前${activity.label}`}
+          >
+            <span aria-hidden="true" className="text-sm leading-none">
+              {activity.marker}
+            </span>
+            <span className="min-w-0">
+              <span className="block max-w-28 truncate text-[10px] font-semibold text-white">
+                {activity.name}
+              </span>
+              <span className="block max-w-36 truncate text-[10px] text-slate-300">
+                {activity.label}
+              </span>
+              {activity.progress !== undefined ? (
+                <span className="mt-1 block h-0.5 w-full overflow-hidden rounded-full bg-white/20">
+                  <span
+                    className="block h-full rounded-full bg-emerald-300"
+                    style={{ width: `${Math.round(activity.progress * 100)}%` }}
+                  />
+                </span>
+              ) : null}
+            </span>
+          </button>
+        ))}
+    </div>
+  );
+}
+
+
+function ActivityProjectionBridge({
+  agents,
+  agentPosesRef,
+  onProjectionChange,
+}: {
+  agents: VoxelScenePlan["agents"];
+  agentPosesRef: AgentPoseMap;
+  onProjectionChange: (activities: ProjectedActivity[]) => void;
+}) {
+  const invalidate = useThree((state) => state.invalidate);
+  const lastProjectionRef = useRef("");
+
+  useEffect(() => {
+    if (agents.every((agent) => !agent.source.activity)) {
+      lastProjectionRef.current = "";
+      onProjectionChange([]);
+    }
+    invalidate();
+  }, [agents, invalidate, onProjectionChange]);
+
+  useFrame(({ camera, size }) => {
+    const projected = agents.flatMap((agent) => {
+      const activity = agent.source.activity;
+      if (!activity) return [];
+      const livePosition = agentPosesRef.current.get(agent.id);
+      const anchor = livePosition ?? new THREE.Vector3(
+        agent.anchor.position.x,
+        agent.anchor.position.y,
+        agent.anchor.position.z,
+      );
+      const point = new THREE.Vector3(anchor.x, anchor.y + 1.35, anchor.z).project(camera);
+      return [{
+        agentId: agent.id,
+        label: activity.label,
+        marker: activity.marker,
+        name: agent.source.name,
+        progress: activity.progress,
+        visible: point.z >= -1 && point.z <= 1,
+        x: Math.round(Math.min(size.width - 90, Math.max(90, (point.x * 0.5 + 0.5) * size.width))),
+        y: Math.round(Math.min(size.height - 44, Math.max(100, (-point.y * 0.5 + 0.5) * size.height))),
+      }];
+    });
+    const signature = projected
+      .map((activity) => `${activity.agentId}:${Number(activity.visible)}:${activity.x}:${activity.y}:${activity.label}`)
+      .join("|");
+    if (signature === lastProjectionRef.current) return;
+    lastProjectionRef.current = signature;
+    onProjectionChange(projected);
+  });
+
+  return null;
 }
 
 function BubbleProjectionBridge({

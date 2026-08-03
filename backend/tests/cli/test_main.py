@@ -132,8 +132,17 @@ def test_world_spatial_returns_only_embodiment_diagnostics(monkeypatch):
                     "position_meters": [1, 0, 2],
                     "zone_id": "quad.center",
                     "current_location_id": f"{RUN_ID}-quad",
-                    "movement": None,
-                    "activity": None,
+                    "movement": {
+                        "id": "move-1",
+                        "state": "paused",
+                        "paused_progress": 0.4,
+                        "paused_for_conversation_id": "conversation-1",
+                    },
+                    "activity": {
+                        "id": "activity-1",
+                        "status": "paused",
+                        "pause_reason": "encounter_conversation",
+                    },
                     "profile": {"private": "omitted"},
                 }
             ],
@@ -147,7 +156,30 @@ def test_world_spatial_returns_only_embodiment_diagnostics(monkeypatch):
     assert result.exit_code == 0
     assert '"map_id": "campus-world-v2"' in result.stdout
     assert '"position_meters"' in result.stdout
+    assert '"paused_progress": 0.4' in result.stdout
+    assert '"pause_reason": "encounter_conversation"' in result.stdout
     assert '"private"' not in result.stdout
+
+
+def test_world_encounters_includes_pause_and_resume_lifecycle(monkeypatch):
+    requested = {}
+
+    def fake_get(_self, path, **kwargs):
+        if path == "runs":
+            return [{"id": RUN_ID, "name": "Town"}]
+        requested.update({"path": path, **kwargs})
+        return {"events": []}
+
+    monkeypatch.setattr(ApiClient, "get", fake_get)
+
+    result = runner.invoke(app, ["--output", "json", "world", "encounters", "Town"])
+
+    assert result.exit_code == 0
+    assert requested["path"] == f"runs/{RUN_ID}/timeline"
+    assert requested["params"]["event_type"] == (
+        "encounter_candidate_created,encounter_resolved,"
+        "activity_paused,activity_resumed,movement_paused,movement_resumed"
+    )
 
 
 def test_agent_activity_start_resolves_aliases_and_advances_via_manual_action(monkeypatch):

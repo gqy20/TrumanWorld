@@ -98,10 +98,22 @@ def observe_agent(world: WorldState, agent: AgentState) -> SpatialObservation | 
                 position=position,
                 zone_id="route",
                 location_id=None,
-                state="moving",
+                state="paused" if agent.movement.state == "paused" else "moving",
             )
 
     activity = agent.activity
+    if (
+        activity is not None
+        and activity.status == "paused"
+        and activity.paused_position_meters is not None
+    ):
+        return SpatialObservation(
+            agent_id=agent.id,
+            position=activity.paused_position_meters,
+            zone_id=activity.zone_id or agent.location_id,
+            location_id=agent.location_id,
+            state="paused",
+        )
     if activity is not None and activity.is_active and world.embodiment_catalog is not None:
         resource_ids = list(activity.claimed_resource_ids)
         resource = next(

@@ -412,6 +412,176 @@ class WorldState:
         self._promote_waiting_activities(self.current_time)
         return activity
 
+    def pause_agent_activity(
+        self,
+        agent_id: str,
+        *,
+        reason: str,
+        encounter_id: str | None = None,
+        conversation_id: str | None = None,
+    ) -> ActivityInstance | None:
+        agent = self.agents[agent_id]
+        activity = agent.activity
+        if (
+            activity is None
+            or not activity.is_active
+            or activity.status == "paused"
+            or not activity.interruptible
+        ):
+            return None
+
+        step = activity.current_step
+        if (
+            step is not None
+            and step.status == "performing"
+            and step.started_at_world_time is not None
+        ):
+            elapsed = max(0.0, (self.current_time - step.started_at_world_time).total_seconds())
+            step.elapsed_seconds = min(step.duration_seconds, step.elapsed_seconds + elapsed)
+            step.status = "pending"
+            step.started_at_world_time = None
+            step.expected_end_world_time = None
+        elif (
+            not activity.steps
+            and activity.status == "performing"
+            and activity.expected_end_world_time is not None
+        ):
+            remaining_seconds = max(
+                0.0, (activity.expected_end_world_time - self.current_time).total_seconds()
+            )
+            activity.elapsed_seconds = max(
+                activity.elapsed_seconds,
+                activity.duration_seconds - remaining_seconds,
+            )
+
+        released_resource_ids = tuple(activity.claimed_resource_ids)
+        paused_resource = next(
+            (
+                self._resource_by_id(resource_id)
+                for resource_id in released_resource_ids
+                if self._resource_by_id(resource_id) is not None
+            ),
+            None,
+        )
+        self._release_activity_resources(activity)
+        if paused_resource is not None:
+            activity.paused_position_meters = paused_resource.position
+            activity.zone_id = paused_resource.zone_id
+        if agent.movement is not None and agent.movement.activity_id == activity.id:
+            self.pause_agent_movement(
+                agent_id,
+                encounter_id=encounter_id,
+                conversation_id=conversation_id,
+            )
+        activity.pause(
+            self.current_time,
+            reason=reason,
+            encounter_id=encounter_id,
+            conversation_id=conversation_id,
+        )
+        self._pending_activity_transitions.append(
+            self._activity_transition("activity_paused", activity, self.current_time)
+        )
+        for resource_id in released_resource_ids:
+            self._pending_activity_transitions.append(
+                self._activity_transition(
+                    "resource_released",
+                    activity,
+                    self.current_time,
+                    resource_id=resource_id,
+                )
+            )
+        self._promote_waiting_activities(self.current_time)
+        return activity
+
+    def resume_agent_activity(self, agent_id: str) -> ActivityInstance | None:
+        agent = self.agents[agent_id]
+        activity = agent.activity
+        if activity is None or activity.status != "paused":
+            return None
+
+        target_location_id = activity.target_entity_id
+        activity.mark_resumed()
+        if target_location_id and target_location_id != agent.location_id:
+            activity.status = "navigating"
+            self._pending_activity_transitions.append(
+                self._activity_transition("activity_resumed", activity, self.current_time)
+            )
+            if agent.movement is not None and agent.movement.activity_id == activity.id:
+                self.resume_agent_movement(agent_id)
+            else:
+                self.start_agent_movement(
+                    agent_id,
+                    target_location_id,
+                    activity_id=activity.id,
+                )
+        elif activity.steps:
+            activity.status = "planned"
+            self._pending_activity_transitions.append(
+                self._activity_transition("activity_resumed", activity, self.current_time)
+            )
+            self._start_current_activity_step(activity, self.current_time)
+        else:
+            activity.status = "performing"
+            activity.expected_end_world_time = self.current_time + timedelta(
+                seconds=max(0.0, activity.duration_seconds - activity.elapsed_seconds)
+            )
+            self._pending_activity_transitions.append(
+                self._activity_transition("activity_resumed", activity, self.current_time)
+            )
+        return activity
+
+    def pause_agent_movement(
+        self,
+        agent_id: str,
+        *,
+        encounter_id: str | None,
+        conversation_id: str | None,
+    ) -> AgentMovementState | None:
+        movement = self.agents[agent_id].movement
+        if movement is None or not movement.pause(
+            self.current_time,
+            self.current_tick,
+            encounter_id=encounter_id,
+            conversation_id=conversation_id,
+        ):
+            return None
+        return movement
+
+    def resume_agent_movement(self, agent_id: str) -> AgentMovementState | None:
+        movement = self.agents[agent_id].movement
+        if movement is None or not movement.resume(self.current_time, self.current_tick):
+            return None
+        return movement
+
+    def resume_orphaned_activities(self) -> list[ActivityInstance]:
+        active_conversation_ids = set(self.active_conversations)
+        resumed = []
+        for agent in sorted(self.agents.values(), key=lambda item: item.id):
+            activity = agent.activity
+            if activity is None or activity.status != "paused":
+                continue
+            conversation_id = activity.paused_for_conversation_id
+            if conversation_id is not None and conversation_id in active_conversation_ids:
+                continue
+            if (restored := self.resume_agent_activity(agent.id)) is not None:
+                resumed.append(restored)
+        return resumed
+
+    def resume_orphaned_movements(self) -> list[AgentMovementState]:
+        active_conversation_ids = set(self.active_conversations)
+        resumed = []
+        for agent in sorted(self.agents.values(), key=lambda item: item.id):
+            movement = agent.movement
+            if movement is None or movement.state != "paused":
+                continue
+            conversation_id = movement.paused_for_conversation_id
+            if conversation_id is not None and conversation_id in active_conversation_ids:
+                continue
+            if (restored := self.resume_agent_movement(agent.id)) is not None:
+                resumed.append(restored)
+        return resumed
+
     def get_activity_definition(self, activity_type: str) -> ActivityDefinition | None:
         if self.embodiment_catalog is None:
             return None
@@ -619,7 +789,7 @@ class WorldState:
 
         step.status = "performing"
         step.started_at_world_time = started_at
-        step.expected_end_world_time = started_at + timedelta(seconds=step.duration_seconds)
+        step.expected_end_world_time = started_at + timedelta(seconds=step.remaining_seconds)
         activity.status = "performing"
         activity.expected_end_world_time = step.expected_end_world_time
         activity.queue_position = None
@@ -665,6 +835,7 @@ class WorldState:
                 break
             completed_at = step.expected_end_world_time
             step.status = "completed"
+            step.elapsed_seconds = step.duration_seconds
             transitions.append(
                 self._activity_transition(
                     "activity_step_completed",

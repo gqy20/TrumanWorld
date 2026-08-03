@@ -116,9 +116,19 @@ export type AgentSummary = {
   current_goal?: string;
   current_location_id?: string | null;
   movement?: AgentMovement | null;
+  activity?: AgentActivity | null;
   status?: Record<string, unknown>;
   profile?: Record<string, unknown>;
   config_id?: string; // agent 配置 ID，用于加载自定义 logo
+};
+
+export type AgentActivity = {
+  id: string;
+  activity_type: string;
+  status: string;
+  current_action?: string | null;
+  visual_state?: string | null;
+  progress?: number | null;
 };
 
 export type WorldEvent = {

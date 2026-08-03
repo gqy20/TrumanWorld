@@ -316,7 +316,7 @@ class DirectorObservationResponse(BaseModel):
 
 class AgentMovementResponse(BaseModel):
     id: str = Field(..., description="移动 ID")
-    state: Literal["in_transit"] = Field("in_transit", description="移动状态")
+    state: Literal["in_transit", "paused"] = Field("in_transit", description="移动状态")
     from_location_id: str = Field(..., description="出发地点 ID")
     to_location_id: str = Field(..., description="目标地点 ID")
     started_tick: int = Field(..., description="开始 Tick", ge=0)
@@ -330,6 +330,10 @@ class AgentMovementResponse(BaseModel):
     duration_seconds: float | None = Field(None, description="预计移动秒数", gt=0)
     progress: float | None = Field(None, description="当前路线进度", ge=0, le=1)
     activity_id: str | None = Field(None, description="所属活动 ID")
+    paused_at_world_time: datetime | None = None
+    paused_progress: float | None = Field(None, ge=0, le=1)
+    paused_for_encounter_id: str | None = None
+    paused_for_conversation_id: str | None = None
 
 
 class AgentActivityStepResponse(BaseModel):
@@ -344,6 +348,7 @@ class AgentActivityStepResponse(BaseModel):
     release_after: bool = True
     started_at_world_time: datetime | None = None
     expected_end_world_time: datetime | None = None
+    elapsed_seconds: float = Field(0.0, ge=0)
     progress: float | None = Field(None, ge=0, le=1)
 
 
@@ -356,6 +361,7 @@ class AgentActivityResponse(BaseModel):
         "navigating",
         "waiting_for_resource",
         "performing",
+        "paused",
         "completed",
         "interrupted",
         "failed",
@@ -365,6 +371,7 @@ class AgentActivityResponse(BaseModel):
     started_at_world_time: datetime
     expected_end_world_time: datetime | None = None
     duration_seconds: float = Field(..., ge=0)
+    elapsed_seconds: float = Field(0.0, ge=0)
     target_entity_id: str | None = None
     claimed_resource_ids: list[str] = Field(default_factory=list)
     parent_intent_id: str | None = None
@@ -376,6 +383,12 @@ class AgentActivityResponse(BaseModel):
     visual_state: str | None = None
     zone_id: str | None = None
     queue_position: int | None = Field(None, ge=1)
+    paused_at_world_time: datetime | None = None
+    pause_reason: str | None = None
+    paused_for_encounter_id: str | None = None
+    paused_for_conversation_id: str | None = None
+    resume_status: str | None = None
+    paused_position_meters: tuple[float, float, float] | None = None
     progress: float | None = Field(None, ge=0, le=1)
 
 

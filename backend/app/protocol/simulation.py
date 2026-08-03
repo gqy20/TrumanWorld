@@ -17,6 +17,8 @@ EVENT_ACTIVITY_STEP_STARTED = "activity_step_started"
 EVENT_ACTIVITY_STEP_COMPLETED = "activity_step_completed"
 EVENT_ACTIVITY_COMPLETED = "activity_completed"
 EVENT_ACTIVITY_INTERRUPTED = "activity_interrupted"
+EVENT_ACTIVITY_PAUSED = "activity_paused"
+EVENT_ACTIVITY_RESUMED = "activity_resumed"
 EVENT_ACTIVITY_WAITING_FOR_RESOURCE = "activity_waiting_for_resource"
 EVENT_RESOURCE_RESERVED = "resource_reserved"
 EVENT_RESOURCE_RELEASED = "resource_released"
@@ -25,6 +27,8 @@ EVENT_ENCOUNTER_RESOLVED = "encounter_resolved"
 
 EVENT_MOVE = ACTION_MOVE
 EVENT_MOVE_ARRIVED = "move_arrived"
+EVENT_MOVEMENT_PAUSED = "movement_paused"
+EVENT_MOVEMENT_RESUMED = "movement_resumed"
 EVENT_TALK = ACTION_TALK
 EVENT_SPEECH = "speech"
 EVENT_LISTEN = ACTION_LISTEN
@@ -62,6 +66,8 @@ DIRECTOR_SCENE_POWER_OUTAGE = "power_outage"  # 停电场景
 ActionType: TypeAlias = Literal[
     "move",
     "move_arrived",
+    "movement_paused",
+    "movement_resumed",
     "talk",
     "listen",
     "conversation_started",
@@ -76,6 +82,8 @@ ActionType: TypeAlias = Literal[
     "activity_step_completed",
     "activity_completed",
     "activity_interrupted",
+    "activity_paused",
+    "activity_resumed",
     "activity_waiting_for_resource",
     "resource_reserved",
     "resource_released",
@@ -93,6 +101,8 @@ ActionType: TypeAlias = Literal[
 RejectedActionEventType: TypeAlias = Literal[
     "move_rejected",
     "move_arrived_rejected",
+    "movement_paused_rejected",
+    "movement_resumed_rejected",
     "talk_rejected",
     "listen_rejected",
     "conversation_started_rejected",
@@ -107,6 +117,8 @@ RejectedActionEventType: TypeAlias = Literal[
     "activity_step_completed_rejected",
     "activity_completed_rejected",
     "activity_interrupted_rejected",
+    "activity_paused_rejected",
+    "activity_resumed_rejected",
     "activity_waiting_for_resource_rejected",
     "resource_reserved_rejected",
     "resource_released_rejected",

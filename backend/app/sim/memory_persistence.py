@@ -212,6 +212,10 @@ class MemoryPersistence:
             "conversation_joined",
             "encounter_candidate_created",
             "encounter_resolved",
+            "activity_paused",
+            "activity_resumed",
+            "movement_paused",
+            "movement_resumed",
         }:
             return []
 

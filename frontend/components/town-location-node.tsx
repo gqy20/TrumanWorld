@@ -16,6 +16,15 @@ import {
 } from "./town-map-utils";
 import type { SpeechBubbleMap } from "./use-speech-bubbles";
 
+const AVAILABLE_AGENT_LOGOS = new Set([
+  "alice",
+  "bob",
+  "friend",
+  "neighbor",
+  "spouse",
+  "truman",
+]);
+
 interface TownLocationNodeProps {
   node: PositionedLocationNode;
   agentNameMap: Record<string, string>;
@@ -206,7 +215,7 @@ export function TownLocationNode({
         const agentY = node.svgY + Math.sin(angle) * ringRadius;
         const fill = agentColor(agent.id);
         const label = agentNameMap[agent.id] ?? agent.name;
-        const hasLogo = !!agent.config_id;
+        const hasLogo = Boolean(agent.config_id && AVAILABLE_AGENT_LOGOS.has(agent.config_id));
         const agentSummary = `${label} · ${agent.current_goal ?? "空闲中"}`;
 
         return (

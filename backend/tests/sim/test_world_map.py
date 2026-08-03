@@ -1,5 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from app.sim.movement import AgentMovementState
 from app.sim.world import AgentState, LocationState, WorldState
 from app.sim.world_map import build_authoritative_world_map, build_world_map
 
@@ -58,6 +59,38 @@ def test_world_movement_duration_and_payload_follow_the_planned_route():
         movement.expected_arrival_world_time - movement.started_at_world_time
     ).total_seconds() == 4.0
     assert movement.to_dict()["route_node_ids"] == list(movement.route_node_ids)
+
+
+def test_paused_movement_freezes_route_progress_and_resumes_remaining_interval():
+    world = WorldState(
+        current_time=datetime(2026, 1, 1, tzinfo=UTC),
+        locations={
+            "home": LocationState(id="home", name="Home", x=0, y=0, occupants={"alice"}),
+            "park": LocationState(id="park", name="Park", x=4, y=2),
+        },
+        agents={"alice": AgentState(id="alice", name="Alice", location_id="home")},
+    )
+    movement = world.start_agent_movement("alice", "park")
+    assert movement.started_at_world_time is not None
+    halfway = movement.started_at_world_time + timedelta(seconds=2)
+
+    assert movement.pause(
+        halfway,
+        tick_no=0,
+        encounter_id="encounter-1",
+        conversation_id="conversation-1",
+    )
+    payload = movement.to_dict(world_time=halfway + timedelta(minutes=5), tick_no=1)
+    restored = AgentMovementState.from_dict(payload)
+
+    assert payload["progress"] == 0.5
+    assert restored is not None
+    assert restored.state == "paused"
+    assert restored.progress_at(halfway + timedelta(hours=1), tick_no=99) == 0.5
+    assert restored.resume(halfway + timedelta(minutes=3), tick_no=1)
+    assert restored.state == "in_transit"
+    assert restored.progress_at(halfway + timedelta(minutes=3), tick_no=1) == 0.5
+    assert restored.expected_arrival_world_time == halfway + timedelta(minutes=3, seconds=2)
 
 
 def test_campus_world_uses_exported_weighted_route_graph():

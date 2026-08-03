@@ -716,13 +716,16 @@ def world_encounters(
     run_id: str,
     limit: int = typer.Option(50, min=1, max=500),
 ) -> None:
-    """List spatial encounter candidates and their resolved outcomes."""
+    """List encounter decisions and the activity or movement lifecycle around them."""
     runtime = rt(ctx)
     run_id = _resolve_run_id(runtime, run_id)
     payload = runtime.client.get(
         f"runs/{run_id}/timeline",
         params={
-            "event_type": "encounter_candidate_created,encounter_resolved",
+            "event_type": (
+                "encounter_candidate_created,encounter_resolved,"
+                "activity_paused,activity_resumed,movement_paused,movement_resumed"
+            ),
             "limit": limit,
             "order_desc": True,
         },

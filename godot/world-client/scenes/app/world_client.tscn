@@ -1,8 +1,9 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/app/world_client.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world/world_presenter.gd" id="2_world"]
 [ext_resource type="PackedScene" path="res://scenes/maps/campus_world.tscn" id="3_map"]
+[ext_resource type="Script" path="res://scripts/world/director_camera.gd" id="4_camera"]
 
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.18, 0.24, 0.22, 1)
@@ -55,6 +56,7 @@ mesh = SubResource("GroundMesh")
 script = ExtResource("2_world")
 
 [node name="CameraRig" type="Node3D" parent="WorldRoot"]
+script = ExtResource("4_camera")
 
 [node name="Camera3D" type="Camera3D" parent="WorldRoot/CameraRig"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.8, 9.2, 11.5)

@@ -27,17 +27,23 @@ export function RunsProvider({ children, initialResult }: RunsProviderProps) {
   const { searchParams } = useUiSearchParams();
   const isWorldPage = pathname.includes("/world");
   const hasActiveModal = searchParams.get("modal") !== null;
-  const { data, mutate } = useSWR<ApiResult<RunSummary[]>>(buildApiUrl("/runs"), fetchApiResult, {
-    refreshInterval: isWorldPage && hasActiveModal ? 0 : 10000,
-    fallbackData: initialResult,
-  });
+  const { data, mutate } = useSWR<ApiResult<RunSummary[]>>(
+    buildApiUrl("/runs"),
+    (url: string) => fetchApiResult<RunSummary[]>(url, 15000),
+    {
+      refreshInterval: isWorldPage && hasActiveModal ? 0 : 10000,
+      fallbackData: initialResult,
+      keepPreviousData: true,
+      revalidateOnFocus: false,
+    },
+  );
 
   useEffect(() => {
     void mutate(initialResult, false);
   }, [initialResult, mutate]);
 
   const value: RunsContextValue = {
-    runs: data?.data ?? [],
+    runs: data?.data ?? initialResult.data ?? [],
     error: data?.error ?? null,
     status: data?.status ?? null,
     requestId: data?.requestId ?? null,

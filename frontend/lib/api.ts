@@ -189,7 +189,7 @@ function buildDemoAdminHeaders() {
 
 async function requestResultUrl<T>(
   url: string,
-  { method = "GET", body, timeoutMs = 5000, headers = {} }: RequestOptions = {},
+  { method = "GET", body, timeoutMs = 10000, headers = {} }: RequestOptions = {},
 ): Promise<ApiResult<T>> {
   const controller = new AbortController();
   let timedOut = false;
@@ -458,8 +458,11 @@ export async function getDemoAccessStatusResult(): Promise<ApiResult<DemoAccessS
   return fetchResult<DemoAccessStatus>("/system/access");
 }
 
-export async function fetchApiResult<T>(url: string): Promise<ApiResult<T>> {
-  return fetchResultUrl<T>(url);
+export async function fetchApiResult<T>(
+  url: string,
+  timeoutMs = 10000,
+): Promise<ApiResult<T>> {
+  return fetchResultUrl<T>(url, { timeoutMs });
 }
 
 function readMetricValue(metricsText: string, metricName: string): number {

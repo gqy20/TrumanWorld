@@ -6,6 +6,7 @@ from app.scenario.embodiment_config import (
     PerceptionDefinition,
     SocialSpatialConfig,
 )
+from app.sim.movement import AgentMovementState
 from app.sim.perception import build_encounter_candidates, observe_world
 from app.sim.runner import SimulationRunner
 from app.sim.world import AgentState, LocationState, WorldState
@@ -59,6 +60,26 @@ def test_spatial_observations_use_authoritative_positions_and_zones() -> None:
         ("alice", (0, 0.0, 0), "zone-quad"),
         ("bob", (1, 0.0, 0), "zone-quad"),
     ]
+
+
+def test_spatial_observation_exposes_paused_route_state() -> None:
+    world = _world()
+    world.agents["alice"].movement = AgentMovementState(
+        id="move-alice",
+        from_location_id="run-quad",
+        to_location_id="run-quad-side",
+        started_tick=0,
+        arrival_tick=2,
+        state="paused",
+        route_node_ids=("a", "b"),
+        paused_progress=0.5,
+    )
+
+    observation = next(item for item in observe_world(world) if item.agent_id == "alice")
+
+    assert observation.position == (0.5, 0.0, 0.0)
+    assert observation.zone_id == "route"
+    assert observation.state == "paused"
 
 
 def test_encounter_candidates_are_deterministic_for_same_seed_and_tick() -> None:

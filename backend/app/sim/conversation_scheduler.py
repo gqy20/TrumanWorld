@@ -73,9 +73,10 @@ class ConversationScheduler:
             target = world.get_agent(target_id) if target_id else None
             if actor is None or target is None:
                 continue
-            if actor.movement is not None or target.movement is not None:
+            is_encounter = isinstance(intent.payload.get("encounter_id"), str)
+            if (actor.movement is not None or target.movement is not None) and not is_encounter:
                 continue
-            if actor.location_id != target.location_id:
+            if actor.location_id != target.location_id and not is_encounter:
                 continue
             target_session_id = session_by_participant.get(target.id)
             actor_session_id = session_by_participant.get(actor.id)

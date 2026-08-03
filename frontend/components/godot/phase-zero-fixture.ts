@@ -13,9 +13,18 @@ export const PHASE_ZERO_WORLD_SNAPSHOT: GodotWorldSnapshot = {
     {
       id: "mei",
       name: "Mei",
-      position_meters: [-3, 0, -1.2],
+      position_meters: [6.55, 0, -0.45],
       facing_radians: 0.3,
-      activity: { activity_type: "idle", status: "performing", progress: 0.4 },
+      activity: {
+        activity_type: "drink_coffee",
+        status: "performing",
+        progress: 0.64,
+        current_step_id: "drink",
+        current_action: "drink",
+        visual_state: "drink",
+        zone_id: "cafe.seating",
+        claimed_resource_ids: ["slot:cafe:window-chair-1:sit"],
+      },
     },
     {
       id: "chen",
@@ -27,11 +36,31 @@ export const PHASE_ZERO_WORLD_SNAPSHOT: GodotWorldSnapshot = {
     {
       id: "lin",
       name: "Lin",
-      position_meters: [3.2, 0, -0.5],
+      position_meters: [1.25, 0, 1.2],
       facing_radians: 2.4,
-      activity: { activity_type: "walk", status: "navigating", progress: 0.65 },
+      activity: { activity_type: "talk", status: "paused", progress: 0.65 },
     },
   ],
-  object_states: [],
-  conversations: [],
+  object_states: [
+    {
+      resource_id: "slot:cafe:window-chair-1:sit",
+      object_id: "cafe.window-chair-1",
+      object_type: "cafe_chair",
+      slot_kind: "sit",
+      occupant_agent_ids: ["mei"],
+      queue_agent_ids: [],
+    },
+  ],
+  conversations: [
+    {
+      id: "fixture-conversation",
+      participant_ids: ["chen", "lin"],
+      participant_names: ["Chen", "Lin"],
+      active_speaker_id: "chen",
+      active_speaker_name: "Chen",
+      last_message: "Morning. Are you heading to class?",
+      turn_count: 2,
+      phase: "open",
+    },
+  ],
 };

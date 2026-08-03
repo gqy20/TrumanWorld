@@ -144,6 +144,7 @@ godot-map-check: godot-import
 godot-export-web: godot-import
 	@mkdir -p $(dir $(GODOT_WEB_OUTPUT))
 	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) --export-release Web $(GODOT_WEB_OUTPUT)
+	node scripts/patch-godot-web-lan-http.mjs $(GODOT_WEB_OUTPUT)
 
 godot-check: godot-test godot-map-check godot-export-web
 

@@ -207,6 +207,118 @@ def test_interrupting_configured_activity_releases_resource_for_first_waiter():
     )
 
 
+def test_activity_pause_round_trip_preserves_remaining_step_time_and_releases_resource():
+    world = _configured_world()
+    activity = world.start_agent_activity("mei", "drink_coffee", target_location_id="run-cafe")
+    step = activity.current_step
+    assert step is not None
+    world.current_time = datetime(2026, 3, 2, 9, 5, 30, tzinfo=UTC)
+
+    paused = world.pause_agent_activity(
+        "mei",
+        reason="encounter_conversation",
+        encounter_id="encounter-1",
+        conversation_id="conversation-1",
+    )
+
+    assert paused is activity
+    assert activity.status == "paused"
+    assert step.elapsed_seconds == 30
+    assert activity.claimed_resource_ids == ()
+    assert step.claimed_resource_id is None
+    restored = ActivityInstance.from_dict(activity.to_dict(world_time=world.current_time))
+    assert restored is not None
+    assert restored.status == "paused"
+    assert restored.paused_for_encounter_id == "encounter-1"
+    assert restored.paused_for_conversation_id == "conversation-1"
+    assert restored.current_step is not None
+    assert restored.current_step.elapsed_seconds == 30
+
+
+def test_activity_resume_reacquires_resource_and_uses_remaining_step_time():
+    world = _configured_world()
+    activity = world.start_agent_activity("mei", "drink_coffee", target_location_id="run-cafe")
+    step = activity.current_step
+    assert step is not None
+    original_duration = step.duration_seconds
+    world.current_time = datetime(2026, 3, 2, 9, 5, 30, tzinfo=UTC)
+    world.pause_agent_activity(
+        "mei",
+        reason="encounter_conversation",
+        encounter_id="encounter-1",
+        conversation_id="conversation-1",
+    )
+    world.current_time = datetime(2026, 3, 2, 9, 8, tzinfo=UTC)
+
+    resumed = world.resume_agent_activity("mei")
+
+    assert resumed is activity
+    assert activity.status == "performing"
+    assert activity.pause_reason is None
+    assert step.claimed_resource_id == "slot:cafe:coffee-counter:service"
+    assert step.expected_end_world_time == world.current_time + timedelta(
+        seconds=original_duration - 30
+    )
+
+
+def test_fixed_duration_activity_resume_preserves_total_progress():
+    world = _world()
+    activity = world.start_agent_activity("mei", "plaza_jog", duration_seconds=600)
+    world.current_time = activity.started_at_world_time + timedelta(minutes=2)
+    world.pause_agent_activity(
+        "mei",
+        reason="encounter_conversation",
+        encounter_id="encounter-1",
+        conversation_id="conversation-1",
+    )
+
+    assert activity.elapsed_seconds == 120
+    assert activity.progress_at(world.current_time + timedelta(minutes=5)) == 0.2
+
+    world.current_time += timedelta(minutes=3)
+    world.resume_agent_activity("mei")
+
+    assert activity.progress_at(world.current_time) == 0.2
+    assert activity.expected_end_world_time == world.current_time + timedelta(minutes=8)
+
+
+def test_encounter_conversation_pauses_then_resumes_original_activity():
+    world = _configured_world()
+    activity = world.start_agent_activity("mei", "drink_coffee", target_location_id="run-cafe")
+    world.current_time = datetime(2026, 3, 2, 9, 5, tzinfo=UTC)
+    runner = SimulationRunner(world)
+
+    encounter_tick = runner.tick(
+        [
+            ActionIntent(
+                agent_id="mei",
+                action_type="talk",
+                target_agent_id="noah",
+                payload={
+                    "message": "刚好碰见你，要不要聊两句？",
+                    "encounter_id": "encounter-1",
+                    "encounter_outcome": "stop_and_talk",
+                },
+            )
+        ]
+    )
+
+    assert activity.status == "paused"
+    assert activity.paused_for_conversation_id is not None
+    assert activity.claimed_resource_ids == ()
+    assert any(item.action_type == "activity_paused" for item in encounter_tick.accepted)
+    assert any(item.action_type == "resource_released" for item in encounter_tick.accepted)
+
+    resumed_tick = runner.tick([])
+
+    action_types = [item.action_type for item in resumed_tick.accepted]
+    assert "conversation_closed" in action_types
+    assert "activity_resumed" in action_types
+    assert action_types.index("activity_resumed") < action_types.index("activity_step_started")
+    assert activity.status == "performing"
+    assert activity.paused_for_conversation_id is None
+
+
 def _world() -> WorldState:
     return WorldState(
         current_time=datetime(2026, 3, 2, 9, 0, tzinfo=UTC),

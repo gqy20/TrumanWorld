@@ -70,6 +70,63 @@ async def test_get_world_snapshot_returns_locations_agents_and_public_events(cli
 
 
 @pytest.mark.asyncio
+async def test_get_world_snapshot_projects_active_conversation_for_godot(client, db_session):
+    create_response = await client.post("/api/runs", json={"name": "world-conversation"})
+    run_id = create_response.json()["id"]
+    agents = list(
+        (await db_session.execute(select(Agent).where(Agent.run_id == run_id))).scalars().all()
+    )
+    speaker, listener = agents[:2]
+    participant_ids = [speaker.id, listener.id]
+    db_session.add_all(
+        [
+            Event(
+                id="world-conversation-started",
+                run_id=run_id,
+                tick_no=1,
+                event_type="conversation_started",
+                actor_agent_id=speaker.id,
+                target_agent_id=listener.id,
+                location_id=speaker.current_location_id,
+                visibility="public",
+                payload={
+                    "conversation_id": "conversation-live",
+                    "participant_ids": participant_ids,
+                    "speaker_agent_id": speaker.id,
+                },
+            ),
+            Event(
+                id="world-conversation-speech",
+                run_id=run_id,
+                tick_no=1,
+                event_type="speech",
+                actor_agent_id=speaker.id,
+                target_agent_id=listener.id,
+                location_id=speaker.current_location_id,
+                visibility="public",
+                payload={
+                    "conversation_id": "conversation-live",
+                    "participant_ids": participant_ids,
+                    "speaker_agent_id": speaker.id,
+                    "message": "一起去喝杯咖啡吗？",
+                },
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await client.get(f"/api/runs/{run_id}/world")
+
+    assert response.status_code == 200
+    conversation = response.json()["conversations"][0]
+    assert conversation["id"] == "conversation-live"
+    assert conversation["participant_ids"] == participant_ids
+    assert conversation["participant_names"] == [speaker.name, listener.name]
+    assert conversation["active_speaker_id"] == speaker.id
+    assert conversation["last_message"] == "一起去喝杯咖啡吗？"
+
+
+@pytest.mark.asyncio
 async def test_get_world_snapshot_keeps_in_transit_agent_outside_location_occupants(
     client,
     db_session,

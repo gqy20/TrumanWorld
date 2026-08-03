@@ -1,7 +1,7 @@
 # Truman World Godot Client
 
-Phase 0～3 隔离客户端，用于验证 Godot Web、Next.js 宿主、版本化 Bridge 协议、语义地图
-内容管线、权威世界时间以及对象占用和排队表现。它尚不是当前世界页的默认渲染器。
+Phase 0～3 与 Phase 4 具身展示切片，用于验证 Godot Web、Next.js 宿主、版本化 Bridge 协议、
+语义地图内容管线、权威世界时间、对象占用、连续动作和对话表现。它尚不是当前世界页的默认渲染器。
 
 ## 本地运行
 
@@ -17,6 +17,17 @@ make frontend-dev
 ```text
 http://127.0.0.1:13000/labs/godot-world
 ```
+
+开发导出额外支持在私有局域网地址上使用普通 HTTP：
+
+```bash
+make godot-export-web
+make frontend-dev
+```
+
+`godot-export-web` 会对 Godot 单线程导出壳应用一个受限补丁：仅对 RFC 1918、共享地址空间和
+IPv6 ULA 主机忽略 Secure Context 启动检查，并使用 Dummy 音频驱动。这个开发构建不提供音频、
+麦克风、剪贴板或 Gamepad；公网部署仍应使用 HTTPS。
 
 连接真实 Campus Run：
 
@@ -68,3 +79,7 @@ Godot 到 Host：
 Phase 3 中，`activities.yml` 定义活动步骤、时长区间和资源要求，`object_types.yml` 定义对象
 Affordance，Godot 地图继续定义柜台、座位和排队槽位的坐标。服务端快照中的 `object_states` 是占用
 与队列的权威事实，Agent 的 `visual_state / zone_id / queue_position` 只驱动客户端表现。
+
+当前角色采用程序化人形，可表现步行、慢跑、排队、坐下、饮用、使用设施和相向交谈。右键拖动
+旋转导演镜头，中键拖动平移，滚轮缩放；选中居民后镜头会平滑跟随。客户端还会按权威世界时间
+更新昼夜环境，并用场景内环形标记显示资源可用、占用和排队状态。

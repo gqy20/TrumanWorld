@@ -105,6 +105,7 @@ class TickOrchestrator:
             if state is None or (
                 self._agent_has_continuous_work(state)
                 and not self._has_encounter_opportunity(agent.id, world, recent_events)
+                and not self._has_active_conversation(agent.id, world)
             ):
                 continue
 
@@ -198,6 +199,7 @@ class TickOrchestrator:
                 and not self._has_encounter_opportunity(
                     agent_id, world, agent_snapshot.recent_events
                 )
+                and not self._has_active_conversation(agent_id, world)
             ):
                 return None
 
@@ -642,6 +644,13 @@ class TickOrchestrator:
                 current_tick=world.current_tick,
             )
             is not None
+        )
+
+    @staticmethod
+    def _has_active_conversation(agent_id: str, world: WorldState) -> bool:
+        return any(
+            agent_id in conversation.participant_ids
+            for conversation in world.active_conversations.values()
         )
 
     @staticmethod

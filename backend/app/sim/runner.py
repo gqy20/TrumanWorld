@@ -13,6 +13,7 @@ from app.sim.governance_consequences import (
     apply_governance_attention_decay,
     apply_governance_consequences,
 )
+from app.sim.movement import AgentMovementState
 from app.sim.perception import build_encounter_candidates
 from app.sim.world import ActiveConversationState, InteractionEdgeState, WorldState
 
@@ -38,6 +39,20 @@ class SimulationRunner:
     def tick(self, intents: Iterable[ActionIntent]) -> TickResult:
         accepted: list[ActionResult] = []
         rejected: list[ActionResult] = []
+        orphaned_resumed_agent_ids: set[str] = set()
+        for movement in self.world.resume_orphaned_movements():
+            agent_id = self._movement_owner_id(movement.id)
+            if agent_id is None:
+                continue
+            orphaned_resumed_agent_ids.add(agent_id)
+            accepted.append(
+                self._movement_lifecycle_result(
+                    "movement_resumed", agent_id=agent_id, movement=movement
+                )
+            )
+        orphaned_resumed_agent_ids.update(
+            activity.agent_id for activity in self.world.resume_orphaned_activities()
+        )
         previous_day_index = self.world.current_time.toordinal()
         policy_values = self._policy_values()
 
@@ -58,9 +73,43 @@ class SimulationRunner:
             for assignment in assignments.values()
         }
         self.resolver.prefill_conversation_assignments(conversation_assignments)
-        accepted.extend(self._build_conversation_closed_results(sessions))
+        closed_results = self._build_conversation_closed_results(sessions)
+        accepted.extend(closed_results)
+        closed_resumed_agent_ids: set[str] = set()
+        for closed in closed_results:
+            participant_ids = closed.event_payload.get("participant_ids")
+            if not isinstance(participant_ids, list):
+                continue
+            for participant_id in participant_ids:
+                if not isinstance(participant_id, str):
+                    continue
+                participant = self.world.get_agent(participant_id)
+                movement = participant.movement if participant is not None else None
+                paused_movement_id = (
+                    movement.id if movement is not None and movement.state == "paused" else None
+                )
+                resumed_activity = self.world.resume_agent_activity(participant_id)
+                resumed_movement = self.world.resume_agent_movement(participant_id)
+                if resumed_activity is not None or resumed_movement is not None:
+                    closed_resumed_agent_ids.add(participant_id)
+                participant = self.world.get_agent(participant_id)
+                movement = participant.movement if participant is not None else None
+                if (
+                    paused_movement_id is not None
+                    and movement is not None
+                    and movement.state == "in_transit"
+                ):
+                    accepted.append(
+                        self._movement_lifecycle_result(
+                            "movement_resumed",
+                            agent_id=participant_id,
+                            movement=movement,
+                        )
+                    )
         accepted.extend(self._build_conversation_structure_results(sessions, assignments))
         for intent in intent_list:
+            if intent.agent_id in orphaned_resumed_agent_ids | closed_resumed_agent_ids:
+                continue
             if self._should_skip_intent(intent, assignments):
                 continue
             result = self.resolver.resolve(self.world, intent)
@@ -84,6 +133,23 @@ class SimulationRunner:
                             },
                         )
                     )
+                    for movement_id in result.event_payload.get("paused_movement_ids", []):
+                        if not isinstance(movement_id, str):
+                            continue
+                        agent_id = self._movement_owner_id(movement_id)
+                        movement = (
+                            self.world.get_agent(agent_id).movement
+                            if agent_id is not None
+                            else None
+                        )
+                        if agent_id is not None and movement is not None:
+                            accepted.append(
+                                self._movement_lifecycle_result(
+                                    "movement_paused",
+                                    agent_id=agent_id,
+                                    movement=movement,
+                                )
+                            )
             else:
                 rejected.append(result)
         accepted.extend(self._build_listen_results(sessions, assignments))
@@ -122,6 +188,9 @@ class SimulationRunner:
                     "zone_id": transition.zone_id,
                     "queue_position": transition.queue_position,
                     "target_entity_id": transition.activity.target_entity_id,
+                    "pause_reason": transition.activity.pause_reason,
+                    "paused_for_encounter_id": transition.activity.paused_for_encounter_id,
+                    "paused_for_conversation_id": (transition.activity.paused_for_conversation_id),
                     "occurred_at_world_time": transition.occurred_at_world_time.isoformat(),
                 },
             )
@@ -170,6 +239,33 @@ class SimulationRunner:
         if package is None:
             return {}
         return dict(package.policy_config.values or {})
+
+    def _movement_owner_id(self, movement_id: str) -> str | None:
+        return next(
+            (
+                agent.id
+                for agent in self.world.agents.values()
+                if agent.movement is not None and agent.movement.id == movement_id
+            ),
+            None,
+        )
+
+    @staticmethod
+    def _movement_lifecycle_result(
+        action_type: str,
+        *,
+        agent_id: str,
+        movement: AgentMovementState,
+    ) -> ActionResult:
+        return ActionResult(
+            accepted=True,
+            action_type=action_type,
+            reason="accepted",
+            event_payload={
+                "agent_id": agent_id,
+                **movement.to_event_payload(),
+            },
+        )
 
     @staticmethod
     def _should_skip_intent(

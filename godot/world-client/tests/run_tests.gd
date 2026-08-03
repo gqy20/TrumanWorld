@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_test_unknown_type()
 	_test_fixture_shape()
 	_test_world_map_export()
+	_test_runtime_map_visuals()
 	_test_world_map_duplicate_id()
 	_test_world_map_disconnected_entrances()
 	_test_client_clock_pause_and_speed()
@@ -88,6 +89,16 @@ func _test_world_map_export() -> void:
 	)
 
 
+func _test_runtime_map_visuals() -> void:
+	var scene := load("res://scenes/maps/campus_world.tscn") as PackedScene
+	var map_root := scene.instantiate() as Node3D
+	root.add_child(map_root)
+	var visuals := RuntimeMapVisuals.build(map_root)
+	var meshes := visuals.find_children("*", "MeshInstance3D", true, false)
+	_expect(meshes.size() >= 15, "runtime map builds visible roads and locations")
+	map_root.free()
+
+
 func _test_world_map_duplicate_id() -> void:
 	var root := Node3D.new()
 	var first := RouteNode3D.new()
@@ -145,6 +156,20 @@ func _test_activity_visual_mapping() -> void:
 		"activity": {"activity_type": "drink_coffee", "status": "waiting_for_resource"},
 	})
 	_expect(avatar.visual_state() == "queue", "waiting activity maps to queue")
+	avatar.configure({
+		"id": "mei",
+		"name": "Mei",
+		"position_meters": [0.0, 0.0, 0.0],
+		"activity": {"activity_type": "drink_coffee", "status": "paused"},
+	})
+	_expect(avatar.visual_state() == "talk", "paused activity maps to talk")
+	avatar.configure({
+		"id": "mei",
+		"name": "Mei",
+		"position_meters": [0.0, 0.0, 0.0],
+		"movement": {"state": "paused"},
+	})
+	_expect(avatar.visual_state() == "talk", "paused movement maps to talk")
 	avatar.configure({
 		"id": "mei",
 		"name": "Mei",
