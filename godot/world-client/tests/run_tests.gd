@@ -114,6 +114,33 @@ func _test_runtime_map_visuals() -> void:
 			has_bounds and bounds.size.x > 3.5 and bounds.size.y > 2.0 and bounds.size.z > 2.8,
 			"authored Studio Cafe preserves meter scale and Y-up orientation",
 		)
+	var landmarks := visuals.get_node_or_null("AuthoredCampusLandmarks")
+	_expect(landmarks is Node3D, "runtime map instantiates authored campus landmarks")
+	if landmarks is Node3D:
+		var landmark_meshes := landmarks.find_children("*", "MeshInstance3D", true, false)
+		_expect(landmark_meshes.size() >= 260, "campus environment contains detailed geometry")
+		_expect(
+			landmarks.find_child("CampusGround", true, false) != null
+			and landmarks.find_child("SouthBoulevard", true, false) != null
+			and landmarks.find_child("CampusArchitecture", true, false) != null
+			and landmarks.find_child("CampusEntryBeam", true, false) != null
+			and landmarks.find_child("CampusTrees", true, false) != null
+			and landmarks.find_child("CampusLamps", true, false) != null,
+			"authored environment fills the campus beyond primary locations",
+		)
+		_expect(
+			landmarks.find_child("DormText", true, false) != null
+			and landmarks.find_child("LectureText", true, false) != null
+			and landmarks.find_child("LibraryText", true, false) != null,
+			"authored buildings retain distinct visual identities",
+		)
+		_expect(
+			landmarks.find_child("FountainJet", true, false) != null
+			and landmarks.find_child("DormPillow1", true, false) != null
+			and landmarks.find_child("LectureMicrophoneHead", true, false) != null
+			and landmarks.find_child("LibraryLampShade1", true, false) != null,
+			"campus landmarks retain location-specific prop details",
+		)
 	map_root.free()
 
 

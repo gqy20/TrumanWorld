@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "asset_id": "campus_world/campus_landmarks",
+  "blender_version": "5.2.0 LTS",
+  "coordinate_system": {
+    "authoring_up": "Z",
+    "runtime_up": "Y",
+    "unit": "meter"
+  },
+  "semantic_alignment": {
+    "quad": [
+      -3.0,
+      0.0,
+      0.0
+    ],
+    "dorm": [
+      -7.0,
+      0.0,
+      -3.0
+    ],
+    "lecture-hall": [
+      -2.0,
+      0.0,
+      -3.0
+    ],
+    "library": [
+      3.0,
+      0.0,
+      -3.0
+    ]
+  },
+  "environment_bounds_meters": [
+    25.5,
+    17.5
+  ],
+  "output": "godot/world-client/assets/scenarios/campus_world/environment/campus_landmarks.glb",
+  "source": "art/blender/scenarios/campus_world/campus_landmarks.blend",
+  "stats": {
+    "objects": 272,
+    "meshes": 272,
+    "materials": 45,
+    "vertices": 37820,
+    "polygons": 37557
+  }
+}

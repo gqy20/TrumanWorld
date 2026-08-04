@@ -99,18 +99,38 @@ make assets-process-sprite \
 ```bash
 make assets-blender-install
 make assets-blender-cafe
+make assets-blender-campus
+# 同时重建当前全部 Blender 场景
+make assets-blender-all
 ```
 
 脚本会拒绝非 `5.2.x` 版本，并生成：
 
 - `art/blender/scenarios/campus_world/studio_cafe.blend`：可编辑源文件；
 - `godot/world-client/assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb`：运行时资产；
+- `art/blender/scenarios/campus_world/campus_landmarks.blend`：校园公共地标源文件；
+- `godot/world-client/assets/scenarios/campus_world/environment/campus_landmarks.glb`：广场、宿舍、
+  教学楼与图书馆的统一运行时资产；
 - 同目录 `.asset.json`：版本和网格统计。
 
 BPY 源文件严格使用 Blender 原生 Z-up、米制单位；glTF 导出器负责转换为 Godot 使用的 Y-up。
 Studio Cafe 是面向导演相机的切面建筑，包含门窗、遮阳棚、吧台、咖啡机、糕点展柜、菜单、桌椅、
 货架、杯具、糕点、植物、吊灯和三维店招。透明玻璃、墙面线脚与小型陈设提供近景层次，同时模型
 维持低多边形预算。Godot 优先实例化 GLB；资源缺失或加载失败时仍由程序化场景提供 fallback。
+
+校园地标资产以现有语义地图原点建模，Blender 坐标会显式映射到 Godot 的 `quad / dorm /
+lecture-hall / library` 位置。模型只负责可视层，语义地图继续拥有路线、Zone、容量与稳定 ID。
+四个地点分别使用喷泉广场、双床宿舍、阶梯讲堂和玻璃阅读室的空间语法，避免仅靠墙体换色区分地点。
+近景道具同样保持地点特异性：广场包含水柱、铺装和植物簇；宿舍包含床品、书桌、座椅、台灯与
+个人书架；讲堂包含阶梯座席、声学板、板书、讲台、麦克风和投影机；图书馆包含独立书脊、阅读灯、
+地毯与桌椅。
+
+环境资产覆盖语义地图完整的 `25.5m × 17.5m` 可视范围，而不是只包围主要地点。外围由南侧道路与
+人行道、入口校门、主步道网络、四座非交互背景建筑、校园边界、树带和路灯构成。背景建筑仅提供
+空间围合和远景层次，不会注册为 `WorldLocation3D`，因此不会进入智能体路径规划。Godot 加载完整
+Blender 环境后不再叠加程序化树木和路灯，资源缺失时仍恢复程序化 fallback。当前统一资产约 3.8 万
+面，细节仍由可复现的 BPY 低模基元构成。树木、路灯、背景窗户、步道和边界等不可交互重复物件会
+在导出前按环境角色合并，避免以数百个独立 MeshInstance 增加 Web draw call。
 
 ## 5. 提交规则
 

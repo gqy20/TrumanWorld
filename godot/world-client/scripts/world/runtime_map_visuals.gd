@@ -13,6 +13,9 @@ const COLOR_WINDOW := Color("e8c77e")
 const STUDIO_CAFE_ASSET_PATH := (
 	"res://assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb"
 )
+const CAMPUS_LANDMARKS_ASSET_PATH := (
+	"res://assets/scenarios/campus_world/environment/campus_landmarks.glb"
+)
 
 
 static func build(map_root: Node3D) -> Node3D:
@@ -20,12 +23,14 @@ static func build(map_root: Node3D) -> Node3D:
 	visuals.name = "RuntimeVisuals"
 	map_root.add_child(visuals)
 	_build_roads(map_root, visuals)
+	visuals.set_meta("has_authored_campus_landmarks", _add_authored_campus_landmarks(visuals))
 	for node: Node in _descendants(map_root):
 		if node is WorldLocation3D:
 			_build_location(map_root, visuals, node as WorldLocation3D)
 		elif node is Interactable3D:
 			_build_interactable(map_root, visuals, node as Interactable3D)
-	_build_ambient_details(visuals)
+	if not visuals.get_meta("has_authored_campus_landmarks", false):
+		_build_ambient_details(visuals)
 	return visuals
 
 
@@ -69,8 +74,19 @@ static func _build_location(
 	location: WorldLocation3D,
 ) -> void:
 	var center := _local_position(map_root, location)
-	_add_cylinder(visuals, center + Vector3(0.0, 0.025, 0.0), 1.65, 0.05, COLOR_QUAD)
+	if (
+		visuals.get_meta("has_authored_campus_landmarks", false)
+		and location.location_type in ["quad", "dorm", "lecture_hall", "library"]
+	):
+		var label_height := 1.45 if location.location_type == "quad" else 3.05
+		_add_location_label(
+			visuals,
+			center + Vector3(0.0, label_height, 0.0),
+			location.display_name,
+		)
+		return
 	if location.location_type == "quad":
+		_add_cylinder(visuals, center + Vector3(0.0, 0.025, 0.0), 1.65, 0.05, COLOR_QUAD)
 		_add_cylinder(visuals, center + Vector3(0.0, 0.08, 0.0), 0.58, 0.14, Color("d3c7aa"))
 		_add_bench(visuals, center + Vector3(-1.05, 0.0, 0.85), 0.2)
 		_add_bench(visuals, center + Vector3(1.05, 0.0, -0.85), PI + 0.2)
@@ -79,6 +95,7 @@ static func _build_location(
 	if location.location_type == "cafe" and _add_authored_studio_cafe(visuals, center):
 		_add_location_label(visuals, center + Vector3(0.0, 3.05, 0.0), location.display_name)
 		return
+	_add_cylinder(visuals, center + Vector3(0.0, 0.025, 0.0), 1.65, 0.05, COLOR_QUAD)
 
 	var size := Vector3(2.8, 1.65, 2.2)
 	var wall_color := COLOR_DORM
@@ -195,6 +212,20 @@ static func _add_authored_studio_cafe(visuals: Node3D, center: Vector3) -> bool:
 	instance.name = "AuthoredStudioCafe"
 	instance.position = center
 	instance.scale = Vector3.ONE * 0.72
+	visuals.add_child(instance)
+	return true
+
+
+static func _add_authored_campus_landmarks(visuals: Node3D) -> bool:
+	if not ResourceLoader.exists(CAMPUS_LANDMARKS_ASSET_PATH):
+		return false
+	var packed_scene := load(CAMPUS_LANDMARKS_ASSET_PATH) as PackedScene
+	if packed_scene == null:
+		return false
+	var instance := packed_scene.instantiate() as Node3D
+	if instance == null:
+		return false
+	instance.name = "AuthoredCampusLandmarks"
 	visuals.add_child(instance)
 	return true
 
