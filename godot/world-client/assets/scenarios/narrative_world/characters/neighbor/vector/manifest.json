@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "visual_asset_id": "narrative_world/neighbor",
+  "display_name": "Lauren",
+  "format": "svg",
+  "poses": [
+    "carry",
+    "celebrate",
+    "drink",
+    "idle",
+    "jog",
+    "phone",
+    "queue",
+    "read",
+    "sit",
+    "sleep",
+    "surprised",
+    "talk",
+    "think",
+    "use_object",
+    "walk",
+    "wave"
+  ],
+  "transparent_background": true,
+  "generator": "scripts/assets/generate_svg_characters.py"
+}

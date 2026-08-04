@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Bob
+hair_style: messy
+glasses: false
+accessory: none
+palette:
+  outline: "#303238"
+  hair: "#66503D"
+  skin: "#DCA17C"
+  skin_shadow: "#B87359"
+  overshirt: "#71838B"
+  overshirt_shadow: "#53656D"
+  tshirt: "#DCCDAF"
+  trousers: "#41454C"
+  shoes: "#DDD6C9"
+  glasses: "#303238"
+  blush: "#CF7C70"
+  cup: "#BC8754"

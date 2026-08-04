@@ -19,9 +19,22 @@ const STATE_LABELS := {
 	"drink": "Having coffee",
 	"talk": "In conversation",
 	"use_object": "Using object",
+	"wave": "Waving",
+	"think": "Thinking",
+	"read": "Reading",
+	"phone": "Checking phone",
+	"carry": "Carrying",
+	"celebrate": "Celebrating",
+	"surprised": "Surprised",
+	"sleep": "Sleeping",
 }
+const VECTOR_POSE_IDS := [
+	"idle", "walk", "jog", "queue", "sit", "drink", "talk", "use_object",
+	"wave", "think", "read", "phone", "carry", "celebrate", "surprised", "sleep",
+]
 
 var agent_id := ""
+var visual_asset_id := ""
 var display_name := ""
 var _body_root: Node3D
 var _torso: MeshInstance3D
@@ -35,6 +48,11 @@ var _name_label: Label3D
 var _action_label: Label3D
 var _speech_label: Label3D
 var _selection_ring: MeshInstance3D
+var _vector_sprite: Sprite3D
+var _vector_previous_sprite: Sprite3D
+var _vector_textures: Dictionary = {}
+var _vector_pose_id := ""
+var _vector_transition: Tween
 var _target_position := Vector3.ZERO
 var _has_position := false
 var _visual_state := "idle"
@@ -174,6 +192,7 @@ func _build_visuals() -> void:
 		_body_root, Vector3(0.48, 1.04, -0.18), 0.085, 0.22, Color("f4eee0")
 	)
 	_cup.visible = false
+	_build_vector_sprite()
 
 	var collision := CollisionShape3D.new()
 	var collision_shape := CapsuleShape3D.new()
@@ -215,6 +234,7 @@ func _build_visuals() -> void:
 
 func _apply_pose() -> void:
 	var t := _motion_time
+	_update_vector_sprite(t)
 	_body_root.position = Vector3.ZERO
 	_body_root.rotation = Vector3.ZERO
 	_torso.position = Vector3(0.0, 1.04, 0.0)
@@ -274,6 +294,101 @@ func _apply_pose() -> void:
 
 	if is_instance_valid(_speech_label) and _speech_label.visible:
 		_speech_label.position.y = 2.72 + sin(t * 2.0) * 0.035
+
+
+func _build_vector_sprite() -> void:
+	var asset_parts := visual_asset_id.split("/", false)
+	if asset_parts.size() != 2 or asset_parts[0].is_empty() or asset_parts[1].is_empty():
+		return
+	if asset_parts[0] in [".", ".."] or asset_parts[1] in [".", ".."]:
+		return
+	for pose_id: String in VECTOR_POSE_IDS:
+		var path := "res://assets/scenarios/%s/characters/%s/vector/%s.svg" % [
+			asset_parts[0], asset_parts[1], pose_id,
+		]
+		if ResourceLoader.exists(path):
+			var texture := load(path) as Texture2D
+			if texture != null:
+				_vector_textures[pose_id] = texture
+	if not _vector_textures.has("idle"):
+		return
+	_vector_previous_sprite = _new_vector_sprite("PreviousVectorCharacter")
+	_vector_previous_sprite.visible = false
+	add_child(_vector_previous_sprite)
+	_vector_sprite = _new_vector_sprite("VectorCharacter")
+	_vector_sprite.texture = _vector_textures["idle"]
+	add_child(_vector_sprite)
+	_body_root.visible = false
+	_vector_pose_id = "idle"
+
+
+func _new_vector_sprite(sprite_name: String) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.name = sprite_name
+	sprite.pixel_size = 0.0075
+	sprite.position.y = 0.96
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	return sprite
+
+
+func _update_vector_sprite(t: float) -> void:
+	if not is_instance_valid(_vector_sprite):
+		return
+	var pose_id := _vector_pose_for_state(_visual_state)
+	if pose_id != _vector_pose_id and _vector_textures.has(pose_id):
+		_begin_vector_transition()
+		_vector_sprite.texture = _vector_textures[pose_id]
+		_vector_pose_id = pose_id
+	_vector_sprite.scale = Vector3.ONE
+	_vector_sprite.rotation.z = 0.0
+	var bob_amplitude := 0.012
+	var bob_speed := 1.5
+	match _visual_state:
+		"walk":
+			bob_amplitude = 0.035
+			bob_speed = 7.0
+		"jog":
+			bob_amplitude = 0.065
+			bob_speed = 10.0
+		"queue", "think", "read", "phone":
+			_vector_sprite.rotation.z = sin(t * 1.3) * 0.012
+		"talk", "wave":
+			_vector_sprite.rotation.z = sin(t * 2.8) * 0.018
+		"celebrate":
+			bob_amplitude = 0.09
+			bob_speed = 8.0
+			var pulse: float = 1.0 + abs(sin(t * 8.0)) * 0.035
+			_vector_sprite.scale = Vector3(pulse, pulse, 1.0)
+		"surprised":
+			var pulse: float = 1.0 + abs(sin(t * 5.0)) * 0.018
+			_vector_sprite.scale = Vector3(pulse, pulse, 1.0)
+		"sleep":
+			bob_speed = 0.7
+			_vector_sprite.rotation.z = sin(t * 0.7) * 0.008
+	_vector_sprite.position.y = 0.96 + abs(sin(t * bob_speed)) * bob_amplitude
+
+
+func _begin_vector_transition() -> void:
+	if not is_instance_valid(_vector_previous_sprite):
+		return
+	if is_instance_valid(_vector_transition):
+		_vector_transition.kill()
+	_vector_previous_sprite.texture = _vector_sprite.texture
+	_vector_previous_sprite.position = _vector_sprite.position
+	_vector_previous_sprite.rotation = _vector_sprite.rotation
+	_vector_previous_sprite.scale = _vector_sprite.scale
+	_vector_previous_sprite.modulate = Color.WHITE
+	_vector_previous_sprite.visible = true
+	_vector_sprite.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_vector_transition = create_tween().set_parallel(true)
+	_vector_transition.tween_property(_vector_sprite, "modulate:a", 1.0, 0.14)
+	_vector_transition.tween_property(_vector_previous_sprite, "modulate:a", 0.0, 0.14)
+	_vector_transition.chain().tween_callback(func() -> void: _vector_previous_sprite.visible = false)
+
+
+func _vector_pose_for_state(state: String) -> String:
+	return state if _vector_textures.has(state) else "idle"
 
 
 func _update_action_label() -> void:

@@ -150,6 +150,26 @@ def resolve_agents_root_for_scenario(
     return base_root / "agents"
 
 
+def resolve_visual_asset_id_for_scenario(
+    scenario_id: str | None,
+    agent_config_id: str | None,
+    *,
+    project_root: Path | None = None,
+) -> str | None:
+    if not scenario_id or not agent_config_id:
+        return None
+    settings = get_settings()
+    base_root = project_root or settings.project_root
+    registry = ScenarioBundleRegistry(base_root / "scenarios")
+    bundle = registry.get_bundle(scenario_id)
+    if bundle is None:
+        return None
+    appearance = bundle.agents_root / agent_config_id / "appearance.yml"
+    if not appearance.is_file():
+        return None
+    return f"{scenario_id}/{agent_config_id}"
+
+
 def load_world_config_for_scenario(
     scenario_id: str | None,
     *,

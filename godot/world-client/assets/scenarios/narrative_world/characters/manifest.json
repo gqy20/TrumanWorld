@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "scenario_id": "narrative_world",
+  "characters": [
+    {
+      "character_id": "alice",
+      "visual_asset_id": "narrative_world/alice"
+    },
+    {
+      "character_id": "bob",
+      "visual_asset_id": "narrative_world/bob"
+    },
+    {
+      "character_id": "friend",
+      "visual_asset_id": "narrative_world/friend"
+    },
+    {
+      "character_id": "neighbor",
+      "visual_asset_id": "narrative_world/neighbor"
+    },
+    {
+      "character_id": "spouse",
+      "visual_asset_id": "narrative_world/spouse"
+    },
+    {
+      "character_id": "truman",
+      "visual_asset_id": "narrative_world/truman"
+    }
+  ]
+}

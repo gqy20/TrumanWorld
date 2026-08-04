@@ -20,7 +20,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-process-sprite assets-blender-cafe lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-cafe lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
 
 LOG_RETENTION_DAYS ?= 7
 
@@ -166,6 +166,16 @@ assets-mmx-dry-run:
 assets-mmx-generate:
 	@test -n "$(MMX_JOB)" || (echo "MMX_JOB is required" && exit 1)
 	$(ASSET_PIPELINE) generate --job "$(MMX_JOB)"
+
+SVG_SCENARIO ?=
+SVG_CHARACTER ?=
+SVG_FILTERS = $(if $(SVG_SCENARIO),--scenario $(SVG_SCENARIO)) $(if $(SVG_CHARACTER),--character $(SVG_CHARACTER))
+
+assets-svg-generate:
+	cd $(BACKEND_DIR) && uv run python ../scripts/assets/generate_svg_characters.py $(SVG_FILTERS)
+
+assets-svg-check:
+	cd $(BACKEND_DIR) && uv run python ../scripts/assets/generate_svg_characters.py $(SVG_FILTERS) --check
 
 assets-process-sprite:
 	@test -n "$(SPRITE_SOURCE)" || (echo "SPRITE_SOURCE is required" && exit 1)

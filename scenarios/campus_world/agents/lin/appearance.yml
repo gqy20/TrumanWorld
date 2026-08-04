@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Lin
+hair_style: short
+glasses: false
+accessory: none
+palette:
+  outline: "#283037"
+  hair: "#20272C"
+  skin: "#E8B28F"
+  skin_shadow: "#C77E66"
+  overshirt: "#5D84A6"
+  overshirt_shadow: "#405F7B"
+  tshirt: "#F0E4CE"
+  trousers: "#39434D"
+  shoes: "#EEE8DC"
+  glasses: "#283037"
+  blush: "#DC857A"
+  cup: "#D19A61"

@@ -1,4 +1,5 @@
 {
+  "scenario_id": "campus_world",
   "map_id": "campus-world-v2",
   "map_content_hash": "sha256:e2a7e49020876c2fea7ec0850ba58ff955bd67a85a944835bffb02cffbc532da",
   "tick": 12,
@@ -9,6 +10,8 @@
     {
       "id": "mei",
       "name": "Mei",
+      "config_id": "mei",
+      "visual_asset_id": "campus_world/mei",
       "position_meters": [-3.0, 0.0, -1.2],
       "facing_radians": 0.3,
       "activity": {"activity_type": "idle", "status": "performing", "progress": 0.4}

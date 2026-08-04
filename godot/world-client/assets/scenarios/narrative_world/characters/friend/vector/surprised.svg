@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="256" viewBox="0 0 192 256">
+  <title>Marlon — surprised</title>
+  <desc>Deterministic transparent Truman World character sprite.</desc>
+  <g transform="translate(0 -2)" stroke="#302D2B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 60C48 25 67 5 96 5c31 0 50 20 50 55l-5 31H52z" fill="#2F2926"/>
+    <g aria-label="back-leg" transform="rotate(-5, 108, 170)">
+      <rect x="98" y="162" width="25" height="66" rx="12" fill="#3F3A39"/>
+      <path d="M99 218h27l9 10c3 4 1 10-5 10H99z" fill="#E9DFD0"/>
+    </g>
+    <g aria-label="back-arm" transform="rotate(-25, 126, 116)">
+      <rect x="116" y="108" width="23" height="68" rx="11" fill="#8D6335"/>
+      <circle cx="128" cy="178" r="11" fill="#B97955"/>
+    </g>
+    <g aria-label="front-leg" transform="rotate(5, 83, 170)">
+      <rect x="70" y="162" width="27" height="67" rx="12" fill="#3F3A39"/>
+      <path d="M68 219h29v19H61c-7 0-9-8-3-12z" fill="#E9DFD0"/>
+    </g>
+    <path d="M73 109c12-9 34-9 46 0l12 65H62z" fill="#F1E2C8"/>
+    <path d="M71 108l23 12-7 58H55l4-46c2-12 5-20 12-24z" fill="#C08A48"/>
+    <path d="M119 108l-24 12 7 58h34l-5-47c-2-11-6-19-12-23z" fill="#C08A48"/>
+    <path d="M95 121v54M63 153h20m28 0h19" fill="none" stroke="#8D6335" stroke-width="3"/>
+    <path d="M91 115h10l3 10-8 31-8-31z" fill="#302D2B"/>
+    <g aria-label="front-arm" transform="rotate(25, 64, 116)">
+      <rect x="52" y="108" width="23" height="69" rx="11" fill="#C08A48"/>
+      <circle cx="63" cy="179" r="11" fill="#B97955"/>
+    </g>
+    <rect x="84" y="91" width="23" height="28" rx="10" fill="#945B43"/>
+    <circle cx="52" cy="67" r="11" fill="#B97955"/>
+    <circle cx="139" cy="67" r="11" fill="#B97955"/>
+    <path d="M51 51c3-27 20-41 44-41 25 0 43 16 45 42l-4 28c-5 21-21 34-41 34-21 0-37-14-42-35z" fill="#B97955"/>
+    <path d="M49 55c5-34 25-49 49-49 24 0 41 13 47 36-9-6-17-6-25 0-8-14-18-17-28-4-9-12-20-10-29 5z" fill="#2F2926"/>
+
+    <circle cx="77" cy="67" r="5" fill="#302D2B" stroke="none"/><circle cx="114" cy="67" r="5" fill="#302D2B" stroke="none"/>
+    <path d="M92 76c2 2 5 2 7 0" fill="none" stroke="#945B43" stroke-width="2"/>
+    <circle cx="96" cy="91" r="5" fill="#945B43" stroke="none"/>
+    <circle cx="66" cy="80" r="5" fill="#C87568" opacity="0.32" stroke="none"/>
+    <circle cx="124" cy="80" r="5" fill="#C87568" opacity="0.32" stroke="none"/>
+
+  </g>
+</svg>

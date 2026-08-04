@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Alice
+hair_style: ponytail
+glasses: false
+accessory: apron
+palette:
+  outline: "#2C3131"
+  hair: "#3B2B25"
+  skin: "#D8956E"
+  skin_shadow: "#B76B50"
+  overshirt: "#668F7B"
+  overshirt_shadow: "#456957"
+  tshirt: "#F3E8D6"
+  trousers: "#3C4544"
+  shoes: "#EEE7DC"
+  glasses: "#2C3131"
+  blush: "#CC7468"
+  cup: "#C58A54"

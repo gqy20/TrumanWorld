@@ -406,6 +406,11 @@ class AgentSummaryResponse(BaseModel):
     status: dict = Field(default_factory=dict, description="状态信息")
     profile: dict = Field(default_factory=dict, description="档案信息")
     config_id: str | None = Field(None, description="配置 ID", examples=["alice"])
+    visual_asset_id: str | None = Field(
+        None,
+        description="场景隔离的视觉资产 ID",
+        examples=["narrative_world/alice"],
+    )
 
 
 class AgentsListResponse(BaseModel):
@@ -902,6 +907,7 @@ class WorldSnapshotResponse(BaseModel):
         ge=0.25,
         le=8.0,
     )
+    scenario_id: str | None = Field(None, description="场景 Bundle ID")
     map_id: str | None = Field(None, description="Godot 地图稳定 ID")
     map_content_hash: str | None = Field(None, description="地图内容哈希")
     subject_agent_id: str | None = Field(None, description="当前场景主体 agent ID")

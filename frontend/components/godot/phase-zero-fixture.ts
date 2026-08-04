@@ -3,6 +3,7 @@ import type { GodotWorldSnapshot } from "./protocol";
 export const PHASE_ZERO_RUN_ID = "phase-zero";
 
 export const PHASE_ZERO_WORLD_SNAPSHOT: GodotWorldSnapshot = {
+  scenario_id: "campus_world",
   map_id: "campus-world-v2",
   map_content_hash: "sha256:e2a7e49020876c2fea7ec0850ba58ff955bd67a85a944835bffb02cffbc532da",
   tick: 12,
@@ -12,6 +13,8 @@ export const PHASE_ZERO_WORLD_SNAPSHOT: GodotWorldSnapshot = {
   agents: [
     {
       id: "mei",
+      config_id: "mei",
+      visual_asset_id: "campus_world/mei",
       name: "Mei",
       position_meters: [6.55, 0, -0.45],
       facing_radians: 0.3,
@@ -28,6 +31,8 @@ export const PHASE_ZERO_WORLD_SNAPSHOT: GodotWorldSnapshot = {
     },
     {
       id: "chen",
+      config_id: "chen",
+      visual_asset_id: "campus_world/chen",
       name: "Chen",
       position_meters: [0, 0, 1.4],
       facing_radians: -0.8,
@@ -35,6 +40,8 @@ export const PHASE_ZERO_WORLD_SNAPSHOT: GodotWorldSnapshot = {
     },
     {
       id: "lin",
+      config_id: "lin",
+      visual_asset_id: "campus_world/lin",
       name: "Lin",
       position_meters: [1.25, 0, 1.2],
       facing_radians: 2.4,

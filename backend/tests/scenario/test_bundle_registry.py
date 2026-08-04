@@ -12,6 +12,7 @@ from app.scenario.bundle_registry import (
     resolve_default_scenario_id,
     resolve_agents_root_for_scenario,
     resolve_sleep_config_for_scenario,
+    resolve_visual_asset_id_for_scenario,
 )
 
 
@@ -345,6 +346,26 @@ def test_resolve_agents_root_falls_back_to_project_agents_when_bundle_agents_mis
     resolved = resolve_agents_root_for_scenario("narrative_world")
 
     assert resolved == project_agents_root
+
+
+def test_visual_asset_id_requires_scenario_owned_appearance(tmp_path, monkeypatch):
+    bundle_root = tmp_path / "scenarios" / "narrative_world"
+    agent_root = bundle_root / "agents" / "truman"
+    agent_root.mkdir(parents=True)
+    (bundle_root / "scenario.yml").write_text(
+        "id: narrative_world\nname: Narrative World\nversion: 1\nadapter: bundle_world\n",
+        encoding="utf-8",
+    )
+    (agent_root / "appearance.yml").write_text("schema_version: 1\n", encoding="utf-8")
+    monkeypatch.setenv("TRUMANWORLD_PROJECT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+    assert (
+        resolve_visual_asset_id_for_scenario("narrative_world", "truman")
+        == "narrative_world/truman"
+    )
+    assert resolve_visual_asset_id_for_scenario("narrative_world", "missing") is None
+    assert resolve_visual_asset_id_for_scenario("missing", "truman") is None
 
 
 def test_load_world_config_for_scenario_reads_bundle_world_file(tmp_path, monkeypatch):

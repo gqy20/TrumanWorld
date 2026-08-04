@@ -1,0 +1,27 @@
+schema_version: 1
+
+canvas:
+  width: 192
+  height: 256
+  stroke_width: 4
+
+output_root: godot/world-client/assets/scenarios
+
+pose_sets:
+  humanoid_16_v1:
+    idle: {body_y: 0, left_arm: 5, right_arm: -5, left_leg: 2, right_leg: -2, expression: calm}
+    walk: {body_y: -2, left_arm: -25, right_arm: 25, left_leg: 18, right_leg: -18, expression: focused}
+    jog: {body_y: -4, left_arm: -40, right_arm: 40, left_leg: 28, right_leg: -28, expression: focused}
+    queue: {body_y: 0, left_arm: -35, right_arm: 35, left_leg: 0, right_leg: 0, expression: patient}
+    sit: {body_y: 20, left_arm: 8, right_arm: -8, left_leg: 52, right_leg: -52, expression: calm}
+    drink: {body_y: 1, left_arm: 5, right_arm: -58, left_leg: 2, right_leg: -2, expression: content, prop: cup}
+    talk: {body_y: 0, left_arm: 4, right_arm: -58, left_leg: 1, right_leg: -1, expression: smile}
+    use_object: {body_y: 1, left_arm: 10, right_arm: -58, left_leg: 1, right_leg: -1, expression: focused, prop: tool}
+    wave: {body_y: 0, left_arm: 4, right_arm: -145, left_leg: 1, right_leg: -1, expression: smile}
+    think: {body_y: 0, left_arm: -120, right_arm: -5, left_leg: 1, right_leg: -1, expression: thoughtful}
+    read: {body_y: 1, left_arm: -35, right_arm: 35, left_leg: 1, right_leg: -1, expression: focused, prop: book}
+    phone: {body_y: 0, left_arm: 4, right_arm: -145, left_leg: 1, right_leg: -1, expression: focused, prop: phone}
+    carry: {body_y: 1, left_arm: -35, right_arm: 35, left_leg: 1, right_leg: -1, expression: calm, prop: parcel}
+    celebrate: {body_y: -5, left_arm: 145, right_arm: -145, left_leg: 12, right_leg: -12, expression: delighted}
+    surprised: {body_y: -2, left_arm: 25, right_arm: -25, left_leg: 5, right_leg: -5, expression: surprised}
+    sleep: {body_y: 3, left_arm: 1, right_arm: -1, left_leg: 0, right_leg: 0, expression: asleep}

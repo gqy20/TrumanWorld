@@ -38,6 +38,8 @@ export type GodotEnvelope<TType extends string = string, TPayload = Record<strin
 export type GodotAgentSnapshot = {
   id: string;
   name: string;
+  config_id?: string | null;
+  visual_asset_id?: string | null;
   position_meters: [number, number, number];
   facing_radians: number;
   zone_id?: string | null;
@@ -81,6 +83,7 @@ export type GodotWorldSnapshot = {
   world_time: string;
   run_status: string;
   simulation_speed: number;
+  scenario_id?: string | null;
   agents: GodotAgentSnapshot[];
   object_states: Array<Record<string, unknown>>;
   conversations: GodotConversationSnapshot[];

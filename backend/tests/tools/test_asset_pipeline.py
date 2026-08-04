@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[3]
 PIPELINE_PATH = ROOT / "scripts" / "assets" / "pipeline.py"
@@ -34,14 +36,59 @@ def test_mmx_command_is_non_interactive_and_deterministic() -> None:
     job = pipeline.resolve_jobs()[1]
 
     command = pipeline.build_mmx_command(job, dry_run=True)
+    third_command = pipeline.build_mmx_command(job, dry_run=True, candidate_index=2)
 
     assert command[:3] == ["mmx", "image", "generate"]
     assert "--non-interactive" in command
     assert "--quiet" in command
     assert "--output" in command
     assert "--dry-run" in command
+    assert command[command.index("--n") + 1] == "1"
     assert command[command.index("--seed") + 1] == "12031"
+    assert third_command[third_command.index("--seed") + 1] == "12033"
+    assert third_command[third_command.index("--out-prefix") + 1].endswith("candidate_03")
     assert not any("sk-" in argument for argument in command)
+
+
+def test_checked_in_jobs_generate_three_independent_candidates() -> None:
+    job = pipeline.resolve_jobs()[1]
+
+    assert job.count == 3
+    assert job.max_parallel == 3
+    assert job.public_dict()["candidate_seeds"] == [12031, 12032, 12033]
+    assert job.background.requested_rgb == (255, 0, 255)
+    assert "RGB(255, 0, 255)" in job.prompt
+    assert "#FF00FF" in job.prompt
+
+
+def test_background_analysis_reports_detected_color_and_rejects_gradient(
+    tmp_path: Path,
+) -> None:
+    contract = pipeline.BackgroundContract(
+        id="test",
+        requested_rgb=(255, 0, 255),
+        sample_border_pixels=2,
+        color_tolerance=10,
+        uniformity_tolerance=5,
+    )
+    solid_path = tmp_path / "solid.png"
+    Image.new("RGB", (16, 16), (254, 1, 253)).save(solid_path)
+
+    solid = pipeline.analyze_background(solid_path, contract)
+
+    assert solid["status"] == "pass"
+    assert solid["detected_rgb"] == [254, 1, 253]
+    assert solid["detected_hex"] == "#FE01FD"
+
+    gradient_path = tmp_path / "gradient.png"
+    gradient = Image.new("RGB", (16, 16))
+    gradient.putdata([(255, min(255, x * 16), 255) for _y in range(16) for x in range(16)])
+    gradient.save(gradient_path)
+
+    rejected = pipeline.analyze_background(gradient_path, contract)
+
+    assert rejected["status"] == "reject"
+    assert rejected["uniform"] is False
 
 
 def test_pipeline_rejects_template_with_missing_variable(
@@ -125,6 +172,42 @@ def test_execute_job_reports_generator_error_without_dumping_command(
         pipeline.execute_job(job, dry_run=False)
 
     assert "--prompt" not in str(raised.value)
+    receipt = json.loads((tmp_path / "receipts" / f"{job.id}.generated.json").read_text())
+    assert len(receipt["generation"]["candidates"]) == 3
+    assert all(
+        candidate["status"] == "failed"
+        and candidate["attempts"] == 2
+        and len(candidate["errors"]) == 2
+        for candidate in receipt["generation"]["candidates"]
+    )
+
+
+def test_candidate_retries_a_transient_generator_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = pipeline.resolve_jobs()[0]
+    job = pipeline.ResolvedJob(
+        **{
+            **source.__dict__,
+            "count": 1,
+            "output_directory": tmp_path / "raw",
+            "receipt_directory": tmp_path / "receipts",
+        }
+    )
+    job.output_directory.mkdir()
+    outcomes = iter(
+        [
+            subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="temporary EOF"),
+            subprocess.CompletedProcess(args=[], returncode=0, stdout='{"saved": []}', stderr=""),
+        ]
+    )
+    monkeypatch.setattr(pipeline.subprocess, "run", lambda *args, **kwargs: next(outcomes))
+
+    candidate = pipeline._execute_candidate(job, 0, dry_run=True)
+
+    assert candidate["status"] == "succeeded"
+    assert candidate["attempts"] == 2
+    assert candidate["errors"] == [{"attempt": 1, "exit_code": 1, "detail": "temporary EOF"}]
 
 
 def test_require_mmx_cli_rejects_outdated_version(monkeypatch: pytest.MonkeyPatch) -> None:

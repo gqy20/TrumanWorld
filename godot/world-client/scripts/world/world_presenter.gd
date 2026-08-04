@@ -21,7 +21,7 @@ func apply_snapshot(payload: Dictionary) -> void:
 		if agent_id.is_empty():
 			continue
 		seen_ids[agent_id] = true
-		var avatar := _get_or_create_avatar(agent_id)
+		var avatar := _get_or_create_avatar(agent_id, str(agent.get("visual_asset_id", "")))
 		avatar.configure(agent)
 		avatar.set_highlighted(agent_id == _highlighted_agent_id)
 
@@ -60,11 +60,12 @@ func set_presentation_paused(value: bool) -> void:
 		avatar.set_presentation_paused(value)
 
 
-func _get_or_create_avatar(agent_id: String) -> AgentAvatar:
+func _get_or_create_avatar(agent_id: String, visual_asset_id: String = "") -> AgentAvatar:
 	if _avatars.has(agent_id):
 		return _avatars[agent_id] as AgentAvatar
 	var avatar := AgentAvatar.new()
 	avatar.agent_id = agent_id
+	avatar.visual_asset_id = visual_asset_id
 	avatar.selected.connect(_on_agent_selected)
 	add_child(avatar)
 	_avatars[agent_id] = avatar

@@ -51,6 +51,7 @@ async def test_get_world_snapshot_returns_locations_agents_and_public_events(cli
     assert world_response.status_code == 200
     body = world_response.json()
     assert body["run"]["id"] == run_id
+    assert body["scenario_id"] == "narrative_world"
     assert body["subject_agent_id"]
     assert len(body["locations"]) == 7
     assert body["navigation"]["version"] == 1
@@ -65,6 +66,8 @@ async def test_get_world_snapshot_returns_locations_agents_and_public_events(cli
     )
     assert isinstance(occupant["status"], dict)
     assert isinstance(occupant["profile"], dict)
+    assert occupant["config_id"]
+    assert occupant["visual_asset_id"] == f"narrative_world/{occupant['config_id']}"
     assert len(body["recent_events"]) >= 1
     assert body["director_stats"] == {"total": 0, "executed": 0, "execution_rate": 0}
 

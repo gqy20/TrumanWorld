@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Mei
+hair_style: bob
+glasses: true
+accessory: none
+palette:
+  outline: "#292A31"
+  hair: "#24262D"
+  skin: "#F1B995"
+  skin_shadow: "#D98E73"
+  overshirt: "#4F9691"
+  overshirt_shadow: "#397F7C"
+  tshirt: "#F5E8CE"
+  trousers: "#3B3C47"
+  shoes: "#F4EEE1"
+  glasses: "#303039"
+  blush: "#E98D83"
+  cup: "#DCA86F"

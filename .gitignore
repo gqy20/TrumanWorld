@@ -66,6 +66,7 @@ coverage/
 
 # Godot editor and generated Web export
 godot/**/.godot/
+godot/**/*.import
 frontend/public/godot-world/*
 !frontend/public/godot-world/.gitkeep
 

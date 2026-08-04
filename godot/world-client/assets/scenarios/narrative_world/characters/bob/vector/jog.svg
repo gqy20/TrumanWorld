@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="256" viewBox="0 0 192 256">
+  <title>Bob — jog</title>
+  <desc>Deterministic transparent Truman World character sprite.</desc>
+  <g transform="translate(0 -4)" stroke="#303238" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 61C47 27 67 7 95 6c32-1 51 20 51 54l-6 28H53z" fill="#66503D"/>
+    <g aria-label="back-leg" transform="rotate(-28, 108, 170)">
+      <rect x="98" y="162" width="25" height="66" rx="12" fill="#41454C"/>
+      <path d="M99 218h27l9 10c3 4 1 10-5 10H99z" fill="#DDD6C9"/>
+    </g>
+    <g aria-label="back-arm" transform="rotate(40, 126, 116)">
+      <rect x="116" y="108" width="23" height="68" rx="11" fill="#53656D"/>
+      <circle cx="128" cy="178" r="11" fill="#DCA17C"/>
+    </g>
+    <g aria-label="front-leg" transform="rotate(28, 83, 170)">
+      <rect x="70" y="162" width="27" height="67" rx="12" fill="#41454C"/>
+      <path d="M68 219h29v19H61c-7 0-9-8-3-12z" fill="#DDD6C9"/>
+    </g>
+    <path d="M73 109c12-9 34-9 46 0l12 65H62z" fill="#DCCDAF"/>
+    <path d="M71 108l23 12-7 58H55l4-46c2-12 5-20 12-24z" fill="#71838B"/>
+    <path d="M119 108l-24 12 7 58h34l-5-47c-2-11-6-19-12-23z" fill="#71838B"/>
+    <path d="M95 121v54M63 153h20m28 0h19" fill="none" stroke="#53656D" stroke-width="3"/>
+
+    <g aria-label="front-arm" transform="rotate(-40, 64, 116)">
+      <rect x="52" y="108" width="23" height="69" rx="11" fill="#71838B"/>
+      <circle cx="63" cy="179" r="11" fill="#DCA17C"/>
+    </g>
+    <rect x="84" y="91" width="23" height="28" rx="10" fill="#B87359"/>
+    <circle cx="52" cy="67" r="11" fill="#DCA17C"/>
+    <circle cx="139" cy="67" r="11" fill="#DCA17C"/>
+    <path d="M51 51c3-27 20-41 44-41 25 0 43 16 45 42l-4 28c-5 21-21 34-41 34-21 0-37-14-42-35z" fill="#DCA17C"/>
+    <path d="M48 57l9-30 10 8 10-23 13 12 13-19 9 19 17-10 3 21 14-2-4 22c-16-2-27-10-35-22-13 14-31 22-59 24z" fill="#66503D"/>
+
+    <circle cx="77" cy="67" r="3.5" fill="#303238" stroke="none"/><circle cx="114" cy="67" r="3.5" fill="#303238" stroke="none"/>
+    <path d="M92 76c2 2 5 2 7 0" fill="none" stroke="#B87359" stroke-width="2"/>
+    <path d="M88 90c5 2 10 2 15 0" fill="none" stroke="#B87359" stroke-width="3"/>
+    <circle cx="66" cy="80" r="5" fill="#CF7C70" opacity="0.32" stroke="none"/>
+    <circle cx="124" cy="80" r="5" fill="#CF7C70" opacity="0.32" stroke="none"/>
+
+  </g>
+</svg>

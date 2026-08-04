@@ -14,10 +14,10 @@ negative_prompt: >-
 templates:
   character_single_frame: >-
     {identity}. Full-body {direction}, {action}, {expression}. One isolated character centered
-    on a flat chroma-key magenta background, feet aligned to a clear ground baseline, generous
-    transparent-safe padding around the silhouette. Keep clothing, face, hair and body
-    proportions identical. A subject reference controls identity and costume only; redraw it from
-    scratch as flat 2D pixel art.
+    with feet aligned to a clear ground baseline and generous transparent-safe padding around the
+    silhouette. Keep clothing, face, hair and body proportions identical. A subject reference
+    controls identity and costume only; redraw it from scratch as flat 2D pixel art.
+    {background_contract}
 
   environment_sign: >-
     A front-facing pixel-art texture for {subject}, with the exact lettering "{lettering}",

@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Truman
+hair_style: short
+glasses: false
+accessory: tie
+palette:
+  outline: "#26313A"
+  hair: "#8A5A3B"
+  skin: "#EAB08B"
+  skin_shadow: "#C97D64"
+  overshirt: "#5B8AA4"
+  overshirt_shadow: "#3E657C"
+  tshirt: "#F4E9D5"
+  trousers: "#344553"
+  shoes: "#EDE7DA"
+  glasses: "#26313A"
+  blush: "#DE887A"
+  cup: "#D49B62"

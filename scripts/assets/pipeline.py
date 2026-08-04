@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import hashlib
 import json
+import math
 import re
+import statistics
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -14,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from PIL import Image
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = REPOSITORY_ROOT / "art" / "pipeline.yml"
@@ -33,6 +37,39 @@ class AssetExecutionError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class BackgroundContract:
+    id: str
+    requested_rgb: tuple[int, int, int]
+    sample_border_pixels: int
+    color_tolerance: float
+    uniformity_tolerance: float
+
+    @property
+    def hex_color(self) -> str:
+        return "#" + "".join(f"{channel:02X}" for channel in self.requested_rgb)
+
+    @property
+    def prompt(self) -> str:
+        red, green, blue = self.requested_rgb
+        return (
+            f"The entire background must be one perfectly uniform flat solid color: "
+            f"RGB({red}, {green}, {blue}), HEX {self.hex_color}, edge to edge. Every background "
+            "pixel must have the same color. No gradient, texture, vignette, lighting change, "
+            "cast shadow, contact shadow, floor line, glow, dust, text, dividers or watermark."
+        )
+
+    def public_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "requested_rgb": list(self.requested_rgb),
+            "requested_hex": self.hex_color,
+            "sample_border_pixels": self.sample_border_pixels,
+            "color_tolerance": self.color_tolerance,
+            "uniformity_tolerance": self.uniformity_tolerance,
+        }
+
+
+@dataclass(frozen=True)
 class ResolvedJob:
     id: str
     kind: str
@@ -42,9 +79,13 @@ class ResolvedJob:
     width: int
     height: int
     count: int
+    seed_stride: int
+    max_parallel: int
+    retry_attempts: int
     output_directory: Path
     receipt_directory: Path
     subject_reference: str | None
+    background: BackgroundContract | None
     minimum_mmx_version: str
 
     def public_dict(self) -> dict[str, Any]:
@@ -57,9 +98,16 @@ class ResolvedJob:
             "width": self.width,
             "height": self.height,
             "count": self.count,
+            "candidate_strategy": "independent_parallel",
+            "candidate_seeds": [
+                self.seed + index * self.seed_stride for index in range(self.count)
+            ],
+            "max_parallel": self.max_parallel,
+            "retry_attempts": self.retry_attempts,
             "output_directory": str(self.output_directory),
             "receipt_directory": str(self.receipt_directory),
             "subject_reference": self.subject_reference,
+            "background": self.background.public_dict() if self.background else None,
             "minimum_mmx_version": self.minimum_mmx_version,
         }
 
@@ -96,12 +144,20 @@ def resolve_jobs(config_path: Path = DEFAULT_CONFIG) -> list[ResolvedJob]:
     width = _mmx_dimension(defaults.get("width"), "defaults.width")
     height = _mmx_dimension(defaults.get("height"), "defaults.height")
     count = _positive_int(defaults.get("count"), "defaults.count")
+    seed_stride = _positive_int(defaults.get("seed_stride", 1), "defaults.seed_stride")
+    max_parallel = _positive_int(
+        defaults.get("max_parallel", 3), "defaults.max_parallel"
+    )
+    retry_attempts = _positive_int(
+        defaults.get("retry_attempts", 2), "defaults.retry_attempts"
+    )
     _optional_bool(defaults, "prompt_optimizer", default=False)
     _optional_bool(defaults, "aigc_watermark", default=False)
     templates = _require_mapping(style, "templates")
     characters = _require_mapping(characters_config, "characters")
     base_prompt = _require_string(style, "base_prompt").strip()
     negative_prompt = _require_string(style, "negative_prompt").strip()
+    backgrounds = _resolve_backgrounds(config)
     raw_jobs = config.get("jobs")
     if not isinstance(raw_jobs, list) or not raw_jobs:
         raise AssetConfigurationError("pipeline jobs must be a non-empty list")
@@ -121,16 +177,30 @@ def resolve_jobs(config_path: Path = DEFAULT_CONFIG) -> list[ResolvedJob]:
         template_id = _require_string(raw_job, "template")
         template = templates.get(template_id)
         if not isinstance(template, str) or not template.strip():
-            raise AssetConfigurationError(f"job {job_id} has unknown template: {template_id}")
+            raise AssetConfigurationError(
+                f"job {job_id} has unknown template: {template_id}"
+            )
         variables = dict(_optional_mapping(raw_job, "variables"))
+        background_id = _optional_string(raw_job, "background")
+        background = backgrounds.get(background_id) if background_id else None
+        if background_id and background is None:
+            raise AssetConfigurationError(
+                f"job {job_id} has unknown background contract: {background_id}"
+            )
+        if background is not None:
+            variables["background_contract"] = background.prompt
         subject_reference: str | None = None
         character_id = raw_job.get("character")
         if character_id is not None:
             if not isinstance(character_id, str) or character_id not in characters:
-                raise AssetConfigurationError(f"job {job_id} has unknown character: {character_id}")
+                raise AssetConfigurationError(
+                    f"job {job_id} has unknown character: {character_id}"
+                )
             character = characters[character_id]
             if not isinstance(character, dict):
-                raise AssetConfigurationError(f"character {character_id} must be an object")
+                raise AssetConfigurationError(
+                    f"character {character_id} must be an object"
+                )
             variables["identity"] = _require_string(character, "identity").strip()
             raw_reference = character.get("subject_reference")
             use_subject_reference = raw_job.get("use_subject_reference", True)
@@ -151,7 +221,9 @@ def resolve_jobs(config_path: Path = DEFAULT_CONFIG) -> list[ResolvedJob]:
             raise AssetConfigurationError(
                 f"job {job_id} is missing template variable: {exc.args[0]}"
             ) from exc
-        prompt = "\n\n".join((base_prompt, task_prompt.strip(), f"Avoid: {negative_prompt}"))
+        prompt = "\n\n".join(
+            (base_prompt, task_prompt.strip(), f"Avoid: {negative_prompt}")
+        )
         if len(prompt) > MMX_MAXIMUM_PROMPT_LENGTH:
             raise AssetConfigurationError(
                 f"job {job_id} prompt has {len(prompt)} characters; "
@@ -168,12 +240,18 @@ def resolve_jobs(config_path: Path = DEFAULT_CONFIG) -> list[ResolvedJob]:
                 width=width,
                 height=height,
                 count=count,
+                seed_stride=seed_stride,
+                max_parallel=max_parallel,
+                retry_attempts=retry_attempts,
                 output_directory=repository_path(
                     _optional_string(raw_job, "output_directory")
                     or _require_string(defaults, "output_directory")
                 ),
-                receipt_directory=repository_path(_require_string(defaults, "receipt_directory")),
+                receipt_directory=repository_path(
+                    _require_string(defaults, "receipt_directory")
+                ),
                 subject_reference=subject_reference,
+                background=background,
                 minimum_mmx_version=minimum_mmx_version,
             )
         )
@@ -184,7 +262,14 @@ def resolve_jobs(config_path: Path = DEFAULT_CONFIG) -> list[ResolvedJob]:
     return resolved
 
 
-def build_mmx_command(job: ResolvedJob, *, dry_run: bool) -> list[str]:
+def build_mmx_command(
+    job: ResolvedJob, *, dry_run: bool, candidate_index: int = 0
+) -> list[str]:
+    if not 0 <= candidate_index < job.count:
+        raise AssetConfigurationError(
+            f"candidate index out of range: {candidate_index}"
+        )
+    candidate_number = candidate_index + 1
     command = [
         "mmx",
         "image",
@@ -196,20 +281,22 @@ def build_mmx_command(job: ResolvedJob, *, dry_run: bool) -> list[str]:
         "--height",
         str(job.height),
         "--n",
-        str(job.count),
+        "1",
         "--seed",
-        str(job.seed),
+        str(job.seed + candidate_index * job.seed_stride),
         "--out-dir",
         str(job.output_directory),
         "--out-prefix",
-        job.id,
+        f"{job.id}_candidate_{candidate_number:02d}",
         "--non-interactive",
         "--quiet",
         "--output",
         "json",
     ]
     if job.subject_reference:
-        command.extend(("--subject-ref", f"type=character,image={job.subject_reference}"))
+        command.extend(
+            ("--subject-ref", f"type=character,image={job.subject_reference}")
+        )
     if dry_run:
         command.append("--dry-run")
     return command
@@ -219,31 +306,155 @@ def execute_job(job: ResolvedJob, *, dry_run: bool) -> dict[str, Any]:
     require_mmx_cli(job.minimum_mmx_version)
     job.output_directory.mkdir(parents=True, exist_ok=True)
     job.receipt_directory.mkdir(parents=True, exist_ok=True)
-    command = build_mmx_command(job, dry_run=dry_run)
-    completed = subprocess.run(command, check=False, capture_output=True, text=True)
-    if completed.returncode:
-        detail = completed.stderr.strip() or completed.stdout.strip() or "no error details"
-        raise AssetExecutionError(
-            f"MMX job {job.id} failed with exit code {completed.returncode}: {detail}"
-        )
-    raw_output = completed.stdout.strip()
-    try:
-        result: Any = json.loads(raw_output)
-    except json.JSONDecodeError:
-        result = {"stdout": raw_output.splitlines()}
-    result = sanitize_generator_result(result)
+    worker_count = min(job.count, job.max_parallel)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = [
+            executor.submit(_execute_candidate, job, index, dry_run=dry_run)
+            for index in range(job.count)
+        ]
+        candidates = [future.result() for future in futures]
     receipt = {
-        "schema_version": 1,
+        "schema_version": 2,
         "dry_run": dry_run,
         "job": job.public_dict(),
-        "result": result,
+        "generation": {
+            "strategy": "independent_parallel",
+            "worker_count": worker_count,
+            "candidates": candidates,
+        },
     }
     receipt_suffix = "dry-run" if dry_run else "generated"
     receipt_path = job.receipt_directory / f"{job.id}.{receipt_suffix}.json"
     receipt_path.write_text(
         json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    return {"receipt": str(receipt_path), "result": result}
+    failed = [candidate for candidate in candidates if candidate["status"] == "failed"]
+    if failed:
+        failed_numbers = ", ".join(str(candidate["index"]) for candidate in failed)
+        last_error = failed[0]["errors"][-1]["detail"]
+        raise AssetExecutionError(
+            f"MMX job {job.id} failed after retries for candidate(s) {failed_numbers}; "
+            f"last error: {last_error}; receipt: {receipt_path}"
+        )
+    return {"receipt": str(receipt_path), "candidates": candidates}
+
+
+def _execute_candidate(
+    job: ResolvedJob, candidate_index: int, *, dry_run: bool
+) -> dict[str, Any]:
+    candidate_number = candidate_index + 1
+    prefix = f"{job.id}_candidate_{candidate_number:02d}"
+    before = _matching_images(job.output_directory, prefix)
+    command = build_mmx_command(job, dry_run=dry_run, candidate_index=candidate_index)
+    errors: list[dict[str, Any]] = []
+    completed: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(1, job.retry_attempts + 1):
+        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        if not completed.returncode:
+            break
+        detail = (
+            completed.stderr.strip() or completed.stdout.strip() or "no error details"
+        )
+        errors.append(
+            {
+                "attempt": attempt,
+                "exit_code": completed.returncode,
+                "detail": sanitize_generator_result(detail),
+            }
+        )
+    assert completed is not None
+    if completed.returncode:
+        return {
+            "index": candidate_number,
+            "seed": job.seed + candidate_index * job.seed_stride,
+            "output_prefix": prefix,
+            "status": "failed",
+            "attempts": job.retry_attempts,
+            "files": [],
+            "background_qa": [],
+            "errors": errors,
+        }
+    raw_output = completed.stdout.strip()
+    try:
+        result: Any = json.loads(raw_output)
+    except json.JSONDecodeError:
+        result = {"stdout": raw_output.splitlines()}
+
+    files = [] if dry_run else _changed_images(job.output_directory, prefix, before)
+    background_qa = [analyze_background(path, job.background) for path in files]
+    return {
+        "index": candidate_number,
+        "seed": job.seed + candidate_index * job.seed_stride,
+        "output_prefix": prefix,
+        "status": "succeeded",
+        "attempts": len(errors) + 1,
+        "files": [str(path) for path in files],
+        "background_qa": background_qa,
+        "errors": errors,
+        "result": sanitize_generator_result(result),
+    }
+
+
+def _matching_images(directory: Path, prefix: str) -> dict[Path, tuple[int, int]]:
+    extensions = {".jpg", ".jpeg", ".png", ".webp"}
+    return {
+        path: (path.stat().st_mtime_ns, path.stat().st_size)
+        for path in directory.glob(f"{prefix}*")
+        if path.is_file() and path.suffix.lower() in extensions
+    }
+
+
+def _changed_images(
+    directory: Path, prefix: str, before: dict[Path, tuple[int, int]]
+) -> list[Path]:
+    after = _matching_images(directory, prefix)
+    return sorted(
+        path for path, fingerprint in after.items() if before.get(path) != fingerprint
+    )
+
+
+def analyze_background(
+    path: Path, contract: BackgroundContract | None
+) -> dict[str, Any]:
+    if contract is None:
+        return {"status": "not_required"}
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+    width, height = image.size
+    border = min(contract.sample_border_pixels, max(1, min(width, height) // 4))
+    pixels = image.load()
+    samples = [
+        pixels[x, y]
+        for y in range(height)
+        for x in range(width)
+        if x < border or x >= width - border or y < border or y >= height - border
+    ]
+    detected = tuple(
+        round(statistics.median(pixel[channel] for pixel in samples))
+        for channel in range(3)
+    )
+    deviations = sorted(_color_distance(pixel, detected) for pixel in samples)
+    percentile_index = min(len(deviations) - 1, math.ceil(len(deviations) * 0.95) - 1)
+    uniformity_p95 = round(deviations[percentile_index], 2)
+    requested_distance = round(_color_distance(detected, contract.requested_rgb), 2)
+    color_matches = requested_distance <= contract.color_tolerance
+    uniform = uniformity_p95 <= contract.uniformity_tolerance
+    return {
+        "status": "pass" if color_matches and uniform else "reject",
+        "requested_rgb": list(contract.requested_rgb),
+        "requested_hex": contract.hex_color,
+        "detected_rgb": list(detected),
+        "detected_hex": "#" + "".join(f"{channel:02X}" for channel in detected),
+        "requested_distance": requested_distance,
+        "border_uniformity_p95": uniformity_p95,
+        "color_matches": color_matches,
+        "uniform": uniform,
+        "sample_border_pixels": border,
+    }
+
+
+def _color_distance(left: tuple[int, int, int], right: tuple[int, int, int]) -> float:
+    return math.sqrt(sum((left[index] - right[index]) ** 2 for index in range(3)))
 
 
 def sanitize_generator_result(value: Any) -> Any:
@@ -276,6 +487,53 @@ def _validate_toolchain(config: dict[str, Any]) -> str:
     if mmx.get("image_model") != "image-01":
         raise AssetConfigurationError("toolchain.mmx.image_model must be image-01")
     return minimum_mmx_version
+
+
+def _resolve_backgrounds(config: dict[str, Any]) -> dict[str, BackgroundContract]:
+    raw_backgrounds = _optional_mapping(config, "backgrounds")
+    resolved: dict[str, BackgroundContract] = {}
+    for background_id, raw_contract in raw_backgrounds.items():
+        if not isinstance(background_id, str) or not SAFE_ID_PATTERN.fullmatch(
+            background_id
+        ):
+            raise AssetConfigurationError(
+                f"invalid background contract id: {background_id}"
+            )
+        if not isinstance(raw_contract, dict):
+            raise AssetConfigurationError(
+                f"background contract {background_id} must be an object"
+            )
+        raw_rgb = raw_contract.get("requested_rgb")
+        if (
+            not isinstance(raw_rgb, list)
+            or len(raw_rgb) != 3
+            or any(
+                not isinstance(channel, int)
+                or isinstance(channel, bool)
+                or not 0 <= channel <= 255
+                for channel in raw_rgb
+            )
+        ):
+            raise AssetConfigurationError(
+                f"background contract {background_id} requested_rgb must contain three bytes"
+            )
+        resolved[background_id] = BackgroundContract(
+            id=background_id,
+            requested_rgb=(raw_rgb[0], raw_rgb[1], raw_rgb[2]),
+            sample_border_pixels=_positive_int(
+                raw_contract.get("sample_border_pixels"),
+                f"background contract {background_id} sample_border_pixels",
+            ),
+            color_tolerance=_positive_number(
+                raw_contract.get("color_tolerance"),
+                f"background contract {background_id} color_tolerance",
+            ),
+            uniformity_tolerance=_positive_number(
+                raw_contract.get("uniformity_tolerance"),
+                f"background contract {background_id} uniformity_tolerance",
+            ),
+        )
+    return resolved
 
 
 def require_mmx_cli(minimum_version: str) -> None:
@@ -339,6 +597,17 @@ def _positive_int(value: Any, label: str) -> int:
     return value
 
 
+def _positive_number(value: Any, label: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise AssetConfigurationError(f"{label} must be a positive number")
+    return float(value)
+
+
 def _mmx_dimension(value: Any, label: str) -> int:
     dimension = _positive_int(value, label)
     if not MMX_MINIMUM_DIMENSION <= dimension <= MMX_MAXIMUM_DIMENSION:
@@ -362,9 +631,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate", help="validate all pipeline and prompt files")
-    plan = subparsers.add_parser("plan", help="print fully resolved prompts without generation")
+    plan = subparsers.add_parser(
+        "plan", help="print fully resolved prompts without generation"
+    )
     plan.add_argument("--job")
-    generate = subparsers.add_parser("generate", help="execute an MMX image generation job")
+    generate = subparsers.add_parser(
+        "generate", help="execute an MMX image generation job"
+    )
     generate.add_argument("--job", required=True)
     generate.add_argument("--dry-run", action="store_true")
     return parser
@@ -381,7 +654,13 @@ def main() -> int:
         if not selected:
             raise AssetConfigurationError(f"unknown job: {args.job}")
         if args.command == "plan":
-            print(json.dumps([job.public_dict() for job in selected], ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    [job.public_dict() for job in selected],
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
             return 0
         result = execute_job(selected[0], dry_run=args.dry_run)
         print(json.dumps(result, ensure_ascii=False, indent=2))

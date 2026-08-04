@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Professor Chen
+hair_style: short
+glasses: true
+accessory: tie
+palette:
+  outline: "#303238"
+  hair: "#6F7275"
+  skin: "#D7A17F"
+  skin_shadow: "#B6765D"
+  overshirt: "#776C61"
+  overshirt_shadow: "#574E47"
+  tshirt: "#EDE4D4"
+  trousers: "#3F4148"
+  shoes: "#DED7CA"
+  glasses: "#303238"
+  blush: "#C77A70"
+  cup: "#BE8754"

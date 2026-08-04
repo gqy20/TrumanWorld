@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "scenario_id": "campus_world",
+  "characters": [
+    {
+      "character_id": "chen",
+      "visual_asset_id": "campus_world/chen"
+    },
+    {
+      "character_id": "lin",
+      "visual_asset_id": "campus_world/lin"
+    },
+    {
+      "character_id": "mei",
+      "visual_asset_id": "campus_world/mei"
+    }
+  ]
+}

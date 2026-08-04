@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_world_map_disconnected_entrances()
 	_test_client_clock_pause_and_speed()
 	_test_activity_visual_mapping()
+	_test_mei_vector_avatar()
 	if _failures == 0:
 		print("Godot world client tests passed")
 		quit(0)
@@ -97,6 +98,27 @@ func _test_runtime_map_visuals() -> void:
 	var meshes := visuals.find_children("*", "MeshInstance3D", true, false)
 	_expect(meshes.size() >= 15, "runtime map builds visible roads and locations")
 	map_root.free()
+
+
+func _test_mei_vector_avatar() -> void:
+	var pose_ids := [
+		"idle", "walk", "jog", "queue", "sit", "drink", "talk", "use_object",
+		"wave", "think", "read", "phone", "carry", "celebrate", "surprised", "sleep",
+	]
+	for pose_id in pose_ids:
+		var path := "res://assets/scenarios/campus_world/characters/mei/vector/%s.svg" % pose_id
+		_expect(ResourceLoader.exists(path), "Mei %s SVG exists" % pose_id)
+		_expect(load(path) is Texture2D, "Mei %s SVG imports as Texture2D" % pose_id)
+	var avatar := AgentAvatar.new()
+	avatar.agent_id = "run-1-mei"
+	avatar.visual_asset_id = "campus_world/mei"
+	avatar._build_visuals()
+	_expect(avatar.get_node_or_null("VectorCharacter") is Sprite3D, "Mei uses SVG Sprite3D")
+	var fallback := avatar.get_node_or_null("BodyRig") as Node3D
+	_expect(fallback != null and not fallback.visible, "Mei hides procedural mesh fallback")
+	for pose_id in pose_ids:
+		_expect(avatar._vector_pose_for_state(pose_id) == pose_id, "Mei maps %s pose" % pose_id)
+	avatar.free()
 
 
 func _test_world_map_duplicate_id() -> void:

@@ -40,7 +40,11 @@ from app.api.schemas.simulation import (
 )
 from app.infra.db import get_db_session
 from app.infra.logging import get_logger
-from app.scenario.bundle_registry import load_ui_config_for_scenario, load_world_config_for_scenario
+from app.scenario.bundle_registry import (
+    load_ui_config_for_scenario,
+    load_world_config_for_scenario,
+    resolve_visual_asset_id_for_scenario,
+)
 from app.scenario.spatial_manifest import load_world_map_manifest_for_scenario
 from app.scenario.runtime_config import build_scenario_runtime_config
 from app.scenario.types import get_agent_config_id
@@ -659,6 +663,7 @@ async def get_world_snapshot(
         elif position_meters is None and agent.current_location_id in locations_by_id:
             location = locations_by_id[agent.current_location_id]
             position_meters = (float(location.x), 0.0, float(location.y))
+        config_id = get_agent_config_id(agent.profile)
         agent_summaries[agent.id] = AgentSummaryResponse(
             id=agent.id,
             name=agent.name,
@@ -676,7 +681,8 @@ async def get_world_snapshot(
             ),
             status=agent.status or {},
             profile=agent.profile or {},
-            config_id=get_agent_config_id(agent.profile),
+            config_id=config_id,
+            visual_asset_id=resolve_visual_asset_id_for_scenario(run.scenario_type, config_id),
         )
 
     activities_by_agent_id = {
@@ -753,6 +759,7 @@ async def get_world_snapshot(
         world_time=clock.iso,
         run_status=run.status,
         simulation_speed=run_payload.simulation_speed,
+        scenario_id=run.scenario_type,
         subject_agent_id=resolve_subject_agent_id(agents, run.scenario_type),
         agents=list(agent_summaries.values()),
         locations=locations_payload,

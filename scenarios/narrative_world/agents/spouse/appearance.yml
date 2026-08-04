@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Meryl
+hair_style: long
+glasses: false
+accessory: badge
+palette:
+  outline: "#34303A"
+  hair: "#6A4037"
+  skin: "#E8AF8E"
+  skin_shadow: "#C77E69"
+  overshirt: "#B96F73"
+  overshirt_shadow: "#8E5058"
+  tshirt: "#F6EADB"
+  trousers: "#39485A"
+  shoes: "#EFE9DF"
+  glasses: "#34303A"
+  blush: "#E18782"
+  cup: "#C99562"

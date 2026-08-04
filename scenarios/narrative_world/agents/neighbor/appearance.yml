@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Lauren
+hair_style: ponytail
+glasses: false
+accessory: none
+palette:
+  outline: "#302E39"
+  hair: "#A86C42"
+  skin: "#F0B795"
+  skin_shadow: "#CF856D"
+  overshirt: "#8C78A8"
+  overshirt_shadow: "#66577F"
+  tshirt: "#F5E8D8"
+  trousers: "#454354"
+  shoes: "#EFE8DC"
+  glasses: "#302E39"
+  blush: "#E38A83"
+  cup: "#D09A61"

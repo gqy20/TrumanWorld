@@ -1,0 +1,18 @@
+schema_version: 1
+display_name: Marlon
+hair_style: wave
+glasses: false
+accessory: tie
+palette:
+  outline: "#302D2B"
+  hair: "#2F2926"
+  skin: "#B97955"
+  skin_shadow: "#945B43"
+  overshirt: "#C08A48"
+  overshirt_shadow: "#8D6335"
+  tshirt: "#F1E2C8"
+  trousers: "#3F3A39"
+  shoes: "#E9DFD0"
+  glasses: "#302D2B"
+  blush: "#C87568"
+  cup: "#C99058"

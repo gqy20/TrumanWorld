@@ -12,11 +12,21 @@ toolchain:
 defaults:
   width: 1024
   height: 1024
-  count: 1
+  count: 3
+  seed_stride: 1
+  max_parallel: 3
+  retry_attempts: 2
   prompt_optimizer: false
   aigc_watermark: false
   output_directory: art/generated/raw
   receipt_directory: art/generated/receipts
+
+backgrounds:
+  chroma_magenta:
+    requested_rgb: [255, 0, 255]
+    sample_border_pixels: 24
+    color_tolerance: 24
+    uniformity_tolerance: 18
 
 prompt_sources:
   style: art/prompts/style.yml
@@ -28,6 +38,7 @@ jobs:
     character: mei
     template: character_single_frame
     seed: 12031
+    background: chroma_magenta
     use_subject_reference: false
     output_directory: art/references/characters
     variables:
@@ -40,6 +51,7 @@ jobs:
     character: mei
     template: character_single_frame
     seed: 12031
+    background: chroma_magenta
     variables:
       action: relaxed idle pose
       direction: front view
@@ -50,6 +62,7 @@ jobs:
     character: mei
     template: character_single_frame
     seed: 12032
+    background: chroma_magenta
     variables:
       action: walking left at a natural everyday pace
       direction: strict left profile
@@ -60,6 +73,7 @@ jobs:
     character: mei
     template: character_single_frame
     seed: 12033
+    background: chroma_magenta
     variables:
       action: holding a small coffee cup close to her mouth during a quiet sip
       direction: front-left three-quarter view
@@ -70,6 +84,7 @@ jobs:
     character: mei
     template: character_single_frame
     seed: 12034
+    background: chroma_magenta
     variables:
       action: making one restrained conversational hand gesture
       direction: front-left three-quarter view

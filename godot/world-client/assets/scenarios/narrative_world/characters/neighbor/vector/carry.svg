@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="256" viewBox="0 0 192 256">
+  <title>Lauren — carry</title>
+  <desc>Deterministic transparent Truman World character sprite.</desc>
+  <g transform="translate(0 1)" stroke="#302E39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M49 59C49 23 68 5 97 5c30 0 48 19 48 54l-5 32H54zM140 43c28 2 34 30 18 49-4-18-13-25-25-28z" fill="#A86C42"/>
+    <g aria-label="back-leg" transform="rotate(-1, 108, 170)">
+      <rect x="98" y="162" width="25" height="66" rx="12" fill="#454354"/>
+      <path d="M99 218h27l9 10c3 4 1 10-5 10H99z" fill="#EFE8DC"/>
+    </g>
+    <g aria-label="back-arm" transform="rotate(35, 126, 116)">
+      <rect x="116" y="108" width="23" height="68" rx="11" fill="#66577F"/>
+      <circle cx="128" cy="178" r="11" fill="#F0B795"/>
+    </g>
+    <g aria-label="front-leg" transform="rotate(1, 83, 170)">
+      <rect x="70" y="162" width="27" height="67" rx="12" fill="#454354"/>
+      <path d="M68 219h29v19H61c-7 0-9-8-3-12z" fill="#EFE8DC"/>
+    </g>
+    <path d="M73 109c12-9 34-9 46 0l12 65H62z" fill="#F5E8D8"/>
+    <path d="M71 108l23 12-7 58H55l4-46c2-12 5-20 12-24z" fill="#8C78A8"/>
+    <path d="M119 108l-24 12 7 58h34l-5-47c-2-11-6-19-12-23z" fill="#8C78A8"/>
+    <path d="M95 121v54M63 153h20m28 0h19" fill="none" stroke="#66577F" stroke-width="3"/>
+
+    <g aria-label="front-arm" transform="rotate(-35, 64, 116)">
+      <rect x="52" y="108" width="23" height="69" rx="11" fill="#8C78A8"/>
+      <circle cx="63" cy="179" r="11" fill="#F0B795"/>
+    </g>
+    <rect x="84" y="91" width="23" height="28" rx="10" fill="#CF856D"/>
+    <circle cx="52" cy="67" r="11" fill="#F0B795"/>
+    <circle cx="139" cy="67" r="11" fill="#F0B795"/>
+    <path d="M51 51c3-27 20-41 44-41 25 0 43 16 45 42l-4 28c-5 21-21 34-41 34-21 0-37-14-42-35z" fill="#F0B795"/>
+    <path d="M50 55C52 23 70 7 97 7c23 0 40 13 46 36-15 1-28-5-37-15-11 14-30 23-56 27z" fill="#A86C42"/>
+
+    <circle cx="77" cy="67" r="3.5" fill="#302E39" stroke="none"/><circle cx="114" cy="67" r="3.5" fill="#302E39" stroke="none"/>
+    <path d="M92 76c2 2 5 2 7 0" fill="none" stroke="#CF856D" stroke-width="2"/>
+    <path d="M88 90c5 2 10 2 15 0" fill="none" stroke="#CF856D" stroke-width="3"/>
+    <circle cx="66" cy="80" r="5" fill="#E38A83" opacity="0.32" stroke="none"/>
+    <circle cx="124" cy="80" r="5" fill="#E38A83" opacity="0.32" stroke="none"/>
+    <rect x="70" y="143" width="52" height="39" rx="4" fill="#D09A61"/><path d="M96 143v39m-26-26h52" fill="none" stroke="#F5E8D8" stroke-width="3"/>
+  </g>
+</svg>
