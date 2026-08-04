@@ -71,7 +71,7 @@ GLB URI、类型、变体、三角面预算和程序化 fallback。只有状态�
 - 合并静态网格，复用材质；颜色贴图使用 sRGB，其余数据贴图使用 Linear。
 - 使用 glTF 2.0 `.glb`；优先 KTX2 纹理与 Draco/Meshopt 压缩。
 - LOD0 用于近景，复杂资产预留 LOD1；不把灯光、相机和无关动画导出。
-- 当前开发机未安装 Blender；模型生产开始前需提供 Blender 4.x 和确定性的导出脚本。
+- 项目已固定官方 Blender 5.2.0 LTS，并通过 `.tools/blender/blender` 与确定性 BPY 脚本导出。
 
 ### 5.2 首批资产预算
 

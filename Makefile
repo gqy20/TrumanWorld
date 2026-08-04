@@ -8,7 +8,7 @@ GODOT_MAP_SCENE ?= res://scenes/maps/campus_world.tscn
 GODOT_MAP_ID ?= campus-world-v2
 GODOT_MAP_OUTPUT ?= $(CURDIR)/scenarios/campus_world/map/world-map.json
 ASSET_PIPELINE := cd $(BACKEND_DIR) && uv run python ../scripts/assets/pipeline.py
-BLENDER ?= blender
+BLENDER ?= .tools/blender/blender
 MMX_JOB ?=
 SPRITE_SOURCE ?=
 SPRITE_OUTPUT ?=
@@ -20,7 +20,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-cafe lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-install assets-blender-cafe lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
 
 LOG_RETENTION_DAYS ?= 7
 
@@ -183,11 +183,14 @@ assets-process-sprite:
 	cd $(BACKEND_DIR) && uv run python ../scripts/assets/process_sprite.py \
 		"../$(SPRITE_SOURCE)" "../$(SPRITE_OUTPUT)"
 
+assets-blender-install:
+	cd $(BACKEND_DIR) && uv run python ../scripts/assets/install_blender.py
+
 assets-blender-cafe:
 	$(BLENDER) --background --factory-startup --python-exit-code 1 \
 		--python scripts/assets/blender/build_cafe_kit.py -- \
-		--output godot/world-client/assets/locations/studio_cafe_kit.glb \
-		--source art/blender/studio_cafe_kit.blend
+		--output godot/world-client/assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb \
+		--source art/blender/scenarios/campus_world/studio_cafe.blend
 
 lint:
 	$(MAKE) backend-lint

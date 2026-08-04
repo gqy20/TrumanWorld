@@ -74,6 +74,9 @@ frontend/public/godot-world/*
 art/generated/*
 !art/generated/.gitkeep
 
+# Project-local binary toolchains
+/.tools/
+
 # Deployment / containers
 .docker/
 

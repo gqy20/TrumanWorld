@@ -96,7 +96,24 @@ func _test_runtime_map_visuals() -> void:
 	root.add_child(map_root)
 	var visuals := RuntimeMapVisuals.build(map_root)
 	var meshes := visuals.find_children("*", "MeshInstance3D", true, false)
-	_expect(meshes.size() >= 15, "runtime map builds visible roads and locations")
+	_expect(meshes.size() >= 80, "runtime map builds authored and procedural geometry")
+	var cafe := visuals.get_node_or_null("AuthoredStudioCafe")
+	_expect(cafe is Node3D, "runtime map instantiates the authored Studio Cafe GLB")
+	if cafe is Node3D:
+		var cafe_meshes := cafe.find_children("*", "MeshInstance3D", true, false)
+		_expect(cafe_meshes.size() >= 80, "authored Studio Cafe contains detailed geometry")
+		var bounds := AABB()
+		var has_bounds := false
+		for raw_mesh: Node in cafe_meshes:
+			var mesh := raw_mesh as MeshInstance3D
+			var to_cafe := _relative_transform(cafe as Node3D, mesh)
+			var mesh_bounds: AABB = to_cafe * mesh.get_aabb()
+			bounds = bounds.merge(mesh_bounds) if has_bounds else mesh_bounds
+			has_bounds = true
+		_expect(
+			has_bounds and bounds.size.x > 3.5 and bounds.size.y > 2.0 and bounds.size.z > 2.8,
+			"authored Studio Cafe preserves meter scale and Y-up orientation",
+		)
 	map_root.free()
 
 
@@ -212,3 +229,15 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	_failures += 1
 	printerr("FAIL: %s" % message)
+
+
+func _relative_transform(ancestor: Node3D, node: Node3D) -> Transform3D:
+	var result := Transform3D.IDENTITY
+	var current := node
+	while current != ancestor:
+		result = current.transform * result
+		var parent := current.get_parent()
+		if not parent is Node3D:
+			break
+		current = parent as Node3D
+	return result

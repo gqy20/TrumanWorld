@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "asset_id": "campus_world/studio_cafe",
+  "blender_version": "5.2.0 LTS",
+  "coordinate_system": {
+    "authoring_up": "Z",
+    "runtime_up": "Y",
+    "unit": "meter"
+  },
+  "output": "godot/world-client/assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb",
+  "source": "art/blender/scenarios/campus_world/studio_cafe.blend",
+  "stats": {
+    "objects": 86,
+    "meshes": 86,
+    "materials": 12,
+    "vertices": 1340,
+    "polygons": 842
+  }
+}

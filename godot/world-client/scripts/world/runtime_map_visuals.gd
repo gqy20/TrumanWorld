@@ -10,6 +10,9 @@ const COLOR_DORM := Color("b29b7c")
 const COLOR_LECTURE := Color("8f9b82")
 const COLOR_ROOF := Color("475a63")
 const COLOR_WINDOW := Color("e8c77e")
+const STUDIO_CAFE_ASSET_PATH := (
+	"res://assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb"
+)
 
 
 static func build(map_root: Node3D) -> Node3D:
@@ -72,6 +75,9 @@ static func _build_location(
 		_add_bench(visuals, center + Vector3(-1.05, 0.0, 0.85), 0.2)
 		_add_bench(visuals, center + Vector3(1.05, 0.0, -0.85), PI + 0.2)
 		_add_location_label(visuals, center + Vector3(0.0, 0.4, -1.55), location.display_name)
+		return
+	if location.location_type == "cafe" and _add_authored_studio_cafe(visuals, center):
+		_add_location_label(visuals, center + Vector3(0.0, 3.05, 0.0), location.display_name)
 		return
 
 	var size := Vector3(2.8, 1.65, 2.2)
@@ -148,6 +154,10 @@ static func _build_interactable(
 	visuals: Node3D,
 	interactable: Interactable3D,
 ) -> void:
+	if ResourceLoader.exists(STUDIO_CAFE_ASSET_PATH) and interactable.object_type in [
+		"coffee_counter", "cafe_chair",
+	]:
+		return
 	var center := _local_position(map_root, interactable)
 	match interactable.object_type:
 		"coffee_counter":
@@ -171,6 +181,22 @@ static func _build_interactable(
 				Vector3(0.5, 0.48, 0.1),
 				Color("82664d"),
 			)
+
+
+static func _add_authored_studio_cafe(visuals: Node3D, center: Vector3) -> bool:
+	if not ResourceLoader.exists(STUDIO_CAFE_ASSET_PATH):
+		return false
+	var packed_scene := load(STUDIO_CAFE_ASSET_PATH) as PackedScene
+	if packed_scene == null:
+		return false
+	var instance := packed_scene.instantiate() as Node3D
+	if instance == null:
+		return false
+	instance.name = "AuthoredStudioCafe"
+	instance.position = center
+	instance.scale = Vector3.ONE * 0.72
+	visuals.add_child(instance)
+	return true
 
 
 static func _build_ambient_details(visuals: Node3D) -> void:

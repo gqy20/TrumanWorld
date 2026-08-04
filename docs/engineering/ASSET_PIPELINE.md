@@ -93,17 +93,23 @@ make assets-process-sprite \
 边缘颜色，避免 Godot 纹理过滤产生洋红或黑色描边。MMX 最低生成尺寸较大，因此像素化必须是
 确定性的后处理步骤。
 
-Blender 5.2 安装后运行：
+项目固定使用官方 Blender `5.2.0 LTS` Linux x64 构建。安装器会下载到被 Git 忽略的 `.tools/`，
+校验官方 SHA-256，并建立稳定入口 `.tools/blender/blender`：
 
 ```bash
-make assets-blender-cafe BLENDER=/path/to/blender
+make assets-blender-install
+make assets-blender-cafe
 ```
 
 脚本会拒绝非 `5.2.x` 版本，并生成：
 
-- `art/blender/studio_cafe_kit.blend`：可编辑源文件；
-- `godot/world-client/assets/locations/studio_cafe_kit.glb`：运行时资产；
+- `art/blender/scenarios/campus_world/studio_cafe.blend`：可编辑源文件；
+- `godot/world-client/assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb`：运行时资产；
 - 同目录 `.asset.json`：版本和网格统计。
+
+BPY 源文件严格使用 Blender 原生 Z-up、米制单位；glTF 导出器负责转换为 Godot 使用的 Y-up。
+Studio Cafe 是面向导演相机的切面建筑，包含门窗、遮阳棚、吧台、咖啡机、糕点展柜、菜单、桌椅、
+货架、杯具、植物和吊灯。Godot 优先实例化 GLB；资源缺失或加载失败时仍由程序化场景提供 fallback。
 
 ## 5. 提交规则
 
