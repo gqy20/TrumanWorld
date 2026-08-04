@@ -40,6 +40,26 @@ def test_campus_world_map_manifest_loads_with_verified_content_hash():
     }
 
 
+def test_narrative_world_map_manifest_loads_with_verified_content_hash():
+    world_map = load_world_map_manifest_for_scenario(
+        "narrative_world",
+        project_root=PROJECT_ROOT,
+    )
+
+    assert world_map is not None
+    assert world_map.map_id == "narrative-world-v1"
+    assert {location.id for location in world_map.locations} == {
+        "apartment",
+        "bachelor-apt",
+        "cafe",
+        "hospital",
+        "mall",
+        "office",
+        "plaza",
+    }
+    assert len(world_map.route_edges) == 8
+
+
 def test_exported_world_map_rejects_unknown_location_entrance():
     raw = _campus_world_map_raw()
     raw["locations"][0]["entrance_node_id"] = "route:missing"

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "asset_id": "narrative_world/seaside_town",
+  "blender_version": "5.2.0 LTS",
+  "coordinate_system": {
+    "authoring_up": "Z",
+    "runtime_up": "Y",
+    "unit": "meter"
+  },
+  "semantic_alignment": {
+    "plaza": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "apartment": [
+      -7.0,
+      0.0,
+      3.0
+    ],
+    "bachelor-apt": [
+      -7.0,
+      0.0,
+      -2.0
+    ],
+    "cafe": [
+      -2.0,
+      0.0,
+      -3.0
+    ],
+    "mall": [
+      4.0,
+      0.0,
+      -3.0
+    ],
+    "office": [
+      6.0,
+      0.0,
+      2.0
+    ],
+    "hospital": [
+      3.0,
+      0.0,
+      5.0
+    ]
+  },
+  "environment_bounds_meters": [
+    29.0,
+    21.0
+  ],
+  "output": "godot/world-client/assets/scenarios/narrative_world/environment/seaside_town.glb",
+  "source": "art/blender/scenarios/narrative_world/seaside_town.blend",
+  "stats": {
+    "objects": 84,
+    "meshes": 84,
+    "materials": 36,
+    "vertices": 72162,
+    "polygons": 69295,
+    "triangles": 127680
+  }
+}

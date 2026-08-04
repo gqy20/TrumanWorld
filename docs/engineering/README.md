@@ -17,6 +17,7 @@
 - [GODOT_3D_CLIENT_SPIKE.md](GODOT_3D_CLIENT_SPIKE.md) - Godot Web 3D 客户端前置技术验证计划
 - [GODOT_WORLD_IMPLEMENTATION.md](GODOT_WORLD_IMPLEMENTATION.md) - Godot 具身世界客户端、地图管线与后端模拟的完整实施方案
 - [ASSET_PIPELINE.md](ASSET_PIPELINE.md) - Blender 5.2、bpy、MMX 提示词与像素贴图资产管线
+- [BPY_AUTHORING_GUIDE.md](BPY_AUTHORING_GUIDE.md) - BPY 场景构建、上下文边界、GLB 导出与审查规范
 - [EVENTS_INCREMENTAL_QUERY.md](EVENTS_INCREMENTAL_QUERY.md) - 事件增量查询（✅ 已实现）
 - [PERSISTENCE_REFACTOR_PLAN.md](PERSISTENCE_REFACTOR_PLAN.md) - persistence / tick 写入事务边界重构计划
 - [roadmap.md](roadmap.md) - 近期工程重构路线图

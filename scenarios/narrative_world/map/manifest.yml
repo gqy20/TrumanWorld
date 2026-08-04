@@ -1,0 +1,5 @@
+schema_version: 1
+map_id: narrative-world-v1
+source_scene: godot/world-client/scenes/maps/narrative_world.tscn
+exported_world_map: world-map.json
+meters_per_unit: 1.0

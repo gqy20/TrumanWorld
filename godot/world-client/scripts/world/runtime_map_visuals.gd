@@ -16,20 +16,35 @@ const STUDIO_CAFE_ASSET_PATH := (
 const CAMPUS_LANDMARKS_ASSET_PATH := (
 	"res://assets/scenarios/campus_world/environment/campus_landmarks.glb"
 )
+const NARRATIVE_TOWN_ASSET_PATH := (
+	"res://assets/scenarios/narrative_world/environment/seaside_town.glb"
+)
 
 
-static func build(map_root: Node3D) -> Node3D:
+static func build(map_root: Node3D, scenario_id := "campus_world") -> Node3D:
 	var visuals := Node3D.new()
 	visuals.name = "RuntimeVisuals"
 	map_root.add_child(visuals)
-	_build_roads(map_root, visuals)
-	visuals.set_meta("has_authored_campus_landmarks", _add_authored_campus_landmarks(visuals))
+	visuals.set_meta("scenario_id", scenario_id)
+	visuals.set_meta(
+		"has_authored_narrative_town",
+		scenario_id == "narrative_world" and _add_authored_narrative_town(visuals),
+	)
+	if not visuals.get_meta("has_authored_narrative_town", false):
+		_build_roads(map_root, visuals)
+	visuals.set_meta(
+		"has_authored_campus_landmarks",
+		scenario_id == "campus_world" and _add_authored_campus_landmarks(visuals),
+	)
 	for node: Node in _descendants(map_root):
 		if node is WorldLocation3D:
 			_build_location(map_root, visuals, node as WorldLocation3D)
 		elif node is Interactable3D:
 			_build_interactable(map_root, visuals, node as Interactable3D)
-	if not visuals.get_meta("has_authored_campus_landmarks", false):
+	if (
+		not visuals.get_meta("has_authored_campus_landmarks", false)
+		and not visuals.get_meta("has_authored_narrative_town", false)
+	):
 		_build_ambient_details(visuals)
 	return visuals
 
@@ -85,6 +100,13 @@ static func _build_location(
 			location.display_name,
 		)
 		return
+	if visuals.get_meta("has_authored_narrative_town", false):
+		_add_location_label(
+			visuals,
+			center + Vector3(0.0, 4.15 if location.location_type == "plaza" else 3.8, 0.0),
+			location.display_name,
+		)
+		return
 	if location.location_type == "quad":
 		_add_cylinder(visuals, center + Vector3(0.0, 0.025, 0.0), 1.65, 0.05, COLOR_QUAD)
 		_add_cylinder(visuals, center + Vector3(0.0, 0.08, 0.0), 0.58, 0.14, Color("d3c7aa"))
@@ -92,7 +114,11 @@ static func _build_location(
 		_add_bench(visuals, center + Vector3(1.05, 0.0, -0.85), PI + 0.2)
 		_add_location_label(visuals, center + Vector3(0.0, 0.4, -1.55), location.display_name)
 		return
-	if location.location_type == "cafe" and _add_authored_studio_cafe(visuals, center):
+	if (
+		visuals.get_meta("scenario_id", "") == "campus_world"
+		and location.location_type == "cafe"
+		and _add_authored_studio_cafe(visuals, center)
+	):
 		_add_location_label(visuals, center + Vector3(0.0, 3.05, 0.0), location.display_name)
 		return
 	_add_cylinder(visuals, center + Vector3(0.0, 0.025, 0.0), 1.65, 0.05, COLOR_QUAD)
@@ -112,6 +138,18 @@ static func _build_location(
 		"dorm":
 			size = Vector3(3.05, 1.7, 2.35)
 			wall_color = COLOR_DORM
+		"home":
+			size = Vector3(3.2, 1.75, 2.5)
+			wall_color = COLOR_DORM
+		"office":
+			size = Vector3(3.6, 2.1, 2.7)
+			wall_color = COLOR_LIBRARY
+		"hospital":
+			size = Vector3(4.2, 2.25, 2.9)
+			wall_color = Color("d5d8cf")
+		"shop":
+			size = Vector3(4.5, 2.0, 3.0)
+			wall_color = COLOR_CAFE
 	# Keep authoritative indoor positions visible from the director camera. The low wall and
 	# rear roof read as a building while behaving like a tabletop-game cutaway.
 	var cutaway_wall_height := minf(size.y, 0.92)
@@ -226,6 +264,20 @@ static func _add_authored_campus_landmarks(visuals: Node3D) -> bool:
 	if instance == null:
 		return false
 	instance.name = "AuthoredCampusLandmarks"
+	visuals.add_child(instance)
+	return true
+
+
+static func _add_authored_narrative_town(visuals: Node3D) -> bool:
+	if not ResourceLoader.exists(NARRATIVE_TOWN_ASSET_PATH):
+		return false
+	var packed_scene := load(NARRATIVE_TOWN_ASSET_PATH) as PackedScene
+	if packed_scene == null:
+		return false
+	var instance := packed_scene.instantiate() as Node3D
+	if instance == null:
+		return false
+	instance.name = "AuthoredNarrativeTown"
 	visuals.add_child(instance)
 	return true
 

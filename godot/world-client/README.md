@@ -42,18 +42,22 @@ Godot Web 导出物生成到 `frontend/public/godot-world/`，该目录除 `.git
 
 ## 地图制作与导出
 
-地图源场景为 `scenes/maps/campus_world.tscn`。语义节点通过稳定 ID 描述 District、Location、
+地图源场景按 scenario 拆分为 `scenes/maps/<scenario_id>.tscn`。当前注册了 `campus_world` 与
+`narrative_world`；Web 宿主根据世界快照的 `scenario_id` 选择白名单中的场景，不接受任意资源路径。
+语义节点通过稳定 ID 描述 District、Location、
 Zone、Portal、Route、Interactable、Slot、Spawn 和 Camera Anchor；`AmbientLandmark3D` 仅用于
 视觉内容，不进入后端空间契约。
 
 可通过两种方式导出：
 
 - Godot 编辑器菜单 `项目 > 工具 > Export World Map`；
-- 仓库命令 `make godot-export-map`。
+- 校园命令 `make godot-export-map`；
+- 楚门小镇命令 `make godot-export-narrative-map`。
 
-两种方式都会更新 `scenarios/campus_world/map/world-map.json`。提交前运行 `make godot-check`；该命令
-会重新导出到临时文件并拒绝过期产物，后端加载器还会校验稳定 ID、引用关系、入口连通性和
-SHA-256 内容哈希。
+产物分别写入对应的 `scenarios/<scenario_id>/map/world-map.json`。提交前运行 `make godot-check`；
+该命令会检查所有已注册地图，重新导出到临时文件并拒绝过期产物。后端加载器还会校验稳定 ID、
+引用关系、入口连通性和 SHA-256 内容哈希。同一个 Run 不支持中途更换 scenario；切换世界应创建或
+打开另一个 Run，Godot Web 页面会随 `scenario_id` 重新装载地图。
 
 ## 当前协议
 

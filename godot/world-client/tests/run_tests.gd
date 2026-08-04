@@ -8,8 +8,11 @@ func _initialize() -> void:
 	_test_protocol_mismatch()
 	_test_unknown_type()
 	_test_fixture_shape()
+	_test_scenario_scene_registry()
 	_test_world_map_export()
+	_test_narrative_world_map_export()
 	_test_runtime_map_visuals()
+	_test_narrative_runtime_visuals()
 	_test_world_map_duplicate_id()
 	_test_world_map_disconnected_entrances()
 	_test_client_clock_pause_and_speed()
@@ -67,6 +70,21 @@ func _test_fixture_shape() -> void:
 		_expect(parsed.get("agents", []).size() == 3, "world fixture contains three agents")
 
 
+func _test_scenario_scene_registry() -> void:
+	var campus := ScenarioSceneRegistry.resolve("campus_world")
+	var narrative := ScenarioSceneRegistry.resolve("narrative_world")
+	_expect(campus.get("map_id") == "campus-world-v2", "registry resolves the campus map")
+	_expect(
+		narrative.get("map_id") == "narrative-world-v1",
+		"registry resolves the narrative world map",
+	)
+	_expect(ScenarioSceneRegistry.resolve("missing_world").is_empty(), "unknown maps are rejected")
+	var narrative_map := ScenarioSceneRegistry.instantiate_map("narrative_world")
+	_expect(narrative_map is Node3D, "registry instantiates the narrative world scene")
+	if narrative_map != null:
+		narrative_map.free()
+
+
 func _test_world_map_export() -> void:
 	var scene := load("res://scenes/maps/campus_world.tscn") as PackedScene
 	_expect(scene != null, "campus map scene can be loaded")
@@ -88,6 +106,23 @@ func _test_world_map_export() -> void:
 		str(document["content_hash"]).begins_with("sha256:"),
 		"map export includes a content hash",
 	)
+
+
+func _test_narrative_world_map_export() -> void:
+	var scene := load("res://scenes/maps/narrative_world.tscn") as PackedScene
+	_expect(scene != null, "narrative world map scene can be loaded")
+	if scene == null:
+		return
+	var map_root := scene.instantiate()
+	var result := WorldMapExporter.new().build_document(map_root, "narrative-world-v1")
+	map_root.free()
+	_expect(result.get("ok", false), "narrative world map exports successfully")
+	if not result.get("ok", false):
+		return
+	var document: Dictionary = result["document"]
+	_expect(document["locations"].size() == 7, "narrative map contains seven town locations")
+	_expect(document["zones"].size() == 7, "narrative map contains seven initial zones")
+	_expect(document["route_edges"].size() == 8, "narrative map route graph is connected")
 
 
 func _test_runtime_map_visuals() -> void:
@@ -141,6 +176,45 @@ func _test_runtime_map_visuals() -> void:
 			and landmarks.find_child("LibraryLampShade1", true, false) != null,
 			"campus landmarks retain location-specific prop details",
 		)
+	map_root.free()
+
+
+func _test_narrative_runtime_visuals() -> void:
+	var scene := load("res://scenes/maps/narrative_world.tscn") as PackedScene
+	var map_root := scene.instantiate() as Node3D
+	root.add_child(map_root)
+	var visuals := RuntimeMapVisuals.build(map_root, "narrative_world")
+	var town := visuals.get_node_or_null("AuthoredNarrativeTown")
+	_expect(town is Node3D, "narrative world instantiates its authored seaside town")
+	if town is Node3D:
+		var town_meshes := town.find_children("*", "MeshInstance3D", true, false)
+		_expect(
+			town_meshes.size() >= 80,
+			"authored narrative town retains detailed geometry after semantic batching",
+		)
+		_expect(
+			town.find_child("TownGround", true, false) != null
+			and town.find_child("TownRoads", true, false) != null
+			and town.find_child("TrumanHomeText", true, false) != null
+			and town.find_child("CornerCafeText", true, false) != null
+			and town.find_child("BayHospitalText", true, false) != null
+			and town.find_child("TownBackgroundBoundary", true, false) != null,
+			"narrative town retains its seaside and story-specific landmarks",
+		)
+		_expect(
+			town.find_child("ClockFace1", true, false) != null
+			and town.find_child("TownRoadMarkings", true, false) != null
+			and town.find_child("TownWindowDetails", true, false) != null
+			and town.find_child("TownRoofDetails", true, false) != null
+			and town.find_child("TownStreetFurniture", true, false) != null
+			and town.find_child("TownPromenadeDetails", true, false) != null,
+			"narrative town retains polished architectural and street details",
+		)
+	_expect(
+		visuals.get_node_or_null("AuthoredCampusLandmarks") == null
+		and visuals.get_node_or_null("AuthoredStudioCafe") == null,
+		"narrative world never loads campus authored assets",
+	)
 	map_root.free()
 
 

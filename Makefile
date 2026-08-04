@@ -7,6 +7,9 @@ GODOT_WEB_OUTPUT := $(CURDIR)/$(FRONTEND_DIR)/public/godot-world/index.html
 GODOT_MAP_SCENE ?= res://scenes/maps/campus_world.tscn
 GODOT_MAP_ID ?= campus-world-v2
 GODOT_MAP_OUTPUT ?= $(CURDIR)/scenarios/campus_world/map/world-map.json
+GODOT_NARRATIVE_MAP_SCENE := res://scenes/maps/narrative_world.tscn
+GODOT_NARRATIVE_MAP_ID := narrative-world-v1
+GODOT_NARRATIVE_MAP_OUTPUT := $(CURDIR)/scenarios/narrative_world/map/world-map.json
 ASSET_PIPELINE := cd $(BACKEND_DIR) && uv run python ../scripts/assets/pipeline.py
 BLENDER ?= .tools/blender/blender
 MMX_JOB ?=
@@ -20,7 +23,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-install assets-blender-cafe assets-blender-campus assets-blender-all lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-export-narrative-map godot-map-check godot-map-check-narrative godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-install assets-blender-cafe assets-blender-campus assets-blender-town assets-blender-all lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
 
 LOG_RETENTION_DAYS ?= 7
 
@@ -133,6 +136,13 @@ godot-export-map: godot-import
 		--output $(GODOT_MAP_OUTPUT) \
 		--map-id $(GODOT_MAP_ID)
 
+godot-export-narrative-map: godot-import
+	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) \
+		--script res://scripts/editor/export_world_map.gd -- \
+		--source $(GODOT_NARRATIVE_MAP_SCENE) \
+		--output $(GODOT_NARRATIVE_MAP_OUTPUT) \
+		--map-id $(GODOT_NARRATIVE_MAP_ID)
+
 godot-map-check: godot-import
 	@GODOT_MAP_CHECK_OUTPUT=$$(mktemp); \
 	trap 'rm -f "$$GODOT_MAP_CHECK_OUTPUT"' EXIT; \
@@ -146,12 +156,25 @@ godot-map-check: godot-import
 		exit 1; \
 	}
 
+godot-map-check-narrative: godot-import
+	@GODOT_MAP_CHECK_OUTPUT=$$(mktemp); \
+	trap 'rm -f "$$GODOT_MAP_CHECK_OUTPUT"' EXIT; \
+	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) \
+		--script res://scripts/editor/export_world_map.gd -- \
+		--source $(GODOT_NARRATIVE_MAP_SCENE) \
+		--output "$$GODOT_MAP_CHECK_OUTPUT" \
+		--map-id $(GODOT_NARRATIVE_MAP_ID); \
+	cmp --silent "$$GODOT_MAP_CHECK_OUTPUT" "$(GODOT_NARRATIVE_MAP_OUTPUT)" || { \
+		echo "narrative world-map.json is stale; run make godot-export-narrative-map"; \
+		exit 1; \
+	}
+
 godot-export-web: godot-import
 	@mkdir -p $(dir $(GODOT_WEB_OUTPUT))
 	$(GODOT) --headless --path $(GODOT_PROJECT_DIR) --export-release Web $(GODOT_WEB_OUTPUT)
 	node scripts/patch-godot-web-lan-http.mjs $(GODOT_WEB_OUTPUT)
 
-godot-check: godot-test godot-map-check godot-export-web
+godot-check: godot-test godot-map-check godot-map-check-narrative godot-export-web
 
 assets-validate:
 	$(ASSET_PIPELINE) validate
@@ -198,7 +221,13 @@ assets-blender-campus:
 		--output godot/world-client/assets/scenarios/campus_world/environment/campus_landmarks.glb \
 		--source art/blender/scenarios/campus_world/campus_landmarks.blend
 
-assets-blender-all: assets-blender-cafe assets-blender-campus
+assets-blender-town:
+	$(BLENDER) --background --factory-startup --python-exit-code 1 \
+		--python scripts/assets/blender/build_narrative_town.py -- \
+		--output godot/world-client/assets/scenarios/narrative_world/environment/seaside_town.glb \
+		--source art/blender/scenarios/narrative_world/seaside_town.blend
+
+assets-blender-all: assets-blender-cafe assets-blender-campus assets-blender-town
 
 lint:
 	$(MAKE) backend-lint

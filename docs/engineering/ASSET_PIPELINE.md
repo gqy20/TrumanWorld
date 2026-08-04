@@ -1,5 +1,8 @@
 # Blender 与 MMX 资产管线
 
+BPY 的代码风格、上下文边界、静态 GLB 导出契约和验证清单见
+[BPY_AUTHORING_GUIDE.md](BPY_AUTHORING_GUIDE.md)。
+
 - 状态：第一阶段已实现
 - Blender：正式版 `5.2.x`
 - Godot：`4.7.1`
@@ -100,6 +103,7 @@ make assets-process-sprite \
 make assets-blender-install
 make assets-blender-cafe
 make assets-blender-campus
+make assets-blender-town
 # 同时重建当前全部 Blender 场景
 make assets-blender-all
 ```
@@ -111,6 +115,8 @@ make assets-blender-all
 - `art/blender/scenarios/campus_world/campus_landmarks.blend`：校园公共地标源文件；
 - `godot/world-client/assets/scenarios/campus_world/environment/campus_landmarks.glb`：广场、宿舍、
   教学楼与图书馆的统一运行时资产；
+- `art/blender/scenarios/narrative_world/seaside_town.blend`：楚门海滨小镇源文件；
+- `godot/world-client/assets/scenarios/narrative_world/environment/seaside_town.glb`：楚门小镇运行时资产；
 - 同目录 `.asset.json`：版本和网格统计。
 
 BPY 源文件严格使用 Blender 原生 Z-up、米制单位；glTF 导出器负责转换为 Godot 使用的 Y-up。
@@ -131,6 +137,15 @@ lecture-hall / library` 位置。模型只负责可视层，语义地图继续�
 Blender 环境后不再叠加程序化树木和路灯，资源缺失时仍恢复程序化 fallback。当前统一资产约 3.8 万
 面，细节仍由可复现的 BPY 低模基元构成。树木、路灯、背景窗户、步道和边界等不可交互重复物件会
 在导出前按环境角色合并，避免以数百个独立 MeshInstance 增加 Web draw call。
+
+`narrative_world` 使用完全独立的海滨小镇资产，不复用校园模型。首版覆盖钟塔广场、楚门住宅、
+镇中公寓、街角咖啡馆、港湾商场、港务办公室、海湾医院、外围粉彩住宅、林荫道路、海滨步道、
+海面和远端摄影棚边界。模型以 `narrative-world-v1` 的语义坐标直接建模；Godot 只有在当前
+`scenario_id` 为 `narrative_world` 时才会加载该 GLB，并停止叠加程序化道路与环境装饰。
+当前细化版增加窗户格栅、店面门框、住宅烟囱和屋脊、正确朝向的钟面与指针、道路标线、长椅和
+海滨栏杆。仅按全局装饰角色合并时为 245 个 Mesh 节点；modifier 后约 7.2 万顶点、12.8 万
+三角形。随后再按 `location_id + truman_role` 合并地点内部可视部件，在不丢失地点级 glTF extras 的
+前提下将 Mesh 节点从 245 个降至 84 个。模型保存前执行无效几何、材质索引和非有限 Transform 校验。
 
 ## 5. 提交规则
 

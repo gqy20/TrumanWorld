@@ -1,7 +1,6 @@
 extends Node
 
 const READY_RUN_ID := "phase-zero"
-const MAP_ID := "campus-world-v2"
 
 @onready var world_presenter: WorldPresenter = $WorldRoot/Agents
 @onready var world_map: Node3D = $WorldRoot/Map
@@ -13,6 +12,8 @@ const MAP_ID := "campus-world-v2"
 var _host_window: JavaScriptObject
 var _host_message_callback: JavaScriptObject
 var _active_run_id := READY_RUN_ID
+var _scenario_id := ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+var _map_id := ""
 var _last_host_sequence := -1
 var _client_sequence := 0
 var _map_content_hash := ""
@@ -24,11 +25,21 @@ var _status_update_elapsed := 0.0
 
 
 func _ready() -> void:
-	RuntimeMapVisuals.build(world_map)
+	_scenario_id = _requested_scenario_id()
+	var definition := ScenarioSceneRegistry.resolve(_scenario_id)
+	var map_instance := ScenarioSceneRegistry.instantiate_map(_scenario_id)
+	if definition.is_empty() or map_instance == null:
+		_set_status("UNKNOWN SCENARIO")
+		push_error("Unable to load registered scenario map: %s" % _scenario_id)
+		return
+	_map_id = str(definition["map_id"])
+	map_instance.name = "ScenarioMap"
+	world_map.add_child(map_instance)
+	RuntimeMapVisuals.build(world_map, _scenario_id)
 	_object_presenter.configure(world_map)
 	_atmosphere.configure(world_environment.environment, sun, $WorldRoot)
 	world_presenter.agent_selected.connect(_on_agent_selected)
-	var map_result := WorldMapExporter.new().build_document(world_map, MAP_ID)
+	var map_result := WorldMapExporter.new().build_document(world_map, _map_id)
 	if not map_result.get("ok", false):
 		_set_status("INVALID MAP")
 		push_error("Runtime world map is invalid: %s" % "; ".join(map_result.get("errors", [])))
@@ -42,7 +53,8 @@ func _ready() -> void:
 	_post_to_host("ready", {
 		"engine_version": Engine.get_version_info().get("string", "unknown"),
 		"capabilities": ["world_snapshot", "selection_changed"],
-		"map_id": MAP_ID,
+		"scenario_id": _scenario_id,
+		"map_id": _map_id,
 		"map_content_hash": _map_content_hash,
 	})
 
@@ -79,6 +91,22 @@ func _connect_web_bridge() -> void:
 	_host_window.addEventListener("message", _host_message_callback)
 
 
+func _requested_scenario_id() -> String:
+	if not OS.has_feature("web"):
+		return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+	var window := JavaScriptBridge.get_interface("window")
+	if window == null:
+		return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+	var query := str(window.location.search).trim_prefix("?")
+	for component: String in query.split("&", false):
+		var pair := component.split("=", true, 1)
+		if pair.size() == 2 and pair[0] == "scenario_id":
+			var candidate := str(pair[1]).uri_decode()
+			if not ScenarioSceneRegistry.resolve(candidate).is_empty():
+				return candidate
+	return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+
+
 func _on_web_message(arguments: Array) -> void:
 	if arguments.is_empty():
 		return
@@ -102,7 +130,7 @@ func apply_host_message(raw_message: String) -> Dictionary:
 	var message_type := str(envelope["type"])
 	var payload := envelope.get("payload", {}) as Dictionary
 	if message_type == "initialize":
-		if payload.get("map_id") != MAP_ID:
+		if payload.get("map_id") != _map_id:
 			_set_status("MAP VERSION MISMATCH")
 			return {"ok": false, "error": {"code": "map_mismatch"}}
 		_active_run_id = message_run_id
@@ -115,7 +143,7 @@ func apply_host_message(raw_message: String) -> Dictionary:
 	_last_host_sequence = sequence
 	match message_type:
 		"world_snapshot":
-			if payload.get("map_id") != MAP_ID or payload.get("map_content_hash") != _map_content_hash:
+			if payload.get("map_id") != _map_id or payload.get("map_content_hash") != _map_content_hash:
 				_set_status("MAP SNAPSHOT MISMATCH")
 				return {"ok": false, "error": {"code": "map_snapshot_mismatch"}}
 			_client_clock.synchronize(

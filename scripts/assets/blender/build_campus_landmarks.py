@@ -25,13 +25,30 @@ def parse_args() -> argparse.Namespace:
 
 
 def reset_scene() -> None:
-    if bpy.app.version[:2] != REQUIRED_BLENDER:
-        raise RuntimeError(f"Blender 5.2.x required, got {bpy.app.version_string}")
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete(use_global=False)
+    for obj in list(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    for data_collection in (
+        bpy.data.meshes,
+        bpy.data.materials,
+        bpy.data.curves,
+        bpy.data.cameras,
+        bpy.data.lights,
+    ):
+        for block in list(data_collection):
+            if block.users == 0:
+                data_collection.remove(block)
     scene = bpy.context.scene
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.scale_length = 1.0
+    bpy.context.preferences.filepaths.save_version = 0
+
+
+def require_blender_version() -> None:
+    if bpy.app.version[:2] != REQUIRED_BLENDER:
+        raise RuntimeError(f"Blender 5.2.x required, got {bpy.app.version_string}")
+    unstable_markers = ("alpha", "beta", "release candidate")
+    if any(marker in bpy.app.version_string.lower() for marker in unstable_markers):
+        raise RuntimeError(f"an official Blender release is required: {bpy.app.version_string}")
 
 
 def material(
@@ -43,8 +60,12 @@ def material(
 ) -> Any:
     result = bpy.data.materials.new(name)
     result.diffuse_color = color
-    result.use_nodes = True
+    result.use_backface_culling = True
+    if result.node_tree is None:
+        raise RuntimeError(f"material has no node tree: {name}")
     principled = result.node_tree.nodes.get("Principled BSDF")
+    if principled is None:
+        raise RuntimeError(f"material has no Principled BSDF node: {name}")
     principled.inputs["Base Color"].default_value = color
     principled.inputs["Roughness"].default_value = roughness
     principled.inputs["Metallic"].default_value = metallic
@@ -1243,28 +1264,38 @@ def build_landmarks() -> dict[str, int]:
 
 def export_glb(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    desired = {
-        "filepath": str(path),
-        "export_format": "GLB",
-        "use_selection": False,
-        "export_yup": True,
-        "export_apply": True,
-        "export_materials": "EXPORT",
-        "export_cameras": False,
-        "export_lights": False,
-        "export_extras": True,
-    }
-    supported = set(bpy.ops.export_scene.gltf.get_rna_type().properties.keys())
-    bpy.ops.export_scene.gltf(**{key: value for key, value in desired.items() if key in supported})
+    result = bpy.ops.export_scene.gltf(
+        filepath=str(path),
+        check_existing=False,
+        export_format="GLB",
+        use_selection=False,
+        export_yup=True,
+        export_apply=True,
+        export_materials="EXPORT",
+        export_cameras=False,
+        export_lights=False,
+        export_extras=True,
+        export_animations=False,
+        export_skins=False,
+        export_morph=False,
+    )
+    if result != {"FINISHED"} or not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(f"glTF export did not produce a non-empty file: {path}")
 
 
 def main() -> None:
     args = parse_args()
+    require_blender_version()
     reset_scene()
     stats = build_landmarks()
     if args.source:
         args.source.parent.mkdir(parents=True, exist_ok=True)
-        bpy.ops.wm.save_as_mainfile(filepath=str(args.source.resolve()))
+        result = bpy.ops.wm.save_as_mainfile(
+            filepath=str(args.source.resolve()),
+            check_existing=False,
+        )
+        if result != {"FINISHED"}:
+            raise RuntimeError(f"failed to save Blender source: {args.source}")
     export_glb(args.output.resolve())
     metadata_path = args.metadata or args.output.with_suffix(".asset.json")
     metadata_path.parent.mkdir(parents=True, exist_ok=True)

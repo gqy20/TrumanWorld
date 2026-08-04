@@ -27,19 +27,18 @@ def parse_args() -> argparse.Namespace:
 def require_blender_version() -> None:
     if bpy.app.version[:2] != REQUIRED_BLENDER:
         expected = ".".join(map(str, REQUIRED_BLENDER))
-        raise RuntimeError(
-            f"Blender {expected}.x required, got {bpy.app.version_string}"
-        )
+        raise RuntimeError(f"Blender {expected}.x required, got {bpy.app.version_string}")
     unstable_markers = ("alpha", "beta", "release candidate")
     if any(marker in bpy.app.version_string.lower() for marker in unstable_markers):
-        raise RuntimeError(
-            f"an official Blender release is required: {bpy.app.version_string}"
-        )
+        raise RuntimeError(f"an official Blender release is required: {bpy.app.version_string}")
 
 
 def reset_scene() -> None:
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete(use_global=False)
+    # Prefer the data API for cleanup: object deletion operators depend on
+    # selection and the active editor context, which do not belong in a
+    # deterministic background build.
+    for obj in list(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
     for data_collection in (
         bpy.data.meshes,
         bpy.data.materials,
@@ -54,6 +53,7 @@ def reset_scene() -> None:
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.scale_length = 1.0
     scene.render.engine = "BLENDER_EEVEE"
+    bpy.context.preferences.filepaths.save_version = 0
 
 
 def material(
@@ -67,8 +67,12 @@ def material(
 ) -> Any:
     result = bpy.data.materials.new(name)
     result.diffuse_color = color
-    result.use_nodes = True
+    result.use_backface_culling = True
+    if result.node_tree is None:
+        raise RuntimeError(f"material has no node tree: {name}")
     principled = result.node_tree.nodes.get("Principled BSDF")
+    if principled is None:
+        raise RuntimeError(f"material has no Principled BSDF node: {name}")
     principled.inputs["Base Color"].default_value = color
     principled.inputs["Roughness"].default_value = roughness
     principled.inputs["Metallic"].default_value = metallic
@@ -206,9 +210,7 @@ def add_table(index: int, x: float, y: float, wood: Any, green: Any) -> None:
     add_cylinder(f"Table{index}Foot", (x, y, 0.05), 0.3, 0.06, green, role="table")
 
 
-def add_chair(
-    index: int, x: float, y: float, rotation: float, wood: Any, metal: Any
-) -> None:
+def add_chair(index: int, x: float, y: float, rotation: float, wood: Any, metal: Any) -> None:
     seat = add_box(
         f"Chair{index}Seat",
         (x, y, 0.46),
@@ -263,9 +265,7 @@ def build_cafe_kit() -> dict[str, int]:
         roughness=0.14,
         transmission=0.24,
     )
-    metal = material(
-        "TW_BlackMetal", (0.045, 0.055, 0.055, 1.0), roughness=0.38, metallic=0.55
-    )
+    metal = material("TW_BlackMetal", (0.045, 0.055, 0.055, 1.0), roughness=0.38, metallic=0.55)
     porcelain = material("TW_Porcelain", (0.87, 0.83, 0.72, 1.0), roughness=0.42)
     pastry = material("TW_Pastry", (0.72, 0.39, 0.14, 1.0), roughness=0.68)
     warm_light = material(
@@ -276,15 +276,9 @@ def build_cafe_kit() -> dict[str, int]:
     )
 
     # Blender is Z-up. glTF's Y-up conversion produces correctly oriented Godot geometry.
-    add_box(
-        "CafeFloor-col", (0.0, 0.0, 0.06), (5.6, 4.4, 0.12), light_cream, role="floor"
-    )
-    add_box(
-        "CafeBackWall-col", (0.0, 2.14, 1.48), (5.6, 0.12, 2.96), cream, role="wall"
-    )
-    add_box(
-        "CafeLeftWall-col", (-2.74, 0.0, 1.48), (0.12, 4.4, 2.96), cream, role="wall"
-    )
+    add_box("CafeFloor-col", (0.0, 0.0, 0.06), (5.6, 4.4, 0.12), light_cream, role="floor")
+    add_box("CafeBackWall-col", (0.0, 2.14, 1.48), (5.6, 0.12, 2.96), cream, role="wall")
+    add_box("CafeLeftWall-col", (-2.74, 0.0, 1.48), (0.12, 4.4, 2.96), cream, role="wall")
     add_box("CafeRightPier", (2.74, 1.5, 1.48), (0.12, 1.3, 2.96), cream, role="wall")
     add_box(
         "BackBaseboard",
@@ -408,9 +402,7 @@ def build_cafe_kit() -> dict[str, int]:
         green,
         role="door_frame",
     )
-    add_box(
-        "EntranceGlass", (-1.3, -2.09, 1.28), (1.08, 0.035, 2.18), glass, role="door"
-    )
+    add_box("EntranceGlass", (-1.3, -2.09, 1.28), (1.08, 0.035, 2.18), glass, role="door")
     add_cylinder(
         "DoorHandle",
         (-0.82, -2.02, 1.18),
@@ -559,9 +551,7 @@ def build_cafe_kit() -> dict[str, int]:
     add_chair(3, -1.55, -0.72, math.pi / 2.0, pale_wood, metal)
     add_chair(4, 0.05, -0.72, -math.pi / 2.0, pale_wood, metal)
 
-    add_box(
-        "BackShelf", (2.35, 2.0, 1.5), (0.72, 0.28, 1.8), wood, role="shelf", bevel=0.03
-    )
+    add_box("BackShelf", (2.35, 2.0, 1.5), (0.72, 0.28, 1.8), wood, role="shelf", bevel=0.03)
     for row, z in enumerate((1.05, 1.45, 1.85), start=1):
         add_box(
             f"ShelfBoard{row}",
@@ -609,9 +599,7 @@ def build_cafe_kit() -> dict[str, int]:
         role="prop",
         vertices=16,
     )
-    add_cylinder(
-        "PlantStem", (2.25, -1.55, 0.86), 0.06, 0.55, green, role="prop", vertices=10
-    )
+    add_cylinder("PlantStem", (2.25, -1.55, 0.86), 0.06, 0.55, green, role="prop", vertices=10)
     for index, (dx, dy, z) in enumerate(
         ((-0.25, 0.0, 1.0), (0.22, 0.05, 1.15), (0.0, -0.18, 1.32)), start=1
     ):
@@ -667,21 +655,23 @@ def build_cafe_kit() -> dict[str, int]:
 
 def export_glb(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    desired = {
-        "filepath": str(path),
-        "export_format": "GLB",
-        "use_selection": False,
-        "export_yup": True,
-        "export_apply": True,
-        "export_materials": "EXPORT",
-        "export_cameras": False,
-        "export_lights": False,
-        "export_extras": True,
-    }
-    supported = set(bpy.ops.export_scene.gltf.get_rna_type().properties.keys())
-    bpy.ops.export_scene.gltf(
-        **{key: value for key, value in desired.items() if key in supported}
+    result = bpy.ops.export_scene.gltf(
+        filepath=str(path),
+        check_existing=False,
+        export_format="GLB",
+        use_selection=False,
+        export_yup=True,
+        export_apply=True,
+        export_materials="EXPORT",
+        export_cameras=False,
+        export_lights=False,
+        export_extras=True,
+        export_animations=False,
+        export_skins=False,
+        export_morph=False,
     )
+    if result != {"FINISHED"} or not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(f"glTF export did not produce a non-empty file: {path}")
 
 
 def main() -> None:
@@ -691,7 +681,12 @@ def main() -> None:
     stats = build_cafe_kit()
     if args.source:
         args.source.parent.mkdir(parents=True, exist_ok=True)
-        bpy.ops.wm.save_as_mainfile(filepath=str(args.source.resolve()))
+        result = bpy.ops.wm.save_as_mainfile(
+            filepath=str(args.source.resolve()),
+            check_existing=False,
+        )
+        if result != {"FINISHED"}:
+            raise RuntimeError(f"failed to save Blender source: {args.source}")
     export_glb(args.output.resolve())
     metadata_path = args.metadata or args.output.with_suffix(".asset.json")
     metadata_path.parent.mkdir(parents=True, exist_ok=True)

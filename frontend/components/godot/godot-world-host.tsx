@@ -49,6 +49,10 @@ export function GodotWorldHost({
 
   const snapshot =
     providedSnapshot ?? (isLiveRun ? liveSnapshot : PHASE_ZERO_WORLD_SNAPSHOT);
+  const iframeSrc = useMemo(() => {
+    const scenarioId = snapshot?.scenario_id || "campus_world";
+    return `/godot-world/index.html?scenario_id=${encodeURIComponent(scenarioId)}`;
+  }, [snapshot?.scenario_id]);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -191,7 +195,7 @@ export function GodotWorldHost({
       if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
       if (bridgeRef.current === bridge) bridgeRef.current = null;
     };
-  }, [connectionRevision, handleGodotMessage, readyTimeoutMs, resolvedRunId]);
+  }, [connectionRevision, handleGodotMessage, iframeSrc, readyTimeoutMs, resolvedRunId]);
 
   const focusAgent = (agentId: string) => {
     setSelectedAgentId(agentId);
@@ -202,9 +206,9 @@ export function GodotWorldHost({
     <section className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
       <div className="relative min-h-[540px] overflow-hidden rounded-3xl border border-slate-700 bg-[#0e141d] shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
         <iframe
-          key={connectionRevision}
+          key={`${connectionRevision}:${iframeSrc}`}
           ref={iframeRef}
-          src="/godot-world/index.html"
+          src={iframeSrc}
           title="Godot 具身世界技术验证"
           className="h-full min-h-[540px] w-full border-0"
           allow="autoplay; fullscreen"

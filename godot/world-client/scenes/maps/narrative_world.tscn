@@ -1,0 +1,245 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/map/world_district_3d.gd" id="1_district"]
+[ext_resource type="Script" path="res://scripts/map/world_location_3d.gd" id="2_location"]
+[ext_resource type="Script" path="res://scripts/map/world_zone_3d.gd" id="3_zone"]
+[ext_resource type="Script" path="res://scripts/map/route_node_3d.gd" id="4_route_node"]
+[ext_resource type="Script" path="res://scripts/map/route_edge_3d.gd" id="5_route_edge"]
+[ext_resource type="Script" path="res://scripts/map/spawn_anchor_3d.gd" id="6_spawn"]
+
+[node name="NarrativeWorldMap" type="Node3D"]
+
+[node name="SeahavenTown" type="Node3D" parent="."]
+script = ExtResource("1_district")
+stable_id = "district:seahaven-town"
+display_name = "Seahaven Town"
+size_meters = Vector3(28, 5, 20)
+
+[node name="TownPlaza" type="Node3D" parent="SeahavenTown"]
+script = ExtResource("2_location")
+stable_id = "plaza"
+display_name = "小镇广场"
+location_type = "plaza"
+capacity = 10
+entrance_node_id = "route:plaza:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/TownPlaza"]
+script = ExtResource("3_zone")
+stable_id = "plaza.main"
+location_id = "plaza"
+zone_type = "social"
+size_meters = Vector3(5, 2.5, 5)
+capacity = 10
+
+[node name="DefaultSpawn" type="Marker3D" parent="SeahavenTown/TownPlaza/MainZone"]
+position = Vector3(0, 0, 1)
+script = ExtResource("6_spawn")
+stable_id = "spawn:plaza:default"
+zone_id = "plaza.main"
+
+[node name="TrumanApartment" type="Node3D" parent="SeahavenTown"]
+position = Vector3(-7, 0, 3)
+script = ExtResource("2_location")
+stable_id = "apartment"
+display_name = "海滨公寓"
+location_type = "home"
+capacity = 3
+public_access = false
+entrance_node_id = "route:apartment:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/TrumanApartment"]
+script = ExtResource("3_zone")
+stable_id = "apartment.main"
+location_id = "apartment"
+zone_type = "residential"
+size_meters = Vector3(4, 3, 4)
+capacity = 3
+
+[node name="BachelorApartment" type="Node3D" parent="SeahavenTown"]
+position = Vector3(-7, 0, -2)
+script = ExtResource("2_location")
+stable_id = "bachelor-apt"
+display_name = "镇中公寓"
+location_type = "home"
+capacity = 6
+public_access = false
+entrance_node_id = "route:bachelor-apt:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/BachelorApartment"]
+script = ExtResource("3_zone")
+stable_id = "bachelor-apt.main"
+location_id = "bachelor-apt"
+zone_type = "residential"
+size_meters = Vector3(4, 3, 4)
+capacity = 6
+
+[node name="CornerCafe" type="Node3D" parent="SeahavenTown"]
+position = Vector3(-2, 0, -3)
+script = ExtResource("2_location")
+stable_id = "cafe"
+display_name = "街角咖啡馆"
+location_type = "cafe"
+capacity = 6
+entrance_node_id = "route:cafe:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/CornerCafe"]
+script = ExtResource("3_zone")
+stable_id = "cafe.main"
+location_id = "cafe"
+zone_type = "social"
+size_meters = Vector3(4, 3, 4)
+capacity = 6
+
+[node name="HarborMall" type="Node3D" parent="SeahavenTown"]
+position = Vector3(4, 0, -3)
+script = ExtResource("2_location")
+stable_id = "mall"
+display_name = "港湾商场"
+location_type = "shop"
+capacity = 12
+entrance_node_id = "route:mall:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/HarborMall"]
+script = ExtResource("3_zone")
+stable_id = "mall.main"
+location_id = "mall"
+zone_type = "commercial"
+size_meters = Vector3(5, 3, 4)
+capacity = 12
+
+[node name="HarborOffice" type="Node3D" parent="SeahavenTown"]
+position = Vector3(6, 0, 2)
+script = ExtResource("2_location")
+stable_id = "office"
+display_name = "港务办公室"
+location_type = "office"
+capacity = 6
+entrance_node_id = "route:office:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/HarborOffice"]
+script = ExtResource("3_zone")
+stable_id = "office.main"
+location_id = "office"
+zone_type = "work"
+size_meters = Vector3(4, 3, 4)
+capacity = 6
+
+[node name="BayHospital" type="Node3D" parent="SeahavenTown"]
+position = Vector3(3, 0, 5)
+script = ExtResource("2_location")
+stable_id = "hospital"
+display_name = "海湾医院"
+location_type = "hospital"
+capacity = 8
+entrance_node_id = "route:hospital:entrance"
+
+[node name="MainZone" type="Node3D" parent="SeahavenTown/BayHospital"]
+script = ExtResource("3_zone")
+stable_id = "hospital.main"
+location_id = "hospital"
+zone_type = "work"
+size_meters = Vector3(5, 3, 4)
+capacity = 8
+
+[node name="Routes" type="Node3D" parent="."]
+
+[node name="PlazaEntrance" type="Marker3D" parent="Routes"]
+script = ExtResource("4_route_node")
+stable_id = "route:plaza:entrance"
+node_kind = "entrance"
+
+[node name="WestJunction" type="Marker3D" parent="Routes"]
+position = Vector3(-3, 0, 0)
+script = ExtResource("4_route_node")
+stable_id = "route:town:west"
+node_kind = "junction"
+
+[node name="EastJunction" type="Marker3D" parent="Routes"]
+position = Vector3(3, 0, 0)
+script = ExtResource("4_route_node")
+stable_id = "route:town:east"
+node_kind = "junction"
+
+[node name="ApartmentEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(-6, 0, 2)
+script = ExtResource("4_route_node")
+stable_id = "route:apartment:entrance"
+node_kind = "entrance"
+
+[node name="BachelorEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(-6, 0, -1)
+script = ExtResource("4_route_node")
+stable_id = "route:bachelor-apt:entrance"
+node_kind = "entrance"
+
+[node name="CafeEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(-2, 0, -2)
+script = ExtResource("4_route_node")
+stable_id = "route:cafe:entrance"
+node_kind = "entrance"
+
+[node name="MallEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(4, 0, -2)
+script = ExtResource("4_route_node")
+stable_id = "route:mall:entrance"
+node_kind = "entrance"
+
+[node name="OfficeEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(5, 0, 2)
+script = ExtResource("4_route_node")
+stable_id = "route:office:entrance"
+node_kind = "entrance"
+
+[node name="HospitalEntrance" type="Marker3D" parent="Routes"]
+position = Vector3(3, 0, 4)
+script = ExtResource("4_route_node")
+stable_id = "route:hospital:entrance"
+node_kind = "entrance"
+
+[node name="ApartmentToWest" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:apartment:west"
+from_node_id = "route:apartment:entrance"
+to_node_id = "route:town:west"
+
+[node name="BachelorToWest" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:bachelor:west"
+from_node_id = "route:bachelor-apt:entrance"
+to_node_id = "route:town:west"
+
+[node name="WestToPlaza" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:west:plaza"
+from_node_id = "route:town:west"
+to_node_id = "route:plaza:entrance"
+
+[node name="CafeToPlaza" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:cafe:plaza"
+from_node_id = "route:cafe:entrance"
+to_node_id = "route:plaza:entrance"
+
+[node name="PlazaToEast" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:plaza:east"
+from_node_id = "route:plaza:entrance"
+to_node_id = "route:town:east"
+
+[node name="MallToEast" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:mall:east"
+from_node_id = "route:mall:entrance"
+to_node_id = "route:town:east"
+
+[node name="OfficeToEast" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:office:east"
+from_node_id = "route:office:entrance"
+to_node_id = "route:town:east"
+
+[node name="HospitalToEast" type="Node" parent="Routes"]
+script = ExtResource("5_route_edge")
+stable_id = "edge:hospital:east"
+from_node_id = "route:hospital:entrance"
+to_node_id = "route:town:east"

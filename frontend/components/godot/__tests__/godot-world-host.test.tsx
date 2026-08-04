@@ -23,6 +23,7 @@ describe("GodotWorldHost", () => {
   test("initializes the fixture after Godot is ready and receives selection", async () => {
     render(<GodotWorldHost readyTimeoutMs={30_000} />);
     const iframe = screen.getByTitle("Godot 具身世界技术验证") as HTMLIFrameElement;
+    expect(iframe.src).toContain("scenario_id=campus_world");
     const postMessage = jest.spyOn(iframe.contentWindow!, "postMessage").mockImplementation();
 
     act(() => {
@@ -60,6 +61,28 @@ describe("GodotWorldHost", () => {
     await waitFor(() => expect(screen.getByText("Chen", { selector: "strong" })).toBeInTheDocument());
     expect(screen.getByText(/Morning\. Are you heading to class\?/)).toBeInTheDocument();
     expect(screen.getAllByText("交谈中").length).toBeGreaterThan(0);
+  });
+
+  test("selects the registered Godot scene from the snapshot scenario", () => {
+    render(
+      <GodotWorldHost
+        snapshot={{
+          scenario_id: "narrative_world",
+          map_id: "narrative-world-v1",
+          map_content_hash: "sha256:narrative",
+          tick: 0,
+          world_time: "2026-03-02T06:00:00Z",
+          run_status: "paused",
+          simulation_speed: 1,
+          agents: [],
+          object_states: [],
+          conversations: [],
+        }}
+      />,
+    );
+    const iframe = screen.getByTitle("Godot 具身世界技术验证") as HTMLIFrameElement;
+    jest.spyOn(iframe.contentWindow!, "postMessage").mockImplementation();
+    expect(iframe.src).toContain("scenario_id=narrative_world");
   });
 
   test("loads an authoritative snapshot when a real run id is provided", async () => {

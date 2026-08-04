@@ -1,0 +1,387 @@
+{
+  "camera_anchors": [],
+  "content_hash": "sha256:2b49eea0075ae6295d9592300140b59a2cdad565c4daf529d644d5cb4805187c",
+  "districts": [
+    {
+      "id": "district:seahaven-town",
+      "name": "Seahaven Town",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "size_meters": [
+        28.0,
+        5.0,
+        20.0
+      ]
+    }
+  ],
+  "interactables": [],
+  "interaction_slots": [],
+  "locations": [
+    {
+      "capacity": 3,
+      "entrance_node_id": "route:apartment:entrance",
+      "id": "apartment",
+      "name": "海滨公寓",
+      "position": [
+        -7.0,
+        0.0,
+        3.0
+      ],
+      "public_access": false,
+      "type": "home"
+    },
+    {
+      "capacity": 6,
+      "entrance_node_id": "route:bachelor-apt:entrance",
+      "id": "bachelor-apt",
+      "name": "镇中公寓",
+      "position": [
+        -7.0,
+        0.0,
+        -2.0
+      ],
+      "public_access": false,
+      "type": "home"
+    },
+    {
+      "capacity": 6,
+      "entrance_node_id": "route:cafe:entrance",
+      "id": "cafe",
+      "name": "街角咖啡馆",
+      "position": [
+        -2.0,
+        0.0,
+        -3.0
+      ],
+      "public_access": true,
+      "type": "cafe"
+    },
+    {
+      "capacity": 8,
+      "entrance_node_id": "route:hospital:entrance",
+      "id": "hospital",
+      "name": "海湾医院",
+      "position": [
+        3.0,
+        0.0,
+        5.0
+      ],
+      "public_access": true,
+      "type": "hospital"
+    },
+    {
+      "capacity": 12,
+      "entrance_node_id": "route:mall:entrance",
+      "id": "mall",
+      "name": "港湾商场",
+      "position": [
+        4.0,
+        0.0,
+        -3.0
+      ],
+      "public_access": true,
+      "type": "shop"
+    },
+    {
+      "capacity": 6,
+      "entrance_node_id": "route:office:entrance",
+      "id": "office",
+      "name": "港务办公室",
+      "position": [
+        6.0,
+        0.0,
+        2.0
+      ],
+      "public_access": true,
+      "type": "office"
+    },
+    {
+      "capacity": 10,
+      "entrance_node_id": "route:plaza:entrance",
+      "id": "plaza",
+      "name": "小镇广场",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "public_access": true,
+      "type": "plaza"
+    }
+  ],
+  "map_id": "narrative-world-v1",
+  "meters_per_unit": 1.0,
+  "portals": [],
+  "route_edges": [
+    {
+      "bidirectional": true,
+      "distance_meters": 3.6056000000000004,
+      "from_node_id": "route:apartment:entrance",
+      "id": "edge:apartment:west",
+      "to_node_id": "route:town:west"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 3.1623,
+      "from_node_id": "route:bachelor-apt:entrance",
+      "id": "edge:bachelor:west",
+      "to_node_id": "route:town:west"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 2.8284000000000002,
+      "from_node_id": "route:cafe:entrance",
+      "id": "edge:cafe:plaza",
+      "to_node_id": "route:plaza:entrance"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 4.0,
+      "from_node_id": "route:hospital:entrance",
+      "id": "edge:hospital:east",
+      "to_node_id": "route:town:east"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 2.2361,
+      "from_node_id": "route:mall:entrance",
+      "id": "edge:mall:east",
+      "to_node_id": "route:town:east"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 2.8284000000000002,
+      "from_node_id": "route:office:entrance",
+      "id": "edge:office:east",
+      "to_node_id": "route:town:east"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 3.0,
+      "from_node_id": "route:plaza:entrance",
+      "id": "edge:plaza:east",
+      "to_node_id": "route:town:east"
+    },
+    {
+      "bidirectional": true,
+      "distance_meters": 3.0,
+      "from_node_id": "route:town:west",
+      "id": "edge:west:plaza",
+      "to_node_id": "route:plaza:entrance"
+    }
+  ],
+  "route_nodes": [
+    {
+      "id": "route:apartment:entrance",
+      "kind": "entrance",
+      "position": [
+        -6.0,
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "id": "route:bachelor-apt:entrance",
+      "kind": "entrance",
+      "position": [
+        -6.0,
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "id": "route:cafe:entrance",
+      "kind": "entrance",
+      "position": [
+        -2.0,
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "id": "route:hospital:entrance",
+      "kind": "entrance",
+      "position": [
+        3.0,
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "id": "route:mall:entrance",
+      "kind": "entrance",
+      "position": [
+        4.0,
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "id": "route:office:entrance",
+      "kind": "entrance",
+      "position": [
+        5.0,
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "id": "route:plaza:entrance",
+      "kind": "entrance",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "route:town:east",
+      "kind": "junction",
+      "position": [
+        3.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "route:town:west",
+      "kind": "junction",
+      "position": [
+        -3.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "spawn_anchors": [
+    {
+      "id": "spawn:plaza:default",
+      "kind": "default",
+      "position": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "rotation_y_degrees": 0.0,
+      "zone_id": "plaza.main"
+    }
+  ],
+  "zones": [
+    {
+      "capacity": 3,
+      "id": "apartment.main",
+      "location_id": "apartment",
+      "position": [
+        -7.0,
+        0.0,
+        3.0
+      ],
+      "size_meters": [
+        4.0,
+        3.0,
+        4.0
+      ],
+      "type": "residential"
+    },
+    {
+      "capacity": 6,
+      "id": "bachelor-apt.main",
+      "location_id": "bachelor-apt",
+      "position": [
+        -7.0,
+        0.0,
+        -2.0
+      ],
+      "size_meters": [
+        4.0,
+        3.0,
+        4.0
+      ],
+      "type": "residential"
+    },
+    {
+      "capacity": 6,
+      "id": "cafe.main",
+      "location_id": "cafe",
+      "position": [
+        -2.0,
+        0.0,
+        -3.0
+      ],
+      "size_meters": [
+        4.0,
+        3.0,
+        4.0
+      ],
+      "type": "social"
+    },
+    {
+      "capacity": 8,
+      "id": "hospital.main",
+      "location_id": "hospital",
+      "position": [
+        3.0,
+        0.0,
+        5.0
+      ],
+      "size_meters": [
+        5.0,
+        3.0,
+        4.0
+      ],
+      "type": "work"
+    },
+    {
+      "capacity": 12,
+      "id": "mall.main",
+      "location_id": "mall",
+      "position": [
+        4.0,
+        0.0,
+        -3.0
+      ],
+      "size_meters": [
+        5.0,
+        3.0,
+        4.0
+      ],
+      "type": "commercial"
+    },
+    {
+      "capacity": 6,
+      "id": "office.main",
+      "location_id": "office",
+      "position": [
+        6.0,
+        0.0,
+        2.0
+      ],
+      "size_meters": [
+        4.0,
+        3.0,
+        4.0
+      ],
+      "type": "work"
+    },
+    {
+      "capacity": 10,
+      "id": "plaza.main",
+      "location_id": "plaza",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "size_meters": [
+        5.0,
+        2.5,
+        5.0
+      ],
+      "type": "social"
+    }
+  ]
+}
