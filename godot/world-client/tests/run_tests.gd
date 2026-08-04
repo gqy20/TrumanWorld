@@ -101,7 +101,7 @@ func _test_runtime_map_visuals() -> void:
 	_expect(cafe is Node3D, "runtime map instantiates the authored Studio Cafe GLB")
 	if cafe is Node3D:
 		var cafe_meshes := cafe.find_children("*", "MeshInstance3D", true, false)
-		_expect(cafe_meshes.size() >= 80, "authored Studio Cafe contains detailed geometry")
+		_expect(cafe_meshes.size() >= 100, "authored Studio Cafe contains detailed geometry")
 		var bounds := AABB()
 		var has_bounds := false
 		for raw_mesh: Node in cafe_meshes:

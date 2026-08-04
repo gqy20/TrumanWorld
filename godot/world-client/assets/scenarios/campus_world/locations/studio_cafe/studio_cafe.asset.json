@@ -10,10 +10,10 @@
   "output": "godot/world-client/assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb",
   "source": "art/blender/scenarios/campus_world/studio_cafe.blend",
   "stats": {
-    "objects": 86,
-    "meshes": 86,
-    "materials": 12,
-    "vertices": 1340,
-    "polygons": 842
+    "objects": 106,
+    "meshes": 106,
+    "materials": 13,
+    "vertices": 5990,
+    "polygons": 4945
   }
 }
