@@ -1,0 +1,85 @@
+schema_version: 1
+
+toolchain:
+  blender:
+    required_major: 5
+    required_minor: 2
+    distribution: official_release
+  mmx:
+    minimum_cli_version: 1.0.16
+    image_model: image-01
+
+defaults:
+  width: 1024
+  height: 1024
+  count: 1
+  prompt_optimizer: false
+  aigc_watermark: false
+  output_directory: art/generated/raw
+  receipt_directory: art/generated/receipts
+
+prompt_sources:
+  style: art/prompts/style.yml
+  characters: art/prompts/characters.yml
+
+jobs:
+  - id: mei_identity_reference
+    kind: character_reference
+    character: mei
+    template: character_single_frame
+    seed: 12031
+    use_subject_reference: false
+    output_directory: art/references/characters
+    variables:
+      action: relaxed idle pose
+      direction: front view
+      expression: observant and calm
+
+  - id: mei_idle_front
+    kind: character_sprite
+    character: mei
+    template: character_single_frame
+    seed: 12031
+    variables:
+      action: relaxed idle pose
+      direction: front view
+      expression: observant and calm
+
+  - id: mei_walk_left
+    kind: character_sprite
+    character: mei
+    template: character_single_frame
+    seed: 12032
+    variables:
+      action: walking left at a natural everyday pace
+      direction: strict left profile
+      expression: focused and relaxed
+
+  - id: mei_drink_front_left
+    kind: character_sprite
+    character: mei
+    template: character_single_frame
+    seed: 12033
+    variables:
+      action: holding a small coffee cup close to her mouth during a quiet sip
+      direction: front-left three-quarter view
+      expression: content and thoughtful
+
+  - id: mei_talk_front_left
+    kind: character_sprite
+    character: mei
+    template: character_single_frame
+    seed: 12034
+    variables:
+      action: making one restrained conversational hand gesture
+      direction: front-left three-quarter view
+      expression: engaged and friendly
+
+  - id: studio_cafe_sign
+    kind: texture
+    template: environment_sign
+    seed: 24011
+    variables:
+      subject: Studio Cafe storefront sign
+      lettering: STUDIO CAFE
+      palette_note: warm terracotta, cream and deep green

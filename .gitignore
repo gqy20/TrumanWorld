@@ -69,6 +69,10 @@ godot/**/.godot/
 frontend/public/godot-world/*
 !frontend/public/godot-world/.gitkeep
 
+# Local AI art generations (curated runtime assets are committed separately)
+art/generated/*
+!art/generated/.gitkeep
+
 # Deployment / containers
 .docker/
 
@@ -79,3 +83,4 @@ frontend/public/godot-world/*
 # Local Claude runtime state
 .claude/
 .claude-sdk-home/
+recordings/

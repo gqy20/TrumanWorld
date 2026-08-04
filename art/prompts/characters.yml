@@ -1,0 +1,17 @@
+schema_version: 1
+
+characters:
+  mei:
+    display_name: Mei
+    identity: >-
+      Mei, a young East Asian campus resident with a short dark bob haircut, round expressive
+      eyes, a muted teal overshirt, cream T-shirt, charcoal straight-leg trousers and practical
+      white sneakers; thoughtful, curious and understated
+    subject_reference: art/references/characters/mei_identity_reference_001.jpg
+    palette:
+      - "#1F2A30"
+      - "#315D5B"
+      - "#6D9A8B"
+      - "#E8DCC8"
+      - "#D69A73"
+      - "#F3EEE2"

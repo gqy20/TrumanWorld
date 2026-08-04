@@ -1,0 +1,25 @@
+schema_version: 1
+style_id: trumanworld_pixel_v1
+
+base_prompt: >-
+  Strictly flat 2D hand-drawn pixel art for a thoughtful campus-life game. Readable silhouette,
+  warm human proportions, editorial colors, crisp pixel clusters, flat color regions, limited
+  shading and soft daylight. Production sprite source, never a model or 3D character
+
+negative_prompt: >-
+  text unless requested, watermark, signature, photorealism, painting, 3D, CGI, clay, figurine,
+  plastic, volumetric lighting, depth of field, gradients, antialiasing, blur, cropped feet,
+  extra limbs, duplicate character, UI, border, checkerboard
+
+templates:
+  character_single_frame: >-
+    {identity}. Full-body {direction}, {action}, {expression}. One isolated character centered
+    on a flat chroma-key magenta background, feet aligned to a clear ground baseline, generous
+    transparent-safe padding around the silhouette. Keep clothing, face, hair and body
+    proportions identical. A subject reference controls identity and costume only; redraw it from
+    scratch as flat 2D pixel art.
+
+  environment_sign: >-
+    A front-facing pixel-art texture for {subject}, with the exact lettering "{lettering}",
+    {palette_note}, rectangular composition, simple readable shapes, evenly lit, no perspective,
+    no surrounding wall, no mockup and no additional words.

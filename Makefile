@@ -7,6 +7,11 @@ GODOT_WEB_OUTPUT := $(CURDIR)/$(FRONTEND_DIR)/public/godot-world/index.html
 GODOT_MAP_SCENE ?= res://scenes/maps/campus_world.tscn
 GODOT_MAP_ID ?= campus-world-v2
 GODOT_MAP_OUTPUT ?= $(CURDIR)/scenarios/campus_world/map/world-map.json
+ASSET_PIPELINE := cd $(BACKEND_DIR) && uv run python ../scripts/assets/pipeline.py
+BLENDER ?= blender
+MMX_JOB ?=
+SPRITE_SOURCE ?=
+SPRITE_OUTPUT ?=
 LOGS_DIR := logs
 BACKEND_MYPY_TARGETS := app/api/errors.py app/api/auth.py app/infra/settings.py app/store
 BACKEND_TEST_ENV := TRUMANWORLD_ANTHROPIC_API_KEY=test-key
@@ -15,7 +20,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-map-check godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-process-sprite assets-blender-cafe lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
 
 LOG_RETENTION_DAYS ?= 7
 
@@ -148,6 +153,32 @@ godot-export-web: godot-import
 
 godot-check: godot-test godot-map-check godot-export-web
 
+assets-validate:
+	$(ASSET_PIPELINE) validate
+
+assets-plan:
+	$(ASSET_PIPELINE) plan
+
+assets-mmx-dry-run:
+	@test -n "$(MMX_JOB)" || (echo "MMX_JOB is required" && exit 1)
+	$(ASSET_PIPELINE) generate --job "$(MMX_JOB)" --dry-run
+
+assets-mmx-generate:
+	@test -n "$(MMX_JOB)" || (echo "MMX_JOB is required" && exit 1)
+	$(ASSET_PIPELINE) generate --job "$(MMX_JOB)"
+
+assets-process-sprite:
+	@test -n "$(SPRITE_SOURCE)" || (echo "SPRITE_SOURCE is required" && exit 1)
+	@test -n "$(SPRITE_OUTPUT)" || (echo "SPRITE_OUTPUT is required" && exit 1)
+	cd $(BACKEND_DIR) && uv run python ../scripts/assets/process_sprite.py \
+		"../$(SPRITE_SOURCE)" "../$(SPRITE_OUTPUT)"
+
+assets-blender-cafe:
+	$(BLENDER) --background --factory-startup --python-exit-code 1 \
+		--python scripts/assets/blender/build_cafe_kit.py -- \
+		--output godot/world-client/assets/locations/studio_cafe_kit.glb \
+		--source art/blender/studio_cafe_kit.blend
+
 lint:
 	$(MAKE) backend-lint
 	$(MAKE) backend-typecheck
@@ -172,6 +203,14 @@ ci: quality backend-test-ci backend-migration-check backend-integration-test fro
 
 benchmark-reactor-pool:
 	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo
+
+# 录制 demo 视频（默认 10 分钟，新 run + 自动 tick）。
+# 复用已有 run： make record-demo RUN_ID=<uuid>
+# 自定义：     make record-demo RECORD_ARGS="--duration 300 --scenario narrative_world"
+RECORD_RUN_NAME ?= campus demo $(shell date +%Y%m%d_%H%M%S)
+RECORD_ARGS ?= --create-run --name "$(RECORD_RUN_NAME)" --duration 600
+record-demo:
+	cd $(BACKEND_DIR) && uv run --with playwright python scripts/record_run_demo.py $(RECORD_ARGS)
 
 RUN_QUALITY_BASE_URL ?= http://127.0.0.1:$(BACKEND_PORT)/api
 RUN_QUALITY_TICKS ?= 0

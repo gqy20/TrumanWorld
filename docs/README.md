@@ -47,6 +47,7 @@
 8. 如需回看 MVP 方案，看 [references/MVP_ARCHITECTURE.md](references/MVP_ARCHITECTURE.md)
 9. 如需评估游戏引擎可行性，看 [engineering/GODOT_3D_CLIENT_SPIKE.md](engineering/GODOT_3D_CLIENT_SPIKE.md)
 10. 如需实施 Godot 具身世界，看 [engineering/GODOT_WORLD_IMPLEMENTATION.md](engineering/GODOT_WORLD_IMPLEMENTATION.md)
+11. 如需制作三维和像素资产，看 [engineering/ASSET_PIPELINE.md](engineering/ASSET_PIPELINE.md)
 
 ### 我想部署和排障
 
