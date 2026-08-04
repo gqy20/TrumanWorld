@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@dicebear/collection": "^9.4.2",
-    "@dicebear/core": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
     "@react-three/fiber": "^9.7.0",
     "d3": "^7.9.0",
     "framer-motion": "^12.38.0",
