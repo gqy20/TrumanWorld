@@ -22,10 +22,6 @@ jest.mock("swr", () => ({
   default: (...args: unknown[]) => mockUseSWR(...args),
 }));
 
-jest.mock("@/lib/ui-url-state", () => ({
-  useUiSearchParams: () => ({ searchParams: new URLSearchParams() }),
-}));
-
 jest.mock("@/components/use-world-event-stream", () => {
   const actual = jest.requireActual("@/components/use-world-event-stream");
   return {

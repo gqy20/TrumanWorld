@@ -42,7 +42,7 @@ describe("GodotWorldHost", () => {
       );
     });
 
-    await waitFor(() => expect(screen.getByText("Bridge ready")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("世界已连接")).toBeInTheDocument());
     expect(postMessage).toHaveBeenCalledTimes(2);
     expect(postMessage.mock.calls.map(([value]) => JSON.parse(String(value)).type)).toEqual([
       "initialize",
@@ -54,7 +54,28 @@ describe("GodotWorldHost", () => {
         new MessageEvent("message", {
           origin: window.location.origin,
           source: iframe.contentWindow,
-          data: godotMessage("selection_changed", 2, { kind: "agent", id: "chen" }),
+          data: godotMessage("ready", 2, {
+            engine_version: "4.7.1",
+            map_id: "campus-world-v2",
+            map_content_hash:
+            "sha256:e2a7e49020876c2fea7ec0850ba58ff955bd67a85a944835bffb02cffbc532da",
+          }),
+        }),
+      );
+    });
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(3));
+    expect(postMessage.mock.calls.map(([value]) => JSON.parse(String(value)).type)).toEqual([
+      "initialize",
+      "world_snapshot",
+      "world_snapshot",
+    ]);
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          origin: window.location.origin,
+          source: iframe.contentWindow,
+          data: godotMessage("selection_changed", 3, { kind: "agent", id: "chen" }),
         }),
       );
     });
@@ -143,7 +164,7 @@ describe("GodotWorldHost", () => {
         );
       });
 
-      await waitFor(() => expect(screen.getByText("Bridge ready")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("世界已连接")).toBeInTheDocument());
       expect(postMessage.mock.calls.map(([value]) => JSON.parse(String(value)).type)).toEqual([
         "initialize",
         "world_snapshot",

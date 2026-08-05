@@ -3,6 +3,8 @@ display_name: Bob
 hair_style: messy
 glasses: false
 accessory: none
+model_3d:
+  builder: stylized_humanoid_v1
 palette:
   outline: "#303238"
   hair: "#66503D"

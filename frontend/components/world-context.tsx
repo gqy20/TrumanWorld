@@ -13,7 +13,6 @@ import {
 import useSWR from "swr";
 import { buildApiUrl, fetchApiResult, getWorldPulseResult, type ApiResult } from "@/lib/api";
 import type { RunSummary, WorldEvent, WorldPulse, WorldSnapshot } from "@/lib/types";
-import { useUiSearchParams } from "@/lib/ui-url-state";
 
 import { mergeWorldEvents, useWorldEventStream } from "./use-world-event-stream";
 
@@ -45,9 +44,6 @@ type Props = {
 
 export function WorldProvider({ runId, initialData, children }: Props) {
   const [isClient, setIsClient] = useState(false);
-  const { searchParams } = useUiSearchParams();
-  const activeModal = searchParams.get("modal");
-  const pausePolling = activeModal !== null;
   const lastKnownRunStatus = useRef(initialData?.run.status ?? null);
   const [streamedEvents, setStreamedEvents] = useState<WorldEvent[]>([]);
   const streamRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,8 +77,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
         errorDetail: null,
         status: initialData ? 200 : null,
       },
-      refreshInterval: (snapshot) =>
-        pausePolling ? 0 : pollingInterval(snapshot, 15000),
+      refreshInterval: (snapshot) => pollingInterval(snapshot, 15000),
       revalidateOnFocus: false,
       revalidateOnMount: initialData == null,
       // Keep previous data during revalidation to prevent full-screen flash
@@ -91,7 +86,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
   );
 
   const { data: pulseResult, mutate: mutatePulse } = useSWR<ApiResult<WorldPulse>>(
-    isClient && !pausePolling ? `/runs/${runId}/world/pulse` : null,
+    isClient ? `/runs/${runId}/world/pulse` : null,
     () => getWorldPulseResult(runId),
     {
       refreshInterval: (snapshot) => pollingInterval(snapshot, 5000),
@@ -119,7 +114,7 @@ export function WorldProvider({ runId, initialData, children }: Props) {
   );
 
   useWorldEventStream({
-    enabled: isClient && !pausePolling && snapshot !== null,
+    enabled: isClient && snapshot !== null,
     latestKnownTick,
     onEvent: handleStreamEvent,
     runId,

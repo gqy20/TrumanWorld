@@ -196,7 +196,9 @@ obj.dimensions = dimensions
   必须先用 `mathutils.Color.from_srgb_to_scene_linear()` 转换，不能直接除以 255 后当作线性值使用；
 - 材质名称使用稳定 `TW_` 前缀，避免从外部 `.blend` 合并时难以辨认。
 
-## 6. 静态 GLB 导出契约
+## 6. GLB 导出契约
+
+### 6.1 静态环境
 
 环境构建器必须显式设置以下关键参数：
 
@@ -221,6 +223,24 @@ result = bpy.ops.export_scene.gltf(
 `export_extras=True` 是运行时语义标签能够进入 glTF 的契约，不得随意关闭。静态环境不导出 camera、
 light、animation、skin 和 morph，Godot 拥有最终相机、灯光和交互状态。角色模型不能直接复用该
 契约，应新增明确命名的 animated export profile。
+
+### 6.2 骨骼角色
+
+角色构建器使用 `export_apply=False`、`export_animations=True`、
+`export_animation_mode="ACTIONS"` 和 `export_skins=True`。每个动作使用稳定语义名称，基础模型使用
+原地动画，角色世界坐标仍由 Godot 路线投影控制。walk/jog 的播放位置绑定累计移动米数，不使用
+动画 root motion，避免后端权威位置与客户端动画重复位移。
+
+角色网格可以由多个低模部件组成，但都必须通过 Armature modifier 和明确顶点组绑定到同一套
+`truman_humanoid_v1` 骨骼。生成结束时检查骨骼数、动作集合、空网格和多边形预算；保存和导出前
+恢复中立姿态，不能让最后生成的动作污染默认展示姿态。
+
+身份配置只存在于各角色的 `appearance.yml`；Blender 构建器读取发型、眼镜、配饰和调色板，不再维护
+一套平行的建模配置。所有启用 `model_3d.builder: stylized_humanoid_v1` 的角色可通过
+`make assets-blender-characters` 批量重建。动作契约覆盖 16 个导演语义状态，并额外提供 turn_left 和
+turn_right：idle、walk、jog、queue、sit、drink、talk、use_object、wave、think、read、phone、carry、
+celebrate、surprised、sleep。咖啡杯拆成杯体、杯口和把手，三部分都绑定到 `hand.R`，由 Godot 根据
+drink 状态统一显隐；它不是常驻服装，也不能作为独立世界物体参与资源占用。
 
 ## 7. 元数据与可观测性
 
@@ -267,6 +287,7 @@ metadata。领域函数接收材质表和明确坐标，不读取隐藏全局选
 make assets-blender-cafe
 make assets-blender-campus
 make assets-blender-town
+make assets-blender-characters
 make assets-blender-town-previews
 make godot-test
 git diff --check

@@ -92,7 +92,7 @@ export type WorldClock = {
 
 export type AgentMovement = {
   id: string;
-  state: "in_transit";
+  state: "in_transit" | "paused";
   from_location_id: string;
   to_location_id: string;
   started_tick: number;
@@ -100,6 +100,16 @@ export type AgentMovement = {
   route_node_ids?: string[];
   distance?: number;
   speed?: number;
+  speed_mps?: number;
+  started_at_world_time?: string | null;
+  expected_arrival_world_time?: string | null;
+  duration_seconds?: number | null;
+  progress?: number | null;
+  activity_id?: string | null;
+  paused_at_world_time?: string | null;
+  paused_progress?: number | null;
+  paused_for_encounter_id?: string | null;
+  paused_for_conversation_id?: string | null;
 };
 
 export type WorldMapTopology = {

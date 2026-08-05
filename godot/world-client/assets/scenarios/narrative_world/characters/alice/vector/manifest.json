@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "visual_asset_id": "narrative_world/alice",
   "display_name": "Alice",
   "format": "svg",
@@ -21,6 +21,36 @@
     "walk",
     "wave"
   ],
+  "animations": {
+    "idle": {
+      "driver": "time",
+      "frames": [
+        "idle/0.svg",
+        "idle/1.svg"
+      ],
+      "fps": 1.25
+    },
+    "jog": {
+      "driver": "distance",
+      "frames": [
+        "jog/0.svg",
+        "jog/1.svg",
+        "jog/2.svg",
+        "jog/3.svg"
+      ],
+      "cycle_distance_m": 1.32
+    },
+    "walk": {
+      "driver": "distance",
+      "frames": [
+        "walk/0.svg",
+        "walk/1.svg",
+        "walk/2.svg",
+        "walk/3.svg"
+      ],
+      "cycle_distance_m": 1.04
+    }
+  },
   "transparent_background": true,
   "generator": "scripts/assets/generate_svg_characters.py"
 }

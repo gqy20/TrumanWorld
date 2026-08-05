@@ -1,6 +1,8 @@
 class_name DirectorCamera
 extends Node3D
 
+enum CameraMode { OVERVIEW, FREE, FOLLOW_AGENT }
+
 @onready var camera: Camera3D = $Camera3D
 
 var _desired_target := Vector3(0.0, 0.6, 0.0)
@@ -16,6 +18,7 @@ var _overview_distance := 14.5
 var _max_distance := 22.0
 var _last_focus_target := Vector3.ZERO
 var _has_focus_target := false
+var _mode := CameraMode.OVERVIEW
 
 const ORBIT_DRAG := 1
 const PAN_DRAG := 2
@@ -37,6 +40,7 @@ func _process(delta: float) -> void:
 func focus_position(target: Vector3, close_view := true) -> void:
 	_last_focus_target = target
 	_has_focus_target = true
+	_mode = CameraMode.FOLLOW_AGENT
 	_set_desired_target(target)
 	if close_view:
 		_distance = minf(_distance, 8.5)
@@ -60,10 +64,22 @@ func configure_from_map(map_root: Node3D) -> void:
 
 
 func show_overview() -> void:
+	_mode = CameraMode.OVERVIEW
 	_set_desired_target(_overview_target)
 	_distance = _overview_distance
 	_yaw = _overview_yaw
 	_pitch = _overview_pitch
+
+
+func update_follow_target(target: Vector3) -> void:
+	_last_focus_target = target
+	_has_focus_target = true
+	if _mode == CameraMode.FOLLOW_AGENT:
+		_set_desired_target(target)
+
+
+func is_following_target() -> bool:
+	return _mode == CameraMode.FOLLOW_AGENT
 
 
 func _input(event: InputEvent) -> void:
@@ -79,14 +95,19 @@ func _input(event: InputEvent) -> void:
 				ORBIT_DRAG if event.pressed else 0
 			)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				_enter_free_mode()
 			_drag_mode = PAN_DRAG if event.pressed else 0
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed:
+				_enter_free_mode()
 			_drag_mode = PAN_DRAG if event.pressed else 0
 	elif event is InputEventMouseMotion and _drag_mode != 0:
 		if _drag_mode == ORBIT_DRAG:
 			_yaw -= event.relative.x * 0.008
 			_pitch = clampf(_pitch + event.relative.y * 0.006, 0.2, 1.18)
 		else:
+			_enter_free_mode()
 			_set_desired_target(
 				_desired_target
 				+ (-_ground_right() * event.relative.x + _ground_forward() * event.relative.y)
@@ -135,11 +156,16 @@ func _movement_axis_for_event(event: InputEventKey) -> Vector2:
 
 
 func _move_target(axis: Vector2, delta: float, boosted := false) -> void:
+	_enter_free_mode()
 	var speed := MOVE_SPEED * (BOOST_MULTIPLIER if boosted else 1.0)
 	_set_desired_target(
 		_desired_target
 		+ (_ground_right() * axis.x + _ground_forward() * axis.y) * speed * delta
 	)
+
+
+func _enter_free_mode() -> void:
+	_mode = CameraMode.FREE
 
 
 func _ground_right() -> Vector3:

@@ -79,6 +79,23 @@ class Pose:
 
 
 @dataclass(frozen=True)
+class AnimationFrame:
+    body_y: int
+    left_arm: int
+    right_arm: int
+    left_leg: int
+    right_leg: int
+
+
+@dataclass(frozen=True)
+class AnimationClip:
+    driver: str
+    frames: tuple[AnimationFrame, ...]
+    fps: float | None = None
+    cycle_distance_m: float | None = None
+
+
+@dataclass(frozen=True)
 class Character:
     scenario_id: str
     id: str
@@ -98,6 +115,7 @@ class Character:
 class SvgPlan:
     canvas: Canvas
     output_root: Path
+    animation_clips: dict[str, AnimationClip]
     characters: tuple[Character, ...]
 
 
@@ -111,16 +129,13 @@ def load_plan(
     canvas = Canvas(
         width=_positive_int(raw_canvas.get("width"), "canvas.width"),
         height=_positive_int(raw_canvas.get("height"), "canvas.height"),
-        stroke_width=_positive_int(
-            raw_canvas.get("stroke_width"), "canvas.stroke_width"
-        ),
+        stroke_width=_positive_int(raw_canvas.get("stroke_width"), "canvas.stroke_width"),
     )
     output_root = _repository_path(_string(raw, "output_root"))
     raw_pose_sets = _mapping(raw, "pose_sets")
+    raw_animation_clips = _mapping(raw, "animation_clips")
     characters: list[Character] = []
-    for scenario_root in sorted(
-        path for path in scenarios_root.iterdir() if path.is_dir()
-    ):
+    for scenario_root in sorted(path for path in scenarios_root.iterdir() if path.is_dir()):
         visuals_path = scenario_root / "visuals.yml"
         if not visuals_path.is_file():
             continue
@@ -135,32 +150,37 @@ def load_plan(
             )
         poses = _parse_poses(pose_set_id, raw_poses)
         agents_root = scenario_root / "agents"
-        for agent_root in sorted(
-            path for path in agents_root.iterdir() if path.is_dir()
-        ):
+        for agent_root in sorted(path for path in agents_root.iterdir() if path.is_dir()):
             appearance_path = agent_root / "appearance.yml"
             if not appearance_path.is_file():
                 continue
             if not (agent_root / "agent.yml").is_file():
-                raise SvgConfigurationError(
-                    f"appearance has no agent.yml: {appearance_path}"
-                )
+                raise SvgConfigurationError(f"appearance has no agent.yml: {appearance_path}")
             characters.append(
-                _parse_character(
-                    scenario_root.name, agent_root.name, appearance_path, poses
-                )
+                _parse_character(scenario_root.name, agent_root.name, appearance_path, poses)
             )
     if not characters:
         raise SvgConfigurationError("no scenario character appearance files found")
-    return SvgPlan(canvas=canvas, output_root=output_root, characters=tuple(characters))
+    animation_clips = _parse_animation_clips(raw_animation_clips)
+    return SvgPlan(
+        canvas=canvas,
+        output_root=output_root,
+        animation_clips=animation_clips,
+        characters=tuple(characters),
+    )
 
 
-def render_character(character: Character, pose_id: str, canvas: Canvas) -> str:
+def render_character(
+    character: Character,
+    pose_id: str,
+    canvas: Canvas,
+    *,
+    pose: Pose | None = None,
+    frame_index: int | None = None,
+) -> str:
     if pose_id not in character.poses:
-        raise SvgConfigurationError(
-            f"character {character.visual_asset_id} has no pose: {pose_id}"
-        )
-    pose = character.poses[pose_id]
+        raise SvgConfigurationError(f"character {character.visual_asset_id} has no pose: {pose_id}")
+    pose = pose or character.poses[pose_id]
     c = character.palette
     back_hair, front_hair = _hair(character.hair_style, c)
     glasses = _glasses(c) if character.glasses else ""
@@ -168,7 +188,8 @@ def render_character(character: Character, pose_id: str, canvas: Canvas) -> str:
     mouth = _mouth(pose.expression, c)
     accessory = _accessory(character.accessory, c)
     prop = _prop(pose.prop, c)
-    title = html.escape(f"{character.display_name} — {pose_id}")
+    frame_suffix = "" if frame_index is None else f" — frame {frame_index}"
+    title = html.escape(f"{character.display_name} — {pose_id}{frame_suffix}")
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{canvas.width}" height="{canvas.height}" viewBox="0 0 192 256">
   <title>{title}</title>
   <desc>Deterministic transparent Truman World character sprite.</desc>
@@ -232,27 +253,40 @@ def generate(
     stale: list[Path] = []
     for character in selected:
         character_dir = (
-            plan.output_root
-            / character.scenario_id
-            / "characters"
-            / character.id
-            / "vector"
+            plan.output_root / character.scenario_id / "characters" / character.id / "vector"
         )
         for pose_id in sorted(character.poses):
             output = character_dir / f"{pose_id}.svg"
-            _write_or_check(
-                output, render_character(character, pose_id, plan.canvas), check, stale
-            )
+            _write_or_check(output, render_character(character, pose_id, plan.canvas), check, stale)
             outputs.append(output)
+        for animation_id, clip in sorted(plan.animation_clips.items()):
+            for frame_index, frame_pose in enumerate(clip.frames):
+                output = character_dir / animation_id / f"{frame_index}.svg"
+                _write_or_check(
+                    output,
+                    render_character(
+                        character,
+                        animation_id,
+                        plan.canvas,
+                        pose=_apply_animation_frame(
+                            frame_pose, character.poses[animation_id]
+                        ),
+                        frame_index=frame_index,
+                    ),
+                    check,
+                    stale,
+                )
+                outputs.append(output)
         manifest = character_dir / "manifest.json"
         manifest_content = (
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "visual_asset_id": character.visual_asset_id,
                     "display_name": character.display_name,
                     "format": "svg",
                     "poses": sorted(character.poses),
+                    "animations": _animation_manifest(plan.animation_clips),
                     "transparent_background": True,
                     "generator": "scripts/assets/generate_svg_characters.py",
                 },
@@ -266,9 +300,7 @@ def generate(
     # A character-only run must not replace the scenario index with a partial list.
     # Scenario-wide and repository-wide runs own the aggregate manifests.
     indexed_scenarios = (
-        sorted({character.scenario_id for character in selected})
-        if character_id is None
-        else []
+        sorted({character.scenario_id for character in selected}) if character_id is None else []
     )
     for current_scenario in indexed_scenarios:
         assets = [
@@ -305,32 +337,24 @@ def _parse_character(
     scenario_id: str, character_id: str, path: Path, poses: dict[str, Pose]
 ) -> Character:
     if not SAFE_ID.fullmatch(scenario_id) or not SAFE_ID.fullmatch(character_id):
-        raise SvgConfigurationError(
-            f"invalid visual asset id: {scenario_id}/{character_id}"
-        )
+        raise SvgConfigurationError(f"invalid visual asset id: {scenario_id}/{character_id}")
     raw = _load_yaml(path)
     if raw.get("schema_version") != 1:
         raise SvgConfigurationError(f"appearance requires schema_version: 1: {path}")
     palette = _mapping(raw, "palette")
     missing = sorted(REQUIRED_COLORS - palette.keys())
     if missing:
-        raise SvgConfigurationError(
-            f"appearance {path} is missing colors: {', '.join(missing)}"
-        )
+        raise SvgConfigurationError(f"appearance {path} is missing colors: {', '.join(missing)}")
     normalized: dict[str, str] = {}
     for color_id, value in palette.items():
         if not isinstance(value, str) or not HEX_COLOR.fullmatch(value):
-            raise SvgConfigurationError(
-                f"appearance {path} color {color_id} must be #RRGGBB"
-            )
+            raise SvgConfigurationError(f"appearance {path} color {color_id} must be #RRGGBB")
         normalized[color_id] = value.upper()
     hair_style = _string(raw, "hair_style")
     accessory = _string(raw, "accessory")
     glasses = raw.get("glasses")
     if hair_style not in SUPPORTED_HAIR or accessory not in SUPPORTED_ACCESSORIES:
-        raise SvgConfigurationError(
-            f"appearance {path} uses an unsupported visual component"
-        )
+        raise SvgConfigurationError(f"appearance {path} uses an unsupported visual component")
     if not isinstance(glasses, bool):
         raise SvgConfigurationError(f"appearance {path} glasses must be a boolean")
     return Character(
@@ -347,9 +371,7 @@ def _parse_character(
 
 def _parse_poses(pose_set_id: str, raw: dict[str, Any]) -> dict[str, Pose]:
     if set(raw) != REQUIRED_POSES:
-        raise SvgConfigurationError(
-            f"pose set {pose_set_id} must define exactly 16 standard poses"
-        )
+        raise SvgConfigurationError(f"pose set {pose_set_id} must define exactly 16 standard poses")
     poses: dict[str, Pose] = {}
     for pose_id, value in raw.items():
         if not isinstance(value, dict):
@@ -367,6 +389,81 @@ def _parse_poses(pose_set_id: str, raw: dict[str, Any]) -> dict[str, Pose]:
             prop=prop,
         )
     return poses
+
+
+def _parse_animation_clips(raw: dict[str, Any]) -> dict[str, AnimationClip]:
+    clips: dict[str, AnimationClip] = {}
+    for animation_id, value in raw.items():
+        if animation_id not in REQUIRED_POSES or not isinstance(value, dict):
+            raise SvgConfigurationError(f"invalid animation clip: {animation_id}")
+        driver = _string(value, "driver")
+        if driver not in {"time", "distance"}:
+            raise SvgConfigurationError(f"animation {animation_id} has invalid driver")
+        raw_frames = value.get("frames")
+        if not isinstance(raw_frames, list) or len(raw_frames) < 2:
+            raise SvgConfigurationError(f"animation {animation_id} requires at least 2 frames")
+        frames = tuple(
+            _parse_animation_frame(animation_id, item) for item in raw_frames
+        )
+        fps = (
+            _positive_number(value.get("fps"), f"animation {animation_id}.fps")
+            if driver == "time"
+            else None
+        )
+        cycle = (
+            _positive_number(
+                value.get("cycle_distance_m"),
+                f"animation {animation_id}.cycle_distance_m",
+            )
+            if driver == "distance"
+            else None
+        )
+        clips[animation_id] = AnimationClip(driver, frames, fps, cycle)
+    return clips
+
+
+def _parse_animation_frame(animation_id: str, value: Any) -> AnimationFrame:
+    if not isinstance(value, dict):
+        raise SvgConfigurationError(f"animation {animation_id} frame must be an object")
+    fields = {"body_y", "left_arm", "right_arm", "left_leg", "right_leg"}
+    if set(value) != fields:
+        raise SvgConfigurationError(
+            f"animation {animation_id} frame must define {', '.join(sorted(fields))}"
+        )
+    return AnimationFrame(
+        body_y=_integer(value["body_y"], f"animation {animation_id}.body_y"),
+        left_arm=_angle(value["left_arm"], f"animation {animation_id}.left_arm"),
+        right_arm=_angle(value["right_arm"], f"animation {animation_id}.right_arm"),
+        left_leg=_angle(value["left_leg"], f"animation {animation_id}.left_leg"),
+        right_leg=_angle(value["right_leg"], f"animation {animation_id}.right_leg"),
+    )
+
+
+def _apply_animation_frame(frame: AnimationFrame, base: Pose) -> Pose:
+    return Pose(
+        body_y=frame.body_y,
+        left_arm=frame.left_arm,
+        right_arm=frame.right_arm,
+        left_leg=frame.left_leg,
+        right_leg=frame.right_leg,
+        expression=base.expression,
+        prop=base.prop,
+    )
+
+
+def _animation_manifest(clips: dict[str, AnimationClip]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for animation_id, clip in sorted(clips.items()):
+        definition: dict[str, Any] = {
+            "driver": clip.driver,
+            "frames": [f"{animation_id}/{index}.svg" for index in range(len(clip.frames))],
+        }
+        if clip.fps is not None:
+            definition["fps"] = clip.fps
+        if clip.cycle_distance_m is not None:
+            definition["cycle_distance_m"] = clip.cycle_distance_m
+        result[animation_id] = definition
+    return result
 
 
 def _hair(style: str, c: dict[str, str]) -> tuple[str, str]:
@@ -418,10 +515,10 @@ def _mouth(expression: str, c: dict[str, str]) -> str:
     if expression in {"smile", "content", "delighted"}:
         return f'<path d="M86 88c6 6 13 6 19 0" fill="none" stroke="{c["skin_shadow"]}" stroke-width="3"/>'
     if expression == "surprised":
-        return (
-            f'<circle cx="96" cy="91" r="5" fill="{c["skin_shadow"]}" stroke="none"/>'
-        )
-    return f'<path d="M88 90c5 2 10 2 15 0" fill="none" stroke="{c["skin_shadow"]}" stroke-width="3"/>'
+        return f'<circle cx="96" cy="91" r="5" fill="{c["skin_shadow"]}" stroke="none"/>'
+    return (
+        f'<path d="M88 90c5 2 10 2 15 0" fill="none" stroke="{c["skin_shadow"]}" stroke-width="3"/>'
+    )
 
 
 def _accessory(accessory: str, c: dict[str, str]) -> str:
@@ -498,6 +595,12 @@ def _positive_int(value: Any, label: str) -> int:
     if result <= 0:
         raise SvgConfigurationError(f"{label} must be positive")
     return result
+
+
+def _positive_number(value: Any, label: str) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+        raise SvgConfigurationError(f"{label} must be a positive number")
+    return float(value)
 
 
 def _angle(value: Any, label: str) -> int:

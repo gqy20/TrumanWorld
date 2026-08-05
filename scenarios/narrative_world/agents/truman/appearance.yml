@@ -3,6 +3,8 @@ display_name: Truman
 hair_style: short
 glasses: false
 accessory: tie
+model_3d:
+  builder: stylized_humanoid_v1
 palette:
   outline: "#26313A"
   hair: "#8A5A3B"

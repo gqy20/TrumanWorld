@@ -3,6 +3,8 @@ display_name: Lauren
 hair_style: ponytail
 glasses: false
 accessory: none
+model_3d:
+  builder: stylized_humanoid_v1
 palette:
   outline: "#302E39"
   hair: "#A86C42"

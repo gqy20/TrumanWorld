@@ -30,6 +30,13 @@ def test_plan_discovers_scenario_scoped_characters() -> None:
         "narrative_world/bob",
     }.issubset(by_asset_id)
     assert all(set(character.poses) == generator.REQUIRED_POSES for character in plan.characters)
+    assert {
+        animation_id: len(clip.frames) for animation_id, clip in plan.animation_clips.items()
+    } == {
+        "idle": 2,
+        "jog": 4,
+        "walk": 4,
+    }
 
 
 def test_svg_render_is_deterministic_transparent_and_appearance_specific() -> None:
@@ -52,8 +59,26 @@ def test_svg_render_is_deterministic_transparent_and_appearance_specific() -> No
 def test_checked_in_svg_assets_match_generator() -> None:
     outputs = generator.generate(generator.load_plan(), check=True)
 
-    assert len(outputs) == 155
+    assert len(outputs) == 245
     assert all(path.is_file() for path in outputs)
+
+
+def test_walk_frames_are_distinct_valid_svg_documents() -> None:
+    plan = generator.load_plan()
+    mei = next(character for character in plan.characters if character.id == "mei")
+    frames = [
+        generator.render_character(
+            mei,
+            "walk",
+            plan.canvas,
+            pose=generator._apply_animation_frame(pose, mei.poses["walk"]),
+            frame_index=index,
+        )
+        for index, pose in enumerate(plan.animation_clips["walk"].frames)
+    ]
+
+    assert len(set(frames)) == 4
+    assert all(ET.fromstring(frame).tag == "{http://www.w3.org/2000/svg}svg" for frame in frames)
 
 
 def test_character_only_generation_does_not_replace_scenario_manifest(
@@ -70,5 +95,5 @@ def test_character_only_generation_does_not_replace_scenario_manifest(
         character_id="truman",
     )
 
-    assert len(outputs) == 17
+    assert len(outputs) == 27
     assert manifest.read_text(encoding="utf-8") == original

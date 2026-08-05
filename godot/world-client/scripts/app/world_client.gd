@@ -48,6 +48,7 @@ func _ready() -> void:
 		push_error("Runtime world map is invalid: %s" % "; ".join(map_result.get("errors", [])))
 		return
 	_map_content_hash = str(map_result["document"]["content_hash"])
+	world_presenter.configure_navigation(map_result["document"], _client_clock)
 	if OS.has_feature("web"):
 		_connect_web_bridge()
 	else:
@@ -67,7 +68,7 @@ func _process(delta: float) -> void:
 		return
 	_atmosphere.update(_client_clock.world_time_seconds())
 	if not _selected_agent_id.is_empty():
-		camera_rig.focus_position(world_presenter.agent_focus_position(_selected_agent_id), false)
+		camera_rig.update_follow_target(world_presenter.agent_focus_position(_selected_agent_id))
 	_status_update_elapsed += delta
 	if _status_update_elapsed >= 0.5:
 		_status_update_elapsed = 0.0

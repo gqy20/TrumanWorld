@@ -17,7 +17,15 @@ func _initialize() -> void:
 	_test_world_map_disconnected_entrances()
 	_test_client_clock_pause_and_speed()
 	_test_director_camera_web_interactions()
+	_test_route_projection()
+	_test_idle_agent_placement()
+	_test_agent_local_avoidance()
+	_test_agent_movement_formation()
+	_test_conversation_placement()
+	_test_agent_selection_click_threshold()
 	_test_activity_visual_mapping()
+	_test_vector_animation_library()
+	_test_truman_3d_character()
 	_test_mei_vector_avatar()
 	if _failures == 0:
 		print("Godot world client tests passed")
@@ -274,6 +282,17 @@ func _test_mei_vector_avatar() -> void:
 		var path := "res://assets/scenarios/campus_world/characters/mei/vector/%s.svg" % pose_id
 		_expect(ResourceLoader.exists(path), "Mei %s SVG exists" % pose_id)
 		_expect(load(path) is Texture2D, "Mei %s SVG imports as Texture2D" % pose_id)
+	var manifest_path := "res://assets/scenarios/campus_world/characters/mei/vector/manifest.json"
+	var raw_manifest: Variant = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
+	_expect(raw_manifest is Dictionary, "Mei vector manifest is valid JSON")
+	var manifest := raw_manifest as Dictionary
+	for animation_id: String in ["idle", "walk", "jog"]:
+		for frame_path: String in manifest["animations"][animation_id]["frames"]:
+			var path := (
+				"res://assets/scenarios/campus_world/characters/mei/vector/%s" % frame_path
+			)
+			_expect(ResourceLoader.exists(path), "Mei %s animation frame exists" % animation_id)
+			_expect(load(path) is Texture2D, "Mei %s frame imports as Texture2D" % animation_id)
 	var avatar := AgentAvatar.new()
 	avatar.agent_id = "run-1-mei"
 	avatar.visual_asset_id = "campus_world/mei"
@@ -283,7 +302,114 @@ func _test_mei_vector_avatar() -> void:
 	_expect(fallback != null and not fallback.visible, "Mei hides procedural mesh fallback")
 	for pose_id in pose_ids:
 		_expect(avatar._vector_pose_for_state(pose_id) == pose_id, "Mei maps %s pose" % pose_id)
+	_expect(avatar._vector_animations.size() == 3, "Mei loads three multi-frame animations")
 	avatar.free()
+
+
+func _test_truman_3d_character() -> void:
+	var resident_ids := ["alice", "bob", "friend", "neighbor", "spouse", "truman"]
+	for resident_id in resident_ids:
+		var resident_path := (
+			"res://assets/scenarios/narrative_world/characters/%s/model/character.glb"
+			% resident_id
+		)
+		_expect(ResourceLoader.exists(resident_path), "%s rigged GLB exists" % resident_id)
+		_expect(load(resident_path) is PackedScene, "%s GLB imports as a scene" % resident_id)
+		var resident_model := AgentModel3D.instantiate_asset("narrative_world/%s" % resident_id)
+		_expect(
+			resident_model != null and resident_model.is_ready(),
+			"%s model satisfies the shared runtime contract" % resident_id,
+		)
+		if resident_model != null:
+			resident_model.free()
+	var model := AgentModel3D.instantiate_asset("narrative_world/truman")
+	_expect(model != null and model.is_ready(), "Truman 3D model exposes an AnimationPlayer")
+	if model == null:
+		return
+	var animations := model.animation_names()
+	var expected_animations := [
+		"idle", "walk", "jog", "turn_left", "turn_right", "sit", "drink", "queue",
+		"talk", "use_object", "wave", "think", "read", "phone", "carry", "celebrate",
+		"surprised", "sleep",
+	]
+	for animation_id in expected_animations:
+		_expect(
+			animation_id in animations,
+			"Truman GLB contains %s animation" % animation_id,
+		)
+	_expect(
+		model.find_children("*", "Skeleton3D", true, false).size() == 1,
+		"Truman GLB contains one reusable humanoid skeleton",
+	)
+	var cup := model.find_child("CoffeeCup", true, false) as MeshInstance3D
+	_expect(cup != null and not cup.visible, "3D coffee cup starts hidden")
+	model.update_pose("drink", 1.0, 0.0, 0.0)
+	_expect(cup != null and cup.visible, "drink state reveals the rigged coffee cup")
+	model.update_pose("wave", 100.0, 0.0, 0.0)
+	_expect(model._active_animation == "wave", "semantic wave state selects its native 3D action")
+	_expect(
+		is_zero_approx(model._animation_player.current_animation_position),
+		"a newly entered semantic action starts at its first frame",
+	)
+	model.update_pose("wave", 100.4, 0.0, 0.0)
+	_expect(
+		model._animation_player.current_animation_position > 0.3,
+		"semantic action time advances from state entry",
+	)
+	_expect(cup != null and not cup.visible, "leaving drink hides every coffee-cup part")
+	model.update_pose("celebrate", 200.0, 0.0, 0.0)
+	model.update_pose("celebrate", 200.2, 0.0, 0.0)
+	_expect(model._motion_offset.y > 0.07, "celebration adds a bounded presentation-only hop")
+	model.update_pose("walk", 201.0, 0.26, 1.0)
+	_expect(model._motion_offset.y > 0.02, "3D walking adds distance-synchronized body rise")
+	_expect(
+		model._state_offset("sit").is_equal_approx(Vector3(0.0, -0.32, 0.08)),
+		"sit state applies its authored model-space seating offset",
+	)
+	model.free()
+	var avatar := AgentAvatar.new()
+	avatar.agent_id = "run-1-truman"
+	avatar.visual_asset_id = "narrative_world/truman"
+	avatar._build_visuals()
+	_expect(avatar.get_node_or_null("CharacterModel") is AgentModel3D, "Truman prefers 3D")
+	var vector := avatar.get_node_or_null("VectorCharacter") as Sprite3D
+	_expect(vector != null and not vector.visible, "Truman hides SVG after 3D loads")
+	avatar.free()
+
+
+func _test_vector_animation_library() -> void:
+	var time_animation := {"driver": "time", "fps": 2.0, "frames": [0, 1, 2, 3]}
+	_expect(
+		VectorAnimationLibrary.frame_index(time_animation, 1.1, 0.0) == 2,
+		"time-driven animation interprets fps as frames per second",
+	)
+	_expect(
+		VectorAnimationLibrary.frame_index(time_animation, 3.1, 0.0) == 2,
+		"time-driven animation loops after its complete frame sequence",
+	)
+	var distance_animation := {
+		"driver": "distance",
+		"cycle_distance_m": 1.0,
+		"frames": [0, 1, 2, 3],
+	}
+	_expect(
+		VectorAnimationLibrary.frame_index(distance_animation, 99.0, 0.26) == 1,
+		"distance-driven gait selects frames from travelled distance",
+	)
+	_expect(
+		VectorAnimationLibrary.frame_index(distance_animation, 99.0, 1.26) == 1,
+		"distance-driven gait loops at the configured stride length",
+	)
+	_expect(
+		VectorAnimationLibrary.cycle_distance_m(
+			{"walk": distance_animation}, "walk", 0.52
+		) == 1.0,
+		"pose bobbing uses the same distance cycle as its SVG frames",
+	)
+	_expect(
+		VectorAnimationLibrary.cycle_distance_m({}, "walk", 0.52) == 0.52,
+		"procedural residents keep their fallback gait cycle",
+	)
 
 
 func _test_world_map_duplicate_id() -> void:
@@ -358,6 +484,7 @@ func _test_director_camera_web_interactions() -> void:
 		director.get("_desired_target") != target_before,
 		"keyboard movement advances the camera target along the ground",
 	)
+	_expect(not director.is_following_target(), "manual movement exits resident follow mode")
 	director._move_target(Vector2(1.0, 0.0), 100.0, true)
 	var bounded_target: Vector3 = director.get("_desired_target")
 	var overview_target: Vector3 = director.get("_overview_target")
@@ -367,6 +494,7 @@ func _test_director_camera_web_interactions() -> void:
 	)
 	var focused_target := Vector3(4.0, 0.6, -3.0)
 	director.focus_position(focused_target, false)
+	_expect(director.is_following_target(), "focusing a resident enters follow mode")
 	var home := InputEventKey.new()
 	home.keycode = KEY_HOME
 	home.pressed = true
@@ -386,6 +514,147 @@ func _test_director_camera_web_interactions() -> void:
 		"a short WASD tap immediately moves the camera target",
 	)
 	director.free()
+
+
+func _test_route_projection() -> void:
+	var nodes := {
+		"a": Vector3(0.0, 0.0, 0.0),
+		"b": Vector3(4.0, 0.0, 0.0),
+		"c": Vector3(4.0, 0.0, 6.0),
+	}
+	var movement := {
+		"state": "in_transit",
+		"route_node_ids": ["a", "b", "c"],
+		"started_at_world_time": "2026-03-02T06:00:00Z",
+		"expected_arrival_world_time": "2026-03-02T06:00:10Z",
+	}
+	var halfway_time := Time.get_unix_time_from_datetime_string("2026-03-02T06:00:05Z")
+	var halfway := RouteProjection.sample(movement, nodes, halfway_time, Vector3.ZERO)
+	_expect(
+		halfway.distance_to(Vector3(4.0, 0.0, 1.0)) < 0.08,
+		"route projection follows arc length across corners",
+	)
+	var path := RouteProjection.build_path(movement, nodes)
+	_expect(
+		(path.get("points", []) as Array).size() > 3,
+		"route projection rounds authored street corners",
+	)
+	var corner_approach := RouteProjection.sample_path_distance(path, 3.9)
+	var corner_exit := RouteProjection.sample_path_distance(path, 4.1)
+	_expect(
+		(corner_approach["tangent"] as Vector3).dot(corner_exit["tangent"] as Vector3) > 0.0,
+		"rounded route changes direction without a right-angle snap",
+	)
+	_expect(
+		RouteProjection.endpoint_blend(0.0, 10.0) == 0.0
+		and RouteProjection.endpoint_blend(5.0, 10.0) == 1.0,
+		"locomotion gait settles at route endpoints",
+	)
+	var lane_start := RouteProjection.offset_sample(RouteProjection.sample_path(path, 0.0), 0.14)
+	var lane_middle := RouteProjection.offset_sample(RouteProjection.sample_path(path, 0.5), 0.14)
+	_expect(lane_start["position"] == path["points"][0], "lane offset fades at an entrance")
+	_expect(
+		(lane_middle["position"] as Vector3).distance_to(halfway) > 0.1,
+		"moving residents keep to one side of the road",
+	)
+	movement["state"] = "paused"
+	movement["paused_progress"] = 0.25
+	_expect(
+		RouteProjection.sample(movement, nodes, halfway_time, Vector3.ZERO)
+		.distance_to(Vector3(2.5, 0.0, 0.0)) < 0.08,
+		"paused movement stays at its authoritative progress",
+	)
+
+
+func _test_agent_selection_click_threshold() -> void:
+	var avatar := AgentAvatar.new()
+	avatar.agent_id = "mei"
+	var selected_ids: Array[String] = []
+	avatar.selected.connect(func(agent_id: String) -> void: selected_ids.append(agent_id))
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(10.0, 10.0)
+	avatar._on_input_event(null, press, Vector3.ZERO, Vector3.UP, 0)
+	var drag := InputEventMouseMotion.new()
+	drag.position = Vector2(30.0, 10.0)
+	avatar._on_input_event(null, drag, Vector3.ZERO, Vector3.UP, 0)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = drag.position
+	avatar._on_input_event(null, release, Vector3.ZERO, Vector3.UP, 0)
+	_expect(selected_ids.is_empty(), "dragging from a resident does not select it")
+	avatar._on_input_event(null, press, Vector3.ZERO, Vector3.UP, 0)
+	release.position = press.position
+	avatar._on_input_event(null, release, Vector3.ZERO, Vector3.UP, 0)
+	_expect(selected_ids == ["mei"], "a resident is selected after a completed click")
+	avatar.free()
+
+
+func _test_idle_agent_placement() -> void:
+	var offsets := AgentPlacement.radial_offsets(["mei", "chen", "lin"])
+	_expect(offsets.size() == 3, "idle placement gives every resident a stable offset")
+	_expect(
+		(offsets["mei"] as Vector3).distance_to(offsets["chen"] as Vector3) >= 0.57,
+		"idle placement keeps residents out of the same standing point",
+	)
+	_expect(
+		offsets == AgentPlacement.radial_offsets(["lin", "mei", "chen"]),
+		"idle placement is deterministic regardless of snapshot order",
+	)
+
+
+func _test_agent_local_avoidance() -> void:
+	var positions := {
+		"mei": Vector3.ZERO,
+		"chen": Vector3.ZERO,
+		"lin": Vector3(4.0, 0.0, 0.0),
+	}
+	var offsets := AgentPlacement.avoidance_offsets(positions)
+	_expect(
+		(offsets["mei"] as Vector3).dot(offsets["chen"] as Vector3) < 0.0,
+		"coincident residents receive opposite avoidance offsets",
+	)
+	_expect(
+		(offsets["mei"] as Vector3).length() <= 0.121
+		and (offsets["chen"] as Vector3).length() <= 0.121,
+		"local avoidance remains visually bounded",
+	)
+	_expect(offsets["lin"] == Vector3.ZERO, "distant residents are not displaced")
+
+
+func _test_agent_movement_formation() -> void:
+	var formation := AgentPlacement.movement_formation(["charlie", "alpha", "bravo"])
+	_expect(
+		formation["alpha"]["lane_offset"] == 0.0
+		and formation["bravo"]["lane_offset"] == 0.18,
+		"same-route residents form a stable walking row",
+	)
+	_expect(
+		formation["charlie"]["lane_offset"] == 0.09
+		and formation["charlie"]["longitudinal_offset"] == 0.42,
+		"an unpaired resident follows behind the first row",
+	)
+
+
+func _test_conversation_placement() -> void:
+	var offsets := AgentPlacement.conversation_pair_offsets(
+		"mei", Vector3.ZERO, "chen", Vector3(2.0, 0.0, 0.0)
+	)
+	var final_mei := offsets["mei"] as Vector3
+	var final_chen := Vector3(2.0, 0.0, 0.0) + (offsets["chen"] as Vector3)
+	_expect(
+		absf(final_mei.distance_to(final_chen) - 1.15) < 0.001,
+		"free-standing conversation partners approach a natural speaking distance",
+	)
+	var coincident := AgentPlacement.conversation_pair_offsets(
+		"mei", Vector3.ZERO, "chen", Vector3.ZERO
+	)
+	_expect(
+		(coincident["mei"] as Vector3).dot(coincident["chen"] as Vector3) < 0.0,
+		"coincident conversation partners separate deterministically",
+	)
 
 
 func _test_activity_visual_mapping() -> void:

@@ -3,6 +3,8 @@ display_name: Marlon
 hair_style: wave
 glasses: false
 accessory: tie
+model_3d:
+  builder: stylized_humanoid_v1
 palette:
   outline: "#302D2B"
   hair: "#2F2926"

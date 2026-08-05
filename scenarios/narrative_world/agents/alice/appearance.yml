@@ -3,6 +3,8 @@ display_name: Alice
 hair_style: ponytail
 glasses: false
 accessory: apron
+model_3d:
+  builder: stylized_humanoid_v1
 palette:
   outline: "#2C3131"
   hair: "#3B2B25"

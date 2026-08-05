@@ -3,6 +3,8 @@ display_name: Meryl
 hair_style: long
 glasses: false
 accessory: badge
+model_3d:
+  builder: stylized_humanoid_v1
 palette:
   outline: "#34303A"
   hair: "#6A4037"

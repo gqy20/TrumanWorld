@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "visual_asset_id": "narrative_world/alice",
+  "format": "glb",
+  "rig_id": "truman_humanoid_v1",
+  "animations": {
+    "idle": 48,
+    "walk": 24,
+    "jog": 18,
+    "turn_left": 18,
+    "turn_right": 18,
+    "sit": 24,
+    "drink": 48,
+    "queue": 48,
+    "talk": 36,
+    "use_object": 36,
+    "wave": 32,
+    "think": 48,
+    "read": 48,
+    "phone": 40,
+    "carry": 36,
+    "celebrate": 32,
+    "surprised": 32,
+    "sleep": 48
+  },
+  "cycle_distance_m": {
+    "walk": 1.04,
+    "jog": 1.32
+  },
+  "state_offsets_m": {
+    "sit": [
+      0.0,
+      -0.32,
+      0.08
+    ],
+    "drink": [
+      0.0,
+      -0.32,
+      0.08
+    ],
+    "sleep": [
+      0.0,
+      -0.32,
+      0.08
+    ]
+  },
+  "blender_version": "5.2.0 LTS",
+  "stats": {
+    "objects": 27,
+    "meshes": 26,
+    "vertices": 1790,
+    "polygons": 1740,
+    "bones": 14,
+    "animations": 18
+  },
+  "generator": "scripts/assets/blender/build_character.py"
+}

@@ -7,6 +7,30 @@ canvas:
 
 output_root: godot/world-client/assets/scenarios
 
+animation_clips:
+  idle:
+    driver: time
+    fps: 1.25
+    frames:
+      - {body_y: 0, left_arm: 5, right_arm: -5, left_leg: 2, right_leg: -2}
+      - {body_y: -1, left_arm: 4, right_arm: -4, left_leg: 2, right_leg: -2}
+  walk:
+    driver: distance
+    cycle_distance_m: 1.04
+    frames:
+      - {body_y: -2, left_arm: -25, right_arm: 25, left_leg: 18, right_leg: -18}
+      - {body_y: 0, left_arm: -8, right_arm: 8, left_leg: 4, right_leg: -4}
+      - {body_y: -2, left_arm: 25, right_arm: -25, left_leg: -18, right_leg: 18}
+      - {body_y: 0, left_arm: 8, right_arm: -8, left_leg: -4, right_leg: 4}
+  jog:
+    driver: distance
+    cycle_distance_m: 1.32
+    frames:
+      - {body_y: -4, left_arm: -40, right_arm: 40, left_leg: 28, right_leg: -28}
+      - {body_y: 0, left_arm: -14, right_arm: 14, left_leg: 7, right_leg: -7}
+      - {body_y: -4, left_arm: 40, right_arm: -40, left_leg: -28, right_leg: 28}
+      - {body_y: 0, left_arm: 14, right_arm: -14, left_leg: -7, right_leg: 7}
+
 pose_sets:
   humanoid_16_v1:
     idle: {body_y: 0, left_arm: 5, right_arm: -5, left_leg: 2, right_leg: -2, expression: calm}

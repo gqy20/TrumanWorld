@@ -5,6 +5,20 @@ signal agent_selected(agent_id: String)
 
 var _avatars: Dictionary = {}
 var _highlighted_agent_id := ""
+var _route_positions: Dictionary = {}
+var _client_clock: ClientClock
+var _conversation_partner_by_agent_id: Dictionary = {}
+
+
+func _process(_delta: float) -> void:
+	_update_local_avoidance()
+	_update_conversation_positions()
+	_update_conversation_facing()
+
+
+func configure_navigation(map_document: Dictionary, client_clock: ClientClock) -> void:
+	_route_positions = RouteProjection.route_positions(map_document)
+	_client_clock = client_clock
 
 
 func apply_snapshot(payload: Dictionary) -> void:
@@ -32,6 +46,8 @@ func apply_snapshot(payload: Dictionary) -> void:
 		stale_avatar.queue_free()
 		_avatars.erase(existing_id)
 
+	_arrange_idle_agents()
+	_arrange_moving_agents()
 	_apply_conversations(payload.get("conversations", []))
 
 
@@ -60,12 +76,101 @@ func set_presentation_paused(value: bool) -> void:
 		avatar.set_presentation_paused(value)
 
 
+func _arrange_idle_agents() -> void:
+	var groups := {}
+	for avatar: AgentAvatar in _avatars.values():
+		avatar.set_idle_offset(Vector3.ZERO)
+		if not avatar.can_use_idle_offset():
+			continue
+		var base := avatar.presentation_base_position()
+		var key := "%d:%d" % [roundi(base.x * 10.0), roundi(base.z * 10.0)]
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(avatar.agent_id)
+	for raw_agent_ids: Variant in groups.values():
+		var agent_ids: Array[String] = []
+		agent_ids.assign(raw_agent_ids)
+		var offsets := AgentPlacement.radial_offsets(agent_ids)
+		for agent_id: String in agent_ids:
+			(_avatars[agent_id] as AgentAvatar).set_idle_offset(offsets[agent_id] as Vector3)
+
+
+func _update_local_avoidance() -> void:
+	var positions := {}
+	for agent_id: Variant in _avatars:
+		positions[agent_id] = (_avatars[agent_id] as AgentAvatar).avoidance_base_position()
+	var offsets := AgentPlacement.avoidance_offsets(positions)
+	for agent_id: Variant in _avatars:
+		var avatar := _avatars[agent_id] as AgentAvatar
+		var offset := offsets.get(agent_id, Vector3.ZERO) as Vector3
+		avatar.set_avoidance_target(offset if avatar.can_use_avoidance() else Vector3.ZERO)
+
+
+func _arrange_moving_agents() -> void:
+	var groups := {}
+	for avatar: AgentAvatar in _avatars.values():
+		avatar.set_movement_formation(0.09, 0.0)
+		var key := avatar.movement_formation_key()
+		if key.is_empty():
+			continue
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(avatar.agent_id)
+	for raw_agent_ids: Variant in groups.values():
+		var agent_ids: Array[String] = []
+		agent_ids.assign(raw_agent_ids)
+		var formation := AgentPlacement.movement_formation(agent_ids)
+		for agent_id: String in agent_ids:
+			var member := formation[agent_id] as Dictionary
+			(_avatars[agent_id] as AgentAvatar).set_movement_formation(
+				float(member["lane_offset"]), float(member["longitudinal_offset"])
+			)
+
+
+func _update_conversation_positions() -> void:
+	for avatar: AgentAvatar in _avatars.values():
+		avatar.set_conversation_target(Vector3.ZERO)
+	for agent_id: Variant in _conversation_partner_by_agent_id:
+		var partner_id: Variant = _conversation_partner_by_agent_id[agent_id]
+		if (
+			str(agent_id) >= str(partner_id)
+			or not _avatars.has(partner_id)
+			or _conversation_partner_by_agent_id.get(partner_id) != agent_id
+		):
+			continue
+		_apply_conversation_pair(str(agent_id), str(partner_id))
+
+
+func _apply_conversation_pair(left_id: String, right_id: String) -> void:
+	var left := _avatars[left_id] as AgentAvatar
+	var right := _avatars[right_id] as AgentAvatar
+	var offsets := AgentPlacement.conversation_pair_offsets(
+		left_id, left.avoidance_base_position(), right_id, right.avoidance_base_position()
+	)
+	left.set_conversation_target(
+		offsets[left_id] as Vector3 if left.can_reposition_for_conversation() else Vector3.ZERO
+	)
+	right.set_conversation_target(
+		offsets[right_id] as Vector3 if right.can_reposition_for_conversation() else Vector3.ZERO
+	)
+
+
+func _update_conversation_facing() -> void:
+	for agent_id: Variant in _conversation_partner_by_agent_id:
+		var partner_id: Variant = _conversation_partner_by_agent_id[agent_id]
+		if _avatars.has(agent_id) and _avatars.has(partner_id):
+			(_avatars[agent_id] as AgentAvatar).update_conversation_partner_position(
+				(_avatars[partner_id] as AgentAvatar).global_position
+			)
+
+
 func _get_or_create_avatar(agent_id: String, visual_asset_id: String = "") -> AgentAvatar:
 	if _avatars.has(agent_id):
 		return _avatars[agent_id] as AgentAvatar
 	var avatar := AgentAvatar.new()
 	avatar.agent_id = agent_id
 	avatar.visual_asset_id = visual_asset_id
+	avatar.configure_navigation(_route_positions, _client_clock)
 	avatar.selected.connect(_on_agent_selected)
 	add_child(avatar)
 	_avatars[agent_id] = avatar
@@ -73,6 +178,7 @@ func _get_or_create_avatar(agent_id: String, visual_asset_id: String = "") -> Ag
 
 
 func _apply_conversations(raw_conversations: Variant) -> void:
+	_conversation_partner_by_agent_id.clear()
 	for avatar: AgentAvatar in _avatars.values():
 		avatar.clear_conversation()
 	if not raw_conversations is Array:
@@ -97,6 +203,7 @@ func _apply_conversations(raw_conversations: Variant) -> void:
 					break
 			if partner_id.is_empty():
 				continue
+			_conversation_partner_by_agent_id[current_id] = partner_id
 			var avatar := _avatars[current_id] as AgentAvatar
 			var partner := _avatars[partner_id] as AgentAvatar
 			avatar.set_conversation(

@@ -46,6 +46,7 @@ export function GodotWorldHost({
     providedSnapshot ?? (isLiveRun ? null : PHASE_ZERO_WORLD_SNAPSHOT),
   );
   const readyRef = useRef(false);
+  const initializedRef = useRef(false);
   const readyMapRef = useRef<{ mapId: string; contentHash: string } | null>(null);
   const refreshTimerRef = useRef<number | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>("loading");
@@ -95,10 +96,13 @@ export function GodotWorldHost({
       setBridgeStatus("error");
       return;
     }
-    bridgeRef.current?.post("initialize", {
-      client: "next-director-console",
-      map_id: nextSnapshot.map_id,
-    });
+    if (!initializedRef.current) {
+      bridgeRef.current?.post("initialize", {
+        client: "next-director-console",
+        map_id: nextSnapshot.map_id,
+      });
+      initializedRef.current = true;
+    }
     bridgeRef.current?.post(
       "world_snapshot",
       nextSnapshot as unknown as Record<string, unknown>,
@@ -189,6 +193,7 @@ export function GodotWorldHost({
     setBridgeStatus("loading");
     setProtocolError(null);
     readyRef.current = false;
+    initializedRef.current = false;
     readyMapRef.current = null;
     const bridge = new GodotBridge(
       iframe,
@@ -209,6 +214,7 @@ export function GodotWorldHost({
       bridge.post("dispose", {});
       bridge.stop();
       readyRef.current = false;
+      initializedRef.current = false;
       readyMapRef.current = null;
       if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
       if (bridgeRef.current === bridge) bridgeRef.current = null;
@@ -262,7 +268,7 @@ export function GodotWorldHost({
             }`}
           />
           {bridgeStatus === "ready"
-            ? "Bridge ready"
+            ? "世界已连接"
             : bridgeStatus === "error"
               ? "Godot unavailable"
               : "Loading Godot"}
@@ -369,7 +375,7 @@ export function GodotWorldHost({
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-slate-500">
-                  右键拖动旋转镜头，中键拖动平移，滚轮缩放。
+                  左键拖动旋转镜头，右键拖动平移，滚轮缩放。
                 </p>
               )}
             </>

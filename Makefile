@@ -23,7 +23,7 @@ PRE_COMMIT := uv run --project $(BACKEND_DIR) pre-commit
 # 生成带时间戳的日志文件名
 LOG_TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-export-narrative-map godot-map-check godot-map-check-narrative godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-install assets-blender-cafe assets-blender-campus assets-blender-town assets-blender-town-previews assets-blender-all lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
+.PHONY: install hooks-install backend-install frontend-install backend-dev frontend-dev frontend-clean-port backend-lock-check backend-lint backend-format-check backend-typecheck backend-test backend-test-ci backend-integration-test backend-migration-check frontend-lint frontend-eslint frontend-typecheck frontend-build frontend-test godot-import godot-test godot-export-map godot-export-narrative-map godot-map-check godot-map-check-narrative godot-export-web godot-check assets-validate assets-plan assets-mmx-dry-run assets-mmx-generate assets-svg-generate assets-svg-check assets-process-sprite assets-blender-install assets-blender-character assets-blender-characters assets-blender-character-preview assets-blender-cafe assets-blender-campus assets-blender-town assets-blender-town-previews assets-blender-all lint format quality test ci pre-commit pre-push migrate dev local-dev dev-services docker-dev docker-down docker-clean db-start db-stop db-status db-wait db-migrate local-db-migrate db-clean check-ports kill-ports sync-agent-logos benchmark-reactor-pool evaluate-run logs-prune
 
 LOG_RETENTION_DAYS ?= 7
 
@@ -209,6 +209,27 @@ assets-process-sprite:
 assets-blender-install:
 	cd $(BACKEND_DIR) && uv run python ../scripts/assets/install_blender.py
 
+CHARACTER_SCENARIO ?= narrative_world
+CHARACTER_ID ?= truman
+CHARACTER_ANIMATION ?= walk
+CHARACTER_FRAME ?= 7
+
+assets-blender-character:
+	cd $(BACKEND_DIR) && uv run python ../scripts/assets/build_3d_character.py \
+		--scenario $(CHARACTER_SCENARIO) --character $(CHARACTER_ID) \
+		--blender $(abspath $(BLENDER))
+
+assets-blender-characters:
+	cd $(BACKEND_DIR) && uv run python ../scripts/assets/build_3d_character.py \
+		--scenario $(CHARACTER_SCENARIO) --all-enabled \
+		--blender $(abspath $(BLENDER))
+
+assets-blender-character-preview: assets-blender-character
+	$(BLENDER) --background art/blender/characters/$(CHARACTER_SCENARIO)/$(CHARACTER_ID).blend \
+		--python-exit-code 1 --python scripts/assets/blender/render_character_preview.py -- \
+		--output art/generated/previews/$(CHARACTER_SCENARIO)/$(CHARACTER_ID).png \
+		--animation $(CHARACTER_ANIMATION) --frame $(CHARACTER_FRAME)
+
 assets-blender-cafe:
 	$(BLENDER) --background --factory-startup --python-exit-code 1 \
 		--python scripts/assets/blender/build_cafe_kit.py -- \
@@ -232,7 +253,7 @@ assets-blender-town-previews: assets-blender-town
 		--python-exit-code 1 --python scripts/assets/blender/render_narrative_town_previews.py -- \
 		--output-dir art/generated/previews/narrative_world
 
-assets-blender-all: assets-blender-cafe assets-blender-campus assets-blender-town
+assets-blender-all: assets-blender-characters assets-blender-cafe assets-blender-campus assets-blender-town
 
 lint:
 	$(MAKE) backend-lint

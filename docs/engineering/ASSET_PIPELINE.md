@@ -44,8 +44,8 @@ Blender 和 `bpy` 负责建筑、家具、道具、碰撞代理、材质槽和 G
 
 ## 3. SVG 角色管线
 
-SVG 与 MMX 是并行方案，不替代或删除 MMX。公共文件 `art/svg_pose_sets.yml` 管理画布、描边和
-16 个标准动作的身体偏移、手臂角度、腿部角度、表情及道具。每个场景通过
+SVG 与 MMX 是并行方案，不替代或删除 MMX。公共文件 `art/svg_pose_sets.yml` 管理画布、描边、
+16 个标准动作，以及 `idle / walk / jog` 的多帧动画。每个场景通过
 `scenarios/<scenario>/visuals.yml` 选择样式和动作集，每个人物则在同一 Bundle 的
 `agents/<id>/appearance.yml` 管理发型、配饰与调色板。这样动作协议可以复用，而人物身份和场景
 一起演进。生成器只使用透明背景、平面色块和稳定几何，不依赖模型采样，因此同一配置逐字节可复现。
@@ -63,8 +63,23 @@ make assets-svg-generate SVG_SCENARIO=narrative_world SVG_CHARACTER=truman
 每个 SVG 角色必须提供 16 种状态：`idle / walk / jog / queue / sit / drink / talk /
 use_object / wave / think / read / phone / carry / celebrate / surprised / sleep`。Godot 优先将它们
 显示为面向镜头的 `Sprite3D`，后端快照用 `<scenario>/<agent-config-id>` 格式的
-`visual_asset_id` 将运行时 Agent 与视觉身份解耦。Godot 通过共享纹理、微幅呼吸/弹跳/摇摆和 140ms 双 Sprite 淡入淡出
-获得接近 Codex 宠物的节奏感。SVG 缺失或角色尚未配置时继续使用原有程序化三维居民作为 fallback。
+`visual_asset_id` 将运行时 Agent 与视觉身份解耦。根目录的 16 个 SVG 是单帧兼容姿态；动画帧位于
+`idle/`、`walk/`、`jog/` 子目录，并由同目录 `manifest.json` 的 `animations` 显式声明。
+
+`idle` 使用低频时间驱动；`walk` 和 `jog` 使用行走距离驱动。Godot 根据角色沿路线累计的米数选择
+步态帧，所以暂停不滑步、速度变化不打乱节奏，快照刷新频率也不影响动画速度。动作切换使用
+140ms 双 Sprite 淡入淡出，同一动作内部直接换帧以免出现残影。SVG 由 Godot 导入为纹理并随 Web
+导出打入资源包，不会在运行中逐帧请求源文件。manifest 或动画帧无效时回退到对应单帧姿态；整个
+SVG 角色缺失时继续使用程序化三维居民。
+
+新增或调整步态时，只修改 `art/svg_pose_sets.yml`：
+
+- `driver: time` 必须提供 `fps`；适合呼吸、眨眼等非位移动画。
+- `driver: distance` 必须提供 `cycle_distance_m`；适合走、跑等接触地面的动作。
+- 每帧完整声明身体偏移和四肢角度，表情与道具继承对应标准姿态，避免身份细节跨帧漂移。
+
+运行 `make assets-svg-generate` 后必须执行 `make assets-svg-check` 与 `make godot-test`。前者保证所有
+角色、帧和 manifest 可逐字节复现，后者会验证资源可导入以及时间/距离两类取帧逻辑。
 
 角色参考图只约束身份和服装，不直接充当最终贴图。MMX 的输出一律先进入候选区；二维风格、肢体、
 身份连续性通过人工验收后，才允许由确定性处理器发布到 Godot 资产目录。生成失败或意外变成 3D
@@ -99,6 +114,25 @@ make assets-process-sprite \
 项目固定使用官方 Blender `5.2.0 LTS` Linux x64 构建。安装器会下载到被 Git 忽略的 `.tools/`，
 校验官方 SHA-256，并建立稳定入口 `.tools/blender/blender`：
 
+角色三维资产使用独立于静态建筑的 animated export profile。叙事世界六位居民均已进入该链路：
+
+```bash
+make assets-blender-character
+# 后续角色可显式选择场景与身份
+make assets-blender-character CHARACTER_SCENARIO=narrative_world CHARACTER_ID=truman
+# 批量构建场景中所有启用 model_3d 的居民
+make assets-blender-characters CHARACTER_SCENARIO=narrative_world
+# 重建后渲染指定动作帧，用于检查蒙皮和肢体姿态
+make assets-blender-character-preview CHARACTER_ANIMATION=walk CHARACTER_FRAME=7
+```
+
+`appearance.yml` 的 `model_3d.builder` 决定角色是否进入 3D 构建链路；发型、配饰和调色板继续复用
+同一个 appearance 配置，不维护第二份 Blender 专用身份数据。构建结果包括可编辑 `.blend`、运行时
+`character.glb` 和 `manifest.json`。Godot 优先加载 GLB，按实际移动距离定位 walk/jog 时间轴，并在
+静止转向时播放左右转身、交谈时约束头部注视、坐下时平滑修正模型高度、喝咖啡时显示随右手
+蒙皮的杯子。walk/jog 的轻微身体起伏仍按累计路程驱动，celebrate 的跳跃仅是客户端表现偏移，均不
+修改后端权威坐标。模型、骨骼或动画加载失败时自动回退到同一身份的 SVG 多帧角色。
+
 ```bash
 make assets-blender-install
 make assets-blender-cafe
@@ -112,6 +146,9 @@ make assets-blender-all
 
 脚本会拒绝非 `5.2.x` 版本，并生成：
 
+- `art/blender/characters/narrative_world/*.blend`：六位居民的统一骨骼角色源文件；
+- `godot/world-client/assets/scenarios/narrative_world/characters/*/model/character.glb`：
+  携带 14 骨骼 skin、18 组动作和角色身份外观的运行时模型；
 - `art/blender/scenarios/campus_world/studio_cafe.blend`：可编辑源文件；
 - `godot/world-client/assets/scenarios/campus_world/locations/studio_cafe/studio_cafe.glb`：运行时资产；
 - `art/blender/scenarios/campus_world/campus_landmarks.blend`：校园公共地标源文件；
