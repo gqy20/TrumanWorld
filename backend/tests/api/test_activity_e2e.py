@@ -16,6 +16,7 @@ async def test_activity_survives_refresh_pause_resume_and_completes(client, db_s
     run = SimulationRun(
         id=run_id,
         name="activity-e2e",
+        scenario_type="open_world",
         status="running",
         current_tick=0,
         tick_minutes=5,

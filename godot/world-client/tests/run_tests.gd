@@ -121,8 +121,12 @@ func _test_narrative_world_map_export() -> void:
 		return
 	var document: Dictionary = result["document"]
 	_expect(document["locations"].size() == 7, "narrative map contains seven town locations")
-	_expect(document["zones"].size() == 7, "narrative map contains seven initial zones")
-	_expect(document["route_edges"].size() == 8, "narrative map route graph is connected")
+	_expect(document["zones"].size() == 11, "narrative map contains eleven authored zones")
+	_expect(document["portals"].size() == 4, "narrative map links key interior zones")
+	_expect(document["interactables"].size() == 7, "narrative map contains embodied props")
+	_expect(document["interaction_slots"].size() == 12, "narrative props expose exact slots")
+	_expect(document["camera_anchors"].size() == 4, "narrative map exports director views")
+	_expect(document["route_edges"].size() == 15, "narrative map route graph follows town streets")
 
 
 func _test_runtime_map_visuals() -> void:
@@ -207,9 +211,35 @@ func _test_narrative_runtime_visuals() -> void:
 			and town.find_child("TownWindowDetails", true, false) != null
 			and town.find_child("TownRoofDetails", true, false) != null
 			and town.find_child("TownStreetFurniture", true, false) != null
-			and town.find_child("TownPromenadeDetails", true, false) != null,
+			and town.find_child("TownPromenadeDetails", true, false) != null
+			and town.find_child("TownWaterfrontDetails", true, false) != null
+			and town.find_child("BacklotOcean", true, false) != null
+			and town.find_child("SeahavenBeach", true, false) != null,
 			"narrative town retains polished architectural and street details",
 		)
+		_expect(
+			town.find_child("TrumanLivingSofaSeat", true, false) != null
+			and town.find_child("TrumanKitchenCounter", true, false) != null
+			and town.find_child("CornerCafeCounter", true, false) != null
+			and town.find_child("CornerCafeWindowChair", true, false) != null,
+			"key narrative locations expose readable cutaway interiors",
+		)
+		_expect(
+			town.find_child("TrumanTelevision", true, false) != null
+			and town.find_child("CornerCafeCoffeeMachine", true, false) != null
+			and town.find_child("TownStreetMicroScenes", true, false) != null
+			and town.find_child("StudioBoundaryServiceDoor", true, false) != null
+			and town.find_child("BoundaryCamera1", true, false) != null,
+			"narrative town includes domestic, civic and story micro-scenes",
+		)
+	_expect(
+		visuals.get_node_or_null("EnvironmentAnimator") is AuthoredEnvironmentAnimator,
+		"narrative town enables runtime environment motion",
+	)
+	_expect(
+		visuals.find_children("NarrativeLampLight*", "OmniLight3D", true, false).size() == 20,
+		"narrative town provides runtime-controlled street lights",
+	)
 	_expect(
 		visuals.get_node_or_null("AuthoredCampusLandmarks") == null
 		and visuals.get_node_or_null("AuthoredStudioCafe") == null,

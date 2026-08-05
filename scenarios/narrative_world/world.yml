@@ -3,6 +3,16 @@ world_start_time: 2026-03-02T06:00:00+00:00
 spatial:
   map_manifest: map/manifest.yml
 
+perception:
+  vision_range_meters: 8.0
+  conversation_range_meters: 1.8
+  hearing_range_meters: 5.0
+
+encounter:
+  candidate_distance_meters: 2.5
+  candidate_timeout_seconds: 15
+  cooldown_minutes: 30
+
 daily_rhythm:
   lunch_time: 11:30-13:30
   social_time: 18:00-22:00

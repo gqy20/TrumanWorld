@@ -261,6 +261,7 @@ metadata。领域函数接收材质表和明确坐标，不读取隐藏全局选
 make assets-blender-cafe
 make assets-blender-campus
 make assets-blender-town
+make assets-blender-town-previews
 make godot-test
 git diff --check
 ```

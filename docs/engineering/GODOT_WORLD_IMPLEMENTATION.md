@@ -1267,6 +1267,20 @@ Agent 业务模型。
 地图场景、GLB、纹理、动画和导出 JSON 不适合用代码行数衡量。第一阶段咖啡馆垂直切片应控制在
 约 13,000 至 20,000 行代码与测试内；验证失败时停止扩展整座小镇。
 
+### 25.1 `narrative_world` 当前落地基线
+
+叙事小镇已经复用同一套具身执行协议，而不是另建题材专用执行器。当前完整环境边界为
+`64m × 74m`，其中约 `44m × 34m` 为小镇陆地；两横两竖主路构成四街区网格，14 个 RouteNode 和
+15 条 RouteEdge 与 Blender 道路使用同一组坐标。地图包含 7 个 Location、11 个
+Zone、4 个室内 Portal、7 个 Interactable、12 个 InteractionSlot 和 4 个 CameraAnchor。场景 bundle
+通过 `activities.yml` 提供喝咖啡、居家休息、备餐和广场小坐，通过 `object_types.yml` 把这些活动
+绑定到点单柜台、座椅、沙发、厨房台和公共长椅。`world.yml` 的 perception/encounter 参数使该场景
+进入现有权威偶遇管线。
+
+Blender 中的物件只承担与槽位对齐的视觉表达；资源占用、排队、时长、活动推进仍由 FastAPI 决定。
+Godot 根据世界快照把角色放到槽位位置，并在客户端侧仅增加插值、海面微动、昼夜路灯和远景剔除。
+导演相机的初始构图由地图中的 `camera:town:overview` 驱动，避免场景坐标继续硬编码在相机脚本中。
+
 ## 26. 最终验收场景
 
 ```gherkin

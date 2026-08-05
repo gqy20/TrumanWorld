@@ -1,0 +1,93 @@
+schema_version: 1
+
+movement_profiles:
+  walk:
+    speed_mps: 1.35
+    acceleration_mps2: 1.2
+  jog:
+    speed_mps: 2.5
+    acceleration_mps2: 1.8
+
+activities:
+  drink_coffee:
+    executor: consume_at_location
+    interruptible: true
+    requirements:
+      location_types: [cafe]
+    steps:
+      - id: order
+        action: order_coffee
+        duration_seconds: [45, 75]
+        resource:
+          object_types: [coffee_counter]
+          slot_kind: service
+        release_after: true
+        visual_state: use_object
+      - id: take_seat
+        action: sit
+        duration_seconds: [2, 4]
+        resource:
+          object_types: [cafe_chair]
+          slot_kind: sit
+        release_after: false
+        visual_state: sit
+      - id: drink
+        action: drink
+        duration_seconds: [480, 720]
+        release_after: true
+        visual_state: drink
+
+  relax_at_home:
+    executor: consume_at_location
+    interruptible: true
+    requirements:
+      location_types: [home]
+    steps:
+      - id: take_seat
+        action: sit
+        duration_seconds: [2, 4]
+        resource:
+          object_types: [home_sofa]
+          slot_kind: sit
+        release_after: false
+        visual_state: sit
+      - id: relax
+        action: rest
+        duration_seconds: [600, 1200]
+        release_after: true
+        visual_state: sit
+
+  prepare_meal:
+    executor: consume_at_location
+    interruptible: true
+    requirements:
+      location_types: [home]
+    steps:
+      - id: prepare
+        action: prepare_meal
+        duration_seconds: [300, 600]
+        resource:
+          object_types: [kitchen_counter]
+          slot_kind: use
+        release_after: true
+        visual_state: use_object
+
+  sit_in_plaza:
+    executor: consume_at_location
+    interruptible: true
+    requirements:
+      location_types: [plaza]
+    steps:
+      - id: take_seat
+        action: sit
+        duration_seconds: [2, 4]
+        resource:
+          object_types: [public_bench]
+          slot_kind: sit
+        release_after: false
+        visual_state: sit
+      - id: watch_town
+        action: observe
+        duration_seconds: [300, 900]
+        release_after: true
+        visual_state: sit

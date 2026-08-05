@@ -223,7 +223,10 @@ def load_social_spatial_config_for_scenario(
 
     import yaml
 
-    raw = yaml.safe_load((bundle.root / "world.yml").read_text(encoding="utf-8")) or {}
+    world_path = bundle.root / "world.yml"
+    if not world_path.is_file():
+        return None
+    raw = yaml.safe_load(world_path.read_text(encoding="utf-8")) or {}
     perception_raw = raw.get("perception")
     encounter_raw = raw.get("encounter")
     if perception_raw is None and encounter_raw is None:

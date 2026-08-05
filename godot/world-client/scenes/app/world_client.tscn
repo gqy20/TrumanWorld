@@ -16,8 +16,8 @@ size = Vector2(22, 14)
 background_mode = 1
 background_color = Color(0.055, 0.075, 0.105, 1)
 ambient_light_source = 3
-ambient_light_color = Color(0.68, 0.76, 0.72, 1)
-ambient_light_energy = 0.55
+ambient_light_color = Color(0.58, 0.66, 0.62, 1)
+ambient_light_energy = 0.34
 tonemap_mode = 2
 
 [sub_resource type="StyleBoxFlat" id="StatusPanelStyle"]
@@ -43,7 +43,7 @@ environment = SubResource("WorldEnvironment")
 [node name="Sun" type="DirectionalLight3D" parent="WorldRoot"]
 rotation_degrees = Vector3(-52, -28, 0)
 light_color = Color(1, 0.91, 0.76, 1)
-light_energy = 1.15
+light_energy = 0.76
 shadow_enabled = true
 
 [node name="Ground" type="MeshInstance3D" parent="WorldRoot"]

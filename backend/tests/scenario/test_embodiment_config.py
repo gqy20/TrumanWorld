@@ -36,6 +36,26 @@ def test_campus_embodiment_catalog_links_activity_resources_to_map():
     assert [resource.id for resource in service_resources] == ["slot:cafe:coffee-counter:service"]
 
 
+def test_narrative_embodiment_catalog_links_home_cafe_and_plaza_resources():
+    catalog = load_embodiment_catalog_for_scenario("narrative_world")
+
+    assert catalog is not None
+    assert set(catalog.activities.activities) == {
+        "drink_coffee",
+        "prepare_meal",
+        "relax_at_home",
+        "sit_in_plaza",
+    }
+    assert {resource.object_type for resource in catalog.resources} == {
+        "cafe_chair",
+        "coffee_counter",
+        "home_sofa",
+        "kitchen_counter",
+        "public_bench",
+    }
+    assert len(catalog.resources) == 12
+
+
 def test_campus_social_spatial_config_is_strictly_loaded():
     config = load_social_spatial_config_for_scenario("campus_world")
 
@@ -43,6 +63,17 @@ def test_campus_social_spatial_config_is_strictly_loaded():
     assert config.perception.vision_range_meters == 8
     assert config.encounter.candidate_distance_meters == 2.5
     assert config.encounter.cooldown_minutes == 30
+
+
+def test_social_spatial_config_is_optional_for_minimal_bundle(tmp_path: Path):
+    scenario_root = tmp_path / "scenarios" / "minimal"
+    scenario_root.mkdir(parents=True)
+    (scenario_root / "scenario.yml").write_text(
+        "id: minimal\nname: Minimal\nversion: 1\nadapter: bundle_world\n",
+        encoding="utf-8",
+    )
+
+    assert load_social_spatial_config_for_scenario("minimal", project_root=tmp_path) is None
 
 
 def test_embodiment_catalog_requires_both_configuration_files(tmp_path: Path):

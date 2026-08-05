@@ -14,48 +14,48 @@
       0.0
     ],
     "apartment": [
-      -7.0,
+      -12.0,
       0.0,
-      3.0
+      2.6
     ],
     "bachelor-apt": [
-      -7.0,
+      -12.0,
       0.0,
-      -2.0
+      -6.2
     ],
     "cafe": [
-      -2.0,
+      -2.8,
       0.0,
-      -3.0
+      -6.2
     ],
     "mall": [
-      4.0,
+      10.2,
       0.0,
-      -3.0
+      -6.2
     ],
     "office": [
-      6.0,
+      10.5,
       0.0,
-      2.0
+      -11.8
     ],
     "hospital": [
-      3.0,
+      11.0,
       0.0,
-      5.0
+      2.5
     ]
   },
   "environment_bounds_meters": [
-    29.0,
-    21.0
+    64.0,
+    74.0
   ],
   "output": "godot/world-client/assets/scenarios/narrative_world/environment/seaside_town.glb",
   "source": "art/blender/scenarios/narrative_world/seaside_town.blend",
   "stats": {
-    "objects": 84,
-    "meshes": 84,
-    "materials": 36,
-    "vertices": 72162,
-    "polygons": 69295,
-    "triangles": 127680
+    "objects": 166,
+    "meshes": 166,
+    "materials": 54,
+    "vertices": 140628,
+    "polygons": 134158,
+    "triangles": 251936
   }
 }

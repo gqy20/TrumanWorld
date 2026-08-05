@@ -35,6 +35,7 @@ func _ready() -> void:
 	_map_id = str(definition["map_id"])
 	map_instance.name = "ScenarioMap"
 	world_map.add_child(map_instance)
+	camera_rig.configure_from_map(world_map)
 	RuntimeMapVisuals.build(world_map, _scenario_id)
 	_object_presenter.configure(world_map)
 	_atmosphere.configure(world_environment.environment, sun, $WorldRoot)

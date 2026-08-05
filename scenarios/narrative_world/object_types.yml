@@ -1,0 +1,64 @@
+schema_version: 1
+
+object_types:
+  cafe_chair:
+    visual_preset: cafe_chair_wood
+    slots:
+      - kind: sit
+        capacity: 1
+    affordances:
+      - action: sit
+        executor: occupy_slot
+        duration_seconds: [2, 4]
+        interruptible: true
+        slot_kind: sit
+
+  coffee_counter:
+    visual_preset: coffee_counter_wood
+    slots:
+      - kind: service
+        capacity: 1
+      - kind: queue
+        capacity: 1
+    affordances:
+      - action: order_coffee
+        executor: service_queue
+        duration_seconds: [45, 75]
+        interruptible: true
+        slot_kind: service
+
+  home_sofa:
+    visual_preset: home_sofa
+    slots:
+      - kind: sit
+        capacity: 1
+    affordances:
+      - action: sit
+        executor: occupy_slot
+        duration_seconds: [2, 4]
+        interruptible: true
+        slot_kind: sit
+
+  kitchen_counter:
+    visual_preset: kitchen_counter
+    slots:
+      - kind: use
+        capacity: 1
+    affordances:
+      - action: prepare_meal
+        executor: use_object
+        duration_seconds: [300, 600]
+        interruptible: true
+        slot_kind: use
+
+  public_bench:
+    visual_preset: public_bench
+    slots:
+      - kind: sit
+        capacity: 1
+    affordances:
+      - action: sit
+        executor: occupy_slot
+        duration_seconds: [2, 4]
+        interruptible: true
+        slot_kind: sit

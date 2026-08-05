@@ -309,7 +309,11 @@ async def test_list_scenarios_returns_registered_bundles(client):
     assert response.status_code == 200
     body = response.json()
     assert {"id": "open_world", "name": "Open World", "version": 1} in body
-    assert {"id": "narrative_world", "name": "Narrative World", "version": 1} in body
+    assert {
+        "id": "narrative_world",
+        "name": "Truman's Seaside Town",
+        "version": 1,
+    } in body
 
 
 @pytest.mark.asyncio

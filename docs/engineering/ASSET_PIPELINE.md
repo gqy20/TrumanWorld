@@ -104,6 +104,8 @@ make assets-blender-install
 make assets-blender-cafe
 make assets-blender-campus
 make assets-blender-town
+# 重建小镇并渲染四个固定验收视角到 art/generated/
+make assets-blender-town-previews
 # 同时重建当前全部 Blender 场景
 make assets-blender-all
 ```
@@ -142,10 +144,26 @@ Blender 环境后不再叠加程序化树木和路灯，资源缺失时仍恢复
 镇中公寓、街角咖啡馆、港湾商场、港务办公室、海湾医院、外围粉彩住宅、林荫道路、海滨步道、
 海面和远端摄影棚边界。模型以 `narrative-world-v1` 的语义坐标直接建模；Godot 只有在当前
 `scenario_id` 为 `narrative_world` 时才会加载该 GLB，并停止叠加程序化道路与环境装饰。
-当前细化版增加窗户格栅、店面门框、住宅烟囱和屋脊、正确朝向的钟面与指针、道路标线、长椅和
-海滨栏杆。仅按全局装饰角色合并时为 245 个 Mesh 节点；modifier 后约 7.2 万顶点、12.8 万
-三角形。随后再按 `location_id + truman_role` 合并地点内部可视部件，在不丢失地点级 glTF extras 的
-前提下将 Mesh 节点从 245 个降至 84 个。模型保存前执行无效几何、材质索引和非有限 Transform 校验。
+当前展示版的陆地区域约为 `44m × 34m`，包含贯穿小镇的 Bay Avenue、Market Street 两条横路与
+Lancaster Avenue、Seahaven Avenue 两条纵路，另有沿海的 Ocean Boulevard；包含海面的完整环境
+边界为 `64m × 74m`。七个权威地点均迁移到临街地块，路线图使用 14 个节点、15 条边沿道路连接，
+避免角色穿过草地或建筑。楚门住宅和街角咖啡馆采用面向导演相机的玩偶屋剖切结构；住宅
+包含电视、地毯、厨房电器、餐桌、照片、隐藏摄像头、自行车和邮箱，咖啡馆包含咖啡机、收银机、
+菜单、货架、报刊亭和两个权威座位。街道增加公交站、车辆、消防栓、花盆和自行车，海滨增加
+望远镜与救生圈；海岸由连续海面、沙滩、海堤、全宽步道、伸入海面的木码头和三艘船组成，远端
+摄影棚边界保留维修门、警告牌和监控设备。公共建筑增加立柱、屋顶设备、医院急诊雨棚、商场
+入口塔和港务信号桅杆。外围填充扩展为 19 栋住宅和 6 栋商铺/公共背景建筑，只承担街区围合与
+视差，不注册为智能体地点。
+
+模型内的可交互物件通过 glTF extras 保留语义 ID，并与地图中的 InteractionSlot 对齐。模型保存前
+执行无效几何、材质索引和非有限 Transform 校验；当前语义合批后为 166 个 Mesh 节点、约 14.1 万
+顶点、25.2 万三角形。
+
+行为和空间不由 Blender 文件反向推断：`activities.yml` 管活动步骤与时长，`object_types.yml` 管
+affordance 和执行器，`narrative_world.tscn` 管 Zone、Portal、对象及槽位的准确位置，GLB 只负责视觉。
+Godot 运行时为海面添加微动、为路灯注入受昼夜系统控制的 OmniLight3D，并对远景边界、树带和小型
+街具设置可见距离。`make assets-blender-town-previews` 固定渲染全镇、钟塔广场、楚门住宅和咖啡馆
+四个视角，输出属于可丢弃的 `art/generated/`，用于模型修改前后的截图对比。
 
 ## 5. 提交规则
 

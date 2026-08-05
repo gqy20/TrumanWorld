@@ -209,8 +209,15 @@ static func _build_interactable(
 	visuals: Node3D,
 	interactable: Interactable3D,
 ) -> void:
-	if ResourceLoader.exists(STUDIO_CAFE_ASSET_PATH) and interactable.object_type in [
-		"coffee_counter", "cafe_chair",
+	var has_authored_resource: bool = (
+		visuals.get_meta("has_authored_narrative_town", false)
+		or (
+			visuals.get_meta("scenario_id", "") == "campus_world"
+			and ResourceLoader.exists(STUDIO_CAFE_ASSET_PATH)
+		)
+	)
+	if has_authored_resource and interactable.object_type in [
+		"coffee_counter", "cafe_chair", "home_sofa", "kitchen_counter", "public_bench",
 	]:
 		return
 	var center := _local_position(map_root, interactable)
@@ -236,6 +243,22 @@ static func _build_interactable(
 				Vector3(0.5, 0.48, 0.1),
 				Color("82664d"),
 			)
+		"home_sofa":
+			_add_box(
+				visuals,
+				center + Vector3(0.0, 0.3, 0.0),
+				Vector3(1.4, 0.55, 0.6),
+				Color("4f7d70"),
+			)
+		"kitchen_counter":
+			_add_box(
+				visuals,
+				center + Vector3(0.0, 0.48, 0.0),
+				Vector3(1.4, 0.95, 0.55),
+				Color("9e9988"),
+			)
+		"public_bench":
+			_add_bench(visuals, center, interactable.rotation.y)
 
 
 static func _add_authored_studio_cafe(visuals: Node3D, center: Vector3) -> bool:
@@ -279,7 +302,51 @@ static func _add_authored_narrative_town(visuals: Node3D) -> bool:
 		return false
 	instance.name = "AuthoredNarrativeTown"
 	visuals.add_child(instance)
+	_configure_authored_town(instance, visuals)
 	return true
+
+
+static func _configure_authored_town(town: Node3D, visuals: Node3D) -> void:
+	for node: Node in _descendants(town):
+		if node is GeometryInstance3D:
+			var geometry := node as GeometryInstance3D
+			if node.name in ["TownBackgroundBoundary", "BacklotOcean"]:
+				geometry.visibility_range_end = 120.0
+				geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			elif node.name == "TownTrees":
+				geometry.visibility_range_end = 72.0
+				geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			elif node.name in [
+				"TownStreetFurniture", "TownStreetMicroScenes", "TownPromenadeDetails",
+				"TownWaterfrontDetails",
+			]:
+				geometry.visibility_range_end = 60.0
+				geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	var animator := AuthoredEnvironmentAnimator.new()
+	animator.name = "EnvironmentAnimator"
+	visuals.add_child(animator)
+	animator.configure(town)
+	var authoring_positions: Array[Vector2] = [
+		Vector2(-17.0, -4.35), Vector2(-11.5, -4.35), Vector2(-3.0, -4.35),
+		Vector2(3.0, -4.35), Vector2(10.0, -4.35), Vector2(17.0, -4.35),
+		Vector2(-17.0, 4.35), Vector2(-11.5, 4.35), Vector2(-3.0, 4.35),
+		Vector2(3.0, 4.35), Vector2(10.0, 4.35), Vector2(17.0, 4.35),
+		Vector2(-8.15, -1.0), Vector2(-8.15, 7.0),
+		Vector2(7.15, -1.0), Vector2(7.15, 7.0),
+		Vector2(-14.0, 11.55), Vector2(-5.0, 11.55),
+		Vector2(5.0, 11.55), Vector2(15.0, 11.55),
+	]
+	for index: int in range(authoring_positions.size()):
+		var source: Vector2 = authoring_positions[index]
+		var light := OmniLight3D.new()
+		light.name = "NarrativeLampLight%d" % (index + 1)
+		light.position = Vector3(source.x, 1.9, -source.y)
+		light.light_color = Color("ffd995")
+		light.omni_range = 4.2
+		light.light_energy = 0.0
+		light.shadow_enabled = false
+		light.add_to_group("night_light")
+		visuals.add_child(light)
 
 
 static func _build_ambient_details(visuals: Node3D) -> void:

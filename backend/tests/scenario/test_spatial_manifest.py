@@ -57,7 +57,12 @@ def test_narrative_world_map_manifest_loads_with_verified_content_hash():
         "office",
         "plaza",
     }
-    assert len(world_map.route_edges) == 8
+    assert len(world_map.route_edges) == 15
+    assert len(world_map.zones) == 11
+    assert len(world_map.portals) == 4
+    assert len(world_map.interactables) == 7
+    assert len(world_map.interaction_slots) == 12
+    assert len(world_map.camera_anchors) == 4
 
 
 def test_exported_world_map_rejects_unknown_location_entrance():
