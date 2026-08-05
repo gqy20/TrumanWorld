@@ -28,6 +28,7 @@ env/
 .ruff_cache/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .hypothesis/
 .tox/
@@ -45,6 +46,7 @@ pip-wheel-metadata/
 *.log
 logs/*
 !logs/.gitkeep
+recordings/
 tmp/
 temp/
 *.pid

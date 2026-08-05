@@ -281,10 +281,10 @@ benchmark-reactor-pool:
 	cd $(BACKEND_DIR) && uv run python scripts/benchmark_reactor_pooling.py --base-url http://127.0.0.1:$(BACKEND_PORT)/api --ticks 10 --seed-demo
 
 # 录制 demo 视频（默认 10 分钟，新 run + 自动 tick）。
-# 复用已有 run： make record-demo RUN_ID=<uuid>
-# 自定义：     make record-demo RECORD_ARGS="--duration 300 --scenario narrative_world"
+# 复用已有 run： make record-demo RECORD_ARGS="--run-id <uuid> --director-seconds 300 --stage-seconds 300"
+# 自定义：     make record-demo RECORD_ARGS="--director-seconds 150 --stage-seconds 150 --scenario narrative_world"
 RECORD_RUN_NAME ?= campus demo $(shell date +%Y%m%d_%H%M%S)
-RECORD_ARGS ?= --create-run --name "$(RECORD_RUN_NAME)" --duration 600
+RECORD_ARGS ?= --create-run --name "$(RECORD_RUN_NAME)" --director-seconds 300 --stage-seconds 300
 record-demo:
 	cd $(BACKEND_DIR) && uv run --with playwright python scripts/record_run_demo.py $(RECORD_ARGS)
 
