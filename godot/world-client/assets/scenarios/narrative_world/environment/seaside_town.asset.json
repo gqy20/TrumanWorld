@@ -44,18 +44,26 @@
       2.5
     ]
   },
+  "semantic_core_bounds_meters": [
+    44.0,
+    34.0
+  ],
+  "visual_buffer_bounds_meters": [
+    180.0,
+    110.0
+  ],
   "environment_bounds_meters": [
-    64.0,
-    74.0
+    300.0,
+    346.0
   ],
   "output": "godot/world-client/assets/scenarios/narrative_world/environment/seaside_town.glb",
   "source": "art/blender/scenarios/narrative_world/seaside_town.blend",
   "stats": {
-    "objects": 166,
-    "meshes": 166,
+    "objects": 169,
+    "meshes": 169,
     "materials": 54,
-    "vertices": 140628,
-    "polygons": 134158,
-    "triangles": 251936
+    "vertices": 143516,
+    "polygons": 137896,
+    "triangles": 255764
   }
 }

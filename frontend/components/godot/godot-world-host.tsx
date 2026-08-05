@@ -24,17 +24,24 @@ type Props = {
   runId?: string;
   snapshot?: GodotWorldSnapshot;
   readyTimeoutMs?: number;
+  embedded?: boolean;
+  focusEntity?: GodotSelectionPayload | null;
+  onSelectionChange?: (selection: GodotSelectionPayload) => void;
 };
 
 export function GodotWorldHost({
   runId,
   snapshot: providedSnapshot,
   readyTimeoutMs = 15_000,
+  embedded = false,
+  focusEntity,
+  onSelectionChange,
 }: Props) {
   const resolvedRunId = runId ?? PHASE_ZERO_RUN_ID;
   const isLiveRun = Boolean(runId && !providedSnapshot);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const bridgeRef = useRef<GodotBridge | null>(null);
+  const onSelectionChangeRef = useRef(onSelectionChange);
   const snapshotRef = useRef<GodotWorldSnapshot | null>(
     providedSnapshot ?? (isLiveRun ? null : PHASE_ZERO_WORLD_SNAPSHOT),
   );
@@ -43,7 +50,7 @@ export function GodotWorldHost({
   const refreshTimerRef = useRef<number | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>("loading");
   const [protocolError, setProtocolError] = useState<string | null>(null);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [internalSelectedAgentId, setInternalSelectedAgentId] = useState<string | null>(null);
   const [connectionRevision, setConnectionRevision] = useState(0);
   const [liveSnapshot, setLiveSnapshot] = useState<GodotWorldSnapshot | null>(null);
 
@@ -51,23 +58,29 @@ export function GodotWorldHost({
     providedSnapshot ?? (isLiveRun ? liveSnapshot : PHASE_ZERO_WORLD_SNAPSHOT);
   const iframeSrc = useMemo(() => {
     const scenarioId = snapshot?.scenario_id || "campus_world";
-    return `/godot-world/index.html?scenario_id=${encodeURIComponent(scenarioId)}`;
-  }, [snapshot?.scenario_id]);
+    const searchParams = new URLSearchParams({ scenario_id: scenarioId });
+    if (embedded) searchParams.set("embedded", "1");
+    return `/godot-world/index.html?${searchParams.toString()}`;
+  }, [embedded, snapshot?.scenario_id]);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+
   const selectedAgent = useMemo(
-    () => snapshot?.agents.find((agent) => agent.id === selectedAgentId) ?? null,
-    [selectedAgentId, snapshot],
+    () => snapshot?.agents.find((agent) => agent.id === internalSelectedAgentId) ?? null,
+    [internalSelectedAgentId, snapshot],
   );
   const selectedConversation = useMemo(
     () =>
       snapshot?.conversations.find((conversation) =>
-        conversation.participant_ids.includes(selectedAgentId ?? ""),
+        conversation.participant_ids.includes(internalSelectedAgentId ?? ""),
       ) ?? null,
-    [selectedAgentId, snapshot],
+    [internalSelectedAgentId, snapshot],
   );
 
   const sendSnapshot = useCallback((nextSnapshot: GodotWorldSnapshot) => {
@@ -92,6 +105,10 @@ export function GodotWorldHost({
     );
     setBridgeStatus("ready");
   }, []);
+
+  useEffect(() => {
+    if (providedSnapshot) sendSnapshot(providedSnapshot);
+  }, [providedSnapshot, sendSnapshot]);
 
   const fetchLiveSnapshot = useCallback(async () => {
     if (!isLiveRun) return;
@@ -136,7 +153,8 @@ export function GodotWorldHost({
       }
       if (message.type === "selection_changed") {
         const selection = message.payload as GodotSelectionPayload;
-        if (selection.kind === "agent") setSelectedAgentId(selection.id);
+        if (selection.kind === "agent") setInternalSelectedAgentId(selection.id);
+        onSelectionChangeRef.current?.(selection);
       }
     },
     [sendSnapshot],
@@ -197,19 +215,38 @@ export function GodotWorldHost({
     };
   }, [connectionRevision, handleGodotMessage, iframeSrc, readyTimeoutMs, resolvedRunId]);
 
+  useEffect(() => {
+    if (bridgeStatus !== "ready" || !focusEntity) return;
+    bridgeRef.current?.post("focus_entity", focusEntity);
+    if (focusEntity.kind === "agent") setInternalSelectedAgentId(focusEntity.id);
+  }, [bridgeStatus, focusEntity]);
+
   const focusAgent = (agentId: string) => {
-    setSelectedAgentId(agentId);
+    setInternalSelectedAgentId(agentId);
     bridgeRef.current?.post("focus_entity", { kind: "agent", id: agentId });
   };
 
   return (
-    <section className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-      <div className="relative min-h-[540px] overflow-hidden rounded-3xl border border-slate-700 bg-[#0e141d] shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
+    <section
+      data-testid="godot-world-host"
+      className={
+        embedded
+          ? "h-full min-h-0"
+          : "grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]"
+      }
+    >
+      <div
+        className={`relative overflow-hidden border-slate-700 bg-[#0e141d] ${
+          embedded
+            ? "h-full min-h-[540px] border-0"
+            : "min-h-[540px] rounded-3xl border shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
+        }`}
+      >
         <iframe
           key={`${connectionRevision}:${iframeSrc}`}
           ref={iframeRef}
           src={iframeSrc}
-          title="Godot 具身世界技术验证"
+          title={embedded ? "3D 世界" : "Godot 具身世界技术验证"}
           className="h-full min-h-[540px] w-full border-0"
           allow="autoplay; fullscreen"
         />
@@ -251,7 +288,7 @@ export function GodotWorldHost({
         ) : null}
       </div>
 
-      <aside className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+      {!embedded ? <aside className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase">
           {isLiveRun ? "Live Run · Phase 4" : "Phase 4 Fixture"}
         </p>
@@ -274,7 +311,7 @@ export function GodotWorldHost({
               type="button"
               onClick={() => focusAgent(agent.id)}
               className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition ${
-                selectedAgentId === agent.id
+                internalSelectedAgentId === agent.id
                   ? "border-emerald-400 bg-emerald-50 text-emerald-950"
                   : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
               }`}
@@ -331,7 +368,7 @@ export function GodotWorldHost({
             协议错误：{protocolError}
           </p>
         ) : null}
-      </aside>
+      </aside> : null}
     </section>
   );
 }

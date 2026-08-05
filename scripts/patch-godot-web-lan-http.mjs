@@ -9,6 +9,25 @@ if (!outputPath) throw new Error("Usage: patch-godot-web-lan-http.mjs <index.htm
 const htmlPath = resolve(outputPath);
 let html = readFileSync(htmlPath, "utf8");
 
+const canvasRule = `#canvas {
+\tdisplay: block;
+}`;
+const fullBleedCanvasRule = `#canvas {
+\tdisplay: block;
+\twidth: 100vw;
+\theight: 100vh;
+}`;
+
+if (!html.includes("TRUMANWORLD_FULL_BLEED_CANVAS")) {
+  if (!html.includes(canvasRule)) {
+    throw new Error(`Godot canvas style changed; refusing to patch ${htmlPath}`);
+  }
+  html = html.replace(
+    canvasRule,
+    `/* TRUMANWORLD_FULL_BLEED_CANVAS: let the responsive 3D viewport fill its host. */\n${fullBleedCanvasRule}`,
+  );
+}
+
 const configPattern = /const GODOT_CONFIG = (\{[^\n]+\});/;
 const configMatch = html.match(configPattern);
 if (!configMatch) throw new Error(`Godot config not found in ${htmlPath}`);

@@ -141,6 +141,10 @@ obj.dimensions = dimensions
 最终 Web draw call。应优先减少不需要独立身份的对象数量。现有树木、路灯、道路和边界按角色合并，
 方向正确；门、座位和交互点若需要运行时寻址则不应合并。
 
+场景还必须按观看距离分级：语义核心使用完整门窗、倒角和微场景；只承担轮廓、遮挡和视差的视觉
+缓冲区使用独立 LOD，不创建窗框细分和逐对象 Bevel。道路标线等大量重复薄片直接使用低模网格，
+不能为远景中不可见的圆角支付数百次 modifier 求值成本。
+
 ### 4.2 Transform 与 Modifier
 
 - 尺寸通过 `obj.dimensions` 设置后，若后续 modifier 依赖真实尺度，应显式 apply scale；
@@ -148,6 +152,8 @@ obj.dimensions = dimensions
 - `export_apply=True` 会应用非 Armature modifier，官方同时警告它会阻止 shape key 导出；因此它只适合
   当前静态环境资产，角色或表情模型必须使用独立导出契约；
 - 合并前先应用需要保留的 modifier，并明确 active object；合并会改变对象级自定义属性的所有权。
+- 建筑生成器默认以局部 `-Y` 为正面；临街朝向通过建筑组的 ground pivot 统一旋转，禁止手工分别
+  修正门、窗、雨棚和文字坐标。旋转后的对象仍在最终按角色合批前保留一致的世界变换。
 
 ### 4.3 倒角、法线与网格校验
 

@@ -38,6 +38,15 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
 
   return {
     run,
+    tick: run.current_tick ?? 0,
+    world_time: "2026-03-02T08:00:00Z",
+    run_status: run.status,
+    simulation_speed: 1,
+    scenario_id: run.scenario_type,
+    map_id: "narrative-world-v1",
+    map_content_hash: "sha256:narrative-world-test",
+    object_states: [],
+    conversations: [],
     world_clock: {
       iso: "2026-03-02T08:00:00Z",
       date: "2026-03-02",
@@ -55,6 +64,18 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
       time_period_cn: "上午",
     },
     subject_agent_id: "agent-1",
+    agents: [
+      {
+        id: "agent-1",
+        name: "Mei Lin",
+        occupation: "Student",
+        current_goal: "talk",
+        current_location_id: "cafe",
+        position_meters: [10, 0, 20],
+        facing_radians: 0,
+        status: { alert_score: 0.2 },
+      },
+    ],
     locations: [
       {
         id: "cafe",
@@ -70,6 +91,8 @@ export function makeWorldSnapshot(overrides: Partial<WorldSnapshot> = {}): World
             occupation: "Student",
             current_goal: "talk",
             current_location_id: "cafe",
+            position_meters: [10, 0, 20],
+            facing_radians: 0,
             status: { alert_score: 0.2 },
           },
         ],

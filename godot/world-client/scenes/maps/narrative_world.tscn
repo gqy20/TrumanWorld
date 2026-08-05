@@ -537,11 +537,11 @@ to_node_id = "route:town:east-ocean"
 [node name="CameraAnchors" type="Node3D" parent="."]
 
 [node name="TownOverview" type="Marker3D" parent="CameraAnchors"]
-position = Vector3(-27, 27, 29)
+position = Vector3(-22, 22, 23)
 script = ExtResource("10_camera")
 stable_id = "camera:town:overview"
 target_id = "district:seahaven-town"
-look_at_position = Vector3(0, 0.8, -2.5)
+look_at_position = Vector3(0, 0.8, -1.5)
 
 [node name="PlazaView" type="Marker3D" parent="CameraAnchors"]
 position = Vector3(9, 8, 11)

@@ -53,20 +53,52 @@ jest.mock("@/components/agent-avatar", () => ({
 }));
 
 jest.mock("@/components/world-view-toggle", () => ({
+  isWorldView: (value: string | null) => ["director", "stage", "3d"].includes(value ?? ""),
   WorldViewToggle: ({
     currentView,
     onToggle,
   }: {
-    currentView: "svg" | "voxel";
-    onToggle: (view: "svg" | "voxel") => void;
+    currentView: "director" | "stage" | "3d";
+    onToggle: (view: "director" | "stage" | "3d") => void;
   }) => (
     <div>
       <span>当前视图 {currentView}</span>
-      <button type="button" onClick={() => onToggle("svg")}>
+      <button type="button" onClick={() => onToggle("director")}>
         导演地图
       </button>
-      <button type="button" onClick={() => onToggle("voxel")}>
+      <button type="button" onClick={() => onToggle("stage")}>
         舞台视图
+      </button>
+      <button type="button" onClick={() => onToggle("3d")}>
+        3D 世界
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/godot/godot-world-host", () => ({
+  GodotWorldHost: ({
+    focusEntity,
+    onSelectionChange,
+  }: {
+    focusEntity?: { kind: string; id: string } | null;
+    onSelectionChange?: (selection: { kind: "agent" | "location"; id: string }) => void;
+  }) => (
+    <div data-testid="godot-world-host">
+      <span data-testid="godot-focus">
+        {focusEntity ? `${focusEntity.kind}:${focusEntity.id}` : "none"}
+      </span>
+      <button
+        type="button"
+        onClick={() => onSelectionChange?.({ kind: "location", id: "library" })}
+      >
+        Godot Library
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelectionChange?.({ kind: "agent", id: "agent-1" })}
+      >
+        Godot Mei
       </button>
     </div>
   ),
@@ -217,17 +249,37 @@ describe("WorldPage", () => {
   it("switches from voxel to SVG renderer and keeps SVG click flows wired", async () => {
     renderWorldPage({ initialWorld: world });
 
-    expect(await screen.findByText("当前视图 voxel")).toBeInTheDocument();
+    expect(await screen.findByText("当前视图 stage")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "导演地图" }));
 
-    expect(screen.getByText("当前视图 svg")).toBeInTheDocument();
+    expect(screen.getByText("当前视图 director")).toBeInTheDocument();
     expect(screen.getByTestId("town-map")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "SVG Cafe" }));
 
     expect(screen.getByTestId("world-inspector")).not.toHaveClass("hidden");
-    expect(window.location.search).toBe("?loc=cafe");
+    expect(window.location.search).toBe("?view=director&loc=cafe");
+  });
+
+  it("opens the official 3D world and keeps Godot selections in shared URL state", async () => {
+    renderWorldPage({ initialWorld: world });
+
+    fireEvent.click(await screen.findByRole("button", { name: "3D 世界" }));
+
+    expect(screen.getByText("当前视图 3d")).toBeInTheDocument();
+    expect(screen.getByTestId("godot-world-host")).toBeInTheDocument();
+    expect(window.location.search).toBe("?view=3d");
+
+    fireEvent.click(screen.getByRole("button", { name: "Godot Library" }));
+    expect(screen.getByTestId("world-inspector")).not.toHaveClass("hidden");
+    expect(screen.getByTestId("godot-focus")).toHaveTextContent("location:library");
+    expect(window.location.search).toBe("?view=3d&loc=library");
+
+    fireEvent.click(screen.getByRole("button", { name: "Godot Mei" }));
+    expect(await screen.findByText("Agent modal agent-1")).toBeInTheDocument();
+    expect(screen.getByTestId("godot-focus")).toHaveTextContent("agent:agent-1");
+    expect(window.location.search).toBe("?view=3d&loc=library&modal=agent&agent=agent-1");
   });
 
   it("keeps the world full width and toggles its contextual inspector", async () => {

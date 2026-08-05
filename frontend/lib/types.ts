@@ -120,6 +120,10 @@ export type AgentSummary = {
   status?: Record<string, unknown>;
   profile?: Record<string, unknown>;
   config_id?: string; // agent 配置 ID，用于加载自定义 logo
+  visual_asset_id?: string | null;
+  position_meters?: [number, number, number] | null;
+  facing_radians?: number;
+  zone_id?: string | null;
 };
 
 export type AgentActivity = {
@@ -129,6 +133,17 @@ export type AgentActivity = {
   current_action?: string | null;
   visual_state?: string | null;
   progress?: number | null;
+  elapsed_seconds?: number;
+  current_step_id?: string | null;
+  zone_id?: string | null;
+  queue_position?: number | null;
+  claimed_resource_ids?: string[];
+  paused_at_world_time?: string | null;
+  pause_reason?: string | null;
+  paused_for_encounter_id?: string | null;
+  paused_for_conversation_id?: string | null;
+  resume_status?: string | null;
+  paused_position_meters?: [number, number, number] | null;
 };
 
 export type WorldEvent = {
@@ -195,6 +210,15 @@ export type WorldSnapshot = {
   locations: WorldLocation[];
   navigation?: WorldMapTopology;
   recent_events: WorldEvent[];
+  tick?: number;
+  world_time?: string;
+  run_status?: string;
+  simulation_speed?: number;
+  scenario_id?: string | null;
+  map_id?: string | null;
+  map_content_hash?: string | null;
+  object_states?: Array<Record<string, unknown>>;
+  conversations?: Array<Record<string, unknown>>;
   director_stats?: {
     total: number;
     executed: number; // 已消费数量，沿用后端字段名兼容现有接口

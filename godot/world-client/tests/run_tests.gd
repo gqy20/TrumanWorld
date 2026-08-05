@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_world_map_duplicate_id()
 	_test_world_map_disconnected_entrances()
 	_test_client_clock_pause_and_speed()
+	_test_director_camera_web_interactions()
 	_test_activity_visual_mapping()
 	_test_mei_vector_avatar()
 	if _failures == 0:
@@ -217,6 +218,22 @@ func _test_narrative_runtime_visuals() -> void:
 			and town.find_child("SeahavenBeach", true, false) != null,
 			"narrative town retains polished architectural and street details",
 		)
+		var town_ground := town.find_child("TownGround", true, false) as MeshInstance3D
+		var town_roads := town.find_child("TownRoads", true, false) as MeshInstance3D
+		var studio_door := town.find_child(
+			"StudioBoundaryServiceDoor", true, false
+		) as Node3D
+		_expect(
+			town_ground != null
+			and town_ground.mesh.get_aabb().size.x >= 179.0
+			and town_ground.mesh.get_aabb().size.z >= 109.0
+			and town_roads != null
+			and town_roads.mesh.get_aabb().size.x >= 179.0
+			and town.find_child("TownBufferBuildings", true, false) != null
+			and studio_door != null
+			and absf(studio_door.position.z) >= 240.0,
+			"narrative town separates semantic core, visual buffer and hidden boundary",
+		)
 		_expect(
 			town.find_child("TrumanLivingSofaSeat", true, false) != null
 			and town.find_child("TrumanKitchenCounter", true, false) != null
@@ -308,6 +325,33 @@ func _test_client_clock_pause_and_speed() -> void:
 		clock.project_world_time(20.0) == paused_time,
 		"client clock freezes while paused",
 	)
+
+
+func _test_director_camera_web_interactions() -> void:
+	_expect(
+		ProjectSettings.get_setting("display/window/stretch/mode") == "disabled",
+		"web viewport is not constrained to a letterboxed design aspect",
+	)
+	var director := DirectorCamera.new()
+	var camera := Camera3D.new()
+	camera.name = "Camera3D"
+	director.add_child(camera)
+	root.add_child(director)
+	var yaw_before: float = director.get("_yaw")
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	director._input(press)
+	var drag := InputEventMouseMotion.new()
+	drag.relative = Vector2(80.0, 20.0)
+	director._input(drag)
+	_expect(director.get("_yaw") != yaw_before, "left mouse drag orbits the director camera")
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	director._input(release)
+	_expect(director.get("_drag_mode") == 0, "left mouse release stops camera dragging")
+	director.free()
 
 
 func _test_activity_visual_mapping() -> void:

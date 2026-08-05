@@ -8,6 +8,10 @@ import { TownMap } from "@/components/town-map";
 import { VoxelWorldRenderer } from "@/components/voxel-world-renderer";
 import type { VoxelCameraFocusRequest } from "@/components/voxel/camera-controller";
 import { WorldViewToggle, type WorldView } from "@/components/world-view-toggle";
+import { isWorldView } from "@/components/world-view-toggle";
+import { GodotWorldHost } from "@/components/godot/godot-world-host";
+import type { GodotSelectionPayload } from "@/components/godot/protocol";
+import { toGodotWorldSnapshot } from "@/components/godot/world-snapshot-adapter";
 import { inferAgentStatus } from "@/lib/agent-utils";
 import { IntelligenceStreamModal } from "@/components/intelligence-stream-modal";
 import { LocationDetailModal } from "@/components/location-detail-modal";
@@ -42,7 +46,6 @@ export function WorldCanvas({ runId }: Props) {
   const { world } = useWorld();
   const { searchParams, replaceSearchParams } = useUiSearchParams();
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
-  const [mapView, setMapView] = useState<WorldView>("voxel");
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [cameraFocusRequest, setCameraFocusRequest] =
     useState<VoxelCameraFocusRequest | null>(null);
@@ -50,6 +53,8 @@ export function WorldCanvas({ runId }: Props) {
   const modal = searchParams.get("modal");
   const selectedAgentId = searchParams.get("agent");
   const selectedLocationIdFromQuery = searchParams.get("loc");
+  const requestedView = searchParams.get("view");
+  const mapView: WorldView = isWorldView(requestedView) ? requestedView : "stage";
   const isStreamExpanded = modal === "stream";
   const isLocationExpanded = modal === "location";
   const isTimelineExpanded = modal === "timeline";
@@ -119,6 +124,17 @@ export function WorldCanvas({ runId }: Props) {
     [world],
   );
   const sceneWorld = useMemo(() => (world ? buildSceneWorld(world) : null), [world]);
+  const godotSnapshot = useMemo(
+    () => (world ? toGodotWorldSnapshot(world) : null),
+    [world],
+  );
+  const godotFocusEntity = useMemo<GodotSelectionPayload | null>(() => {
+    if (selectedAgentId) return { kind: "agent", id: selectedAgentId };
+    if (selectedLocationIdFromQuery) {
+      return { kind: "location", id: selectedLocationIdFromQuery };
+    }
+    return null;
+  }, [selectedAgentId, selectedLocationIdFromQuery]);
 
   if (!world) {
     return (
@@ -137,6 +153,22 @@ export function WorldCanvas({ runId }: Props) {
   const requestCameraFocus = (kind: VoxelCameraFocusRequest["kind"], id: string) => {
     setCameraFocusRequest((current) => ({ kind, id, revision: (current?.revision ?? 0) + 1 }));
   };
+  const selectWorldView = (view: WorldView) => replaceSearchParams({ view });
+  const handleGodotSelection = (selection: GodotSelectionPayload) => {
+    if (selection.kind === "location") {
+      setHighlightedLocationId(selection.id);
+      setIsInspectorOpen(true);
+      replaceSearchParams({ loc: selection.id, modal: null });
+      return;
+    }
+    if (selection.kind === "agent") {
+      const targetLocationId = world.locations.find((location) =>
+        location.occupants.some((agent) => agent.id === selection.id),
+      )?.id;
+      if (targetLocationId) setHighlightedLocationId(targetLocationId);
+      replaceSearchParams({ modal: "agent", agent: selection.id });
+    }
+  };
 
   return (
     <div className="flex min-h-0 flex-col gap-4 xl:h-full">
@@ -149,7 +181,7 @@ export function WorldCanvas({ runId }: Props) {
             <div className="relative min-h-0 min-w-0 flex-1">
               <div className="pointer-events-none absolute top-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 lg:left-12">
                 <div className="pointer-events-auto">
-                  <WorldViewToggle currentView={mapView} onToggle={setMapView} />
+                  <WorldViewToggle currentView={mapView} onToggle={selectWorldView} />
                 </div>
                 <button
                   type="button"
@@ -164,7 +196,7 @@ export function WorldCanvas({ runId }: Props) {
                   <span>{isInspectorOpen ? "收起信息" : "世界信息"}</span>
                 </button>
               </div>
-              {mapView === "voxel" && sceneWorld ? (
+              {mapView === "stage" && sceneWorld ? (
                 <VoxelWorldRenderer
                   sceneWorld={sceneWorld}
                   highlightedLocationId={highlightedLocationId}
@@ -188,7 +220,7 @@ export function WorldCanvas({ runId }: Props) {
                     replaceSearchParams({ modal: "agent", agent: agentId });
                   }}
                 />
-              ) : (
+              ) : mapView === "director" ? (
                 <TownMap
                   world={world}
                   agentNameMap={agentNameMap}
@@ -203,6 +235,21 @@ export function WorldCanvas({ runId }: Props) {
                     replaceSearchParams({ modal: "agent", agent: agentId });
                   }}
                 />
+              ) : godotSnapshot ? (
+                <GodotWorldHost
+                  embedded
+                  runId={runId}
+                  snapshot={godotSnapshot}
+                  focusEntity={godotFocusEntity}
+                  onSelectionChange={handleGodotSelection}
+                />
+              ) : (
+                <div
+                  role="status"
+                  className="flex h-full min-h-[540px] items-center justify-center bg-[#0e141d] px-6 text-center text-sm text-slate-300"
+                >
+                  当前场景尚未导出兼容的 3D 地图，请先完成 Godot 地图构建。
+                </div>
               )}
             </div>
           </div>

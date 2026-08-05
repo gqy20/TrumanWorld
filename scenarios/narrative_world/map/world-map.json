@@ -33,12 +33,12 @@
       "look_at_position": [
         0.0,
         0.8,
-        -2.5
+        -1.5
       ],
       "position": [
-        -27.0,
-        27.0,
-        29.0
+        -22.0,
+        22.0,
+        23.0
       ],
       "target_id": "district:seahaven-town"
     },
@@ -57,7 +57,7 @@
       "target_id": "cafe"
     }
   ],
-  "content_hash": "sha256:6a15f09e4bbcc0136a7ae0080e50e9dc5fde661ae7f3cd2ad2b07adbdbea27f0",
+  "content_hash": "sha256:e6bfb72b4f9bc7408636a2c270d7cd7c0839800a5faafd9ee84799f3dd8ec7a3",
   "districts": [
     {
       "id": "district:seahaven-town",

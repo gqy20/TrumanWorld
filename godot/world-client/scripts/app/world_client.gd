@@ -7,6 +7,7 @@ const READY_RUN_ID := "phase-zero"
 @onready var camera_rig: DirectorCamera = $WorldRoot/CameraRig
 @onready var world_environment: WorldEnvironment = $WorldRoot/WorldEnvironment
 @onready var sun: DirectionalLight3D = $WorldRoot/Sun
+@onready var status_panel: PanelContainer = $Overlay/StatusPanel
 @onready var status_label: Label = $Overlay/StatusPanel/StatusLabel
 
 var _host_window: JavaScriptObject
@@ -25,6 +26,7 @@ var _status_update_elapsed := 0.0
 
 
 func _ready() -> void:
+	status_panel.visible = not _is_embedded()
 	_scenario_id = _requested_scenario_id()
 	var definition := ScenarioSceneRegistry.resolve(_scenario_id)
 	var map_instance := ScenarioSceneRegistry.instantiate_map(_scenario_id)
@@ -93,19 +95,28 @@ func _connect_web_bridge() -> void:
 
 
 func _requested_scenario_id() -> String:
+	var candidate := _query_parameter("scenario_id")
+	if not candidate.is_empty() and not ScenarioSceneRegistry.resolve(candidate).is_empty():
+		return candidate
+	return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+
+
+func _is_embedded() -> bool:
+	return _query_parameter("embedded") == "1"
+
+
+func _query_parameter(parameter_name: String) -> String:
 	if not OS.has_feature("web"):
-		return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+		return ""
 	var window := JavaScriptBridge.get_interface("window")
 	if window == null:
-		return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+		return ""
 	var query := str(window.location.search).trim_prefix("?")
 	for component: String in query.split("&", false):
 		var pair := component.split("=", true, 1)
-		if pair.size() == 2 and pair[0] == "scenario_id":
-			var candidate := str(pair[1]).uri_decode()
-			if not ScenarioSceneRegistry.resolve(candidate).is_empty():
-				return candidate
-	return ScenarioSceneRegistry.DEFAULT_SCENARIO_ID
+		if pair.size() == 2 and pair[0] == parameter_name:
+			return str(pair[1]).uri_decode()
+	return ""
 
 
 func _on_web_message(arguments: Array) -> void:

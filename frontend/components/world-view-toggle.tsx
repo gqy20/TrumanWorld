@@ -1,4 +1,10 @@
-export type WorldView = "svg" | "voxel";
+export const WORLD_VIEWS = ["director", "stage", "3d"] as const;
+
+export type WorldView = (typeof WORLD_VIEWS)[number];
+
+export function isWorldView(value: string | null): value is WorldView {
+  return value !== null && WORLD_VIEWS.includes(value as WorldView);
+}
 
 type Props = {
   currentView: WorldView;
@@ -14,10 +20,10 @@ export function WorldViewToggle({ currentView, onToggle }: Props) {
     >
       <button
         type="button"
-        aria-pressed={currentView === "svg"}
-        onClick={() => onToggle("svg")}
+        aria-pressed={currentView === "director"}
+        onClick={() => onToggle("director")}
         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
-          currentView === "svg"
+          currentView === "director"
             ? "bg-slate-900 text-white"
             : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
         }`}
@@ -26,15 +32,27 @@ export function WorldViewToggle({ currentView, onToggle }: Props) {
       </button>
       <button
         type="button"
-        aria-pressed={currentView === "voxel"}
-        onClick={() => onToggle("voxel")}
+        aria-pressed={currentView === "stage"}
+        onClick={() => onToggle("stage")}
         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${
-          currentView === "voxel"
+          currentView === "stage"
             ? "bg-emerald-600 text-white"
             : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
         }`}
       >
         舞台视图
+      </button>
+      <button
+        type="button"
+        aria-pressed={currentView === "3d"}
+        onClick={() => onToggle("3d")}
+        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${
+          currentView === "3d"
+            ? "bg-sky-600 text-white"
+            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+        }`}
+      >
+        3D 世界
       </button>
     </div>
   );

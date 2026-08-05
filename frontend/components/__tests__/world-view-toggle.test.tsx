@@ -5,7 +5,7 @@ import { WorldViewToggle } from "@/components/world-view-toggle";
 describe("WorldViewToggle", () => {
   it("exposes the active view and switches with accessible buttons", () => {
     const onToggle = jest.fn();
-    render(<WorldViewToggle currentView="voxel" onToggle={onToggle} />);
+    render(<WorldViewToggle currentView="stage" onToggle={onToggle} />);
 
     expect(screen.getByRole("group", { name: "世界视图" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "舞台视图" })).toHaveAttribute(
@@ -16,9 +16,16 @@ describe("WorldViewToggle", () => {
       "aria-pressed",
       "false",
     );
+    expect(screen.getByRole("button", { name: "3D 世界" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "导演地图" }));
 
-    expect(onToggle).toHaveBeenCalledWith("svg");
+    expect(onToggle).toHaveBeenCalledWith("director");
+
+    fireEvent.click(screen.getByRole("button", { name: "3D 世界" }));
+    expect(onToggle).toHaveBeenCalledWith("3d");
   });
 });

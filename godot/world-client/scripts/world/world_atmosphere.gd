@@ -6,6 +6,8 @@ const DAWN_BACKGROUND := Color("8b6d65")
 const DAY_BACKGROUND := Color("b8d2cc")
 const NIGHT_AMBIENT := Color("38506b")
 const DAY_AMBIENT := Color("b4c7bd")
+const NIGHT_FOG := Color("17263a")
+const DAY_FOG := Color("a6c4c3")
 
 var _environment: Environment
 var _sun: DirectionalLight3D
@@ -29,8 +31,12 @@ func update(world_time_seconds: float) -> void:
 		DAWN_BACKGROUND, dawn_mix * 0.52
 	)
 	_environment.ambient_light_color = NIGHT_AMBIENT.lerp(DAY_AMBIENT, daylight)
-	_environment.ambient_light_energy = lerpf(0.22, 0.4, daylight)
-	_sun.light_energy = lerpf(0.08, 0.8, daylight)
+	_environment.ambient_light_energy = lerpf(0.2, 0.34, daylight)
+	_environment.fog_light_color = NIGHT_FOG.lerp(DAY_FOG, daylight).lerp(
+		DAWN_BACKGROUND, dawn_mix * 0.22
+	)
+	_environment.fog_density = lerpf(0.007, 0.0035, daylight)
+	_sun.light_energy = lerpf(0.08, 0.68, daylight)
 	_sun.light_color = Color("9db5d6").lerp(Color("ffe1ac"), daylight)
 	_sun.rotation_degrees = Vector3(-18.0 - daylight * 42.0, hour * 8.0 - 105.0, 0.0)
 	if is_instance_valid(_root):

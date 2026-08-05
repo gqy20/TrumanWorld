@@ -15,6 +15,9 @@ var _overview_pitch := 0.58
 var _overview_distance := 14.5
 var _max_distance := 22.0
 
+const ORBIT_DRAG := 1
+const PAN_DRAG := 2
+
 
 func _ready() -> void:
 	_update_camera(1.0)
@@ -39,7 +42,9 @@ func configure_from_map(map_root: Node3D) -> void:
 		_overview_target = anchor.look_at_position
 		var offset := anchor.global_position - anchor.look_at_position
 		_overview_distance = maxf(5.0, offset.length())
-		_max_distance = maxf(22.0, _overview_distance * 1.2)
+		# Keep normal navigation inside the authored visual buffer. Story-specific boundary
+		# reveals use camera anchors instead of exposing the edge through unrestricted zoom.
+		_max_distance = maxf(22.0, _overview_distance * 1.08)
 		_overview_yaw = atan2(offset.x, offset.z)
 		_overview_pitch = atan2(offset.y, Vector2(offset.x, offset.z).length())
 		show_overview()
@@ -53,18 +58,24 @@ func show_overview() -> void:
 	_pitch = _overview_pitch
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_distance = maxf(5.0, _distance - 1.1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			_distance = minf(_max_distance, _distance + 1.1)
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			# Left drag is the primary web interaction. A press without motion still reaches
+			# AgentAvatar, so selecting a resident remains independent from camera orbiting.
+			_drag_mode = PAN_DRAG if event.shift_pressed and event.pressed else (
+				ORBIT_DRAG if event.pressed else 0
+			)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			_drag_mode = 1 if event.pressed else 0
+			_drag_mode = ORBIT_DRAG if event.pressed else 0
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
-			_drag_mode = 2 if event.pressed else 0
+			_drag_mode = PAN_DRAG if event.pressed else 0
 	elif event is InputEventMouseMotion and _drag_mode != 0:
-		if _drag_mode == 1:
+		if _drag_mode == ORBIT_DRAG:
 			_yaw -= event.relative.x * 0.008
 			_pitch = clampf(_pitch + event.relative.y * 0.006, 0.2, 1.18)
 		else:

@@ -10,9 +10,19 @@ from pathlib import Path
 from typing import Any
 
 import bpy
+from mathutils import Matrix
 
 REQUIRED_BLENDER = (5, 2)
 ASSET_ID = "narrative_world/seaside_town"
+CORE_WIDTH = 44.0
+CORE_DEPTH = 34.0
+VISUAL_BUFFER_WIDTH = 180.0
+VISUAL_BUFFER_DEPTH = 110.0
+COAST_INLAND_EDGE_Y = 16.0
+OCEAN_NEAR_EDGE_Y = 12.0
+HORIZON_OCEAN_WIDTH = 300.0
+HORIZON_OCEAN_DEPTH = 240.0
+STUDIO_BOUNDARY_Y = OCEAN_NEAR_EDGE_Y + HORIZON_OCEAN_DEPTH - 3.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,9 +58,7 @@ def require_blender_version() -> None:
         raise RuntimeError(f"Blender 5.2.x required, got {bpy.app.version_string}")
     unstable_markers = ("alpha", "beta", "release candidate")
     if any(marker in bpy.app.version_string.lower() for marker in unstable_markers):
-        raise RuntimeError(
-            f"an official Blender release is required: {bpy.app.version_string}"
-        )
+        raise RuntimeError(f"an official Blender release is required: {bpy.app.version_string}")
 
 
 def material(
@@ -89,6 +97,21 @@ def tag(
     if semantic_id:
         obj["semantic_id"] = semantic_id
     return obj
+
+
+def rotate_new_objects(
+    existing_names: set[str],
+    center: tuple[float, float],
+    heading: float,
+) -> None:
+    """Rotate a generated building as one local assembly around its ground pivot."""
+    if math.isclose(heading, 0.0, abs_tol=1e-6):
+        return
+    pivot = Matrix.Translation((center[0], center[1], 0.0))
+    transform = pivot @ Matrix.Rotation(heading, 4, "Z") @ pivot.inverted()
+    for obj in bpy.context.scene.objects:
+        if obj.name not in existing_names:
+            obj.matrix_world = transform @ obj.matrix_world
 
 
 def prepare_mesh(obj: Any, name: str, *, smooth_by_angle: bool = False) -> Any:
@@ -337,7 +360,9 @@ def seaside_house(
     *,
     location_id: str,
     sign: str | None = None,
+    heading: float = 0.0,
 ) -> None:
+    existing_names = set(bpy.data.objects.keys())
     x, y = center
     width, depth, height = size
     box(
@@ -386,9 +411,7 @@ def seaside_house(
         bevel=0.018,
     )
     facade_y = y - depth * 0.5 - 0.02
-    facade_windows(
-        name, x, facade_y, width, (1.08, 2.02), 2, s, location_id=location_id
-    )
+    facade_windows(name, x, facade_y, width, (1.08, 2.02), 2, s, location_id=location_id)
     box(
         name + "Door",
         (x, facade_y - 0.03, 0.82),
@@ -436,6 +459,7 @@ def seaside_house(
             size=0.22,
             location_id=location_id,
         )
+    rotate_new_objects(existing_names, center, heading)
 
 
 def commercial_building(
@@ -448,7 +472,9 @@ def commercial_building(
     location_id: str,
     sign: str,
     columns: int,
+    heading: float = 0.0,
 ) -> None:
+    existing_names = set(bpy.data.objects.keys())
     x, y = center
     width, depth, height = size
     box(
@@ -547,6 +573,58 @@ def commercial_building(
         size=min(0.32, width * 0.055),
         location_id=location_id,
     )
+    rotate_new_objects(existing_names, center, heading)
+
+
+def background_house_lod(
+    name: str,
+    center: tuple[float, float],
+    wall: Any,
+    s: dict[str, Any],
+    *,
+    heading: float,
+) -> None:
+    """Build a low-cost silhouette house for the non-interactive visual buffer."""
+    existing_names = set(bpy.data.objects.keys())
+    x, y = center
+    width, depth, height = (3.3, 2.45, 2.25)
+    box(
+        name + "Mass",
+        (x, y, height * 0.5 + 0.12),
+        (width, depth, height),
+        wall,
+        role="building_lod",
+    )
+    roof_angle = math.radians(27.0)
+    roof_width = width + 0.22
+    slab_width = roof_width * 0.58
+    roof_rise = math.sin(roof_angle) * slab_width * 0.5
+    for side, sign in (("Left", -1.0), ("Right", 1.0)):
+        box(
+            name + "Roof" + side,
+            (x + sign * roof_width * 0.225, y, height + 0.12 + roof_rise * 0.5),
+            (slab_width, depth + 0.46, 0.16),
+            s["roof_blue"],
+            role="roof_lod",
+            rotation=(0.0, sign * roof_angle, 0.0),
+        )
+    facade_y = y - depth * 0.5 - 0.02
+    box(
+        name + "Door",
+        (x, facade_y - 0.025, 0.78),
+        (0.68, 0.08, 1.38),
+        s["door"],
+        role="facade_lod",
+    )
+    for index, window_x in enumerate((x - 0.95, x + 0.95), start=1):
+        box(
+            f"{name}Window{index}",
+            (window_x, facade_y - 0.03, 1.42),
+            (0.58, 0.06, 0.72),
+            s["window"],
+            role="facade_lod",
+        )
+    rotate_new_objects(existing_names, center, heading)
 
 
 def cutaway_home(
@@ -999,9 +1077,7 @@ def street_lamp(name: str, x: float, y: float, s: dict[str, Any]) -> None:
     )
 
 
-def street_bench(
-    name: str, x: float, y: float, rotation: float, s: dict[str, Any]
-) -> None:
+def street_bench(name: str, x: float, y: float, rotation: float, s: dict[str, Any]) -> None:
     for suffix, location, dimensions, surface in (
         ("Seat", (x, y, 0.48), (1.25, 0.42, 0.11), s["bench_wood"]),
         ("Back", (x, y + 0.16, 0.78), (1.25, 0.09, 0.52), s["bench_wood"]),
@@ -1029,9 +1105,7 @@ def planter(name: str, x: float, y: float, s: dict[str, Any]) -> None:
         role="street_micro_scene",
         vertices=12,
     )
-    for index, (dx, dy, z) in enumerate(
-        ((-0.12, 0.0, 0.72), (0.12, 0.03, 0.78)), start=1
-    ):
+    for index, (dx, dy, z) in enumerate(((-0.12, 0.0, 0.72), (0.12, 0.03, 0.78)), start=1):
         sphere(
             f"{name}Plant{index}",
             (x + dx, y + dy, z),
@@ -1219,9 +1293,7 @@ def merge_location_role(role: str) -> None:
         if obj.type == "MESH" and obj.get("truman_role") == role and location_id:
             groups.setdefault(str(location_id), []).append(obj)
     for location_id, objects in sorted(groups.items()):
-        location_name = "".join(
-            part.title() for part in location_id.replace("_", "-").split("-")
-        )
+        location_name = "".join(part.title() for part in location_id.replace("_", "-").split("-"))
         role_name = "".join(part.title() for part in role.split("_"))
         merge_objects(
             f"Town{location_name}{role_name}",
@@ -1252,9 +1324,7 @@ def build_plaza(s: dict[str, Any]) -> None:
         location_id="plaza",
         vertices=20,
     )
-    for index, angle in enumerate(
-        (0.0, math.pi / 2.0, math.pi, math.pi * 1.5), start=1
-    ):
+    for index, angle in enumerate((0.0, math.pi / 2.0, math.pi, math.pi * 1.5), start=1):
         x = math.cos(angle) * 0.78
         y = math.sin(angle) * 0.78
         cylinder(
@@ -1341,29 +1411,29 @@ def build_plaza(s: dict[str, Any]) -> None:
 
 
 def build_town(s: dict[str, Any]) -> None:
-    # The playable area is a real four-block town grid rather than a compact stage island.
-    # Blender Y maps to negative Godot Z, so these authored coordinates must stay in sync
-    # with narrative_world.tscn's route graph and location entrances.
+    # The semantic core remains a compact four-block grid, while the authored surface extends
+    # well beyond it. The buffer prevents the director camera from exposing a diorama edge.
+    # Blender Y maps to negative Godot Z, so core coordinates stay in sync with the route graph.
     box(
         "TownGround",
-        (0.0, -1.0, -0.18),
-        (44.0, 34.0, 0.3),
+        (0.0, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, -0.18),
+        (VISUAL_BUFFER_WIDTH, VISUAL_BUFFER_DEPTH, 0.3),
         s["ground"],
         role="ground",
-        bevel=0.22,
+        bevel=0.35,
     )
     box(
         "BacklotOcean",
-        (0.0, 25.0, -0.08),
-        (64.0, 24.0, 0.12),
+        (0.0, OCEAN_NEAR_EDGE_Y + HORIZON_OCEAN_DEPTH * 0.5, -0.08),
+        (HORIZON_OCEAN_WIDTH, HORIZON_OCEAN_DEPTH, 0.12),
         s["ocean"],
         role="ocean",
-        bevel=0.08,
+        bevel=0.12,
     )
     box(
         "SeahavenBeach",
         (0.0, 14.25, -0.01),
-        (44.0, 3.4, 0.12),
+        (VISUAL_BUFFER_WIDTH, 3.4, 0.12),
         s["sand"],
         role="coast",
         bevel=0.08,
@@ -1371,41 +1441,67 @@ def build_town(s: dict[str, Any]) -> None:
     box(
         "Seawall",
         (0.0, 12.35, 0.34),
-        (43.5, 0.34, 0.68),
+        (VISUAL_BUFFER_WIDTH, 0.34, 0.68),
         s["seawall"],
         role="seawall",
         bevel=0.06,
     )
     for road_name, location, dimensions in (
-        ("BayAvenue", (0.0, -5.5, 0.01), (42.0, 1.7, 0.1)),
-        ("MarketStreet", (0.0, 3.2, 0.015), (42.0, 1.7, 0.1)),
-        ("LancasterAvenue", (-7.0, 1.2, 0.02), (1.7, 26.0, 0.11)),
-        ("SeahavenAvenue", (6.0, 1.2, 0.02), (1.7, 26.0, 0.11)),
-        ("OceanBoulevard", (0.0, 10.1, 0.02), (42.0, 1.5, 0.11)),
+        ("BayAvenue", (0.0, -5.5, 0.01), (VISUAL_BUFFER_WIDTH, 1.7, 0.1)),
+        ("MarketStreet", (0.0, 3.2, 0.015), (VISUAL_BUFFER_WIDTH, 1.7, 0.1)),
+        (
+            "LancasterAvenue",
+            (-7.0, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, 0.02),
+            (1.7, VISUAL_BUFFER_DEPTH, 0.11),
+        ),
+        (
+            "SeahavenAvenue",
+            (6.0, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, 0.02),
+            (1.7, VISUAL_BUFFER_DEPTH, 0.11),
+        ),
+        ("OceanBoulevard", (0.0, 10.1, 0.02), (VISUAL_BUFFER_WIDTH, 1.5, 0.11)),
+        ("PineStreet", (0.0, -15.0, 0.012), (VISUAL_BUFFER_WIDTH, 1.55, 0.1)),
+        ("CypressStreet", (0.0, -25.0, 0.012), (VISUAL_BUFFER_WIDTH, 1.55, 0.1)),
     ):
         box(road_name, location, dimensions, s["road"], role="road", bevel=0.025)
-    for street_name, street_y in (("Bay", -5.5), ("Market", 3.2), ("Ocean", 10.1)):
-        for index, x in enumerate(range(-20, 21, 2), start=1):
+    for street_name, street_y in (
+        ("Bay", -5.5),
+        ("Market", 3.2),
+        ("Ocean", 10.1),
+        ("Pine", -15.0),
+        ("Cypress", -25.0),
+    ):
+        for index, x in enumerate(range(-58, 59, 3), start=1):
             box(
                 f"{street_name}StreetDash{index}",
                 (float(x), street_y, 0.078),
-                (0.85, 0.055, 0.022),
+                (1.15, 0.055, 0.022),
                 s["road_marking"],
                 role="road_marking",
-                bevel=0.008,
             )
     for avenue_name, avenue_x in (("Lancaster", -7.0), ("Seahaven", 6.0)):
-        for index, y in enumerate(range(-11, 13, 2), start=1):
+        for index, y in enumerate(range(-44, 13, 3), start=1):
             box(
                 f"{avenue_name}AvenueDash{index}",
                 (avenue_x, float(y), 0.079),
-                (0.055, 0.85, 0.022),
+                (0.055, 1.15, 0.022),
                 s["road_marking"],
                 role="road_marking",
-                bevel=0.008,
             )
     for crossing, (crossing_x, crossing_y) in enumerate(
-        ((-7.0, -5.5), (6.0, -5.5), (-7.0, 3.2), (6.0, 3.2)), start=1
+        (
+            (-7.0, -25.0),
+            (6.0, -25.0),
+            (-7.0, -15.0),
+            (6.0, -15.0),
+            (-7.0, -5.5),
+            (6.0, -5.5),
+            (-7.0, 3.2),
+            (6.0, 3.2),
+            (-7.0, 10.1),
+            (6.0, 10.1),
+        ),
+        start=1,
     ):
         for stripe, offset in enumerate((-0.42, -0.14, 0.14, 0.42), start=1):
             box(
@@ -1414,23 +1510,40 @@ def build_town(s: dict[str, Any]) -> None:
                 (0.14, 1.22, 0.025),
                 s["road_marking"],
                 role="road_marking",
-                bevel=0.006,
             )
     for walk_name, location, dimensions in (
-        ("BayWalkNorth", (0.0, -4.35, 0.07), (42.0, 0.5, 0.13)),
-        ("BayWalkSouth", (0.0, -6.65, 0.07), (42.0, 0.5, 0.13)),
-        ("MarketWalkNorth", (0.0, 4.35, 0.07), (42.0, 0.5, 0.13)),
-        ("MarketWalkSouth", (0.0, 2.05, 0.07), (42.0, 0.5, 0.13)),
-        ("LancasterWalkWest", (-8.15, 1.2, 0.07), (0.5, 26.0, 0.13)),
-        ("LancasterWalkEast", (-5.85, 1.2, 0.07), (0.5, 26.0, 0.13)),
-        ("SeahavenWalkWest", (4.85, 1.2, 0.07), (0.5, 26.0, 0.13)),
-        ("SeahavenWalkEast", (7.15, 1.2, 0.07), (0.5, 26.0, 0.13)),
-        ("OceanWalkSouth", (0.0, 8.95, 0.07), (42.0, 0.48, 0.13)),
-        ("Promenade", (0.0, 11.55, 0.08), (43.0, 1.15, 0.15)),
+        ("BayWalkNorth", (0.0, -4.35, 0.07), (VISUAL_BUFFER_WIDTH, 0.5, 0.13)),
+        ("BayWalkSouth", (0.0, -6.65, 0.07), (VISUAL_BUFFER_WIDTH, 0.5, 0.13)),
+        ("MarketWalkNorth", (0.0, 4.35, 0.07), (VISUAL_BUFFER_WIDTH, 0.5, 0.13)),
+        ("MarketWalkSouth", (0.0, 2.05, 0.07), (VISUAL_BUFFER_WIDTH, 0.5, 0.13)),
+        ("PineWalkNorth", (0.0, -13.95, 0.07), (VISUAL_BUFFER_WIDTH, 0.46, 0.13)),
+        ("PineWalkSouth", (0.0, -16.05, 0.07), (VISUAL_BUFFER_WIDTH, 0.46, 0.13)),
+        ("CypressWalkNorth", (0.0, -23.95, 0.07), (VISUAL_BUFFER_WIDTH, 0.46, 0.13)),
+        ("CypressWalkSouth", (0.0, -26.05, 0.07), (VISUAL_BUFFER_WIDTH, 0.46, 0.13)),
+        (
+            "LancasterWalkWest",
+            (-8.15, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, 0.07),
+            (0.5, VISUAL_BUFFER_DEPTH, 0.13),
+        ),
+        (
+            "LancasterWalkEast",
+            (-5.85, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, 0.07),
+            (0.5, VISUAL_BUFFER_DEPTH, 0.13),
+        ),
+        (
+            "SeahavenWalkWest",
+            (4.85, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, 0.07),
+            (0.5, VISUAL_BUFFER_DEPTH, 0.13),
+        ),
+        (
+            "SeahavenWalkEast",
+            (7.15, COAST_INLAND_EDGE_Y - VISUAL_BUFFER_DEPTH * 0.5, 0.07),
+            (0.5, VISUAL_BUFFER_DEPTH, 0.13),
+        ),
+        ("OceanWalkSouth", (0.0, 8.95, 0.07), (VISUAL_BUFFER_WIDTH, 0.48, 0.13)),
+        ("Promenade", (0.0, 11.55, 0.08), (VISUAL_BUFFER_WIDTH, 1.15, 0.15)),
     ):
-        box(
-            walk_name, location, dimensions, s["sidewalk"], role="sidewalk", bevel=0.025
-        )
+        box(walk_name, location, dimensions, s["sidewalk"], role="sidewalk", bevel=0.025)
 
     build_plaza(s)
     cutaway_home((-12.0, -2.6), s)
@@ -1554,27 +1667,28 @@ def build_town(s: dict[str, Any]) -> None:
     # somewhere. These are visual buildings only; the seven authored locations remain the
     # semantic destinations used by agents.
     background_houses = (
-        ("SouthHouse01", -19.0, -13.2, s["pastel_blue"]),
-        ("SouthHouse02", -14.8, -13.0, s["pastel_yellow"]),
-        ("SouthHouse03", -10.4, -13.3, s["pastel_pink"]),
-        ("SouthHouse04", -4.2, -13.0, s["pastel_blue"]),
-        ("SouthHouse05", 0.2, -13.3, s["pastel_yellow"]),
-        ("SouthHouse06", 10.3, -13.0, s["pastel_pink"]),
-        ("SouthHouse07", 14.7, -13.3, s["pastel_blue"]),
-        ("SouthHouse08", 19.0, -13.0, s["pastel_yellow"]),
-        ("WestBlockHouse01", -19.0, -8.4, s["pastel_pink"]),
-        ("WestBlockHouse02", -18.8, -1.0, s["pastel_blue"]),
-        ("WestBlockHouse03", -18.9, 6.5, s["pastel_yellow"]),
-        ("CentralBlockHouse01", -3.1, -8.8, s["pastel_pink"]),
-        ("CentralBlockHouse02", 1.1, -8.9, s["pastel_blue"]),
-        ("EastBlockHouse01", 10.6, -8.8, s["pastel_yellow"]),
-        ("EastBlockHouse02", 15.0, -8.9, s["pastel_pink"]),
-        ("EastBlockHouse03", 19.1, -8.6, s["pastel_blue"]),
-        ("NorthWestHouse", -18.7, 11.1, s["pastel_blue"]),
-        ("NorthCenterHouse", -5.0, 11.2, s["pastel_yellow"]),
-        ("NorthEastHouse", 18.4, 11.1, s["pastel_pink"]),
+        # heading rotates the default south-facing facade toward its adjoining street.
+        ("SouthHouse01", -19.0, -13.2, s["pastel_blue"], math.pi),
+        ("SouthHouse02", -14.8, -13.0, s["pastel_yellow"], math.pi),
+        ("SouthHouse03", -10.4, -13.3, s["pastel_pink"], math.pi),
+        ("SouthHouse04", -4.2, -13.0, s["pastel_blue"], math.pi),
+        ("SouthHouse05", 0.2, -13.3, s["pastel_yellow"], math.pi),
+        ("SouthHouse06", 10.3, -13.0, s["pastel_pink"], math.pi),
+        ("SouthHouse07", 14.7, -13.3, s["pastel_blue"], math.pi),
+        ("SouthHouse08", 19.0, -13.0, s["pastel_yellow"], math.pi),
+        ("WestBlockHouse01", -19.0, -8.4, s["pastel_pink"], math.pi / 2.0),
+        ("WestBlockHouse02", -18.8, -1.0, s["pastel_blue"], math.pi / 2.0),
+        ("WestBlockHouse03", -18.9, 6.5, s["pastel_yellow"], math.pi / 2.0),
+        ("CentralBlockHouse01", -3.1, -8.8, s["pastel_pink"], math.pi),
+        ("CentralBlockHouse02", 1.1, -8.9, s["pastel_blue"], math.pi),
+        ("EastBlockHouse01", 10.6, -8.8, s["pastel_yellow"], math.pi),
+        ("EastBlockHouse02", 15.0, -8.9, s["pastel_pink"], math.pi),
+        ("EastBlockHouse03", 19.1, -8.6, s["pastel_blue"], math.pi),
+        ("NorthWestHouse", -18.7, 11.1, s["pastel_blue"], 0.0),
+        ("NorthCenterHouse", -5.0, 11.2, s["pastel_yellow"], 0.0),
+        ("NorthEastHouse", 18.4, 11.1, s["pastel_pink"], 0.0),
     )
-    for house_name, house_x, house_y, wall in background_houses:
+    for house_name, house_x, house_y, wall, heading in background_houses:
         seaside_house(
             house_name,
             (house_x, house_y),
@@ -1582,6 +1696,44 @@ def build_town(s: dict[str, Any]) -> None:
             wall,
             s,
             location_id="town-background",
+            heading=heading,
+        )
+
+    buffer_houses = (
+        # Outer visual blocks continue the street grammar with a cheaper silhouette LOD.
+        ("PineSouthHouse01", -20.0, -18.2, s["pastel_pink"], 0.0),
+        ("PineSouthHouse02", -14.8, -18.4, s["pastel_blue"], 0.0),
+        ("PineSouthHouse03", -2.7, -18.3, s["pastel_yellow"], 0.0),
+        ("PineSouthHouse04", 11.0, -18.3, s["pastel_pink"], 0.0),
+        ("PineSouthHouse05", 16.0, -18.4, s["pastel_blue"], 0.0),
+        ("PineNorthHouse01", -19.6, -11.7, s["pastel_yellow"], math.pi),
+        ("PineNorthHouse02", -14.5, -11.8, s["pastel_pink"], math.pi),
+        ("PineNorthHouse03", 10.8, -11.7, s["pastel_blue"], math.pi),
+        ("PineNorthHouse04", 16.0, -11.8, s["pastel_yellow"], math.pi),
+        ("CypressSouthHouse01", -20.0, -28.6, s["pastel_blue"], 0.0),
+        ("CypressSouthHouse02", -14.8, -28.4, s["pastel_yellow"], 0.0),
+        ("CypressSouthHouse03", -2.8, -28.5, s["pastel_pink"], 0.0),
+        ("CypressSouthHouse04", 11.0, -28.4, s["pastel_blue"], 0.0),
+        ("CypressSouthHouse05", 16.2, -28.6, s["pastel_yellow"], 0.0),
+        ("CypressNorthHouse01", -19.8, -21.8, s["pastel_pink"], math.pi),
+        ("CypressNorthHouse02", -14.6, -21.7, s["pastel_blue"], math.pi),
+        ("CypressNorthHouse03", -2.8, -21.8, s["pastel_yellow"], math.pi),
+        ("CypressNorthHouse04", 11.0, -21.7, s["pastel_pink"], math.pi),
+        ("CypressNorthHouse05", 16.2, -21.8, s["pastel_blue"], math.pi),
+        ("WestBufferHouse01", -29.0, -9.0, s["pastel_yellow"], math.pi / 2.0),
+        ("WestBufferHouse02", -29.2, -1.5, s["pastel_pink"], math.pi / 2.0),
+        ("WestBufferHouse03", -29.0, 6.0, s["pastel_blue"], math.pi / 2.0),
+        ("EastBufferHouse01", 29.0, -9.0, s["pastel_blue"], -math.pi / 2.0),
+        ("EastBufferHouse02", 29.2, -1.5, s["pastel_yellow"], -math.pi / 2.0),
+        ("EastBufferHouse03", 29.0, 6.0, s["pastel_pink"], -math.pi / 2.0),
+    )
+    for house_name, house_x, house_y, wall, heading in buffer_houses:
+        background_house_lod(
+            house_name,
+            (house_x, house_y),
+            wall,
+            s,
+            heading=heading,
         )
 
     for shop_name, shop_x, shop_y, wall, label in (
@@ -1601,6 +1753,7 @@ def build_town(s: dict[str, Any]) -> None:
             location_id="town-background",
             sign=label,
             columns=3,
+            heading=math.pi if shop_y < 3.2 else 0.0,
         )
 
     tree_positions = (
@@ -1629,6 +1782,22 @@ def build_town(s: dict[str, Any]) -> None:
         (-1.0, 9.0),
         (4.0, 9.0),
         (14.5, 9.0),
+        (-24.0, -26.0),
+        (-10.5, -27.5),
+        (2.5, -27.5),
+        (22.5, -26.0),
+        (-24.0, -20.0),
+        (-10.5, -19.5),
+        (2.5, -19.5),
+        (22.5, -20.0),
+        (-25.0, -14.0),
+        (24.5, -14.0),
+        (-31.5, -4.8),
+        (31.5, -4.8),
+        (-31.5, 3.8),
+        (31.5, 3.8),
+        (-25.0, 9.0),
+        (25.0, 9.0),
     )
     for index, (tree_x, tree_y) in enumerate(tree_positions, start=1):
         tree(f"TownTree{index}", tree_x, tree_y, s, 0.82 + 0.08 * (index % 3))
@@ -1758,7 +1927,7 @@ def build_town(s: dict[str, Any]) -> None:
         rotation=(math.pi / 2.0, 0.0, 0.0),
     )
 
-    for index, rail_x in enumerate(range(-21, 22, 2), start=1):
+    for index, rail_x in enumerate(range(-59, 60, 2), start=1):
         box(
             f"PromenadeRailPost{index}",
             (float(rail_x), 12.08, 0.67),
@@ -1771,7 +1940,7 @@ def build_town(s: dict[str, Any]) -> None:
         box(
             f"PromenadeRail{level}",
             (0.0, 12.08, rail_z),
-            (43.0, 0.07, 0.07),
+            (VISUAL_BUFFER_WIDTH, 0.07, 0.07),
             s["metal"],
             role="promenade_detail",
             bevel=0.018,
@@ -1864,7 +2033,7 @@ def build_town(s: dict[str, Any]) -> None:
         box(
             f"ShoreFoam{foam_index}",
             (2.0 if foam_index % 2 else -3.0, foam_y, 0.025),
-            (34.0 - foam_index * 2.0, 0.12, 0.035),
+            (100.0 - foam_index * 5.0, 0.12, 0.035),
             s["white_trim"],
             role="waterfront_detail",
             bevel=0.05,
@@ -1872,15 +2041,15 @@ def build_town(s: dict[str, Any]) -> None:
 
     box(
         "StudioBoundaryNorth",
-        (0.0, 37.0, 2.0),
-        (64.0, 0.14, 4.0),
+        (0.0, STUDIO_BOUNDARY_Y, 2.0),
+        (HORIZON_OCEAN_WIDTH, 0.14, 4.0),
         s["dome_wall"],
         role="studio_boundary",
         bevel=0.08,
     )
     box(
         "StudioBoundaryServiceDoor",
-        (18.0, 36.88, 1.05),
+        (18.0, STUDIO_BOUNDARY_Y - 0.12, 1.05),
         (1.45, 0.12, 2.05),
         s["door"],
         role="story_prop",
@@ -1889,7 +2058,7 @@ def build_town(s: dict[str, Any]) -> None:
     )
     box(
         "StudioBoundaryWarningSign",
-        (18.0, 36.79, 1.35),
+        (18.0, STUDIO_BOUNDARY_Y - 0.21, 1.35),
         (0.72, 0.04, 0.5),
         s["signal_red"],
         role="story_prop",
@@ -1899,7 +2068,7 @@ def build_town(s: dict[str, Any]) -> None:
     for camera_index, camera_x in enumerate((-18.0, 0.0, 18.0), start=1):
         cylinder(
             f"BoundaryCameraArm{camera_index}",
-            (camera_x, 36.75, 3.1),
+            (camera_x, STUDIO_BOUNDARY_Y - 0.25, 3.1),
             0.035,
             0.42,
             s["metal"],
@@ -1909,22 +2078,26 @@ def build_town(s: dict[str, Any]) -> None:
         )
         box(
             f"BoundaryCamera{camera_index}",
-            (camera_x, 36.48, 3.05),
+            (camera_x, STUDIO_BOUNDARY_Y - 0.52, 3.05),
             (0.32, 0.5, 0.24),
             s["screen"],
             role="story_prop",
             semantic_id=f"story:boundary:camera-{camera_index}",
             bevel=0.04,
         )
-    for index, x in enumerate(range(-30, 31, 4), start=1):
+    for index, x in enumerate(range(-148, 149, 4), start=1):
         box(
             f"BoundarySeam{index}",
-            (float(x), 36.92, 2.0),
+            (float(x), STUDIO_BOUNDARY_Y - 0.08, 2.0),
             (0.035, 0.03, 4.0),
             s["boundary_seam"],
             role="studio_boundary",
         )
 
+    print(
+        f"Built narrative town source geometry: {len(bpy.context.scene.objects)} objects",
+        flush=True,
+    )
     for merged_name, role in (
         ("TownTrees", "environment_tree"),
         ("TownStreetLamps", "street_lamp"),
@@ -1940,9 +2113,13 @@ def build_town(s: dict[str, Any]) -> None:
         ("TownWaterfrontDetails", "waterfront_detail"),
         ("TownRooftopDetails", "rooftop_detail"),
         ("TownBuildingAccents", "building_accent"),
+        ("TownBufferBuildings", "building_lod"),
+        ("TownBufferFacades", "facade_lod"),
+        ("TownBufferRoofs", "roof_lod"),
         ("TownBackgroundBoundary", "studio_boundary"),
     ):
         merge_role(merged_name, role)
+        print(f"Merged role {role} -> {merged_name}", flush=True)
     for role in ("building", "roof", "window", "facade_trim", "porch"):
         merge_location_role(role)
 
@@ -2016,9 +2193,7 @@ def build_scene() -> dict[str, int]:
         "pastel_blue": material("TW_PastelBlue", (0.43, 0.61, 0.65, 1.0)),
         "pastel_pink": material("TW_PastelPink", (0.73, 0.48, 0.46, 1.0)),
         "window": material("TW_Window", (0.42, 0.66, 0.68, 0.62), roughness=0.18),
-        "storefront_glass": material(
-            "TW_StorefrontGlass", (0.3, 0.58, 0.61, 0.5), roughness=0.14
-        ),
+        "storefront_glass": material("TW_StorefrontGlass", (0.3, 0.58, 0.61, 0.5), roughness=0.14),
         "door": material("TW_Door", (0.17, 0.3, 0.3, 1.0)),
         "awning": material("TW_Awning", (0.66, 0.2, 0.16, 1.0)),
         "sign_text": material("TW_SignText", (0.9, 0.84, 0.67, 1.0)),
@@ -2033,17 +2208,11 @@ def build_scene() -> dict[str, int]:
         "dome_wall": material("TW_DomeWall", (0.45, 0.62, 0.69, 0.38), roughness=0.28),
         "boundary_seam": material("TW_BoundarySeam", (0.25, 0.4, 0.45, 0.65)),
         "chimney": material("TW_Chimney", (0.48, 0.24, 0.18, 1.0)),
-        "road_marking": material(
-            "TW_RoadMarking", (0.88, 0.82, 0.59, 1.0), roughness=0.7
-        ),
+        "road_marking": material("TW_RoadMarking", (0.88, 0.82, 0.59, 1.0), roughness=0.7),
         "bench_wood": material("TW_BenchWood", (0.43, 0.25, 0.13, 1.0), roughness=0.72),
-        "interior_floor": material(
-            "TW_InteriorFloor", (0.57, 0.42, 0.27, 1.0), roughness=0.75
-        ),
+        "interior_floor": material("TW_InteriorFloor", (0.57, 0.42, 0.27, 1.0), roughness=0.75),
         "cafe_floor": material("TW_CafeFloor", (0.48, 0.31, 0.23, 1.0), roughness=0.72),
-        "furniture_wood": material(
-            "TW_FurnitureWood", (0.3, 0.16, 0.09, 1.0), roughness=0.66
-        ),
+        "furniture_wood": material("TW_FurnitureWood", (0.3, 0.16, 0.09, 1.0), roughness=0.66),
         "sofa": material("TW_Sofa", (0.31, 0.49, 0.43, 1.0), roughness=0.82),
         "kitchen": material("TW_Kitchen", (0.68, 0.65, 0.55, 1.0), roughness=0.7),
         "rug": material("TW_Rug", (0.58, 0.22, 0.18, 1.0), roughness=0.92),
@@ -2051,9 +2220,7 @@ def build_scene() -> dict[str, int]:
         "appliance": material("TW_Appliance", (0.7, 0.73, 0.69, 1.0), metallic=0.08),
         "frame": material("TW_Frame", (0.72, 0.48, 0.18, 1.0), roughness=0.58),
         "menu_board": material("TW_MenuBoard", (0.08, 0.16, 0.14, 1.0), roughness=0.86),
-        "terracotta": material(
-            "TW_Terracotta", (0.56, 0.28, 0.17, 1.0), roughness=0.88
-        ),
+        "terracotta": material("TW_Terracotta", (0.56, 0.28, 0.17, 1.0), roughness=0.88),
         "signal_red": material("TW_SignalRed", (0.68, 0.08, 0.06, 1.0), roughness=0.58),
         "bicycle": material("TW_Bicycle", (0.13, 0.39, 0.5, 1.0), metallic=0.18),
         "tire": material("TW_Tire", (0.025, 0.03, 0.03, 1.0), roughness=0.94),
@@ -2062,6 +2229,7 @@ def build_scene() -> dict[str, int]:
         "mailbox": material("TW_Mailbox", (0.16, 0.32, 0.35, 1.0), metallic=0.16),
     }
     build_town(s)
+    print("Finished semantic batching; validating scene", flush=True)
     for mesh in list(bpy.data.meshes):
         if mesh.users == 0:
             bpy.data.meshes.remove(mesh)
@@ -2126,7 +2294,15 @@ def main() -> None:
                     "office": [10.5, 0.0, -11.8],
                     "hospital": [11.0, 0.0, 2.5],
                 },
-                "environment_bounds_meters": [64.0, 74.0],
+                "semantic_core_bounds_meters": [CORE_WIDTH, CORE_DEPTH],
+                "visual_buffer_bounds_meters": [
+                    VISUAL_BUFFER_WIDTH,
+                    VISUAL_BUFFER_DEPTH,
+                ],
+                "environment_bounds_meters": [
+                    HORIZON_OCEAN_WIDTH,
+                    HORIZON_OCEAN_DEPTH + VISUAL_BUFFER_DEPTH - 4.0,
+                ],
                 "output": str(args.output),
                 "source": str(args.source) if args.source else None,
                 "stats": stats,

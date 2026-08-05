@@ -17,8 +17,14 @@ background_mode = 1
 background_color = Color(0.055, 0.075, 0.105, 1)
 ambient_light_source = 3
 ambient_light_color = Color(0.58, 0.66, 0.62, 1)
-ambient_light_energy = 0.34
+ambient_light_energy = 0.3
 tonemap_mode = 2
+tonemap_exposure = 0.86
+fog_enabled = true
+fog_light_color = Color(0.64, 0.75, 0.76, 1)
+fog_light_energy = 0.6
+fog_density = 0.004
+fog_sky_affect = 0.72
 
 [sub_resource type="StyleBoxFlat" id="StatusPanelStyle"]
 bg_color = Color(0.04, 0.06, 0.09, 0.82)
@@ -43,7 +49,7 @@ environment = SubResource("WorldEnvironment")
 [node name="Sun" type="DirectionalLight3D" parent="WorldRoot"]
 rotation_degrees = Vector3(-52, -28, 0)
 light_color = Color(1, 0.91, 0.76, 1)
-light_energy = 0.76
+light_energy = 0.68
 shadow_enabled = true
 
 [node name="Ground" type="MeshInstance3D" parent="WorldRoot"]

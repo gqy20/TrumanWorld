@@ -24,6 +24,7 @@ describe("GodotWorldHost", () => {
     render(<GodotWorldHost readyTimeoutMs={30_000} />);
     const iframe = screen.getByTitle("Godot 具身世界技术验证") as HTMLIFrameElement;
     expect(iframe.src).toContain("scenario_id=campus_world");
+    expect(iframe.src).not.toContain("embedded=1");
     const postMessage = jest.spyOn(iframe.contentWindow!, "postMessage").mockImplementation();
 
     act(() => {
@@ -83,6 +84,16 @@ describe("GodotWorldHost", () => {
     const iframe = screen.getByTitle("Godot 具身世界技术验证") as HTMLIFrameElement;
     jest.spyOn(iframe.contentWindow!, "postMessage").mockImplementation();
     expect(iframe.src).toContain("scenario_id=narrative_world");
+  });
+
+  test("hides the Godot status panel only in the embedded world view", () => {
+    render(<GodotWorldHost embedded />);
+    const iframe = screen.getByTitle("3D 世界") as HTMLIFrameElement;
+    jest.spyOn(iframe.contentWindow!, "postMessage").mockImplementation();
+    expect(iframe).toHaveAttribute(
+      "src",
+      expect.stringContaining("embedded=1"),
+    );
   });
 
   test("loads an authoritative snapshot when a real run id is provided", async () => {
