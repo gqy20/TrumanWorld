@@ -268,6 +268,21 @@ export function GodotWorldHost({
               : "Loading Godot"}
         </div>
 
+        {embedded ? (
+          <div
+            aria-label="3D 相机操作"
+            className="pointer-events-none absolute right-4 bottom-4 hidden items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] text-slate-200 backdrop-blur md:flex"
+          >
+            <span>WASD 移动</span>
+            <span className="text-white/35">·</span>
+            <span>左键旋转</span>
+            <span className="text-white/35">·</span>
+            <span>右键平移</span>
+            <span className="text-white/35">·</span>
+            <span>滚轮缩放</span>
+          </div>
+        ) : null}
+
         {bridgeStatus === "error" ? (
           <div className="absolute inset-0 flex items-center justify-center bg-[#0e141d]/95 p-8">
             <div className="max-w-md text-center">

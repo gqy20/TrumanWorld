@@ -94,6 +94,9 @@ describe("GodotWorldHost", () => {
       "src",
       expect.stringContaining("embedded=1"),
     );
+    expect(screen.getByLabelText("3D 相机操作")).toHaveTextContent(
+      "WASD 移动·左键旋转·右键平移·滚轮缩放",
+    );
   });
 
   test("loads an authoritative snapshot when a real run id is provided", async () => {

@@ -337,6 +337,7 @@ func _test_director_camera_web_interactions() -> void:
 	camera.name = "Camera3D"
 	director.add_child(camera)
 	root.add_child(director)
+	director.camera = camera
 	var yaw_before: float = director.get("_yaw")
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
@@ -351,6 +352,39 @@ func _test_director_camera_web_interactions() -> void:
 	release.pressed = false
 	director._input(release)
 	_expect(director.get("_drag_mode") == 0, "left mouse release stops camera dragging")
+	var target_before: Vector3 = director.get("_desired_target")
+	director._move_target(Vector2(0.0, 1.0), 1.0)
+	_expect(
+		director.get("_desired_target") != target_before,
+		"keyboard movement advances the camera target along the ground",
+	)
+	director._move_target(Vector2(1.0, 0.0), 100.0, true)
+	var bounded_target: Vector3 = director.get("_desired_target")
+	var overview_target: Vector3 = director.get("_overview_target")
+	_expect(
+		bounded_target.x <= overview_target.x + 45.0,
+		"free camera movement remains inside the authored visual buffer",
+	)
+	var focused_target := Vector3(4.0, 0.6, -3.0)
+	director.focus_position(focused_target, false)
+	var home := InputEventKey.new()
+	home.keycode = KEY_HOME
+	home.pressed = true
+	director._input(home)
+	_expect(director.get("_desired_target") == overview_target, "Home restores the map overview")
+	var refocus := InputEventKey.new()
+	refocus.keycode = KEY_F
+	refocus.pressed = true
+	director._input(refocus)
+	_expect(director.get("_desired_target") == focused_target, "F returns to the selected resident")
+	var tap_forward := InputEventKey.new()
+	tap_forward.physical_keycode = KEY_W
+	tap_forward.pressed = true
+	director._input(tap_forward)
+	_expect(
+		director.get("_desired_target") != focused_target,
+		"a short WASD tap immediately moves the camera target",
+	)
 	director.free()
 
 
