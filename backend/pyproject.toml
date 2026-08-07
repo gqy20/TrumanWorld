@@ -5,7 +5,7 @@ description = "楚门的世界 AI 版后端服务 | 你是导演，只能观察�
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.136.1",
-    "uvicorn[standard]>=0.47.0",
+    "uvicorn[standard]>=0.52.0",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
     "pyyaml>=6.0.3",
