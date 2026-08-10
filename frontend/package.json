@@ -27,7 +27,7 @@
     "phaser": "^3.90.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "swr": "^2.4.1",
+    "swr": "^2.5.0",
     "three": "0.182.0"
   },
   "devDependencies": {
